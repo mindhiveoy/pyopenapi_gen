@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyopenapi-gen"
+version = "0.1.0"
+description = "Python OpenAPI client generator – core library"
+authors = [{ name = "PyOpenAPI Team", email = "dev@example.com" }]
+readme = "README.md"
+requires-python = ">=3.10,<4.0.0"
+dependencies = [
+  "openapi-spec-validator>=0.7",
+  "openapi-core>=0.19",
+  "jinja2>=3.0",
+  "black (>=25.1.0,<26.0.0)",
+]
+
+[project.optional-dependencies]
+dev = ["black>=24.3", "ruff>=0.4", "mypy>=1.8", "pytest>=8.0"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+include = "\\.py$"
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]
+preview = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+show_error_codes = true
+namespace_packages = true
+implicit_optional = false
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = "src"
+
+[project.scripts]
+pyopenapi-gen = "pyopenapi_gen.cli:app"

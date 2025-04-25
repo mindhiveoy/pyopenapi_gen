@@ -1,0 +1,22 @@
+site_name: Generated API Documentation
+nav:
+  - Home: index.md
+  - Tags:
+      - "{{ tag }}": "{{ tag }}.md"
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - search.highlight
+    - search.share
+
+markdown_extensions:
+  - admonition
+  - codehilite
+
+plugins:
+  - search
+
+docs_dir: ./docs
+site_dir: ./site
