@@ -30,16 +30,16 @@ Legend: ⬜ To Do | 🔄 In‑Progress | ⛔ Blocked | ✅ Done
 ## 3. Model Emitter Slice
 | Status | Task |
 |--------|------|
+| ✅ | Extract NameSanitizer helper and integrate into model emitter templates |
 | ✅ | Design Jinja2 templates for dataclass models |
 | ✅ | Generate one model per schema into `models/` |
 | ✅ | Black‑format emitted code |
 | ✅ | Snapshot tests for generated models |
 | ✅ | Enhance model emitter to handle arrays, enums, and complex types |
 | ✅ | Integrate ImportCollector for consistent imports in generated models |
-| 🔄 | Extract NameSanitizer helper and integrate into model emitter templates |
-| 🔄 | Introduce Formatter helper to run Black on emitted model files |
-| 🔄 | Write unit tests for model file name sanitization and formatting |
-| 🔄 | Implement TemplateRenderer helper for models emitter and update model templates to use it |
+| ✅ | Introduce Formatter helper to run Black on emitted model files |
+| ✅ | Write unit tests for model file name sanitization and formatting |
+| ✅ | Implement TemplateRenderer helper for models emitter and update model templates to use it |
 
 ## 4. Endpoint & Tag Emitter Slice
 | Status | Task |
@@ -50,12 +50,12 @@ Legend: ⬜ To Do | 🔄 In‑Progress | ⛔ Blocked | ✅ Done
 | ✅ | Emit file‑upload parameters (multipart/form‑data) in endpoint methods |
 | ✅ | Emit streaming methods for binary/stream responses |
 | ✅ | Use ImportCollector for consistent imports in endpoint modules |
-| 🔄 | Implement NameSanitizer helper to convert spec tag/schema names into valid Python file and module names |
-| 🔄 | Implement ParamSubstitutor helper for URL rendering |
-| 🔄 | Implement KwargsBuilder helper for assembling request kwargs |
-| 🔄 | Refactor endpoint templates to use NameSanitizer, ParamSubstitutor, KwargsBuilder |
-| 🔄 | Add unit tests for endpoint file naming and URL rendering |
-| 🔄 | Implement TemplateRenderer helper for endpoints emitter and update endpoint templates to use it |
+| ✅ | Implement NameSanitizer helper to convert spec tag/schema names into valid Python file and module names |
+| ✅ | Implement ParamSubstitutor helper for URL rendering |
+| ✅ | Implement KwargsBuilder helper for assembling request kwargs |
+| ✅ | Refactor endpoint templates to use NameSanitizer, ParamSubstitutor, KwargsBuilder |
+| ✅ | Add unit tests for endpoint file naming and URL rendering |
+| ✅ | Implement TemplateRenderer helper for endpoints emitter and update endpoint templates to use it |
 
 ## 5. Client Core Slice
 | Status | Task |
@@ -65,9 +65,9 @@ Legend: ⬜ To Do | 🔄 In‑Progress | ⛔ Blocked | ✅ Done
 | ✅ | Pagination helper base + auto‑detection logic |
 | ✅ | Configuration env‑var & TOML layering |
 | ✅ | Use ImportCollector for client-related modules |
-| 🔄 | Extract ConfigLoader helper for layered config logic |
-| 🔄 | Add unit tests for default transport and config layering |
-| 🔄 | Integrate Formatter helper for client core modules |
+| ✅ | Extract ConfigLoader helper for layered config logic |
+| ✅ | Add unit tests for default transport and config layering |
+| ✅ | Integrate Formatter helper for client core modules |
 
 ## 6. Authentication Plugins
 | Status | Task |
@@ -89,8 +89,8 @@ Legend: ⬜ To Do | 🔄 In‑Progress | ⛔ Blocked | ✅ Done
 | ✅ | Implement Typer‑based CLI: `gen`, `docs` commands |
 | ✅ | Support `--name`, `--auth`, `--docs`, `--telemetry`, `--force` flags |
 | ✅ | Diff detection & exit codes |
-| 🔄 | Refactor backup and diff logic into FileManager helper |
-| 🔄 | Add unit tests for CLI FileManager backup & diff functionality |
+| ✅ | Refactor backup and diff logic into FileManager helper |
+| ✅ | Add unit tests for CLI FileManager backup & diff functionality |
 
 ## 9. Documentation Site
 | Status | Task |
@@ -98,7 +98,7 @@ Legend: ⬜ To Do | 🔄 In‑Progress | ⛔ Blocked | ✅ Done
 | ✅ | MkDocs configuration + theme |
 | ✅ | Docs emitter to generate markdown pages |
 | ✅ | GH Pages publish workflow |
-| 🔄 | Implement TemplateRenderer helper for docs emitter and add unit tests for docs templates |
+| ✅ | Implement TemplateRenderer helper for docs emitter and add unit tests for docs templates |
 
 ## 10. Telemetry & Metrics
 | Status | Task |

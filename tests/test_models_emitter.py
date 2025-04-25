@@ -268,3 +268,146 @@ def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path)
     assert (
         "from .test_schema import TestSchema" in init_content
     ), "Import statement missing or incorrect"
+
+
+def test_models_emitter__primitive_alias(tmp_path):
+    """
+    Scenario:
+        A named primitive schema should emit a type alias (e.g., MyString = str).
+    Expected Outcome:
+        The generated file contains the correct alias and import.
+    """
+    schema = IRSchema(name="MyString", type="string")
+    spec = IRSpec(
+        title="T",
+        version="0.1",
+        schemas={"MyString": schema},
+        operations=[],
+        servers=[],
+    )
+    out_dir = tmp_path / "out"
+    ModelsEmitter().emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "MyString.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+    assert "MyString = str" in content
+
+
+def test_models_emitter__array_of_primitives_alias(tmp_path):
+    """
+    Scenario:
+        A named array-of-primitive schema should emit a List alias (e.g., MyStrings = List[str]).
+    Expected Outcome:
+        The generated file contains the correct alias and import.
+    """
+    schema = IRSchema(
+        name="MyStrings", type="array", items=IRSchema(name=None, type="string")
+    )
+    spec = IRSpec(
+        title="T",
+        version="0.1",
+        schemas={"MyStrings": schema},
+        operations=[],
+        servers=[],
+    )
+    out_dir = tmp_path / "out"
+    ModelsEmitter().emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "MyStrings.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+    assert "MyStrings = List[str]" in content
+    assert "from typing import List" in content
+
+
+def test_models_emitter__array_of_models_alias(tmp_path):
+    """
+    Scenario:
+        A named array-of-model schema should emit a List[Model] alias and import the model.
+    Expected Outcome:
+        The generated file contains the correct alias and import.
+    """
+    item_schema = IRSchema(name="Pet", type="object", properties={})
+    schema = IRSchema(name="PetList", type="array", items=item_schema)
+    spec = IRSpec(
+        title="T",
+        version="0.1",
+        schemas={"Pet": item_schema, "PetList": schema},
+        operations=[],
+        servers=[],
+    )
+    out_dir = tmp_path / "out"
+    ModelsEmitter().emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "PetList.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+    assert "PetList = List[Pet]" in content
+    assert "from .Pet import Pet" in content or "from .pet import Pet" in content
+
+
+def test_models_emitter__integer_enum(tmp_path):
+    """
+    Scenario:
+        A named integer enum schema should emit an Enum class.
+    Expected Outcome:
+        The generated file contains the correct Enum class and values.
+    """
+    schema = IRSchema(
+        name="StatusCode",
+        type="integer",
+        enum=[200, 404, 500],
+        description="HTTP status codes",
+    )
+    spec = IRSpec(
+        title="T",
+        version="0.1",
+        schemas={"StatusCode": schema},
+        operations=[],
+        servers=[],
+    )
+    out_dir = tmp_path / "out"
+    ModelsEmitter().emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "StatusCode.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+    assert "from enum import Enum" in content
+    assert (
+        "class StatusCode(int, Enum):" in content
+        or "class StatusCode(Enum):" in content
+    )
+    assert "200 = 200" in content or "_200 = 200" in content
+    assert "404 = 404" in content or "_404 = 404" in content
+    assert "500 = 500" in content or "_500 = 500" in content
+
+
+def test_models_emitter__unnamed_schema_skipped(tmp_path):
+    """
+    Scenario:
+        A schema with no name should be skipped and not generate a file.
+    Expected Outcome:
+        No file is generated for the unnamed schema.
+    """
+    schema = IRSchema(name=None, type="string")
+    spec = IRSpec(
+        title="T", version="0.1", schemas={"": schema}, operations=[], servers=[]
+    )
+    out_dir = tmp_path / "out"
+    ModelsEmitter().emit(spec, str(out_dir))
+    model_file = out_dir / "models" / ".py"
+    assert not model_file.exists()
+
+
+def test_models_emitter__unknown_type_fallback(tmp_path):
+    """
+    Scenario:
+        A schema with an unknown type should be skipped (fallback logic).
+    Expected Outcome:
+        No file is generated for the unknown type schema.
+    """
+    schema = IRSchema(name="Mystery", type="unknown")
+    spec = IRSpec(
+        title="T", version="0.1", schemas={"Mystery": schema}, operations=[], servers=[]
+    )
+    out_dir = tmp_path / "out"
+    ModelsEmitter().emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "Mystery.py"
+    assert not model_file.exists()

@@ -42,6 +42,18 @@ class {{ schema.name | sanitize_class_name }}(str, Enum):
 {% for val in schema.enum %}
     {{ val|upper|replace('-', '_')|replace(' ', '_') }} = "{{ val }}"
 {% endfor %}
+{% elif schema.enum and schema.type == "integer" %}
+class {{ schema.name | sanitize_class_name }}(int, Enum):
+    """
+    {{ (schema.description or ('Enum values for ' + schema.name)) | wordwrap(72, wrapstring='\n    ') }}
+    """
+{% for val in schema.enum %}
+    {%- if val is string -%}
+    {{ val|replace('-', '_')|replace(' ', '_')|upper }} = {{ val }}
+    {%- else -%}
+    _{{ val }} = {{ val }}
+    {%- endif %}
+{% endfor %}
 {% else %}
 @dataclass
 class {{ schema.name | sanitize_class_name }}:
@@ -74,8 +86,22 @@ class ModelsEmitter:
         if not schema:
             return "Any"
 
+        # For named primitive schemas (not enum), return the Python type, not the schema name
         if schema.name and schema.name in self.schema_names:
-            return schema.name  # Reference to another model
+            if (
+                schema.type in ("string", "integer", "number", "boolean")
+                and not schema.enum
+            ):
+                # Use the actual Python type
+                schema_type = schema.type
+                if schema.format and schema.format in FORMAT_TYPE_MAPPING:
+                    py_type = FORMAT_TYPE_MAPPING[schema.format]
+                elif schema_type in OPENAPI_TO_PYTHON_TYPES:
+                    py_type = OPENAPI_TO_PYTHON_TYPES[schema_type]
+                else:
+                    py_type = "Any"
+                return py_type
+            return schema.name  # Reference to another model or enum
 
         # Handle case where schema.type is a list (nullable types)
         schema_type = schema.type
@@ -202,15 +228,44 @@ class ModelsEmitter:
                 print(f"[DEBUG] Skipping unnamed schema.")
                 continue
 
-            # Handle array-type schemas: generate a List alias for pure array schemas
-            if schema.type == "array" and schema.items and schema.items.name:
+            # 1. Emit string or integer enum models
+            if schema.enum and schema.type in ("string", "integer"):
+                print(f"[DEBUG] Writing enum model for: {name}")
+                imports = self._collect_required_imports(schema)
+                # Add Enum import for integer enums as well
+                if schema.type == "integer":
+                    imports.add_direct_import("enum", "Enum")
+                content = self.renderer.render(
+                    template_str,
+                    schema=schema,
+                    get_type=self._get_python_type,
+                    get_default_factory=self._get_default_factory,
+                )
+                file_content = imports.get_formatted_imports() + "\n\n" + content
+                file_content = self.formatter.format(file_content)
+                module_name = NameSanitizer.sanitize_module_name(name)
+                file_path = os.path.join(models_dir, f"{module_name}.py")
+                print(f"[DEBUG] Writing file: {file_path}")
+                with open(file_path, "w") as f:
+                    f.write(file_content)
+                continue
+
+            # 2. Emit array aliases for arrays of primitives or models
+            if schema.type == "array" and schema.items:
                 print(f"[DEBUG] Writing array alias for: {name}")
                 imports = ImportCollector()
                 imports.add_typing_import("List")
-                module = NameSanitizer.sanitize_module_name(schema.items.name)
-                cls = NameSanitizer.sanitize_class_name(schema.items.name)
-                imports.add_relative_import(f".{module}", cls)
-                alias = f"{NameSanitizer.sanitize_class_name(name)} = List[{cls}]"
+                item_type = self._get_python_type(schema.items)
+                # If item is a named model, import it
+                if schema.items.name:
+                    module = NameSanitizer.sanitize_module_name(schema.items.name)
+                    cls = NameSanitizer.sanitize_class_name(schema.items.name)
+                    imports.add_relative_import(f".{module}", cls)
+                    alias = f"{NameSanitizer.sanitize_class_name(name)} = List[{cls}]"
+                else:
+                    alias = (
+                        f"{NameSanitizer.sanitize_class_name(name)} = List[{item_type}]"
+                    )
                 file_content = imports.get_formatted_imports() + "\n\n" + alias
                 file_content = self.formatter.format(file_content)
                 module_name = NameSanitizer.sanitize_module_name(name)
@@ -220,33 +275,43 @@ class ModelsEmitter:
                     f.write(file_content)
                 continue
 
-            # Skip non-object schemas (e.g., arrays) since they produce empty dataclasses
-            if schema.type != "object":
-                print(
-                    f"[DEBUG] Skipping non-object schema: {name} (type={schema.type})"
-                )
+            # 3. Emit type aliases for named primitive schemas
+            if (
+                schema.type in ("string", "integer", "number", "boolean")
+                and not schema.enum
+            ):
+                print(f"[DEBUG] Writing primitive alias for: {name}")
+                imports = ImportCollector()
+                py_type = self._get_python_type(schema)
+                # Use the actual Python type, not the schema name
+                alias = f"{NameSanitizer.sanitize_class_name(name)} = {py_type}"
+                file_content = imports.get_formatted_imports() + "\n\n" + alias
+                file_content = self.formatter.format(file_content)
+                module_name = NameSanitizer.sanitize_module_name(name)
+                file_path = os.path.join(models_dir, f"{module_name}.py")
+                print(f"[DEBUG] Writing file: {file_path}")
+                with open(file_path, "w") as f:
+                    f.write(file_content)
                 continue
 
-            # Collect imports
-            imports = self._collect_required_imports(schema)
+            # 4. Emit dataclass for object schemas
+            if schema.type == "object":
+                imports = self._collect_required_imports(schema)
+                content = self.renderer.render(
+                    template_str,
+                    schema=schema,
+                    get_type=self._get_python_type,
+                    get_default_factory=self._get_default_factory,
+                )
+                file_content = imports.get_formatted_imports() + "\n\n" + content
+                file_content = self.formatter.format(file_content)
+                module_name = NameSanitizer.sanitize_module_name(name)
+                file_path = os.path.join(models_dir, f"{module_name}.py")
+                print(f"[DEBUG] Writing file: {file_path}")
+                with open(file_path, "w") as f:
+                    f.write(file_content)
+                continue
 
-            # Render template with context
-            content = self.renderer.render(
-                template_str,
-                schema=schema,
-                get_type=self._get_python_type,
-                get_default_factory=self._get_default_factory,
-            )
-
-            # Generate file content with import statements at the top
-            file_content = imports.get_formatted_imports() + "\n\n" + content
-
-            # Format code using Formatter (handles empty classes and Black formatting)
-            file_content = self.formatter.format(file_content)
-
-            # Use snake_case for module filenames
-            module_name = NameSanitizer.sanitize_module_name(name)
-            file_path = os.path.join(models_dir, f"{module_name}.py")
-            print(f"[DEBUG] Writing file: {file_path}")
-            with open(file_path, "w") as f:
-                f.write(file_content)
+            # 5. Fallback: skip schemas that do not match any of the above
+            print(f"[DEBUG] Skipping schema: {name} (type={schema.type})")
+            continue

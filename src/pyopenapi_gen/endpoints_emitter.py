@@ -36,6 +36,8 @@ ENDPOINT_METHOD_TEMPLATE = '''
         {{ param.name }}: Optional[{{ get_param_type(param) }}] = None,{% endfor %}
 {% if op.request_body and 'application/json' in op.request_body.content %}
         body: {{ get_request_body_type(op.request_body) }},{% endif %}
+{% if op.request_body and 'multipart/form-data' in op.request_body.content %}
+        files: Dict[str, IO],{% endif %}
     ) -> {{ op.responses | get_response_type }}:
         """{{ op.summary or '' }}
 {% if op.responses|selectattr('stream')|list %}
@@ -58,7 +60,10 @@ ENDPOINT_METHOD_TEMPLATE = '''
             kwargs['params'] = filtered
 {% endif %}
 {% if op.request_body and 'application/json' in op.request_body.content %}
-        kwargs['json'] = body
+        kwargs["json"] = body
+{% endif %}
+{% if op.request_body and 'multipart/form-data' in op.request_body.content %}
+        kwargs["files"] = files
 {% endif %}
         # Execute request
         resp = await self.client.{{ op.method.value.lower() }}(url, **kwargs)

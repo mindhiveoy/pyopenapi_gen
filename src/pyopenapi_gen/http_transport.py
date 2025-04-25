@@ -16,31 +16,12 @@ class HttpTransport(Protocol):
         method: str,
         url: str,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> Any:
         """
         Sends an asynchronous HTTP request.
-
-        Implementations should handle sending the request to the specified URL
-        using the given HTTP method and any additional keyword arguments
-        recognized by the underlying HTTP client library (e.g., headers, json, data).
-
-        Args:
-            method: The HTTP method (e.g., 'GET', 'POST', 'PUT', 'DELETE').
-            url: The target URL for the request. Can be relative if the transport
-                 was initialized with a base URL.
-            **kwargs: Additional keyword arguments passed directly to the
-                      underlying HTTP client's request method. Common arguments
-                      include `headers`, `params`, `json`, `data`, `files`.
-
-        Returns:
-            An httpx.Response object (or a compatible response object from
-            the underlying library if adapted) representing the server's response.
-            The protocol definition uses `httpx.Response` for type hinting clarity,
-            but implementations might return objects from other libraries if needed,
-            provided they offer a compatible interface for accessing status code,
-            headers, and body content.
+        Default protocol stub returns Ellipsis for testing protocol compliance.
         """
-        ...  # Protocol methods have no implementation
+        return Ellipsis
 
 
 class HttpxTransport:

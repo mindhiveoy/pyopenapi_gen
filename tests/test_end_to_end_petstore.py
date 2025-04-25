@@ -20,26 +20,61 @@ MIN_SPEC = {
 }
 
 
-def test_petstore_integration(tmp_path: Path) -> None:
-    """End‑to‑end test: generate client for a minimal spec and verify output files."""
+def test_petstore_integration_with_tag(tmp_path: Path) -> None:
+    """
+    Scenario:
+        Generate client for a minimal spec with a tag and verify output files.
+    Expected Outcome:
+        pets.py endpoint is generated and contains the list_pets method.
+    """
+    # Arrange
+    spec = json.loads(json.dumps(MIN_SPEC))
+    spec["paths"]["/pets"]["get"]["tags"] = ["pets"]
     spec_file = tmp_path / "spec.json"
-    spec_file.write_text(json.dumps(MIN_SPEC))
+    spec_file.write_text(json.dumps(spec))
     out_dir = tmp_path / "out"
     runner = CliRunner()
+    # Act
     result = runner.invoke(
         app,
         ["gen", str(spec_file), "-o", str(out_dir), "--force"],
     )
-    # CLI should succeed
+    # Assert
     assert result.exit_code == 0, result.stdout
-
-    # Check core files
     assert (out_dir / "config.py").exists(), "config.py not generated"
     assert (out_dir / "client.py").exists(), "client.py not generated"
-    # Check endpoints for pets
     pets_file = out_dir / "endpoints" / "pets.py"
     assert pets_file.exists(), "pets.py endpoint not generated"
     content = pets_file.read_text()
+    assert (
+        "async def list_pets" in content
+    ), "list_pets method missing in generated code"
+
+
+def test_petstore_integration_no_tag(tmp_path: Path) -> None:
+    """
+    Scenario:
+        Generate client for a minimal spec with no tags and verify output files.
+    Expected Outcome:
+        default.py endpoint is generated and contains the list_pets method.
+    """
+    # Arrange
+    spec_file = tmp_path / "spec.json"
+    spec_file.write_text(json.dumps(MIN_SPEC))
+    out_dir = tmp_path / "out"
+    runner = CliRunner()
+    # Act
+    result = runner.invoke(
+        app,
+        ["gen", str(spec_file), "-o", str(out_dir), "--force"],
+    )
+    # Assert
+    assert result.exit_code == 0, result.stdout
+    assert (out_dir / "config.py").exists(), "config.py not generated"
+    assert (out_dir / "client.py").exists(), "client.py not generated"
+    default_file = out_dir / "endpoints" / "default.py"
+    assert default_file.exists(), "default.py endpoint not generated"
+    content = default_file.read_text()
     assert (
         "async def list_pets" in content
     ), "list_pets method missing in generated code"

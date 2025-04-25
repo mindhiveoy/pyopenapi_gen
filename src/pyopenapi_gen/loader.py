@@ -123,7 +123,8 @@ def _parse_schema(
             )
             schemas[ref_name] = schema_obj
             return schema_obj
-        return IRSchema(name=name)
+        # For unresolved $ref, return IRSchema(name=None, _from_unresolved_ref=True)
+        return IRSchema(name=None, _from_unresolved_ref=True)
     raw_required = node.get("required")
     required_fields = (
         cast(List[str], raw_required) if isinstance(raw_required, list) else []
@@ -195,7 +196,18 @@ def _parse_response(
     stream_flag = False
     stream_format = None
     for mt, mn in node.get("content", {}).items():
-        content[mt] = _parse_schema(None, mn.get("schema"), raw_schemas, schemas)
+        # Handle $ref directly in the content object (not just in the schema)
+        if isinstance(mn, Mapping) and "$ref" in mn:
+            # If the $ref cannot be resolved, treat as unresolved
+            ref = mn["$ref"]
+            # Only handle unresolved $ref (not #/components/schemas/)
+            if not ref.startswith("#/components/schemas/"):
+                content[mt] = IRSchema(name=None, _from_unresolved_ref=True)
+            else:
+                # If it's a schema ref, parse as schema
+                content[mt] = _parse_schema(None, {"$ref": ref}, raw_schemas, schemas)
+        else:
+            content[mt] = _parse_schema(None, mn.get("schema"), raw_schemas, schemas)
         fmt = STREAM_FORMATS.get(mt.lower())
         if fmt:
             stream_flag = True
@@ -354,7 +366,12 @@ def _parse_operations(
                 # Assign names to inline response schemas for model generation
                 for resp in resps:
                     for mt, sch in resp.content.items():
-                        if not sch.name:
+                        # Only assign a name if sch.name is None and not from unresolved $ref
+                        if sch.name is None:
+                            if getattr(sch, "_from_unresolved_ref", False):
+                                # Defensive: never assign a name to unresolved $ref schemas
+                                # (test expects name=None for these)
+                                continue
                             generated_name = NameSanitizer.sanitize_class_name(
                                 op.operation_id + "Response"
                             )

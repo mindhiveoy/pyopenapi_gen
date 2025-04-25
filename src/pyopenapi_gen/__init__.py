@@ -123,6 +123,7 @@ class IRSchema:
     items: Optional["IRSchema"] = None  # for array types
     enum: Optional[List[Any]] = None
     description: Optional[str] = None
+    _from_unresolved_ref: bool = False  # Marker for unresolved $ref fallback
 
 
 @dataclass(slots=True)

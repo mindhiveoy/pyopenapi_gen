@@ -116,7 +116,7 @@ def test_endpoints_emitter_json_body(tmp_path: Path) -> None:
     content = pets_file.read_text()
     # The method should include a body parameter and json=body in the request
     assert "body:" in content
-    assert "kwargs['json'] = body" in content
+    assert 'kwargs["json"] = body' in content
 
 
 def test_endpoints_emitter_multipart(tmp_path: Path) -> None:
@@ -153,7 +153,7 @@ def test_endpoints_emitter_multipart(tmp_path: Path) -> None:
     # The method signature should include 'files: Dict[str, IO]'
     assert "files: Dict[str, IO]" in content
     # And the request should pass files via kwargs
-    assert "kwargs['files'] = files" in content
+    assert 'kwargs["files"] = files' in content
 
 
 def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
@@ -198,7 +198,7 @@ def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
     # The return type should be AsyncIterator[bytes]
     assert "AsyncIterator[bytes]" in content
     # Should yield chunks from resp.aiter_bytes()
-    assert "async for chunk in resp.aiter_bytes()" in content
+    assert "async for chunk in iter_bytes(resp):" in content
 
 
 def test_endpoints_emitter_imports(tmp_path: Path) -> None:
