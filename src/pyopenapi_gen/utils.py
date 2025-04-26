@@ -105,15 +105,17 @@ class ImportCollector:
 
 
 class NameSanitizer:
-    """Helper to sanitize spec names into valid Python identifiers and filenames."""
+    """Helper to sanitize spec names and tags into valid Python identifiers and filenames."""
 
     @staticmethod
     def sanitize_module_name(name: str) -> str:
-        """Convert a raw name into a valid Python module name in snake_case."""
-        # Replace non-alphanumeric characters with underscores
-        module = re.sub(r"\W+", "_", name)
-        # Strip leading/trailing underscores and lowercase
-        module = module.strip("_").lower()
+        """Convert a raw name into a valid Python module name in snake_case, splitting camel case and PascalCase."""
+        # Split on non-alphanumeric and camel case boundaries
+        words = re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+", name)
+        if not words:
+            # fallback: split on non-alphanumerics
+            words = re.split(r"\W+", name)
+        module = "_".join(word.lower() for word in words if word)
         # If it starts with a digit, prefix with underscore
         if module and module[0].isdigit():
             module = "_" + module
@@ -136,6 +138,23 @@ class NameSanitizer:
         if keyword.iskeyword(cls_name.lower()):
             cls_name += "_"
         return cls_name
+
+    @staticmethod
+    def sanitize_tag_class_name(tag: str) -> str:
+        """Sanitize a tag for use as a PascalCase client class name (e.g., DataSourcesClient)."""
+        words = re.split(r"[\W_]+", tag)
+        return "".join(word.capitalize() for word in words if word) + "Client"
+
+    @staticmethod
+    def sanitize_tag_attr_name(tag: str) -> str:
+        """Sanitize a tag for use as a snake_case attribute name (e.g., data_sources)."""
+        attr = re.sub(r"[\W]+", "_", tag).lower()
+        return attr.strip("_")
+
+    @staticmethod
+    def normalize_tag_key(tag: str) -> str:
+        """Normalize a tag for case-insensitive uniqueness (e.g., datasources)."""
+        return re.sub(r"[\W_]+", "", tag).lower()
 
     @staticmethod
     def sanitize_filename(name: str, suffix: str = ".py") -> str:

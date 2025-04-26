@@ -436,3 +436,71 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path):
     assert (
         f"from .{module_name} import {sanitized}" in text
     ), "Import statement missing or incorrect"
+
+
+def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path):
+    """
+    Scenario:
+        Emit endpoints for a spec with multiple operations using tags that differ only by case or punctuation.
+    Expected Outcome:
+        Only one client module/class is generated for all tag variants.
+        __init__.py contains only one entry in __all__ and one import statement for the deduplicated client.
+    """
+    # Arrange
+    tag_variants = [
+        "DataSources",
+        "datasources",
+        "data-sources",
+        "DATA_SOURCES",
+        "Data Sources",
+    ]
+    operations = []
+    for i, tag in enumerate(tag_variants):
+        operations.append(
+            IROperation(
+                operation_id=f"op_{i}",
+                method=HTTPMethod.GET,
+                path=f"/datasources/{i}",
+                summary=f"Operation {i}",
+                description=None,
+                parameters=[],
+                request_body=None,
+                responses=[
+                    IRResponse(
+                        status_code="200",
+                        description="OK",
+                        content={
+                            "application/json": IRSchema(name=None, type="object")
+                        },
+                        stream=False,
+                    )
+                ],
+                tags=[tag],
+            )
+        )
+    spec = IRSpec(title="Test API", version="1.0.0", schemas={}, operations=operations)
+    out_dir = tmp_path / "out"
+
+    # Act
+    EndpointsEmitter().emit(spec, str(out_dir))
+
+    # Assert
+    endpoints_dir = out_dir / "endpoints"
+    # Only one module file should exist for all tag variants
+    expected_module = endpoints_dir / "datasources.py"
+    assert (
+        expected_module.exists()
+    ), "Expected datasources.py to exist for deduplicated tags"
+    content = expected_module.read_text()
+    # The client class should be present
+    assert "class DatasourcesClient" in content, "Client class name not as expected"
+    # __init__.py should only have one entry in __all__ and one import
+    init_file = endpoints_dir / "__init__.py"
+    assert init_file.exists(), "__init__.py not generated in endpoints/"
+    text = init_file.read_text()
+    assert (
+        text.count("DatasourcesClient") == 2
+    ), "__all__ and import should reference DatasourcesClient only once each"
+    assert (
+        text.count("datasources") == 1
+    ), "Only one import from datasources module should exist"

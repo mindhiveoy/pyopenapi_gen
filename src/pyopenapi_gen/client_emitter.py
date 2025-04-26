@@ -44,7 +44,7 @@ class ClientConfig:
 CLIENT_TEMPLATE = '''
 from typing import Optional, Any
 {% for tag in tags %}
-from .endpoints.{{ tag | sanitize_module_name }} import {{ tag | sanitize_class_name }}Client
+from .endpoints.{{ tag | sanitize_module_name }} import {{ tag | sanitize_tag_class_name }}
 {% endfor %}
 from pyopenapi_gen.http_transport import HttpTransport, HttpxTransport
 
@@ -63,7 +63,7 @@ class APIClient:
         )
         # Initialize tag clients for code completion and typing
 {% for tag in tags %}
-        self.{{ tag | sanitize_module_name }} = {{ tag | sanitize_class_name }}Client(
+        self.{{ tag | sanitize_module_name }} = {{ tag | sanitize_tag_class_name }}(
             self.transport, self.config.base_url
         )
 {% endfor %}
@@ -87,6 +87,9 @@ class ClientEmitter:
         # Register sanitization filters for client template
         self.env.filters["sanitize_module_name"] = NameSanitizer.sanitize_module_name
         self.env.filters["sanitize_class_name"] = NameSanitizer.sanitize_class_name
+        self.env.filters["sanitize_tag_class_name"] = (
+            NameSanitizer.sanitize_tag_class_name
+        )
 
     def emit(self, spec: IRSpec, output_dir: str) -> None:
         # Ensure output directory exists
@@ -105,19 +108,21 @@ class ClientEmitter:
         imports.add_relative_import(".config", "ClientConfig")
         imports.add_direct_import("pyopenapi_gen.http_transport", "HttpTransport")
         imports.add_direct_import("pyopenapi_gen.http_transport", "HttpxTransport")
-        # Prepare tag list for client attributes
-        tags = []
+        # Prepare tag list for client attributes, deduplicated by normalized key
+        tag_map = {}
         for op in spec.operations:
             if op.tags:
-                tags.extend(op.tags)
+                for tag in op.tags:
+                    key = NameSanitizer.normalize_tag_key(tag)
+                    if key not in tag_map:
+                        tag_map[key] = tag
             else:
-                # fallback to first path segment
                 fallback = op.path.strip("/").split("/")[0] or "root"
-                tags.append(fallback)
-        # Unique and sorted tags
-        tags = sorted(set(tags))
+                key = NameSanitizer.normalize_tag_key(fallback)
+                if key not in tag_map:
+                    tag_map[key] = fallback
+        tags = [tag_map[key] for key in sorted(tag_map)]
         # Render client.py using Jinja template with actual tags
-        # Use the environment with registered filters to compile the template
         tpl = self.env.from_string(CLIENT_TEMPLATE)
         client_body = tpl.render(tags=tags)
         # Combine imports and rendered client template

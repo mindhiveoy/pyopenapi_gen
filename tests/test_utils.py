@@ -1,4 +1,4 @@
-from pyopenapi_gen.utils import ImportCollector
+from pyopenapi_gen.utils import ImportCollector, NameSanitizer
 
 
 def test_import_collector_basic():
@@ -247,3 +247,79 @@ def test_import_collector_has_import():
     assert collector.has_import("typing", "List") is True
     assert collector.has_import("os", "environ") is False
     assert collector.has_import("sys", "exit") is False
+
+
+def test_normalize_tag_key__varied_cases_and_punctuation__returns_same_key():
+    """
+    Scenario:
+        - Tags with different cases and punctuation (e.g., 'DataSources', 'datasources', 'data-sources', 'DATA_SOURCES')
+        - We want to ensure they normalize to the same key for deduplication.
+
+    Expected Outcome:
+        - All variants should produce the same normalized key string.
+    """
+    tags = [
+        "DataSources",
+        "datasources",
+        "data-sources",
+        "DATA_SOURCES",
+        "Data Sources",
+    ]
+    keys = {NameSanitizer.normalize_tag_key(tag) for tag in tags}
+    assert len(keys) == 1
+    assert list(keys)[0] == "datasources"
+
+
+def test_tag_deduplication__multiple_variants__only_one_survives():
+    """
+    Scenario:
+        - Given a list of tags with different cases and punctuation, simulate deduplication logic as in the client emitter.
+        - Only the first occurrence of a normalized tag should be kept.
+
+    Expected Outcome:
+        - The deduplicated tag list should contain only one entry for all variants.
+        - The preserved tag should be the first variant encountered.
+    """
+    tags = [
+        "DataSources",
+        "datasources",
+        "data-sources",
+        "DATA_SOURCES",
+        "Data Sources",
+    ]
+    tag_map = {}
+    for tag in tags:
+        key = NameSanitizer.normalize_tag_key(tag)
+        if key not in tag_map:
+            tag_map[key] = tag
+    deduped = list(tag_map.values())
+    assert deduped == ["DataSources"]
+
+
+def test_sanitize_module_name__camel_and_pascal_case__snake_case_result():
+    """
+    Scenario:
+        - Test sanitize_module_name with camel case, PascalCase, and mixed-case names.
+        - Names like 'GetDatasourceResponse', 'DataSource', 'getDataSource', 'get_datasource_response', 'get-datasource-response'.
+    Expected Outcome:
+        - All are converted to proper snake_case: 'get_datasource_response', 'data_source', etc.
+    """
+    assert (
+        NameSanitizer.sanitize_module_name("GetDatasourceResponse")
+        == "get_datasource_response"
+    )
+    assert NameSanitizer.sanitize_module_name("DataSource") == "data_source"
+    assert NameSanitizer.sanitize_module_name("getDataSource") == "get_data_source"
+    assert (
+        NameSanitizer.sanitize_module_name("get_datasource_response")
+        == "get_datasource_response"
+    )
+    assert (
+        NameSanitizer.sanitize_module_name("get-datasource-response")
+        == "get_datasource_response"
+    )
+    assert (
+        NameSanitizer.sanitize_module_name("getDataSource123") == "get_data_source_123"
+    )
+    assert NameSanitizer.sanitize_module_name("123DataSource") == "_123_data_source"
+    assert NameSanitizer.sanitize_module_name("class") == "class_"  # Python keyword

@@ -191,27 +191,6 @@ class ModelsEmitter:
         models_dir = os.path.join(output_dir, "models")
         os.makedirs(models_dir, exist_ok=True)
 
-        # Create an __init__.py to expose models as a package
-        init_path = os.path.join(models_dir, "__init__.py")
-        with open(init_path, "w") as f:
-            exports = [name for name in spec.schemas.keys() if name]
-            # __all__ should list sanitized class names
-            exports_str = ", ".join(
-                f'"{NameSanitizer.sanitize_class_name(name)}"' for name in exports
-            )
-            f.write(f"__all__ = [{exports_str}]\n\n")
-
-            # Import all models using module names (original if valid identifier, else sanitized)
-            for name in exports:
-                if name:
-                    class_name = NameSanitizer.sanitize_class_name(name)
-                    # Use original name as module if valid identifier, otherwise sanitize
-                    if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
-                        module_name = name
-                    else:
-                        module_name = NameSanitizer.sanitize_module_name(name)
-                    f.write(f"from .{module_name} import {class_name}\n")
-
         # Store schema names for cross-references
         self.schema_names = {name for name in spec.schemas.keys() if name}
 
@@ -315,3 +294,22 @@ class ModelsEmitter:
             # 5. Fallback: skip schemas that do not match any of the above
             print(f"[DEBUG] Skipping schema: {name} (type={schema.type})")
             continue
+
+        # Now write __init__.py after all model files are generated
+        init_path = os.path.join(models_dir, "__init__.py")
+        with open(init_path, "w") as f:
+            exports = [name for name in spec.schemas.keys() if name]
+            # __all__ should list sanitized class names
+            exports_str = ", ".join(
+                f'"{NameSanitizer.sanitize_class_name(name)}"' for name in exports
+            )
+            f.write(f"__all__ = [{exports_str}]\n\n")
+
+            # Only import models for which a file was actually generated
+            for name in exports:
+                if name:
+                    class_name = NameSanitizer.sanitize_class_name(name)
+                    module_name = NameSanitizer.sanitize_module_name(name)
+                    file_path = os.path.join(models_dir, f"{module_name}.py")
+                    if os.path.exists(file_path):
+                        f.write(f"from .{module_name} import {class_name}\n")

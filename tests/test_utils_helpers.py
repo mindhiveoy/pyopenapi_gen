@@ -15,7 +15,7 @@ def test_sanitize_module_name():
     assert NameSanitizer.sanitize_module_name("Vector Databases") == "vector_databases"
     assert NameSanitizer.sanitize_module_name("  My-API.Client!! ") == "my_api_client"
     # Leading digits and keywords
-    assert NameSanitizer.sanitize_module_name("123Test") == "_123test"
+    assert NameSanitizer.sanitize_module_name("123Test") == "_123_test"
     assert NameSanitizer.sanitize_module_name("class") == "class_"
 
 
@@ -32,7 +32,7 @@ def test_sanitize_filename():
     assert NameSanitizer.sanitize_filename("Test Name") == "test_name.py"
     assert (
         NameSanitizer.sanitize_filename("AnotherExample", suffix=".py")
-        == "anotherexample.py"
+        == "another_example.py"
     )
 
 

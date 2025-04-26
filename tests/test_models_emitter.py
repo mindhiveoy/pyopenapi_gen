@@ -3,6 +3,7 @@ from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.models_emitter import ModelsEmitter
 import os
 import pytest
+from pyopenapi_gen.utils import NameSanitizer
 
 
 def test_models_emitter_simple(tmp_path: Path) -> None:
@@ -102,7 +103,7 @@ def test_models_emitter_array(tmp_path: Path) -> None:
     emitter = ModelsEmitter()
     emitter.emit(spec, str(out_dir))
 
-    model_file: Path = out_dir / "models" / "PetList.py"
+    model_file: Path = out_dir / "models" / "pet_list.py"
     assert model_file.exists()
 
     content: str = model_file.read_text()
@@ -216,7 +217,10 @@ def test_models_emitter_init_file(tmp_path: Path) -> None:
     # Simpler approach: just check that each model is mentioned in the imports
     for model in ["Pet", "Order", "User"]:
         assert f'"{model}"' in content
-        assert f"from .{model} import {model}" in content
+        assert (
+            f"from .{NameSanitizer.sanitize_module_name(model)} import {model}"
+            in content
+        )
 
 
 def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path):
@@ -266,7 +270,8 @@ def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path)
     init_content = init_file.read_text()
     assert '__all__ = ["TestSchema"]' in init_content, "__all__ missing class name"
     assert (
-        "from .test_schema import TestSchema" in init_content
+        f"from .{NameSanitizer.sanitize_module_name(schema_name)} import TestSchema"
+        in init_content
     ), "Import statement missing or incorrect"
 
 
@@ -287,7 +292,7 @@ def test_models_emitter__primitive_alias(tmp_path):
     )
     out_dir = tmp_path / "out"
     ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "MyString.py"
+    model_file = out_dir / "models" / "my_string.py"
     assert model_file.exists()
     content = model_file.read_text()
     assert "MyString = str" in content
@@ -312,7 +317,7 @@ def test_models_emitter__array_of_primitives_alias(tmp_path):
     )
     out_dir = tmp_path / "out"
     ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "MyStrings.py"
+    model_file = out_dir / "models" / "my_strings.py"
     assert model_file.exists()
     content = model_file.read_text()
     assert "MyStrings = List[str]" in content
@@ -337,7 +342,7 @@ def test_models_emitter__array_of_models_alias(tmp_path):
     )
     out_dir = tmp_path / "out"
     ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "PetList.py"
+    model_file = out_dir / "models" / "pet_list.py"
     assert model_file.exists()
     content = model_file.read_text()
     assert "PetList = List[Pet]" in content
@@ -366,7 +371,7 @@ def test_models_emitter__integer_enum(tmp_path):
     )
     out_dir = tmp_path / "out"
     ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "StatusCode.py"
+    model_file = out_dir / "models" / "status_code.py"
     assert model_file.exists()
     content = model_file.read_text()
     assert "from enum import Enum" in content
