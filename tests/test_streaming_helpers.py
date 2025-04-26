@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 
 
-@pytest.mark.asyncio
 def test_sse_event__repr__outputs_expected():
     """
     Scenario:
@@ -24,7 +23,6 @@ def test_sse_event__repr__outputs_expected():
     assert "SSEEvent(" in r and "foo" in r and "bar" in r and "baz" in r and "123" in r
 
 
-@pytest.mark.asyncio
 def test_iter_bytes__yields_chunks():
     """
     Scenario:
@@ -52,7 +50,6 @@ def test_iter_bytes__yields_chunks():
     assert out == chunks
 
 
-@pytest.mark.asyncio
 def test_iter_ndjson__yields_json_objects():
     """
     Scenario:
@@ -78,7 +75,6 @@ def test_iter_ndjson__yields_json_objects():
     assert out == [{"a": 1}, {"b": 2}]
 
 
-@pytest.mark.asyncio
 def test_iter_sse__yields_events():
     """
     Scenario:

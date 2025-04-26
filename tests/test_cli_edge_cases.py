@@ -56,3 +56,18 @@ def test_gen_with_docs_flag_does_not_break(tmp_path: Path) -> None:
     # Core files should still be generated
     assert (out_dir / "config.py").exists(), "config.py missing after gen --docs"
     assert (out_dir / "client.py").exists(), "client.py missing after gen --docs"
+
+
+def test_cli_no_args_shows_help_and_exits_cleanly():
+    """
+    Scenario:
+        Run the CLI with no arguments.
+    Expected Outcome:
+        The help message is printed and the exit code is 0 (no error, no 'Missing command').
+    """
+    runner = CliRunner()
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "Usage:" in result.stdout
+    assert "COMMAND" in result.stdout
+    assert "Missing command" not in result.stdout

@@ -1,6 +1,13 @@
-import pytest
+import sys
 
-from pyopenapi_gen.utils import NameSanitizer, ParamSubstitutor, KwargsBuilder
+from pyopenapi_gen.utils import (
+    NameSanitizer,
+    ParamSubstitutor,
+    KwargsBuilder,
+    Formatter,
+    ImportCollector,
+    TemplateRenderer,
+)
 
 
 def test_sanitize_module_name():
@@ -18,7 +25,7 @@ def test_sanitize_class_name():
     assert NameSanitizer.sanitize_class_name("my-api_client") == "MyApi_client"
     # Leading digits and keywords
     assert NameSanitizer.sanitize_class_name("123test") == "_123test"
-    assert NameSanitizer.sanitize_class_name("class") == "Class"
+    assert NameSanitizer.sanitize_class_name("class") == "Class_"
 
 
 def test_sanitize_filename():
@@ -49,3 +56,149 @@ def test_kwargs_builder():
     # Chaining params then json
     builder = KwargsBuilder().with_params(x=0).with_json({"foo": "bar"})
     assert builder.build() == {"params": {"x": 0}, "json": {"foo": "bar"}}
+
+
+def test_formatter__valid_python_code__returns_formatted_code():
+    """
+    Scenario:
+        Format a valid Python code string using Formatter when Black is available.
+    Expected Outcome:
+        The returned code is valid Python and contains the function definition.
+    """
+    # Arrange
+    code = "def foo():\n    return  1\n"
+    formatter = Formatter()
+
+    # Act
+    formatted = formatter.format(code)
+
+    # Assert
+    # The formatted code should contain the function definition and be valid Python
+    assert "def foo()" in formatted
+    # Try compiling to ensure it's valid Python
+    compile(formatted, "<string>", "exec")
+
+
+def test_formatter__black_not_installed__returns_original_code(monkeypatch):
+    """
+    Scenario:
+        Format code when Black is not installed (simulate by monkeypatching Formatter internals).
+    Expected Outcome:
+        The original code is returned unchanged.
+    """
+    # Arrange
+    code = "def foo():\n    return 1\n"
+    formatter = Formatter()
+    monkeypatch.setattr(formatter, "_format_str", None)
+    monkeypatch.setattr(formatter, "_file_mode", None)
+
+    # Act
+    formatted = formatter.format(code)
+
+    # Assert
+    assert formatted == code
+
+
+def test_formatter__black_raises_exception__returns_original_code(monkeypatch):
+    """
+    Scenario:
+        Format code when Black raises an exception (simulate by monkeypatching _format_str).
+    Expected Outcome:
+        The original code is returned unchanged.
+    """
+    # Arrange
+    code = "def foo():\n    return 1\n"
+    formatter = Formatter()
+
+    def raise_exc(*args, **kwargs):
+        raise Exception("Black error")
+
+    monkeypatch.setattr(formatter, "_format_str", raise_exc)
+    # _file_mode must not be None for this branch
+    if formatter._file_mode is None:
+
+        class Dummy:
+            pass
+
+        formatter._file_mode = Dummy()
+
+    # Act
+    formatted = formatter.format(code)
+
+    # Assert
+    assert formatted == code
+
+
+def test_import_collector__import_as_module__produces_import_statement():
+    """
+    Scenario:
+        Add an import where the name is the same as the module (e.g., 'os', 'os').
+        This should produce an 'import os' statement.
+    Expected Outcome:
+        The import statement list contains 'import os'.
+    """
+    # Arrange
+    collector = ImportCollector()
+    collector.add_import("os", "os")
+    # Act
+    stmts = collector.get_import_statements()
+    # Assert
+    assert "import os" in stmts
+
+
+def test_sanitize_class_name__keyword__appends_underscore():
+    """
+    Scenario:
+        Sanitize a class name that is a Python keyword (e.g., 'class').
+    Expected Outcome:
+        The result is the capitalized keyword with an underscore appended (e.g., 'Class_').
+    """
+    # Arrange/Act
+    result = NameSanitizer.sanitize_class_name("class")
+    # Assert
+    assert result == "Class_"
+
+
+def test_template_renderer__jinja_sanitize_class_keyword__appends_underscore():
+    """
+    Scenario:
+        Use the Jinja2 'sanitize_class_name' filter with a Python keyword as input.
+    Expected Outcome:
+        The result is the capitalized keyword with an underscore appended (e.g., 'Class_').
+    """
+    # Arrange
+    renderer = TemplateRenderer()
+    # Act
+    result = renderer.env.filters["sanitize_class_name"]("class")
+    # Assert
+    assert result == "Class_"
+
+
+def test_formatter__importerror_branch__returns_original_code(monkeypatch):
+    """
+    Scenario:
+        Simulate ImportError in Formatter's __init__ (Black not installed).
+    Expected Outcome:
+        Formatter.format returns the original code unchanged.
+    """
+    # Arrange
+    # Patch sys.modules to simulate ImportError for 'black'
+    original_black = sys.modules.get("black")
+    sys.modules["black"] = None
+    try:
+        # Re-import Formatter to trigger ImportError
+        import importlib
+
+        utils_mod = importlib.import_module("pyopenapi_gen.utils")
+        FormatterReloaded = utils_mod.Formatter
+        formatter = FormatterReloaded()
+        code = "def foo():\n    return 1\n"
+        # Act
+        result = formatter.format(code)
+        # Assert
+        assert result == code
+    finally:
+        if original_black is not None:
+            sys.modules["black"] = original_black
+        else:
+            del sys.modules["black"]

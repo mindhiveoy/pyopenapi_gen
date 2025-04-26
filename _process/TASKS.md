@@ -119,8 +119,55 @@ Legend: ⬜ To Do | 🔄 In‑Progress | ⛔ Blocked | ✅ Done
 | ✅ | Setup GitHub Actions CI (Py 3.10‑3.12, macOS & Ubuntu) |
 | ✅ | Add pre‑commit hooks (black, ruff, mypy) |
 | ✅ | GH Pages publish workflow |
-| ⬜ | PyPI packaging & Homebrew formula release |
 
----
+## 13. Release & Distribution
+| Status | Task |
+|--------|------|
+| ⬜ | Finalize PyPI packaging and publish v1.0.0 |
+| ⬜ | Write and test Homebrew formula for CLI |
+| ⬜ | Complete release checklist and tag v1.0.0 |
+
+# Future work
+
+## 14. Sync Client Generation
+| Status | Task |
+|--------|------|
+| ⬜ | Design and implement sync client architecture |
+| ⬜ | Add sync emitters and templates |
+| ⬜ | Write tests for sync client generation |
+
+## 15. Plugin Ecosystem Expansion
+| Status | Task |
+|--------|------|
+| ⬜ | Add Pydantic/attrs model emitters as plugins |
+| ⬜ | Implement spec adapter plugin interface |
+| ⬜ | Add more built-in and plugin-based paginators |
+
+## 16. Performance & Scalability
+| Status | Task |
+|--------|------|
+| ⬜ | Profile and optimize for large OpenAPI specs |
+| ⬜ | Investigate and implement parallel code generation |
+
+## 17. Advanced OpenAPI Features
+| Status | Task |
+|--------|------|
+| ⬜ | Add support for callbacks, webhooks, and links |
+| ⬜ | Implement OpenAPI 2.x and 3.0 adapters |
+| ⬜ | Allow user-defined error class mapping |
+
+## 18. Community & Documentation
+| Status | Task |
+|--------|------|
+| ⬜ | Expand usage and plugin authoring docs |
+| ⬜ | Add more real-world example projects |
+| ⬜ | Set up Discussions, issue/PR templates, code of conduct |
+
+## 19. Ongoing Maintenance
+| Status | Task |
+|--------|------|
+| ⬜ | Add more CI test scenarios for edge cases |
+| ⬜ | Monitor and update dependencies |
+| ⬜ | Collect user feedback and iterate features |
 
 > **Process Note**: Update status as work progresses. A slice may only advance to the next when all tasks in the current slice are `DONE` and coverage thresholds are met. 

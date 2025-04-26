@@ -132,8 +132,8 @@ class NameSanitizer:
         # If it starts with a digit, prefix with underscore
         if cls_name and cls_name[0].isdigit():
             cls_name = "_" + cls_name
-        # Avoid Python keywords
-        if keyword.iskeyword(cls_name):
+        # Avoid Python keywords (case-insensitive)
+        if keyword.iskeyword(cls_name.lower()):
             cls_name += "_"
         return cls_name
 
@@ -194,7 +194,8 @@ class TemplateRenderer:
             cls = "".join(p[:1].upper() + p[1:] for p in parts if p)
             if cls and cls[0].isdigit():
                 cls = "_" + cls
-            if keyword.iskeyword(cls):
+            # Avoid Python keywords (case-insensitive)
+            if keyword.iskeyword(cls.lower()):
                 cls += "_"
             return cls
 

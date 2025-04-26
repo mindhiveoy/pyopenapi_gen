@@ -13,7 +13,17 @@ from .client_emitter import ClientEmitter
 from .docs_emitter import DocsEmitter
 from .warning_collector import WarningCollector
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True)
+
+
+@app.callback()
+def main(ctx: typer.Context):
+    """
+    PyOpenAPI Generator CLI.
+    """
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
 
 
 def _load_spec(path_or_url: str) -> dict[str, Any]:
