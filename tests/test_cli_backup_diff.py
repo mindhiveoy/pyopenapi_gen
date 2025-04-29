@@ -27,7 +27,7 @@ def test_backup_diff_exits_non_zero_on_changes(tmp_path: Path):
     # First run with force to create baseline
     result1 = runner.invoke(
         app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force"],
+        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--no-postprocess"],
     )
     assert result1.exit_code == 0, result1.stdout
 
@@ -39,7 +39,7 @@ def test_backup_diff_exits_non_zero_on_changes(tmp_path: Path):
     # Second run without force should detect diff and exit 1
     result2 = runner.invoke(
         app,
-        ["gen", str(spec_file), "-o", str(out_dir)],
+        ["gen", str(spec_file), "-o", str(out_dir), "--no-postprocess"],
     )
     assert result2.exit_code == 1
     # Diff output should include our change marker

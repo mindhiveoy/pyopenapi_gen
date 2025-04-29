@@ -1,13 +1,14 @@
 import pytest
 import httpx
 from httpx import Response
-from pytest import raises
 from pyopenapi_gen.http_transport import HttpxTransport
-from pyopenapi_gen.pagination import paginate_by_next
+from pyopenapi_gen.core.pagination import paginate_by_next
 from typer.testing import CliRunner
 from pathlib import Path
 import json
 from pyopenapi_gen.cli import app
+import os
+import subprocess
 
 # Minimal spec reused for CLI flag tests
 MIN_SPEC = {
@@ -113,3 +114,10 @@ def test_cli_with_optional_flags(tmp_path: Path):
     # Core files still generated
     assert (out_dir / "config.py").exists()
     assert (out_dir / "client.py").exists()
+
+    # Run mypy on the generated code to ensure type correctness
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(out_dir.parent.resolve())
+    result = subprocess.run(
+        ["mypy", str(out_dir)], capture_output=True, text=True, env=env
+    )

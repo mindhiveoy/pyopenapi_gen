@@ -29,7 +29,7 @@ except ImportError:
 # Disable strict spec validation by default to allow lenient parsing
 validate_spec = None  # override imported validate_spec
 
-from . import (
+from pyopenapi_gen import (
     HTTPMethod,
     IRParameter,
     IRResponse,
@@ -38,7 +38,7 @@ from . import (
     IRSchema,
     IRSpec,
 )
-from .utils import NameSanitizer  # Import for naming inline response schemas
+from pyopenapi_gen.core.utils import NameSanitizer
 
 __all__ = ["load_ir_from_spec"]
 
@@ -335,8 +335,14 @@ def _parse_operations(
                         resp_node = rn
                     resps.append(_parse_response(sc, resp_node, raw_schemas, schemas))
                 # Create operation object and append
+                if "operationId" in node:
+                    operation_id = node["operationId"]
+                else:
+                    operation_id = NameSanitizer.sanitize_method_name(
+                        f"{mu}_{path}".strip("/")
+                    )
                 op = IROperation(
-                    operation_id=node.get("operationId", f"{mu}_{path}".strip("/")),
+                    operation_id=operation_id,
                     method=HTTPMethod[mu],
                     path=path,
                     summary=node.get("summary"),
@@ -357,11 +363,16 @@ def _parse_operations(
                 if rb:
                     for mt, sch in rb.content.items():
                         if not sch.name:
+                            # Use the raw operation_id (not sanitized) + 'Request', then sanitize once
                             generated_rb_name = NameSanitizer.sanitize_class_name(
-                                op.operation_id + "Request"
+                                node.get("operationId", operation_id) + "Request"
                             )
                             sch.name = generated_rb_name
                             schemas[generated_rb_name] = sch
+                        else:
+                            # Ensure all referenced request body schemas are in schemas dict
+                            if sch.name not in schemas:
+                                schemas[sch.name] = sch
 
                 # Assign names to inline response schemas for model generation
                 for resp in resps:
@@ -372,11 +383,16 @@ def _parse_operations(
                                 # Defensive: never assign a name to unresolved $ref schemas
                                 # (test expects name=None for these)
                                 continue
+                            # Use the raw operation_id (not sanitized) + 'Response', then sanitize once
                             generated_name = NameSanitizer.sanitize_class_name(
-                                op.operation_id + "Response"
+                                node.get("operationId", operation_id) + "Response"
                             )
                             sch.name = generated_name
                             schemas[generated_name] = sch
+                        else:
+                            # Ensure all referenced response schemas are in schemas dict
+                            if sch.name not in schemas:
+                                schemas[sch.name] = sch
                 ops.append(op)
     return ops
 

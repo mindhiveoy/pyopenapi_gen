@@ -1,6 +1,6 @@
 import pytest
 
-from pyopenapi_gen.loader import _parse_schema, _build_schemas
+from pyopenapi_gen.core.loader import _parse_schema, _build_schemas
 from pyopenapi_gen import IRSchema
 
 

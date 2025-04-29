@@ -15,6 +15,7 @@ Building and maintaining HTTP clients for APIs by hand is a repetitive and error
 - **Minimal Dependencies**: Generated clients have ≤1 runtime dependency.
 - **Graceful Degradation**: Handles incomplete specs with actionable warnings, not cryptic errors.
 - **Testability**: Pure functions, clear boundaries, and high test coverage.
+- **Strict Error Handling**: All errors received from the API are handled by raising an exception; only successful responses are returned as strongly typed response objects.
 
 ---
 
@@ -35,8 +36,7 @@ The generated client is built around asynchronous programming and strong typing,
 
 The generated client is organized as a real Python package, with a clear and modular structure. This makes it easy to use, extend, and maintain, whether you are integrating it into a large project or using it as a standalone client.
 
-```
-my_api_client/
+```my_api_client/
 ├── __init__.py
 ├── client.py                # Main APIClient class, tag clients as attributes
 ├── config.py                # ClientConfig: env/TOML/kwarg config layering
@@ -110,6 +110,55 @@ pyopenapi-gen gen input/openapi.yaml --output generated --force
 - `--docs`: Also generate Markdown docs
 - `--telemetry`: Enable opt-in telemetry
 - `--force`: Overwrite output directory without diff check
+
+---
+
+## Authentication Plugins
+
+The client supports pluggable authentication via the `BaseAuth` protocol. You can use built-in plugins or implement your own. Below are the available plugins:
+
+### BearerAuth
+For simple Bearer token authentication:
+```python
+from pyopenapi_gen.auth.plugins import BearerAuth
+transport = HttpxTransport(base_url, auth=BearerAuth("your-token"))
+```
+
+### HeadersAuth
+For arbitrary custom headers:
+```python
+from pyopenapi_gen.auth.plugins import HeadersAuth
+transport = HttpxTransport(base_url, auth=HeadersAuth({"X-API-Key": "value"}))
+```
+
+### ApiKeyAuth
+For API key authentication in header, query, or cookie:
+```python
+from pyopenapi_gen.auth.plugins import ApiKeyAuth
+# Header
+auth = ApiKeyAuth("mykey", location="header", name="X-API-Key")
+# Query
+auth = ApiKeyAuth("mykey", location="query", name="api_key")
+# Cookie
+auth = ApiKeyAuth("mykey", location="cookie", name="sessionid")
+transport = HttpxTransport(base_url, auth=auth)
+```
+
+### OAuth2Auth
+For OAuth2 Bearer tokens, with optional auto-refresh:
+```python
+from pyopenapi_gen.auth.plugins import OAuth2Auth
+# Static token
+auth = OAuth2Auth("access-token")
+# With refresh callback (async)
+async def refresh_token(old_token):
+    # ... fetch new token ...
+    return "new-token"
+auth = OAuth2Auth("access-token", refresh_callback=refresh_token)
+transport = HttpxTransport(base_url, auth=auth)
+```
+
+See the `pyopenapi_gen.auth.plugins` module for details and extension points.
 
 ---
 

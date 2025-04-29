@@ -1,0 +1,15 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# PROJECT GOAL
+The generated client must produce Python code that:
+Communicates directly with the API as defined by the provided OpenAPI spec.
+- Accepts strongly typed input parameters (matching the OpenAPI schema).
+- Returns strongly typed responses (matching the OpenAPI schema).
+- Supports authentication and lazy loading.
+- Uses a system default HTTP implementation by default, but allows the user to inject a custom HTTP class for communication.
+- The generated code is fully functional out of the box—no stubs, placeholders, or manual implementation required for basic API communication.
+- The generated client must support code completion and type hints in IDEs (such as PyCharm, VSCode, etc.), leveraging Python's type annotations and docstrings for maximum developer productivity.
+- All errors that the client receives from the API must be handled by raising an exception; only successful responses are returned as response types.

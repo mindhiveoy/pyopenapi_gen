@@ -1,6 +1,8 @@
 from pathlib import Path
 from typer.testing import CliRunner
 import json
+import subprocess
+import os
 
 from pyopenapi_gen.cli import app
 
@@ -37,7 +39,7 @@ def test_petstore_integration_with_tag(tmp_path: Path) -> None:
     # Act
     result = runner.invoke(
         app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force"],
+        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--no-postprocess"],
     )
     # Assert
     assert result.exit_code == 0, result.stdout
@@ -49,6 +51,18 @@ def test_petstore_integration_with_tag(tmp_path: Path) -> None:
     assert (
         "async def list_pets" in content
     ), "list_pets method missing in generated code"
+
+    # Run mypy on the generated code to ensure type correctness
+    env = os.environ.copy()
+    # Add both the generated output parent and the real src directory to PYTHONPATH
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")]
+    )
+    result = subprocess.run(
+        ["mypy", str(out_dir)], capture_output=True, text=True, env=env
+    )
+    assert result.returncode == 0, f"mypy errors:\n{result.stdout}\n{result.stderr}"
 
 
 def test_petstore_integration_no_tag(tmp_path: Path) -> None:
@@ -66,7 +80,7 @@ def test_petstore_integration_no_tag(tmp_path: Path) -> None:
     # Act
     result = runner.invoke(
         app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force"],
+        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--no-postprocess"],
     )
     # Assert
     assert result.exit_code == 0, result.stdout
@@ -78,3 +92,15 @@ def test_petstore_integration_no_tag(tmp_path: Path) -> None:
     assert (
         "async def list_pets" in content
     ), "list_pets method missing in generated code"
+
+    # Run mypy on the generated code to ensure type correctness
+    env = os.environ.copy()
+    # Add both the generated output parent and the real src directory to PYTHONPATH
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")]
+    )
+    result = subprocess.run(
+        ["mypy", str(out_dir)], capture_output=True, text=True, env=env
+    )
+    assert result.returncode == 0, f"mypy errors:\n{result.stdout}\n{result.stderr}"

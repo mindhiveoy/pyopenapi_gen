@@ -1,6 +1,4 @@
-import pytest
-
-from pyopenapi_gen.utils import TemplateRenderer
+from pyopenapi_gen.core.utils import TemplateRenderer
 
 
 def test_sanitize_module_name_filter():

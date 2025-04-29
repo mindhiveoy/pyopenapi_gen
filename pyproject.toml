@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "1.0.0"
+version = "0.1.0"
 description = "Python OpenAPI client generator – core library"
 authors = [{ name = "PyOpenAPI Team", email = "dev@example.com" }]
 readme = "README.md"
@@ -14,6 +14,7 @@ dependencies = [
   "openapi-core>=0.19",
   "jinja2>=3.0",
   "black (>=25.1.0,<26.0.0)",
+  "mypy (>=1.15.0,<2.0.0)",
 ]
 license = { text = "MIT" }
 keywords = ["openapi", "swagger", "client", "generator", "async", "python"]
@@ -61,6 +62,13 @@ implicit_optional = false
 addopts = "-ra"
 testpaths = ["tests"]
 pythonpath = "src"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest-xdist = "^3.6.1"
+types-toml = "^0.10.8.20240310"
+httpx = "^0.28.1"
+pytest-asyncio = "^0.26.0"
 
 [project.scripts]
 pyopenapi-gen = "pyopenapi_gen.cli:app"

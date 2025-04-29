@@ -1,0 +1,53 @@
+import subprocess
+import sys
+from pathlib import Path
+import typer
+
+GENERATED_DIR = Path("generated")
+
+
+def run_mypy():
+    print("Running mypy for type checking...")
+    result = subprocess.run(
+        [sys.executable, "-m", "mypy", str(GENERATED_DIR), "--strict"],
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    if result.returncode != 0:
+        print("Type checking failed. Please fix the above issues.", file=sys.stderr)
+        sys.exit(result.returncode)
+
+
+def run_ruff():
+    print("Removing unused imports with ruff...")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--select=F401",
+            "--fix",
+            str(GENERATED_DIR),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    if result.returncode != 0:
+        print("Ruff found and fixed unused imports.", file=sys.stderr)
+    else:
+        print("No unused imports found.")
+
+
+if __name__ == "__main__":
+    run_mypy()
+    run_ruff()
+    print("Post-processing complete.")

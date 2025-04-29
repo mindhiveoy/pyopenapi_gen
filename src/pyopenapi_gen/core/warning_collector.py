@@ -7,7 +7,7 @@ for incomplete metadata in the IR (e.g., missing tags, descriptions).
 from dataclasses import dataclass
 from typing import List
 
-from . import IRSpec
+from pyopenapi_gen import IRSpec
 
 __all__ = ["WarningReport", "WarningCollector"]
 

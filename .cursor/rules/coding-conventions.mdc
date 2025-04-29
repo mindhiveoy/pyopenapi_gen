@@ -1,0 +1,47 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# CODING CONVENTIONS
+
+To ensure code quality, maintainability, and developer productivity, all code must adhere to the following conventions:
+
+1. 📦 Class Organization
+- Each class must be defined in its own module (file). This ensures clarity, discoverability, and single responsibility per file.
+
+2. 🏷️ Naming
+- Use intuitive, descriptive, and consistent names for all modules, classes, functions, variables, and folders.
+- Avoid abbreviations unless they are universally understood.
+
+3. 🧩 Design Principles
+- Maintain a clear separation of concerns: each module, class, and function should have a single, well-defined responsibility.
+- Strive to write code that reads like clear English text, making logic and intent obvious to readers.
+- Avoid long methods; break code into logical, focused parts that can be their own methods or functions.
+- Emphasize encapsulation: expose only what is necessary via clear, minimal module and class APIs, hiding internal details.
+
+4. 📜 Design by Contract & Documentation
+- All public methods and functions must explicitly declare their contract: preconditions, postconditions, and invariants.
+- Use Python docstrings to document:
+  - Purpose and behavior
+  - Input parameter types and constraints
+  - Return type and guarantees
+  - Exceptions raised and error conditions
+- Documentation must be comprehensive and clear, enabling users to understand and use the API correctly without reading the implementation.
+
+5. 🛡️ Strong Typing
+- All functions, methods, and class attributes must use Python type annotations.
+- Favor explicit types over Any or loose typing.
+- Use dataclasses, TypedDict, or pydantic models for structured data where appropriate.
+
+6. 🗂️ Folder & File Structure
+- Organize code into an intuitive folder structure, grouping related modules together.
+- Place related code (e.g., models, services, utilities) close to each other to minimize navigation overhead.
+- Avoid large, monolithic modules or folders; prefer smaller, focused groupings.
+
+7. 🔄 Refactoring
+- When adding new classes, always create a new module for them.
+- When refactoring, split multi-class modules into single-class modules.
+
+These conventions are mandatory for all code contributions and AI-generated code. They ensure a codebase that is easy to navigate, robust, and a pleasure to work with.
+

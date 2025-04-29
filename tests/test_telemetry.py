@@ -1,4 +1,4 @@
-from pyopenapi_gen.telemetry import TelemetryClient
+from pyopenapi_gen.core.telemetry import TelemetryClient
 import os
 import json
 from typing import Any

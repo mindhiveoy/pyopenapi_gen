@@ -1,7 +1,6 @@
 import pytest
 from pathlib import Path
 from typer import Exit
-import yaml
 
 from pyopenapi_gen.cli import _load_spec, _show_diffs
 

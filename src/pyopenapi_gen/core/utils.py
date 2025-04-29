@@ -10,6 +10,43 @@ import keyword
 from jinja2 import Environment
 
 
+class CodeWriter:
+    """
+    Utility for writing indented code blocks. Use write_line, indent, dedent, write_block, and get_code.
+    """
+
+    def __init__(self, indent_str: str = "    "):
+        self.lines = []
+        self.indent_level = 0
+        self.indent_str = indent_str
+
+    def write_line(self, line: str = ""):
+        self.lines.append(f"{self.indent_str * self.indent_level}{line}")
+
+    def indent(self):
+        self.indent_level += 1
+
+    def dedent(self):
+        self.indent_level = max(0, self.indent_level - 1)
+
+    def write_block(self, code: str):
+        """
+        Write a multi-line code block using the current indentation level.
+        Each non-empty line is prefixed with the current indentation.
+        Preserves empty lines.
+        Args:
+            code (str): The code block to write (may be multiple lines).
+        """
+        for line in code.splitlines():
+            if line.strip():
+                self.write_line(line)
+            else:
+                self.write_line("")
+
+    def get_code(self) -> str:
+        return "\n".join(self.lines)
+
+
 class ImportCollector:
     """Manages imports for generated Python modules.
 
@@ -33,6 +70,8 @@ class ImportCollector:
         self.direct_imports: Dict[str, Set[str]] = {}
         # Relative imports like 'from .models import Pet'
         self.relative_imports: Dict[str, Set[str]] = {}
+        # Plain imports like 'import json'
+        self.plain_imports: Set[str] = set()
 
     def add_import(self, module: str, name: str) -> None:
         """Add an import from a specific module."""
@@ -61,6 +100,10 @@ class ImportCollector:
             self.relative_imports[module] = set()
         self.relative_imports[module].add(name)
 
+    def add_plain_import(self, module: str) -> None:
+        """Add a plain import (import x)."""
+        self.plain_imports.add(module)
+
     def has_import(self, module: str, name: str) -> bool:
         """Check if a specific import exists."""
         return module in self.imports and name in self.imports[module]
@@ -69,12 +112,18 @@ class ImportCollector:
         """Generate the import statements in the correct order."""
         statements: List[str] = []
 
-        # Standard library imports first (sorted)
+        # Plain imports first (import x)
+        if self.plain_imports:
+            for module in sorted(self.plain_imports):
+                statements.append(f"import {module}")
+
+        # Standard library imports (from x import y)
         if self.imports:
             for module in sorted(self.imports.keys()):
                 names = sorted(self.imports[module])
                 if len(names) == 1 and names[0] == module:
-                    statements.append(f"import {module}")
+                    # Already handled by plain_imports
+                    continue
                 else:
                     names_str = ", ".join(sorted(names))
                     statements.append(f"from {module} import {names_str}")
@@ -103,6 +152,21 @@ class ImportCollector:
         """Return the import statements as a formatted string."""
         return "\n".join(self.get_import_statements())
 
+    def merge(self, other: "ImportCollector") -> None:
+        """Merge imports from another ImportCollector instance."""
+        for module, names in other.imports.items():
+            if module not in self.imports:
+                self.imports[module] = set()
+            self.imports[module].update(names)
+        for module, names in other.direct_imports.items():
+            if module not in self.direct_imports:
+                self.direct_imports[module] = set()
+            self.direct_imports[module].update(names)
+        for module, names in other.relative_imports.items():
+            if module not in self.relative_imports:
+                self.relative_imports[module] = set()
+            self.relative_imports[module].update(names)
+
 
 class NameSanitizer:
     """Helper to sanitize spec names and tags into valid Python identifiers and filenames."""
@@ -127,8 +191,8 @@ class NameSanitizer:
     @staticmethod
     def sanitize_class_name(name: str) -> str:
         """Convert a raw name into a valid Python class name in PascalCase."""
-        # Split on non-word characters (underscores preserved)
-        parts = re.split(r"\W+", name)
+        # Split on non-word characters and underscores
+        parts = re.split(r"[\W_]+", name)
         # Capitalize first letter of each part
         cls_name = "".join(p[:1].upper() + p[1:] for p in parts if p)
         # If it starts with a digit, prefix with underscore
@@ -161,6 +225,26 @@ class NameSanitizer:
         """Generate a valid Python filename from raw name in snake_case."""
         module = NameSanitizer.sanitize_module_name(name)
         return module + suffix
+
+    @staticmethod
+    def sanitize_method_name(name: str) -> str:
+        """Convert a raw name into a valid Python method name in snake_case, splitting camelCase and PascalCase."""
+        # Remove curly braces
+        name = re.sub(r"[{}]", "", name)
+        # Split camelCase and PascalCase to snake_case
+        name = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name)
+        name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
+        # Replace non-alphanumerics with underscores
+        name = re.sub(r"[^0-9a-zA-Z_]", "_", name)
+        # Lowercase and collapse multiple underscores
+        name = re.sub(r"_+", "_", name).strip("_").lower()
+        # If it starts with a digit, prefix with underscore
+        if name and name[0].isdigit():
+            name = "_" + name
+        # Avoid Python keywords
+        if keyword.iskeyword(name):
+            name += "_"
+        return name
 
 
 class ParamSubstitutor:

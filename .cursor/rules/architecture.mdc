@@ -1,0 +1,67 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Cursor Rule: architecture
+
+## Purpose
+This rule introduces the crucial classes and the overall architecture of the Python OpenAPI client generator. It is intended to provide a high-level mental model for developers and AI agents working on the codebase.
+
+---
+
+## Core Architectural Concepts
+
+### 1. **Intermediate Representation (IR)**
+- **IRSpec, IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema**
+  - These dataclasses represent the parsed and normalized OpenAPI spec.
+  - All code generation is based on this IR, not the raw OpenAPI dict.
+
+### 2. **Visitors**
+- **Visitor (base class)**
+  - Generic base for all code generation visitors. Uses the visitor pattern to traverse IR nodes.
+- **EndpointVisitor**
+  - Renders Python code for endpoint client classes and methods from IROperation nodes.
+- **ModelVisitor**
+  - Renders Python dataclasses or enums from IRSchema nodes.
+- **ClientVisitor**
+  - Renders the main APIClient class, which aggregates tag clients and manages transport.
+- **ExceptionVisitor**
+  - Renders exception alias classes for HTTP error codes.
+- **DocsVisitor**
+  - Renders Markdown documentation from the IR.
+
+### 3. **Emitters**
+- **Emitters (e.g., EndpointsEmitter, ModelsEmitter, ClientEmitter, ExceptionsEmitter, DocsEmitter)**
+  - Orchestrate the code generation process for each major output (endpoints, models, client, exceptions, docs).
+  - Use the corresponding visitor to render code, then write files to disk.
+
+### 4. **Helpers and Utilities**
+- **CodeWriter**
+  - Utility for building Python code with correct indentation and formatting.
+- **NameSanitizer**
+  - Ensures all generated names are valid Python identifiers.
+- **RenderContext**
+  - Tracks imports, file paths, and other state during code generation.
+
+### 5. **Authentication and Transport**
+- **HttpTransport (protocol), HttpxTransport (default implementation)**
+  - Abstract and concrete classes for HTTP communication, supporting pluggable authentication.
+- **BaseAuth and plugins**
+  - Protocol and implementations for authentication schemes (Bearer, API key, OAuth2, etc.).
+
+---
+
+## Architectural Flow
+1. **Spec Parsing**: The OpenAPI spec is parsed and converted to IR dataclasses.
+2. **Code Generation**: Emitters use visitors to traverse the IR and generate code for models, endpoints, client, exceptions, and docs.
+3. **Helpers**: Utilities like CodeWriter and NameSanitizer ensure code quality and correctness.
+4. **Output**: Generated code is written to disk as a ready-to-use Python package.
+
+---
+
+## Key Principles
+- **Single Responsibility**: Each class/module has a focused purpose.
+- **Extensibility**: New emitters, visitors, or plugins can be added without modifying core logic.
+- **Strong Typing**: All IR and generated code is strongly typed.
+- **Separation of Concerns**: Parsing, code generation, and file I/O are clearly separated.

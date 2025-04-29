@@ -1,6 +1,6 @@
 from pathlib import Path
 from pyopenapi_gen import IRSpec, IROperation, IRResponse, HTTPMethod
-from pyopenapi_gen.exceptions_emitter import ExceptionsEmitter
+from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 
 
 def test_exceptions_emitter_generates_aliases(tmp_path: Path) -> None:

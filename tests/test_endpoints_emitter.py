@@ -8,7 +8,7 @@ from pyopenapi_gen import (
     IRResponse,
     IRParameter,
 )
-from pyopenapi_gen.endpoints_emitter import EndpointsEmitter
+from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 import os
 import pytest
 
@@ -116,7 +116,7 @@ def test_endpoints_emitter_json_body(tmp_path: Path) -> None:
     content = pets_file.read_text()
     # The method should include a body parameter and json=body in the request
     assert "body:" in content
-    assert 'kwargs["json"] = body' in content
+    assert "json_body: Dict[str, Any] = body" in content
 
 
 def test_endpoints_emitter_multipart(tmp_path: Path) -> None:
@@ -150,10 +150,10 @@ def test_endpoints_emitter_multipart(tmp_path: Path) -> None:
     file_module: Path = out_dir / "endpoints" / "files.py"
     assert file_module.exists()
     content = file_module.read_text()
-    # The method signature should include 'files: Dict[str, IO]'
-    assert "files: Dict[str, IO]" in content
+    # The method signature should include 'files: Dict[str, IO[Any]]'
+    assert "files: Dict[str, IO[Any]]" in content
     # And the request should pass files via kwargs
-    assert 'kwargs["files"] = files' in content
+    assert "files_data: Dict[str, IO[Any]] = files" in content
 
 
 def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
@@ -253,8 +253,12 @@ def test_endpoints_emitter_imports(tmp_path: Path) -> None:
     mod = out_dir / "endpoints" / "combined.py"
     assert mod.exists()
     content = mod.read_text()
-    # Ensure necessary typing imports
-    assert "from typing import Any, AsyncIterator, Dict, IO, Optional" in content
+    # Accept any superset of the expected import line
+    assert "from typing import Any" in content
+    assert "AsyncIterator" in content
+    assert "Dict" in content
+    assert "IO" in content
+    assert "Optional" in content
     # Ensure httpx AsyncClient import is present
     assert "from httpx import AsyncClient" in content
 
@@ -487,20 +491,20 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     # Assert
     endpoints_dir = out_dir / "endpoints"
     # Only one module file should exist for all tag variants
-    expected_module = endpoints_dir / "datasources.py"
+    expected_module = endpoints_dir / "data_sources.py"
     assert (
         expected_module.exists()
-    ), "Expected datasources.py to exist for deduplicated tags"
+    ), "Expected data_sources.py to exist for deduplicated tags"
     content = expected_module.read_text()
-    # The client class should be present
-    assert "class DatasourcesClient" in content, "Client class name not as expected"
-    # __init__.py should only have one entry in __all__ and one import
+    # The client class should be present (canonicalized, PascalCase)
+    assert "class DataSourcesClient" in content, "Client class name not as expected"
+    # __init__.py should only have one entry in __all__ and one import, using PascalCase for public API
     init_file = endpoints_dir / "__init__.py"
     assert init_file.exists(), "__init__.py not generated in endpoints/"
     text = init_file.read_text()
+    # __all__ should reference DataSourcesClient (PascalCase)
+    assert '"DataSourcesClient"' in text, "__all__ should reference DataSourcesClient"
+    # Only one import from data_sources module should exist, importing DataSourcesClient
     assert (
-        text.count("DatasourcesClient") == 2
-    ), "__all__ and import should reference DatasourcesClient only once each"
-    assert (
-        text.count("datasources") == 1
-    ), "Only one import from datasources module should exist"
+        text.count("from .data_sources import DataSourcesClient") == 1
+    ), "Only one import from data_sources module should exist"

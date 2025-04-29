@@ -3,7 +3,7 @@ from pyopenapi_gen import (
     IROperation,
     HTTPMethod,
 )
-from pyopenapi_gen.warning_collector import WarningCollector
+from pyopenapi_gen.core.warning_collector import WarningCollector
 
 
 def test_warning_collector_missing():

@@ -1,4 +1,4 @@
-from pyopenapi_gen.utils import ImportCollector, NameSanitizer
+from pyopenapi_gen.core.utils import ImportCollector, NameSanitizer
 
 
 def test_import_collector_basic():
@@ -323,3 +323,86 @@ def test_sanitize_module_name__camel_and_pascal_case__snake_case_result():
     )
     assert NameSanitizer.sanitize_module_name("123DataSource") == "_123_data_source"
     assert NameSanitizer.sanitize_module_name("class") == "class_"  # Python keyword
+
+
+def test_sanitize_method_name__various_cases__returns_valid_python_identifier():
+    """
+    Scenario:
+        - Test sanitize_method_name with paths, operationIds, and invalid Python identifiers.
+        - Includes slashes, curly braces, dashes, spaces, numbers, and keywords.
+
+    Expected Outcome:
+        - All are converted to valid, snake_case Python method names.
+    """
+    # Arrange & Act & Assert
+    assert (
+        NameSanitizer.sanitize_method_name("GET_/tenants/{tenantId}/feedback")
+        == "get_tenants_tenant_id_feedback"
+    )
+    assert NameSanitizer.sanitize_method_name("get-user-by-id") == "get_user_by_id"
+    assert NameSanitizer.sanitize_method_name("postUser") == "post_user"
+    assert NameSanitizer.sanitize_method_name("/foo/bar/{baz}") == "foo_bar_baz"
+    assert NameSanitizer.sanitize_method_name("123start") == "_123start"
+    assert NameSanitizer.sanitize_method_name("class") == "class_"
+    assert NameSanitizer.sanitize_method_name("already_valid") == "already_valid"
+    assert (
+        NameSanitizer.sanitize_method_name("multiple___underscores")
+        == "multiple_underscores"
+    )
+    assert (
+        NameSanitizer.sanitize_method_name("with space and-dash")
+        == "with_space_and_dash"
+    )
+    assert NameSanitizer.sanitize_method_name("{param}") == "param"
+    assert (
+        NameSanitizer.sanitize_method_name("_leading_underscore")
+        == "leading_underscore"
+    )
+
+
+def test_import_collector_double_dot_relative_import():
+    """
+    Scenario:
+        - Add a relative import with two leading dots (e.g., '..models.agent_history').
+        - Generate import statements.
+    Expected outcome:
+        - The import statement should be 'from ..models.agent_history import AgentHistory'.
+    """
+    collector = ImportCollector()
+    collector.add_relative_import("..models.agent_history", "AgentHistory")
+    statements = collector.get_import_statements()
+    assert "from ..models.agent_history import AgentHistory" in statements
+
+
+def test_import_collector_triple_dot_relative_import():
+    """
+    Scenario:
+        - Add a relative import with three leading dots (e.g., '...models.foo').
+        - Generate import statements.
+    Expected outcome:
+        - The import statement should be 'from ...models.foo import Bar'.
+        - No slashes should appear in the output.
+    """
+    collector = ImportCollector()
+    collector.add_relative_import("...models.foo", "Bar")
+    statements = collector.get_import_statements()
+    assert "from ...models.foo import Bar" in statements
+    for stmt in statements:
+        assert "/" not in stmt, f"Slash found in import statement: {stmt}"
+
+
+def test_import_collector_sibling_directory_import():
+    """
+    Scenario:
+        - Simulate an endpoint importing from a sibling models directory (e.g., '..models.bar').
+        - Generate import statements.
+    Expected outcome:
+        - The import statement should be 'from ..models.bar import Baz'.
+        - No slashes should appear in the output.
+    """
+    collector = ImportCollector()
+    collector.add_relative_import("..models.bar", "Baz")
+    statements = collector.get_import_statements()
+    assert "from ..models.bar import Baz" in statements
+    for stmt in statements:
+        assert "/" not in stmt, f"Slash found in import statement: {stmt}"

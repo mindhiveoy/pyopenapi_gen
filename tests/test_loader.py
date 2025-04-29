@@ -1,4 +1,4 @@
-from pyopenapi_gen.loader import load_ir_from_spec
+from pyopenapi_gen.core.loader import load_ir_from_spec
 from pyopenapi_gen import HTTPMethod
 
 

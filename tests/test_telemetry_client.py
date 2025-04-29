@@ -1,10 +1,8 @@
 import os
 import json
 import time
-import sys
-import pytest
 
-from pyopenapi_gen.telemetry import TelemetryClient
+from pyopenapi_gen.core.telemetry import TelemetryClient
 
 
 def test_telemetry_client_default_disabled(monkeypatch, capsys):

@@ -1,6 +1,6 @@
 import sys
 
-from pyopenapi_gen.utils import (
+from pyopenapi_gen.core.utils import (
     NameSanitizer,
     ParamSubstitutor,
     KwargsBuilder,
@@ -22,7 +22,7 @@ def test_sanitize_module_name():
 def test_sanitize_class_name():
     # PascalCase conversion
     assert NameSanitizer.sanitize_class_name("vector databases") == "VectorDatabases"
-    assert NameSanitizer.sanitize_class_name("my-api_client") == "MyApi_client"
+    assert NameSanitizer.sanitize_class_name("my-api_client") == "MyApiClient"
     # Leading digits and keywords
     assert NameSanitizer.sanitize_class_name("123test") == "_123test"
     assert NameSanitizer.sanitize_class_name("class") == "Class_"

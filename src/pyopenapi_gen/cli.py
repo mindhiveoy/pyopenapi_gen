@@ -5,13 +5,17 @@ import difflib
 import yaml
 import typer
 from typing import Any
+import subprocess
+import sys
+import os
 
-from .loader import load_ir_from_spec
-from .models_emitter import ModelsEmitter
-from .endpoints_emitter import EndpointsEmitter
-from .client_emitter import ClientEmitter
-from .docs_emitter import DocsEmitter
-from .warning_collector import WarningCollector
+from .core.loader import load_ir_from_spec
+from .emitters.models_emitter import ModelsEmitter
+from .emitters.endpoints_emitter import EndpointsEmitter
+from .emitters.client_emitter import ClientEmitter
+from .emitters.docs_emitter import DocsEmitter
+from .emitters.config_emitter import ConfigEmitter
+from pyopenapi_gen.core.warning_collector import WarningCollector
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -64,7 +68,11 @@ def gen(
     docs: bool = typer.Option(False, help="Also generate docs"),
     telemetry: bool = typer.Option(False, help="Enable telemetry"),
     auth: str = typer.Option(None, help="Auth plugins comma-separated"),
+    no_postprocess: bool = typer.Option(
+        False, "--no-postprocess", help="Skip post-processing (type checking, etc.)"
+    ),
 ):
+    print(f"[DEBUG] gen() called. Output directory: {output}")
     """Generate a Python client from an OpenAPI spec."""
     # Load and convert spec to IR
     spec_dict = _load_spec(spec)
@@ -80,29 +88,96 @@ def gen(
         )
 
     out_dir = str(output)
-    # Prepare backup variable for diff check
-    backup = None
 
-    # Backup existing output for diff checking
-    if output.exists() and not force:
-        backup = tempfile.mkdtemp()
-        shutil.copytree(out_dir, backup, dirs_exist_ok=True)
-
-    # Prepare output directory
-    if output.exists():
-        shutil.rmtree(out_dir)
-    output.mkdir(parents=True, exist_ok=True)
-
-    # Emit code
-    ModelsEmitter().emit(ir, out_dir)
-    EndpointsEmitter().emit(ir, out_dir)
-    ClientEmitter().emit(ir, out_dir)
-
-    # If we created a backup, show diffs and exit non-zero on changes
-    if backup:
-        if _show_diffs(backup, out_dir):
-            raise typer.Exit(code=1)
-
+    if not force and output.exists():
+        # Generate to a temp directory, diff, and only overwrite if no changes
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_output = Path(tmpdir) / "out"
+            tmp_output.mkdir(parents=True, exist_ok=True)
+            # Always create an empty __init__.py at the root of the output directory
+            root_init_path = tmp_output / "__init__.py"
+            if not root_init_path.exists():
+                root_init_path.write_text("")
+            # Emit code to temp dir
+            ModelsEmitter().emit(ir, str(tmp_output))
+            EndpointsEmitter().emit(ir, str(tmp_output))
+            ConfigEmitter().emit(str(tmp_output))
+            ClientEmitter().emit(ir, str(tmp_output))
+            # Run post-processing script to check types and clean imports
+            if not no_postprocess:
+                postprocess_script = (
+                    Path(__file__).parent.parent.parent / "postprocess_generated.py"
+                )
+                if postprocess_script.exists():
+                    typer.echo("Running post-processing on generated code...")
+                    env = os.environ.copy()
+                    env["PYTHONPATH"] = str(tmp_output.parent.resolve())
+                    result = subprocess.run(
+                        [sys.executable, str(postprocess_script)],
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                    )
+                    if result.stdout:
+                        typer.echo(result.stdout)
+                    if result.stderr:
+                        typer.echo(result.stderr, err=True)
+                    if result.returncode != 0:
+                        typer.echo("Post-processing failed.", err=True)
+                        raise typer.Exit(code=result.returncode)
+                else:
+                    typer.echo(
+                        f"Warning: {postprocess_script} not found. Skipping post-processing.",
+                        err=True,
+                    )
+            # Diff temp output with existing output
+            has_diff = _show_diffs(str(output), str(tmp_output))
+            if has_diff:
+                raise typer.Exit(code=1)
+            # No diff, overwrite output
+            shutil.rmtree(out_dir)
+            shutil.copytree(str(tmp_output), out_dir)
+    else:
+        # Always clean output directory before generation if --force or not exists
+        if output.exists():
+            shutil.rmtree(out_dir)
+        output.mkdir(parents=True, exist_ok=True)
+        # Always create an empty __init__.py at the root of the output directory
+        root_init_path = output / "__init__.py"
+        if not root_init_path.exists():
+            root_init_path.write_text("")
+        # Emit code
+        ModelsEmitter().emit(ir, out_dir)
+        EndpointsEmitter().emit(ir, out_dir)
+        ConfigEmitter().emit(out_dir)
+        ClientEmitter().emit(ir, out_dir)
+        # Run post-processing script to check types and clean imports
+        if not no_postprocess:
+            postprocess_script = (
+                Path(__file__).parent.parent.parent / "postprocess_generated.py"
+            )
+            if postprocess_script.exists():
+                typer.echo("Running post-processing on generated code...")
+                env = os.environ.copy()
+                env["PYTHONPATH"] = str(output.parent.resolve())
+                result = subprocess.run(
+                    [sys.executable, str(postprocess_script)],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                if result.stdout:
+                    typer.echo(result.stdout)
+                if result.stderr:
+                    typer.echo(result.stderr, err=True)
+                if result.returncode != 0:
+                    typer.echo("Post-processing failed.", err=True)
+                    raise typer.Exit(code=result.returncode)
+            else:
+                typer.echo(
+                    f"Warning: {postprocess_script} not found. Skipping post-processing.",
+                    err=True,
+                )
     typer.echo("Client generation complete.")
 
 

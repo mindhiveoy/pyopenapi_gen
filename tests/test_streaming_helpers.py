@@ -1,6 +1,5 @@
-import pytest
 import asyncio
-from pyopenapi_gen.streaming_helpers import (
+from pyopenapi_gen.core.streaming_helpers import (
     SSEEvent,
     iter_bytes,
     iter_ndjson,

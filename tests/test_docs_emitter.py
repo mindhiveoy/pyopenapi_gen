@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 import pytest
 
-from pyopenapi_gen.docs_emitter import DocsEmitter
-from pyopenapi_gen.utils import NameSanitizer
+from pyopenapi_gen.emitters.docs_emitter import DocsEmitter
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen import (
     IRSpec,
     IROperation,

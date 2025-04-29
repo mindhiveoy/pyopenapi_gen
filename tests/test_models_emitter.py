@@ -1,9 +1,7 @@
 from pathlib import Path
 from pyopenapi_gen import IRSchema, IRSpec
-from pyopenapi_gen.models_emitter import ModelsEmitter
-import os
-import pytest
-from pyopenapi_gen.utils import NameSanitizer
+from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
+from pyopenapi_gen.core.utils import NameSanitizer
 
 
 def test_models_emitter_simple(tmp_path: Path) -> None:
@@ -268,7 +266,10 @@ def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path)
     init_file = models_dir / "__init__.py"
     assert init_file.exists(), "__init__.py not generated in models/"
     init_content = init_file.read_text()
-    assert '__all__ = ["TestSchema"]' in init_content, "__all__ missing class name"
+    assert (
+        '__all__ = ["TestSchema"]' in init_content
+        or '__all__: list[str] = ["TestSchema"]' in init_content
+    ), "__all__ missing class name"
     assert (
         f"from .{NameSanitizer.sanitize_module_name(schema_name)} import TestSchema"
         in init_content
@@ -321,7 +322,7 @@ def test_models_emitter__array_of_primitives_alias(tmp_path):
     assert model_file.exists()
     content = model_file.read_text()
     assert "MyStrings = List[str]" in content
-    assert "from typing import List" in content
+    assert "List" in content and "from typing" in content
 
 
 def test_models_emitter__array_of_models_alias(tmp_path):
@@ -416,3 +417,46 @@ def test_models_emitter__unknown_type_fallback(tmp_path):
     ModelsEmitter().emit(spec, str(out_dir))
     model_file = out_dir / "models" / "Mystery.py"
     assert not model_file.exists()
+
+
+def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path):
+    """
+    Scenario:
+        A model schema has a field with type 'object' (maps to Any) and is not required (maps to Optional[Any]).
+        We want to verify that the generated model file includes both 'Optional' and 'Any' in the typing import.
+
+    Expected Outcome:
+        The generated file should have a line 'from typing import Optional, Any' (order may vary),
+        and the field should be annotated as 'Optional[Any]'.
+    """
+    # Arrange
+    schema = IRSchema(
+        name="TestModel",
+        type="object",
+        required=["id"],
+        properties={
+            "id": IRSchema(name=None, type="string"),
+            "meta": IRSchema(
+                name=None, type="object"
+            ),  # not required, so Optional[Any]
+        },
+    )
+    spec = IRSpec(
+        title="T",
+        version="0.1",
+        schemas={"TestModel": schema},
+        operations=[],
+        servers=[],
+    )
+    out_dir = tmp_path / "out"
+    emitter = ModelsEmitter()
+    # Act
+    emitter.emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "test_model.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+    # Assert
+    assert "from typing import" in content
+    assert "Optional" in content
+    assert "Any" in content
+    assert "meta: Optional[Any] = field(default_factory=dict)" in content

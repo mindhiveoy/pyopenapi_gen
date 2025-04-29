@@ -25,7 +25,8 @@ def test_gen_nonexistent_spec_path(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     runner = CliRunner()
     result = runner.invoke(
-        app, ["gen", str(tmp_path / "missing.json"), "-o", str(out_dir)]
+        app,
+        ["gen", str(tmp_path / "missing.json"), "-o", str(out_dir), "--no-postprocess"],
     )
     assert result.exit_code == 1
     assert "URL loading not implemented" in result.stdout
@@ -50,7 +51,15 @@ def test_gen_with_docs_flag_does_not_break(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--docs"],
+        [
+            "gen",
+            str(spec_file),
+            "-o",
+            str(out_dir),
+            "--force",
+            "--docs",
+            "--no-postprocess",
+        ],
     )
     assert result.exit_code == 0, result.stdout
     # Core files should still be generated
