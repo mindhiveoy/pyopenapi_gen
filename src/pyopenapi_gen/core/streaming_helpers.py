@@ -1,17 +1,19 @@
 import json
-from typing import AsyncIterator, Any
+from typing import Any, AsyncIterator, List, Optional
 
 import httpx
 
 
 class SSEEvent:
-    def __init__(self, data: str, event: str = None, id: str = None, retry: int = None):
-        self.data = data
-        self.event = event
-        self.id = id
-        self.retry = retry
+    def __init__(
+        self, data: str, event: Optional[str] = None, id: Optional[str] = None, retry: Optional[int] = None
+    ) -> None:
+        self.data: str = data
+        self.event: Optional[str] = event
+        self.id: Optional[str] = id
+        self.retry: Optional[int] = retry
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"SSEEvent(data={self.data!r}, event={self.event!r}, id={self.id!r}, retry={self.retry!r})"
 
 
@@ -29,7 +31,7 @@ async def iter_ndjson(response: httpx.Response) -> AsyncIterator[Any]:
 
 async def iter_sse(response: httpx.Response) -> AsyncIterator[SSEEvent]:
     """Parse Server-Sent Events (SSE) from a streaming response."""
-    event_lines = []
+    event_lines: list[str] = []
     async for line in response.aiter_lines():
         if line == "":
             # End of event
@@ -47,7 +49,7 @@ async def iter_sse(response: httpx.Response) -> AsyncIterator[SSEEvent]:
             yield event
 
 
-def _parse_sse_event(lines: list[str]) -> SSEEvent:
+def _parse_sse_event(lines: List[str]) -> SSEEvent:
     data = []
     event = None
     id = None

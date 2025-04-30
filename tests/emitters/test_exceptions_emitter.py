@@ -1,5 +1,6 @@
 from pathlib import Path
-from pyopenapi_gen import IRSpec, IROperation, IRResponse, HTTPMethod
+
+from pyopenapi_gen import HTTPMethod, IROperation, IRResponse, IRSpec
 from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 
 

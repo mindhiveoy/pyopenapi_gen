@@ -1,16 +1,17 @@
 import sys
 
 from pyopenapi_gen.core.utils import (
-    NameSanitizer,
-    ParamSubstitutor,
-    KwargsBuilder,
     Formatter,
     ImportCollector,
+    KwargsBuilder,
+    NameSanitizer,
+    ParamSubstitutor,
     TemplateRenderer,
 )
+from pytest import MonkeyPatch
 
 
-def test_sanitize_module_name():
+def test_sanitize_module_name() -> None:
     # Basic conversions
     assert NameSanitizer.sanitize_module_name("Vector Databases") == "vector_databases"
     assert NameSanitizer.sanitize_module_name("  My-API.Client!! ") == "my_api_client"
@@ -19,7 +20,7 @@ def test_sanitize_module_name():
     assert NameSanitizer.sanitize_module_name("class") == "class_"
 
 
-def test_sanitize_class_name():
+def test_sanitize_class_name() -> None:
     # PascalCase conversion
     assert NameSanitizer.sanitize_class_name("vector databases") == "VectorDatabases"
     assert NameSanitizer.sanitize_class_name("my-api_client") == "MyApiClient"
@@ -28,15 +29,12 @@ def test_sanitize_class_name():
     assert NameSanitizer.sanitize_class_name("class") == "Class_"
 
 
-def test_sanitize_filename():
+def test_sanitize_filename() -> None:
     assert NameSanitizer.sanitize_filename("Test Name") == "test_name.py"
-    assert (
-        NameSanitizer.sanitize_filename("AnotherExample", suffix=".py")
-        == "another_example.py"
-    )
+    assert NameSanitizer.sanitize_filename("AnotherExample", suffix=".py") == "another_example.py"
 
 
-def test_param_substitutor_render_path():
+def test_param_substitutor_render_path() -> None:
     template = "/users/{userId}/items/{itemId}"
     values = {"userId": 42, "itemId": "abc"}
     assert ParamSubstitutor.render_path(template, values) == "/users/42/items/abc"
@@ -44,7 +42,7 @@ def test_param_substitutor_render_path():
     assert ParamSubstitutor.render_path("/test/{foo}", {}) == "/test/{foo}"
 
 
-def test_kwargs_builder():
+def test_kwargs_builder() -> None:
     # Only params
     builder = KwargsBuilder().with_params(a=1, b=None, c="x")
     assert builder.build() == {"params": {"a": 1, "c": "x"}}
@@ -58,7 +56,7 @@ def test_kwargs_builder():
     assert builder.build() == {"params": {"x": 0}, "json": {"foo": "bar"}}
 
 
-def test_formatter__valid_python_code__returns_formatted_code():
+def test_formatter__valid_python_code__returns_formatted_code() -> None:
     """
     Scenario:
         Format a valid Python code string using Formatter when Black is available.
@@ -79,7 +77,7 @@ def test_formatter__valid_python_code__returns_formatted_code():
     compile(formatted, "<string>", "exec")
 
 
-def test_formatter__black_not_installed__returns_original_code(monkeypatch):
+def test_formatter__black_not_installed__returns_original_code(monkeypatch: MonkeyPatch) -> None:
     """
     Scenario:
         Format code when Black is not installed (simulate by monkeypatching Formatter internals).
@@ -99,7 +97,7 @@ def test_formatter__black_not_installed__returns_original_code(monkeypatch):
     assert formatted == code
 
 
-def test_formatter__black_raises_exception__returns_original_code(monkeypatch):
+def test_formatter__black_raises_exception__returns_original_code(monkeypatch: MonkeyPatch) -> None:
     """
     Scenario:
         Format code when Black raises an exception (simulate by monkeypatching _format_str).
@@ -110,7 +108,7 @@ def test_formatter__black_raises_exception__returns_original_code(monkeypatch):
     code = "def foo():\n    return 1\n"
     formatter = Formatter()
 
-    def raise_exc(*args, **kwargs):
+    def raise_exc(*_args: object, **_kwargs: object) -> None:
         raise Exception("Black error")
 
     monkeypatch.setattr(formatter, "_format_str", raise_exc)
@@ -129,7 +127,7 @@ def test_formatter__black_raises_exception__returns_original_code(monkeypatch):
     assert formatted == code
 
 
-def test_import_collector__import_as_module__produces_import_statement():
+def test_import_collector__import_as_module__produces_import_statement() -> None:
     """
     Scenario:
         Add an import where the name is the same as the module (e.g., 'os', 'os').
@@ -146,7 +144,7 @@ def test_import_collector__import_as_module__produces_import_statement():
     assert "import os" in stmts
 
 
-def test_sanitize_class_name__keyword__appends_underscore():
+def test_sanitize_class_name__keyword__appends_underscore() -> None:
     """
     Scenario:
         Sanitize a class name that is a Python keyword (e.g., 'class').
@@ -159,7 +157,7 @@ def test_sanitize_class_name__keyword__appends_underscore():
     assert result == "Class_"
 
 
-def test_template_renderer__jinja_sanitize_class_keyword__appends_underscore():
+def test_template_renderer__jinja_sanitize_class_keyword__appends_underscore() -> None:
     """
     Scenario:
         Use the Jinja2 'sanitize_class_name' filter with a Python keyword as input.
@@ -174,7 +172,7 @@ def test_template_renderer__jinja_sanitize_class_keyword__appends_underscore():
     assert result == "Class_"
 
 
-def test_formatter__importerror_branch__returns_original_code(monkeypatch):
+def test_formatter__importerror_branch__returns_original_code(monkeypatch: MonkeyPatch) -> None:
     """
     Scenario:
         Simulate ImportError in Formatter's __init__ (Black not installed).
@@ -184,7 +182,8 @@ def test_formatter__importerror_branch__returns_original_code(monkeypatch):
     # Arrange
     # Patch sys.modules to simulate ImportError for 'black'
     original_black = sys.modules.get("black")
-    sys.modules["black"] = None
+    if "black" in sys.modules:
+        del sys.modules["black"]
     try:
         # Re-import Formatter to trigger ImportError
         import importlib

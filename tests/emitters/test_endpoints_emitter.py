@@ -256,19 +256,19 @@ def test_endpoints_emitter_imports(tmp_path: Path) -> None:
     assert "Optional" in content
 
 
-def create_simple_response_schema():
+def create_simple_response_schema() -> IRSchema:
     # Helper to create a basic IRSchema for response bodies
     return IRSchema(name=None, type="object", format=None)
 
 
-def create_simple_param_schema():
+def create_simple_param_schema() -> IRSchema:
     # Helper to create a basic IRSchema for parameter schemas
     return IRSchema(name=None, type="string", format=None)
 
 
 def test_endpoints_emitter__sanitize_tag_name__creates_sanitized_module_and_class(
-    tmp_path,
-):
+    tmp_path: Path,
+) -> None:
     """
     Scenario:
         Emit endpoints for a spec with a tag that contains spaces and special chars.
@@ -320,8 +320,8 @@ def test_endpoints_emitter__sanitize_tag_name__creates_sanitized_module_and_clas
 
 
 def test_endpoints_emitter__multiple_operations_same_tag__includes_all_methods(
-    tmp_path,
-):
+    tmp_path: Path,
+) -> None:
     """
     Scenario:
         Emit endpoints for a spec with multiple operations under the same tag.
@@ -389,7 +389,7 @@ def test_endpoints_emitter__multiple_operations_same_tag__includes_all_methods(
     assert "async def get_item" in content, "get_item method missing"
 
 
-def test_endpoints_emitter__init_file_contains_correct_import(tmp_path):
+def test_endpoints_emitter__init_file_contains_correct_import(tmp_path: Path) -> None:
     """
     Scenario:
         Emit endpoints for a spec and inspect the __init__.py file.
@@ -435,7 +435,7 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path):
     assert f"from .{module_name} import {sanitized}" in text, "Import statement missing or incorrect"
 
 
-def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path):
+def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path: Path) -> None:
     """
     Scenario:
         Emit endpoints for a spec with multiple operations using tags that differ only
@@ -502,7 +502,7 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     ), "Only one import from data_sources module should exist"
 
 
-def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_path):
+def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_path: Path) -> None:
     """
     Scenario:
         Generate an endpoint for a streaming (event-stream) response where the schema is
@@ -584,12 +584,13 @@ def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_pat
 
 
 def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yields_dict(
-    tmp_path,
-):
+    tmp_path: Path,
+) -> None:
     """
     Scenario:
-        Generate an endpoint for a streaming (event-stream) response where the schema is an inline object (not a named model and not present in IRSpec.schemas).
-        This matches the /listen endpoint in the business_swagger.json spec, but the schema is not registered as a model.
+        Generate an endpoint for a streaming (event-stream) response where the schema is an inline object (not a named
+        model and not present in IRSpec.schemas). This matches the /listen endpoint in the business_swagger.json spec,
+        but the schema is not registered as a model.
 
     Expected Outcome:
         - The generated method has return type AsyncIterator[Dict[str, Any]]
@@ -653,7 +654,7 @@ def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yield
     assert "from ..models" not in content or "ListenEventsResponse" not in content
 
 
-def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path):
+def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path: Path) -> None:
     """
     Scenario:
         Generate an endpoint with multiple query parameters.

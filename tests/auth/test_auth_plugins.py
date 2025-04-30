@@ -1,10 +1,11 @@
+from typing import Any, Dict
+
 import pytest
 from pyopenapi_gen.auth.plugins import BearerAuth, HeadersAuth
-from typing import Dict, Any
 
 
 @pytest.mark.asyncio
-async def test_bearer_auth_adds_authorization_header():
+async def test_bearer_auth_adds_authorization_header() -> None:
     auth = BearerAuth("token123")
     request_args: Dict[str, Any] = {}
     result = await auth.authenticate_request(request_args)
@@ -13,7 +14,7 @@ async def test_bearer_auth_adds_authorization_header():
 
 
 @pytest.mark.asyncio
-async def test_headers_auth_merges_headers():
+async def test_headers_auth_merges_headers() -> None:
     initial_headers = {"Existing": "val"}
     auth = HeadersAuth({"X-Test": "value", "Y-Other": "otherv"})
     request_args: Dict[str, Any] = {"headers": initial_headers.copy()}
@@ -24,7 +25,7 @@ async def test_headers_auth_merges_headers():
 
 
 @pytest.mark.asyncio
-async def test_auth_composition():
+async def test_auth_composition() -> None:
     ba = BearerAuth("tok")
     ha = HeadersAuth({"X-A": "1"})
     request_args: Dict[str, Any] = {}
@@ -35,7 +36,7 @@ async def test_auth_composition():
 
 
 @pytest.mark.asyncio
-async def test_apikey_auth__header_location__sets_header():
+async def test_apikey_auth__header_location__sets_header() -> None:
     """
     Scenario:
         API key is set to be sent in the header. The plugin should add the key to the correct header.
@@ -50,7 +51,7 @@ async def test_apikey_auth__header_location__sets_header():
 
 
 @pytest.mark.asyncio
-async def test_apikey_auth__query_location__sets_query_param():
+async def test_apikey_auth__query_location__sets_query_param() -> None:
     """
     Scenario:
         API key is set to be sent as a query parameter. The plugin should add the key to the query params.
@@ -65,7 +66,7 @@ async def test_apikey_auth__query_location__sets_query_param():
 
 
 @pytest.mark.asyncio
-async def test_apikey_auth__cookie_location__sets_cookie():
+async def test_apikey_auth__cookie_location__sets_cookie() -> None:
     """
     Scenario:
         API key is set to be sent as a cookie. The plugin should add the key to the cookies dict.
@@ -80,7 +81,7 @@ async def test_apikey_auth__cookie_location__sets_cookie():
 
 
 @pytest.mark.asyncio
-async def test_apikey_auth__invalid_location__raises_value_error():
+async def test_apikey_auth__invalid_location__raises_value_error() -> None:
     """
     Scenario:
         API key is set to an invalid location. The plugin should raise ValueError.
@@ -95,7 +96,7 @@ async def test_apikey_auth__invalid_location__raises_value_error():
 
 
 @pytest.mark.asyncio
-async def test_oauth2_auth__simple_token__sets_bearer_header():
+async def test_oauth2_auth__simple_token__sets_bearer_header() -> None:
     """
     Scenario:
         OAuth2Auth is used with a static access token. The plugin should set the Authorization header.
@@ -110,7 +111,7 @@ async def test_oauth2_auth__simple_token__sets_bearer_header():
 
 
 @pytest.mark.asyncio
-async def test_oauth2_auth__refresh_callback__updates_token():
+async def test_oauth2_auth__refresh_callback__updates_token() -> None:
     """
     Scenario:
         OAuth2Auth is used with a refresh_callback that returns a new token. The plugin should update the token and use it.
@@ -119,7 +120,7 @@ async def test_oauth2_auth__refresh_callback__updates_token():
     """
     from pyopenapi_gen.auth.plugins import OAuth2Auth
 
-    async def refresh_cb(old_token):
+    async def refresh_cb(old_token: str) -> str:
         return "newtoken"
 
     auth = OAuth2Auth("oldtoken", refresh_callback=refresh_cb)

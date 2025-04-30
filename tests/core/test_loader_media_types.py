@@ -1,6 +1,7 @@
 from pathlib import Path
-from pyopenapi_gen.core.loader import load_ir_from_spec
+
 from pyopenapi_gen import IRRequestBody, IRResponse
+from pyopenapi_gen.core.loader import load_ir_from_spec
 
 # Spec with multipart/form-data requestBody and streaming response
 MULTIPART_SPEC = {
@@ -33,11 +34,7 @@ MULTIPART_SPEC = {
                     },
                     "201": {
                         "description": "Binary response",
-                        "content": {
-                            "application/octet-stream": {
-                                "schema": {"type": "string", "format": "binary"}
-                            }
-                        },
+                        "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
                     },
                 },
             }
@@ -53,7 +50,7 @@ def test_loader_multipart_and_stream(tmp_path: Path) -> None:
 
     # Check request_body is mapped to IRRequestBody
     assert isinstance(op.request_body, IRRequestBody)
-    rb: IRRequestBody = op.request_body  # type: ignore[assignment]
+    rb: IRRequestBody = op.request_body
     assert rb.required is True
     assert "multipart/form-data" in rb.content
     schema = rb.content["multipart/form-data"]

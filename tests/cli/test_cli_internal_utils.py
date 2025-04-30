@@ -1,11 +1,12 @@
-import pytest
 from pathlib import Path
+from typing import Any
+
+import pytest
+from pyopenapi_gen.cli import _load_spec, _show_diffs
 from typer import Exit
 
-from pyopenapi_gen.cli import _load_spec, _show_diffs
 
-
-def test_load_spec_from_file(tmp_path: Path):
+def test_load_spec_from_file(tmp_path: Path) -> None:
     """_load_spec should load YAML from a file path."""
     spec_file = tmp_path / "spec.yaml"
     spec_file.write_text("foo: bar")
@@ -13,7 +14,7 @@ def test_load_spec_from_file(tmp_path: Path):
     assert data == {"foo": "bar"}
 
 
-def test_load_spec_url_not_implemented(tmp_path: Path, capsys):
+def test_load_spec_url_not_implemented(tmp_path: Path, capsys: Any) -> None:
     """_load_spec should error for non-existent paths (URL loading path)."""
     url = "http://example.com/spec.yaml"
     with pytest.raises(Exit) as excinfo:
@@ -24,7 +25,7 @@ def test_load_spec_url_not_implemented(tmp_path: Path, capsys):
     assert "URL loading not implemented" in captured.err
 
 
-def test_show_diffs_no_changes(tmp_path: Path, capsys):
+def test_show_diffs_no_changes(tmp_path: Path, capsys: Any) -> None:
     """_show_diffs returns False and prints nothing when directories match."""
     old = tmp_path / "old"
     new = tmp_path / "new"
@@ -42,7 +43,7 @@ def test_show_diffs_no_changes(tmp_path: Path, capsys):
     assert captured.out == ""
 
 
-def test_show_diffs_detects_changes(tmp_path: Path, capsys):
+def test_show_diffs_detects_changes(tmp_path: Path, capsys: Any) -> None:
     """_show_diffs returns True and prints diff when files differ."""
     old = tmp_path / "old"
     new = tmp_path / "new"

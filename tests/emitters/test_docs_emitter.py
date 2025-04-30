@@ -1,31 +1,28 @@
-import os
 from pathlib import Path
-import pytest
 
-from pyopenapi_gen.emitters.docs_emitter import DocsEmitter
-from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen import (
-    IRSpec,
+    HTTPMethod,
     IROperation,
     IRParameter,
     IRResponse,
-    IRRequestBody,
     IRSchema,
-    HTTPMethod,
+    IRSpec,
 )
+from pyopenapi_gen.core.utils import NameSanitizer
+from pyopenapi_gen.emitters.docs_emitter import DocsEmitter
 
 
-def create_simple_response_schema():
+def create_simple_response_schema() -> IRSchema:
     # Create a basic IRSchema for response bodies
     return IRSchema(name=None, type="object", format=None)
 
 
-def create_simple_param_schema():
+def create_simple_param_schema() -> IRSchema:
     # Create a basic IRSchema for path parameters
     return IRSchema(name=None, type="string", format=None)
 
 
-def test_docs_emitter__emit_index_and_tag_files(tmp_path):
+def test_docs_emitter__emit_index_and_tag_files(tmp_path: Path) -> None:
     """
     Scenario:
         Render documentation for a spec with two tags, one with special characters.

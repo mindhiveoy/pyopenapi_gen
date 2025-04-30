@@ -1,8 +1,7 @@
-import pytest
 from pyopenapi_gen.helpers.url_utils import extract_url_variables
 
 
-def test_extract_url_variables__typical_url__returns_all_vars():
+def test_extract_url_variables__typical_url__returns_all_vars() -> None:
     """
     Scenario:
         A URL template contains several variables in curly braces.
@@ -19,7 +18,7 @@ def test_extract_url_variables__typical_url__returns_all_vars():
     assert result == {"bar", "qux", "id"}
 
 
-def test_extract_url_variables__no_vars__returns_empty_set():
+def test_extract_url_variables__no_vars__returns_empty_set() -> None:
     """
     Scenario:
         A URL template contains no variables.
@@ -36,7 +35,7 @@ def test_extract_url_variables__no_vars__returns_empty_set():
     assert result == set()
 
 
-def test_extract_url_variables__adjacent_vars_and_duplicates__returns_unique_names():
+def test_extract_url_variables__adjacent_vars_and_duplicates__returns_unique_names() -> None:
     """
     Scenario:
         A URL template contains adjacent and duplicate variable names.
@@ -53,7 +52,7 @@ def test_extract_url_variables__adjacent_vars_and_duplicates__returns_unique_nam
     assert result == {"foo", "bar", "baz"}
 
 
-def test_extract_url_variables__empty_string__returns_empty_set():
+def test_extract_url_variables__empty_string__returns_empty_set() -> None:
     """
     Scenario:
         The URL template is an empty string.

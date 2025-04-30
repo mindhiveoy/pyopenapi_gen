@@ -1,22 +1,19 @@
-import pytest
-import warnings
+from typing import Any
 
+import pytest
+from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.loader import (
     load_ir_from_spec,
-    validate_spec as _real_validate_spec,
 )
-from pyopenapi_gen import IRSchema
 
 """
-tests/test_loader_invalid_refs.py
-
 These tests verify that the loader:
 1. Continues on spec validation errors by catching and warning.
 2. Handles unresolved $ref in response content by falling back to a default IRSchema.
 """
 
 
-def test_loader_continues_on_validate_spec_error(monkeypatch):
+def test_loader_continues_on_validate_spec_error(monkeypatch: Any) -> None:
     """
     Scenario: validate_spec raises ValueError during spec validation.
     Expected Outcome:
@@ -24,7 +21,7 @@ def test_loader_continues_on_validate_spec_error(monkeypatch):
         - load_ir_from_spec returns an IRSpec with operations parsed normally.
     """
     # Monkeypatch validate_spec to always raise
-    import pyopenapi_gen.loader as loader
+    import pyopenapi_gen.core.loader as loader
 
     monkeypatch.setattr(
         loader,
@@ -42,9 +39,7 @@ def test_loader_continues_on_validate_spec_error(monkeypatch):
                     "responses": {
                         "200": {
                             "description": "OK",
-                            "content": {
-                                "application/json": {"schema": {"type": "object"}}
-                            },
+                            "content": {"application/json": {"schema": {"type": "object"}}},
                         }
                     },
                 }
@@ -66,7 +61,7 @@ def test_loader_continues_on_validate_spec_error(monkeypatch):
     assert isinstance(schema, IRSchema)
 
 
-def test_loader_handles_unresolved_ref_in_response_content(monkeypatch):
+def test_loader_handles_unresolved_ref_in_response_content(monkeypatch: Any) -> None:
     """
     Scenario: A response uses an unresolved $ref for content.
     Expected Outcome:
@@ -74,7 +69,7 @@ def test_loader_handles_unresolved_ref_in_response_content(monkeypatch):
         - The content schema is an IRSchema instance with name=None.
     """
     # Monkeypatch validate_spec to None to skip real validation
-    import pyopenapi_gen.loader as loader
+    import pyopenapi_gen.core.loader as loader
 
     monkeypatch.setattr(loader, "validate_spec", None)
     # Spec with unresolved $ref inside response content
@@ -88,11 +83,7 @@ def test_loader_handles_unresolved_ref_in_response_content(monkeypatch):
                     "responses": {
                         "204": {
                             "description": "No Content",
-                            "content": {
-                                "application/json": {
-                                    "$ref": "#/components/responses/NoContentError"
-                                }
-                            },
+                            "content": {"application/json": {"$ref": "#/components/responses/NoContentError"}},
                         }
                     },
                 }

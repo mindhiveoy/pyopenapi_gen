@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from pyopenapi_gen import IRSpec
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
 

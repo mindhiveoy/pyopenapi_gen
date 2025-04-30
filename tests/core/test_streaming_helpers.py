@@ -1,16 +1,18 @@
 import asyncio
+from typing import AsyncGenerator
+from unittest.mock import AsyncMock, MagicMock
+
+import httpx
 from pyopenapi_gen.core.streaming_helpers import (
     SSEEvent,
+    _parse_sse_event,
     iter_bytes,
     iter_ndjson,
     iter_sse,
-    _parse_sse_event,
 )
-from unittest.mock import AsyncMock, MagicMock
-import httpx
 
 
-def test_sse_event__repr__outputs_expected():
+def test_sse_event__repr__outputs_expected() -> None:
     """
     Scenario:
         Construct an SSEEvent and check its __repr__ output.
@@ -22,7 +24,7 @@ def test_sse_event__repr__outputs_expected():
     assert "SSEEvent(" in r and "foo" in r and "bar" in r and "baz" in r and "123" in r
 
 
-def test_iter_bytes__yields_chunks():
+def test_iter_bytes__yields_chunks() -> None:
     """
     Scenario:
         iter_bytes yields all byte chunks from a streaming response.
@@ -34,14 +36,14 @@ def test_iter_bytes__yields_chunks():
     response.aiter_bytes = AsyncMock(return_value=iter(chunks))
 
     # Patch aiter_bytes to be async iterable
-    async def aiter():
+    async def aiter() -> AsyncGenerator[bytes, None]:
         for c in chunks:
             yield c
 
     response.aiter_bytes = aiter
     out = []
 
-    async def run():
+    async def run() -> None:
         async for chunk in iter_bytes(response):
             out.append(chunk)
 
@@ -49,7 +51,7 @@ def test_iter_bytes__yields_chunks():
     assert out == chunks
 
 
-def test_iter_ndjson__yields_json_objects():
+def test_iter_ndjson__yields_json_objects() -> None:
     """
     Scenario:
         iter_ndjson yields parsed JSON objects from each non-empty line.
@@ -59,14 +61,14 @@ def test_iter_ndjson__yields_json_objects():
     lines = [' {"a": 1} ', "", '{"b": 2}']
     response = MagicMock(spec=httpx.Response)
 
-    async def aiter_lines():
+    async def aiter_lines() -> AsyncGenerator[str, None]:
         for l in lines:
             yield l
 
     response.aiter_lines = aiter_lines
     out = []
 
-    async def run():
+    async def run() -> None:
         async for obj in iter_ndjson(response):
             out.append(obj)
 
@@ -74,7 +76,7 @@ def test_iter_ndjson__yields_json_objects():
     assert out == [{"a": 1}, {"b": 2}]
 
 
-def test_iter_sse__yields_events():
+def test_iter_sse__yields_events() -> None:
     """
     Scenario:
         iter_sse yields SSEEvent objects for each event in the stream.
@@ -94,14 +96,14 @@ def test_iter_sse__yields_events():
     ]
     response = MagicMock(spec=httpx.Response)
 
-    async def aiter_lines():
+    async def aiter_lines() -> AsyncGenerator[str, None]:
         for l in lines:
             yield l
 
     response.aiter_lines = aiter_lines
     out = []
 
-    async def run():
+    async def run() -> None:
         async for event in iter_sse(response):
             out.append(event)
 
@@ -115,7 +117,7 @@ def test_iter_sse__yields_events():
     assert out[1].retry == 100
 
 
-def test_parse_sse_event__parses_fields():
+def test_parse_sse_event__parses_fields() -> None:
     """
     Scenario:
         _parse_sse_event parses all SSE fields from lines.
@@ -136,7 +138,7 @@ def test_parse_sse_event__parses_fields():
     assert event.retry == 500
 
 
-def test_parse_sse_event__handles_missing_fields():
+def test_parse_sse_event__handles_missing_fields() -> None:
     """
     Scenario:
         _parse_sse_event handles missing optional fields.

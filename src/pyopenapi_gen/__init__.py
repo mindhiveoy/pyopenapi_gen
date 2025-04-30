@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """pyopenapi_gen – Core package
 
 This package provides the internal representation (IR) dataclasses that act as an
@@ -8,9 +6,11 @@ emitters.  The IR aims to be a *stable*, *fully‑typed* model that the rest of 
 code‑generation pipeline can rely on.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from enum import Enum, unique
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 __all__ = [
     "HTTPMethod",
@@ -77,9 +77,7 @@ class IRResponse:
     description: Optional[str]
     content: Dict[str, "IRSchema"]  # media‑type → schema mapping
     stream: bool = False  # Indicates a binary or streaming response
-    stream_format: Optional[str] = (
-        None  # Indicates the stream type (e.g., 'octet-stream', 'event-stream', etc.)
-    )
+    stream_format: Optional[str] = None  # Indicates the stream type (e.g., 'octet-stream', 'event-stream', etc.)
 
 
 @dataclass(slots=True)
@@ -142,8 +140,8 @@ class IRSpec:
 # ---------------------------------------------------------------------------
 if TYPE_CHECKING:
     # Imports for static analysis
-    from .loader import load_ir_from_spec  # noqa: F401
-    from .warning_collector import WarningCollector  # noqa: F401
+    from .core.loader import load_ir_from_spec  # noqa: F401
+    from .core.warning_collector import WarningCollector  # noqa: F401
 
 # Expose loader and collector at package level
 __all__.extend(["load_ir_from_spec", "WarningCollector"])
@@ -152,11 +150,11 @@ __all__.extend(["load_ir_from_spec", "WarningCollector"])
 def __getattr__(name: str) -> Any:
     # Lazy-import attributes for runtime, supports IDE completion via TYPE_CHECKING
     if name == "load_ir_from_spec":
-        from .loader import load_ir_from_spec as _func
+        from .core.loader import load_ir_from_spec as _func
 
         return _func
     if name == "WarningCollector":
-        from .warning_collector import WarningCollector as _cls
+        from .core.warning_collector import WarningCollector as _cls
 
         return _cls
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

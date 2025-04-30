@@ -4,12 +4,81 @@ globs:
 alwaysApply: true
 ---
 # PROJECT GOAL
-The generated client must produce Python code that:
-Communicates directly with the API as defined by the provided OpenAPI spec.
+
+The Python OpenAPI client generator must produce client code that:
+
+## 1. Direct API Communication
+- Communicates directly with the API as defined by the provided OpenAPI spec.
 - Accepts strongly typed input parameters (matching the OpenAPI schema).
 - Returns strongly typed responses (matching the OpenAPI schema).
+
+## 2. Authentication & Transport
 - Supports authentication and lazy loading.
 - Uses a system default HTTP implementation by default, but allows the user to inject a custom HTTP class for communication.
+
+## 3. Out-of-the-Box Functionality
 - The generated code is fully functional out of the box—no stubs, placeholders, or manual implementation required for basic API communication.
+
+## 4. IDE Support
 - The generated client must support code completion and type hints in IDEs (such as PyCharm, VSCode, etc.), leveraging Python's type annotations and docstrings for maximum developer productivity.
+
+## 5. Error Handling
 - All errors that the client receives from the API must be handled by raising an exception; only successful responses are returned as response types.
+
+---
+
+## 6. Client Independence & Core Module
+
+**The generated client code must be fully independent and must not require any runtime dependency on `pyopenapi_gen` itself.**
+
+- All runtime dependencies (e.g., base transport, authentication protocols, exceptions, utility classes) must be generated into a `core` module/folder within the output package.
+- The generator must provide an option to customize the name and location of this `core` folder, to support scenarios where multiple clients are generated for the same system and can share a single core implementation.
+- All imports in the generated client code must be relative (e.g., `from .core.http_transport import HttpTransport`) or from the standard library/allowed third-party packages.
+- No `from pyopenapi_gen...` imports should appear in the generated output.
+
+### Example Output Structure
+
+```
+my_generated_client/
+    core/
+        http_transport.py
+        auth.py
+        exceptions.py
+        ...
+    models/
+        ...
+    endpoints/
+        ...
+    __init__.py
+    py.typed
+    README.md
+```
+
+Or, with a shared core:
+
+```
+shared_core/
+    http_transport.py
+    auth.py
+    exceptions.py
+    ...
+client_a/
+    models/
+    endpoints/
+    ...
+client_b/
+    models/
+    endpoints/
+    ...
+```
+*(Clients can import from the shared core as configured.)*
+
+---
+
+## 7. Documentation
+- The generated client’s README must clearly state that it is independent and does not require `pyopenapi_gen` at runtime.
+- If the core module is shared, document how to set up the import path.
+
+---
+
+**This ensures that the generated client is robust, portable, and easy to integrate into any Python project without extra dependencies.**

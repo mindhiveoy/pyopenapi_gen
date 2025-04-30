@@ -1,12 +1,11 @@
 import subprocess
 import sys
 from pathlib import Path
-import typer
 
 GENERATED_DIR = Path("generated")
 
 
-def run_mypy():
+def run_mypy() -> None:
     print("Running mypy for type checking...")
     result = subprocess.run(
         [sys.executable, "-m", "mypy", str(GENERATED_DIR), "--strict"],
@@ -22,7 +21,7 @@ def run_mypy():
         sys.exit(result.returncode)
 
 
-def run_ruff():
+def run_ruff() -> None:
     print("Removing unused imports with ruff...")
     result = subprocess.run(
         [

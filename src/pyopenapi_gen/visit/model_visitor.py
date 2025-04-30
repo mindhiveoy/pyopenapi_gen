@@ -1,8 +1,10 @@
-from pyopenapi_gen import IRSchema
-from .visitor import Visitor
-from pyopenapi_gen.context.render_context import RenderContext
-from ..core.utils import Formatter, CodeWriter
 from typing import Optional
+
+from pyopenapi_gen import IRSchema
+from pyopenapi_gen.context.render_context import RenderContext
+
+from ..core.utils import CodeWriter, Formatter
+from .visitor import Visitor
 
 
 class ModelVisitor(Visitor[IRSchema, str]):
@@ -40,16 +42,17 @@ class ModelVisitor(Visitor[IRSchema, str]):
                 for line in schema.description.splitlines():
                     writer.write_line(line)
                 writer.write_line('"""')
-            for val in schema.enum:
-                if schema.type == "string":
-                    name = val.upper().replace("-", "_").replace(" ", "_")
-                    writer.write_line(f'{name} = "{val}"')
-                elif schema.type == "integer":
-                    if isinstance(val, str):
-                        name = val.replace("-", "_").replace(" ", "_").upper()
-                        writer.write_line(f"{name} = {val}")
-                    else:
-                        writer.write_line(f"_{val} = {val}")
+            if schema.enum is not None:
+                for val in schema.enum:
+                    if schema.type == "string":
+                        name = val.upper().replace("-", "_").replace(" ", "_")
+                        writer.write_line(f'{name} = "{val}"')
+                    elif schema.type == "integer":
+                        if isinstance(val, str):
+                            name = val.replace("-", "_").replace(" ", "_").upper()
+                            writer.write_line(f"{name} = {val}")
+                        else:
+                            writer.write_line(f"_{val} = {val}")
             writer.dedent()
         else:
             # Dataclass
@@ -94,9 +97,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
             writer.dedent()
         return self.formatter.format(writer.get_code())
 
-    def _analyze_and_register_imports(
-        self, schema: IRSchema, context: RenderContext
-    ) -> None:
+    def _analyze_and_register_imports(self, schema: IRSchema, context: RenderContext) -> None:
         for prop, ps in schema.properties.items():
             # Optional if not required
             if prop not in schema.required:

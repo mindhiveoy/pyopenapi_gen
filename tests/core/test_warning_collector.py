@@ -1,12 +1,12 @@
 from pyopenapi_gen import (
-    IRSpec,
-    IROperation,
     HTTPMethod,
+    IROperation,
+    IRSpec,
 )
 from pyopenapi_gen.core.warning_collector import WarningCollector
 
 
-def test_warning_collector_missing():
+def test_warning_collector_missing() -> None:
     # Create an operation with no tags, no summary, no description
     op = IROperation(
         operation_id="testOp",
@@ -30,7 +30,7 @@ def test_warning_collector_missing():
     assert "missing_description" in codes
 
 
-def test_warning_collector_no_issues():
+def test_warning_collector_no_issues() -> None:
     # Operation with tags and summary
     op = IROperation(
         operation_id="okOp",

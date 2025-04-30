@@ -174,6 +174,37 @@ Beyond the basics, the generator and generated clients include advanced features
 
 ---
 
+## Independence from pyopenapi_gen
+
+The generated client code is **fully independent** and does not require `pyopenapi_gen` at runtime. All runtime dependencies (HTTP transport, authentication, exceptions, utilities) are included in the generated `core/` module. You can use the generated client in any Python project without installing the generator package.
+
+### Output Structure Example
+
+```
+my_generated_client/
+    core/
+        http_transport.py
+        exceptions.py
+        streaming_helpers.py
+        pagination.py
+        utils.py
+        config.py
+        auth/
+            base.py
+            plugins.py
+    models/
+    endpoints/
+    __init__.py
+    py.typed
+    README.md
+```
+
+### Shared Core
+
+If you generate multiple clients for the same system, you can configure the generator to use a shared core module. In this case, import paths will be relative to the shared core location. See the generator options for details.
+
+---
+
 ## Contributing
 
 We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, please follow the guidelines below to ensure a smooth process.

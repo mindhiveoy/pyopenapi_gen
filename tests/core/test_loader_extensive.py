@@ -2,19 +2,19 @@ import pytest
 from pyopenapi_gen.core.loader import load_ir_from_spec
 
 
-def test_load_ir_from_spec_missing_openapi():
+def test_load_ir_from_spec_missing_openapi() -> None:
     with pytest.raises(ValueError) as excinfo:
         load_ir_from_spec({})
     assert "Missing 'openapi' field" in str(excinfo.value)
 
 
-def test_load_ir_from_spec_missing_paths():
+def test_load_ir_from_spec_missing_paths() -> None:
     with pytest.raises(ValueError) as excinfo:
         load_ir_from_spec({"openapi": "3.1.0"})
     assert "Missing 'paths' section" in str(excinfo.value)
 
 
-def test_simple_operation_and_response_and_servers():
+def test_simple_operation_and_response_and_servers() -> None:
     """A minimal spec with one operation, JSON response, and server URL."""
     spec_dict = {
         "openapi": "3.1.0",
@@ -65,7 +65,7 @@ def test_simple_operation_and_response_and_servers():
     assert not resp.stream
 
 
-def test_parse_parameters_and_request_body_and_streaming_response():
+def test_parse_parameters_and_request_body_and_streaming_response() -> None:
     """Spec with path and query parameters, JSON requestBody, and binary response stream."""
     spec_dict = {
         "openapi": "3.1.0",
@@ -97,11 +97,7 @@ def test_parse_parameters_and_request_body_and_streaming_response():
                     "responses": {
                         "200": {
                             "description": "Binary data",
-                            "content": {
-                                "application/octet-stream": {
-                                    "schema": {"type": "string", "format": "binary"}
-                                }
-                            },
+                            "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
                         }
                     },
                 },
@@ -129,7 +125,7 @@ def test_parse_parameters_and_request_body_and_streaming_response():
     assert resp.stream
 
 
-def test_response_ref_and_parameter_ref_and_request_body_ref_and_component_refs():
+def test_response_ref_and_parameter_ref_and_request_body_ref_and_component_refs() -> None:
     """Spec using component references for responses, parameters, and requestBodies."""
     spec_dict = {
         "openapi": "3.1.0",

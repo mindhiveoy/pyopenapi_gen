@@ -1,9 +1,10 @@
 import inspect
-from typing import Dict, Any
+from typing import Any, Dict
+
 from pyopenapi_gen.auth.base import BaseAuth
 
 
-def test_base_auth_method_signature():
+def test_base_auth_method_signature() -> None:
     """BaseAuth should define authenticate_request(request_args: Dict[str, Any]) -> Dict[str, Any]"""
     sig = inspect.signature(BaseAuth.authenticate_request)
     # The method should accept two parameters: self and request_args

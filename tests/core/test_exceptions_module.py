@@ -1,8 +1,8 @@
+from pyopenapi_gen.core.exceptions import ClientError, HTTPError, ServerError
 from pytest import raises
-from pyopenapi_gen.core.exceptions import HTTPError, ClientError, ServerError
 
 
-def test_http_error_attributes_and_str():
+def test_http_error_attributes_and_str() -> None:
     error = HTTPError(404, "Not found")
     # Attributes are set correctly
     assert error.status_code == 404
@@ -11,7 +11,7 @@ def test_http_error_attributes_and_str():
     assert str(error) == "404: Not found"
 
 
-def test_client_error_inherits_http_error():
+def test_client_error_inherits_http_error() -> None:
     err = ClientError(400, "Bad request")
     # Inheritance
     assert isinstance(err, HTTPError)
@@ -23,7 +23,7 @@ def test_client_error_inherits_http_error():
     assert str(err) == "400: Bad request"
 
 
-def test_server_error_inherits_http_error():
+def test_server_error_inherits_http_error() -> None:
     err = ServerError(500, "Server error")
     # Inheritance
     assert isinstance(err, HTTPError)
@@ -35,7 +35,7 @@ def test_server_error_inherits_http_error():
     assert str(err) == "500: Server error"
 
 
-def test_http_error_raise_and_catch():
+def test_http_error_raise_and_catch() -> None:
     with raises(HTTPError) as excinfo:
         raise HTTPError(403, "Forbidden")
     caught = excinfo.value

@@ -1,7 +1,8 @@
-from pyopenapi_gen.core.telemetry import TelemetryClient
-import os
 import json
+import os
 from typing import Any
+
+from pyopenapi_gen.core.telemetry import TelemetryClient
 
 
 def test_telemetry_default_disabled(capsys: Any) -> None:

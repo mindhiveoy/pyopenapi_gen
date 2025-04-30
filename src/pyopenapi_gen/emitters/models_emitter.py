@@ -1,11 +1,11 @@
 import os
 from typing import Dict, Set
-import re
 
 from pyopenapi_gen import IRSpec
-from ..core.utils import NameSanitizer, Formatter
-from ..visit.model_visitor import ModelVisitor
 from pyopenapi_gen.context.render_context import RenderContext
+
+from ..core.utils import Formatter, NameSanitizer
+from ..visit.model_visitor import ModelVisitor
 
 # OpenAPI to Python type mapping
 OPENAPI_TO_PYTHON_TYPES: Dict[str, str] = {
@@ -95,8 +95,8 @@ class ModelsEmitter:
         self.schema_names: Set[str] = set()
         self.visitor = ModelVisitor()
 
-    def emit(self, spec: IRSpec, output_dir: str) -> None:
-        """Render one model file per schema under <output_dir>/models using the visitor/context/registry pattern."""
+    def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
+        """Render one model file per schema under <output_dir>/models using the visitor/context/registry pattern. Returns a list of generated file paths."""
         models_dir = os.path.join(output_dir, "models")
         context = RenderContext()
         context.file_manager.ensure_dir(models_dir)
@@ -122,6 +122,7 @@ class ModelsEmitter:
             file_path = os.path.join(models_dir, f"{module_name}.py")
             context.mark_generated_module(file_path)
 
+        generated_files = []
         # Generate model files for all schemas
         for name, schema in spec.schemas.items():
             if not name:
@@ -139,3 +140,5 @@ class ModelsEmitter:
             file_content = imports_code + "\n\n" + model_code
             file_content = self.formatter.format(file_content)
             context.file_manager.write_file(file_path, file_content)
+            generated_files.append(file_path)
+        return generated_files

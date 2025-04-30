@@ -1,10 +1,10 @@
-from pathlib import Path
-from typer.testing import CliRunner
 import json
-import subprocess
 import os
+import subprocess
+from pathlib import Path
 
 from pyopenapi_gen.cli import app
+from typer.testing import CliRunner
 
 # Minimal Petstore-like spec for integration test
 MIN_SPEC = {
@@ -48,21 +48,15 @@ def test_petstore_integration_with_tag(tmp_path: Path) -> None:
     pets_file = out_dir / "endpoints" / "pets.py"
     assert pets_file.exists(), "pets.py endpoint not generated"
     content = pets_file.read_text()
-    assert (
-        "async def list_pets" in content
-    ), "list_pets method missing in generated code"
+    assert "async def list_pets" in content, "list_pets method missing in generated code"
 
     # Run mypy on the generated code to ensure type correctness
     env = os.environ.copy()
     # Add both the generated output parent and the real src directory to PYTHONPATH
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-    env["PYTHONPATH"] = os.pathsep.join(
-        [str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")]
-    )
-    result = subprocess.run(
-        ["mypy", str(out_dir)], capture_output=True, text=True, env=env
-    )
-    assert result.returncode == 0, f"mypy errors:\n{result.stdout}\n{result.stderr}"
+    env["PYTHONPATH"] = os.pathsep.join([str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")])
+    mypy_result = subprocess.run(["mypy", str(out_dir)], capture_output=True, text=True, env=env)
+    assert mypy_result.returncode == 0, f"mypy errors:\n{mypy_result.stdout}\n{mypy_result.stderr}"
 
 
 def test_petstore_integration_no_tag(tmp_path: Path) -> None:
@@ -89,18 +83,12 @@ def test_petstore_integration_no_tag(tmp_path: Path) -> None:
     default_file = out_dir / "endpoints" / "default.py"
     assert default_file.exists(), "default.py endpoint not generated"
     content = default_file.read_text()
-    assert (
-        "async def list_pets" in content
-    ), "list_pets method missing in generated code"
+    assert "async def list_pets" in content, "list_pets method missing in generated code"
 
     # Run mypy on the generated code to ensure type correctness
     env = os.environ.copy()
     # Add both the generated output parent and the real src directory to PYTHONPATH
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-    env["PYTHONPATH"] = os.pathsep.join(
-        [str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")]
-    )
-    result = subprocess.run(
-        ["mypy", str(out_dir)], capture_output=True, text=True, env=env
-    )
-    assert result.returncode == 0, f"mypy errors:\n{result.stdout}\n{result.stderr}"
+    env["PYTHONPATH"] = os.pathsep.join([str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")])
+    mypy_result = subprocess.run(["mypy", str(out_dir)], capture_output=True, text=True, env=env)
+    assert mypy_result.returncode == 0, f"mypy errors:\n{mypy_result.stdout}\n{mypy_result.stderr}"

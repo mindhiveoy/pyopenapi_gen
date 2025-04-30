@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
-from typer.testing import CliRunner
+
 from pyopenapi_gen.cli import app
+from typer.testing import CliRunner
 
 
-def test_backup_diff_exits_non_zero_on_changes(tmp_path: Path):
+def test_backup_diff_exits_non_zero_on_changes(tmp_path: Path) -> None:
     """Running gen twice without --force and modifying output should trigger diff and exit non-zero."""
     # Prepare minimal spec
     spec = {

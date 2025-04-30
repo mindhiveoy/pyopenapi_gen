@@ -1,7 +1,9 @@
-from pyopenapi_gen import IRSpec
-from ..core.utils import NameSanitizer, CodeWriter
-from ..context.render_context import RenderContext
 import re
+
+from pyopenapi_gen import IRSpec
+
+from ..context.render_context import RenderContext
+from ..core.utils import CodeWriter, NameSanitizer
 
 
 class ClientVisitor:
@@ -11,14 +13,7 @@ class ClientVisitor:
         pass
 
     def visit(self, spec: IRSpec, context: RenderContext) -> str:
-        # Register imports needed for the client
-        context.add_import("typing", "Any")
-        context.add_import("typing", "Optional")
-        context.add_import(".config", "ClientConfig")
-        context.add_import("pyopenapi_gen.http_transport", "HttpTransport")
-        context.add_import("pyopenapi_gen.http_transport", "HttpxTransport")
-        # Prepare tag list for client attributes, deduplicated by normalized key
-        tag_candidates = {}
+        tag_candidates: dict[str, list[str]] = {}
         for op in spec.operations:
             if op.tags:
                 for tag in op.tags:
@@ -33,10 +28,8 @@ class ClientVisitor:
                     tag_candidates[key] = []
                 tag_candidates[key].append(fallback)
 
-        def tag_score(t):
-            is_pascal = bool(re.search(r"[a-z][A-Z]", t)) or bool(
-                re.search(r"[A-Z]{2,}", t)
-            )
+        def tag_score(t: str) -> tuple[bool, int, int, str]:
+            is_pascal = bool(re.search(r"[a-z][A-Z]", t)) or bool(re.search(r"[A-Z]{2,}", t))
             words = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|[0-9]+", t)
             words += re.split(r"[_-]+", t)
             word_count = len([w for w in words if w])
@@ -56,18 +49,21 @@ class ClientVisitor:
             for key in sorted(tag_map)
         ]
         writer = CodeWriter()
-        # Imports
-        # Remove direct import emission; rely on context/import collector
-        # writer.write_line("from typing import Optional, Any")
+        # Register all endpoint client imports
         for _, class_name, module_name in tag_tuples:
+            context.add_import(f"endpoints.{module_name}", class_name)
             writer.write_line(f"from .endpoints.{module_name} import {class_name}")
         writer.write_line("")
+        # Register core/config/typing imports for class signature
+        context.add_import(".config", "ClientConfig")
+        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package}.http_transport", "HttpxTransport")
+        context.add_typing_imports_for_type("Optional[HttpTransport]")
+        context.add_typing_imports_for_type("Any")
         # Class definition
         writer.write_line("class APIClient:")
         writer.indent()
-        writer.write_line(
-            '"""Async API client with pluggable transport and tag-specific clients."""'
-        )
+        writer.write_line('"""Async API client with pluggable transport and tag-specific clients."""')
         writer.write_line("")
         # __init__
         writer.write_line(
@@ -81,28 +77,27 @@ class ClientVisitor:
         writer.write_line("self._base_url: str = str(self.config.base_url)")
         # Initialize private fields for each tag client
         for tag, class_name, module_name in tag_tuples:
+            context.add_typing_imports_for_type(f"Optional[{class_name}]")
             writer.write_line(f"self._{module_name}: Optional[{class_name}] = None")
         writer.dedent()
         writer.write_line("")
         # @property for each tag client
         for tag, class_name, module_name in tag_tuples:
             writer.write_line(f"@property")
+            context.add_import(f"endpoints.{module_name}", class_name)
             writer.write_line(f"def {module_name}(self) -> {class_name}:")
             writer.indent()
             writer.write_line(f'"""Client for \'{tag}\' endpoints."""')
             writer.write_line(f"if self._{module_name} is None:")
             writer.indent()
-            writer.write_line(
-                f"self._{module_name} = {class_name}(self.transport, self._base_url)"
-            )
+            writer.write_line(f"self._{module_name} = {class_name}(self.transport, self._base_url)")
             writer.dedent()
             writer.write_line(f"return self._{module_name}")
             writer.dedent()
             writer.write_line("")
         # request method
-        writer.write_line(
-            "async def request(self, method: str, url: str, **kwargs: Any) -> Any:"
-        )
+        context.add_typing_imports_for_type("Any")
+        writer.write_line("async def request(self, method: str, url: str, **kwargs: Any) -> Any:")
         writer.indent()
         writer.write_line('"""Send an HTTP request via the transport."""')
         writer.write_line("return await self.transport.request(method, url, **kwargs)")

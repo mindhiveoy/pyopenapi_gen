@@ -1,7 +1,8 @@
 from pathlib import Path
+
 from pyopenapi_gen import IRSchema, IRSpec
-from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 from pyopenapi_gen.core.utils import NameSanitizer
+from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
 def test_models_emitter_simple(tmp_path: Path) -> None:
@@ -16,9 +17,7 @@ def test_models_emitter_simple(tmp_path: Path) -> None:
             "name": IRSchema(name=None, type="string"),
         },
     )
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"Pet": schema}, operations=[], servers=[]
-    )
+    spec = IRSpec(title="T", version="0.1", schemas={"Pet": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
     emitter = ModelsEmitter()
@@ -49,9 +48,7 @@ def test_models_emitter_enum(tmp_path: Path) -> None:
         enum=["pending", "approved", "rejected"],
         description="Status of a pet",
     )
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"Status": schema}, operations=[], servers=[]
-    )
+    spec = IRSpec(title="T", version="0.1", schemas={"Status": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
     emitter = ModelsEmitter()
@@ -93,9 +90,7 @@ def test_models_emitter_array(tmp_path: Path) -> None:
             ),
         },
     )
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"PetList": schema}, operations=[], servers=[]
-    )
+    spec = IRSpec(title="T", version="0.1", schemas={"PetList": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
     emitter = ModelsEmitter()
@@ -135,9 +130,7 @@ def test_models_emitter_datetime(tmp_path: Path) -> None:
             ),
         },
     )
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"Event": schema}, operations=[], servers=[]
-    )
+    spec = IRSpec(title="T", version="0.1", schemas={"Event": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
     emitter = ModelsEmitter()
@@ -168,9 +161,7 @@ def test_models_emitter_empty_schema(tmp_path: Path) -> None:
         type="object",
         properties={},  # Empty object
     )
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"Empty": schema}, operations=[], servers=[]
-    )
+    spec = IRSpec(title="T", version="0.1", schemas={"Empty": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
     emitter = ModelsEmitter()
@@ -215,16 +206,14 @@ def test_models_emitter_init_file(tmp_path: Path) -> None:
     # Simpler approach: just check that each model is mentioned in the imports
     for model in ["Pet", "Order", "User"]:
         assert f'"{model}"' in content
-        assert (
-            f"from .{NameSanitizer.sanitize_module_name(model)} import {model}"
-            in content
-        )
+        assert f"from .{NameSanitizer.sanitize_module_name(model)} import {model}" in content
 
 
-def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path):
+def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path: Path) -> None:
     """
     Scenario:
-        A single schema in IRSpec should produce one model file with a sanitized filename and corresponding __init__.py exports entry.
+        A single schema in IRSpec should produce one model file with a sanitized filename and
+        corresponding __init__.py exports entry.
 
     Expected Outcome:
         - The models directory contains a file <sanitized>.py.
@@ -243,9 +232,7 @@ def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path)
         enum=None,
         description="A test schema",
     )
-    spec = IRSpec(
-        title="API", version="1.0.0", schemas={schema_name: schema}, operations=[]
-    )
+    spec = IRSpec(title="API", version="1.0.0", schemas={schema_name: schema}, operations=[])
     out_dir = tmp_path / "out"
 
     # Act
@@ -267,16 +254,14 @@ def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path)
     assert init_file.exists(), "__init__.py not generated in models/"
     init_content = init_file.read_text()
     assert (
-        '__all__ = ["TestSchema"]' in init_content
-        or '__all__: list[str] = ["TestSchema"]' in init_content
+        '__all__ = ["TestSchema"]' in init_content or '__all__: list[str] = ["TestSchema"]' in init_content
     ), "__all__ missing class name"
     assert (
-        f"from .{NameSanitizer.sanitize_module_name(schema_name)} import TestSchema"
-        in init_content
+        f"from .{NameSanitizer.sanitize_module_name(schema_name)} import TestSchema" in init_content
     ), "Import statement missing or incorrect"
 
 
-def test_models_emitter__primitive_alias(tmp_path):
+def test_models_emitter__primitive_alias(tmp_path: Path) -> None:
     """
     Scenario:
         A named primitive schema should emit a type alias (e.g., MyString = str).
@@ -299,16 +284,14 @@ def test_models_emitter__primitive_alias(tmp_path):
     assert "MyString = str" in content
 
 
-def test_models_emitter__array_of_primitives_alias(tmp_path):
+def test_models_emitter__array_of_primitives_alias(tmp_path: Path) -> None:
     """
     Scenario:
         A named array-of-primitive schema should emit a List alias (e.g., MyStrings = List[str]).
     Expected Outcome:
         The generated file contains the correct alias and import.
     """
-    schema = IRSchema(
-        name="MyStrings", type="array", items=IRSchema(name=None, type="string")
-    )
+    schema = IRSchema(name="MyStrings", type="array", items=IRSchema(name=None, type="string"))
     spec = IRSpec(
         title="T",
         version="0.1",
@@ -325,7 +308,7 @@ def test_models_emitter__array_of_primitives_alias(tmp_path):
     assert "List" in content and "from typing" in content
 
 
-def test_models_emitter__array_of_models_alias(tmp_path):
+def test_models_emitter__array_of_models_alias(tmp_path: Path) -> None:
     """
     Scenario:
         A named array-of-model schema should emit a List[Model] alias and import the model.
@@ -350,7 +333,7 @@ def test_models_emitter__array_of_models_alias(tmp_path):
     assert "from .Pet import Pet" in content or "from .pet import Pet" in content
 
 
-def test_models_emitter__integer_enum(tmp_path):
+def test_models_emitter__integer_enum(tmp_path: Path) -> None:
     """
     Scenario:
         A named integer enum schema should emit an Enum class.
@@ -376,16 +359,13 @@ def test_models_emitter__integer_enum(tmp_path):
     assert model_file.exists()
     content = model_file.read_text()
     assert "from enum import Enum" in content
-    assert (
-        "class StatusCode(int, Enum):" in content
-        or "class StatusCode(Enum):" in content
-    )
+    assert "class StatusCode(int, Enum):" in content or "class StatusCode(Enum):" in content
     assert "200 = 200" in content or "_200 = 200" in content
     assert "404 = 404" in content or "_404 = 404" in content
     assert "500 = 500" in content or "_500 = 500" in content
 
 
-def test_models_emitter__unnamed_schema_skipped(tmp_path):
+def test_models_emitter__unnamed_schema_skipped(tmp_path: Path) -> None:
     """
     Scenario:
         A schema with no name should be skipped and not generate a file.
@@ -393,16 +373,14 @@ def test_models_emitter__unnamed_schema_skipped(tmp_path):
         No file is generated for the unnamed schema.
     """
     schema = IRSchema(name=None, type="string")
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"": schema}, operations=[], servers=[]
-    )
+    spec = IRSpec(title="T", version="0.1", schemas={"": schema}, operations=[], servers=[])
     out_dir = tmp_path / "out"
     ModelsEmitter().emit(spec, str(out_dir))
     model_file = out_dir / "models" / ".py"
     assert not model_file.exists()
 
 
-def test_models_emitter__unknown_type_fallback(tmp_path):
+def test_models_emitter__unknown_type_fallback(tmp_path: Path) -> None:
     """
     Scenario:
         A schema with an unknown type should be skipped (fallback logic).
@@ -410,16 +388,14 @@ def test_models_emitter__unknown_type_fallback(tmp_path):
         No file is generated for the unknown type schema.
     """
     schema = IRSchema(name="Mystery", type="unknown")
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"Mystery": schema}, operations=[], servers=[]
-    )
+    spec = IRSpec(title="T", version="0.1", schemas={"Mystery": schema}, operations=[], servers=[])
     out_dir = tmp_path / "out"
     ModelsEmitter().emit(spec, str(out_dir))
     model_file = out_dir / "models" / "Mystery.py"
     assert not model_file.exists()
 
 
-def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path):
+def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path: Path) -> None:
     """
     Scenario:
         A model schema has a field with type 'object' (maps to Any) and is not required (maps to Optional[Any]).
@@ -436,9 +412,7 @@ def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path):
         required=["id"],
         properties={
             "id": IRSchema(name=None, type="string"),
-            "meta": IRSchema(
-                name=None, type="object"
-            ),  # not required, so Optional[Any]
+            "meta": IRSchema(name=None, type="object"),  # not required, so Optional[Any]
         },
     )
     spec = IRSpec(
@@ -462,19 +436,20 @@ def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path):
     assert "meta: Optional[Any] = field(default_factory=dict)" in content
 
 
-def test_models_emitter__inline_response_schema__generates_model(tmp_path):
+def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path) -> None:
     """
     Scenario:
-        The IRSpec contains a schema for an inline response (e.g., ListenEventsResponse) that was not in components/schemas.
-        The model emitter should generate a dataclass for this inline response schema.
+        The IRSpec contains a schema for an inline response (e.g., ListenEventsResponse) that
+        was not in components/schemas. The model emitter should generate a dataclass for this
+        inline response schema.
 
     Expected Outcome:
         - A model file is generated for ListenEventsResponse in the models directory
         - The file contains a dataclass definition for ListenEventsResponse
     """
-    from pyopenapi_gen import IRSpec, IRSchema
+
+    from pyopenapi_gen import IRSchema, IRSpec
     from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
-    import os
 
     # Simulate an inline response schema named ListenEventsResponse
     schema = IRSchema(

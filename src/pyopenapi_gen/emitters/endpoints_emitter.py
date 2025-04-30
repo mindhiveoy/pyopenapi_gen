@@ -1,9 +1,11 @@
 import os
+from typing import Dict, List, Tuple
 
-from pyopenapi_gen import IRSpec, IRParameter, IRRequestBody
-from ..core.utils import NameSanitizer, Formatter
-from ..visit.endpoint_visitor import EndpointVisitor
+from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
+
+from ..core.utils import Formatter, NameSanitizer
+from ..visit.endpoint_visitor import EndpointVisitor
 
 # Basic OpenAPI schema to Python type mapping for parameters
 PARAM_TYPE_MAPPING = {
@@ -45,9 +47,7 @@ def schema_to_type(schema: IRParameter) -> str:
         s_type = types[0] if types else None
     # Array handling
     if s_type == "array" and s.items:
-        item_type = schema_to_type(
-            IRParameter(name="", in_="", required=False, schema=s.items)
-        )
+        item_type = schema_to_type(IRParameter(name="", in_="", required=False, schema=s.items))
         py_type = f"List[{item_type}]"
     # Default mapping
     elif s_type in PARAM_TYPE_MAPPING:
@@ -64,14 +64,12 @@ def _get_request_body_type(body: IRRequestBody) -> str:
     """Determine the Python type for a request body schema."""
     for mt, sch in body.content.items():
         if "json" in mt.lower():
-            return schema_to_type(
-                IRParameter(name="body", in_="body", required=body.required, schema=sch)
-            )
+            return schema_to_type(IRParameter(name="body", in_="body", required=body.required, schema=sch))
     # Fallback to generic dict
     return "Dict[str, Any]"
 
 
-def _deduplicate_tag_clients(client_classes):
+def _deduplicate_tag_clients(client_classes: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
     """
     Deduplicate client class/module pairs by canonical module/class name.
     Returns a list of unique (class_name, module_name) pairs.
@@ -89,13 +87,14 @@ def _deduplicate_tag_clients(client_classes):
 class EndpointsEmitter:
     """Generates endpoint modules organized by tag from IRSpec using the visitor/context architecture."""
 
-    def __init__(self, schemas=None) -> None:
+    def __init__(self, schemas: dict[str, object] | None = None) -> None:
         self.formatter = Formatter()
-        self.visitor = None
+        self.visitor: EndpointVisitor = None  # type: ignore
         self._schemas = schemas
 
-    def emit(self, spec: IRSpec, output_dir: str) -> None:
-        """Render endpoint client files per tag under <output_dir>/endpoints using the visitor/context/registry pattern."""
+    def emit(self, spec: IRSpec, output_dir: str) -> List[str]:
+        """Render endpoint client files per tag under <output_dir>/endpoints using the visitor/context/registry
+        pattern. Returns a list of generated file paths."""
         endpoints_dir = os.path.join(output_dir, "endpoints")
         context = RenderContext()
         context.file_manager.ensure_dir(endpoints_dir)
@@ -117,8 +116,13 @@ class EndpointsEmitter:
             self.visitor = EndpointVisitor(spec.schemas)
 
         # Group operations by tag
-        tag_to_ops = {}
+        tag_to_ops: Dict[str, List[IROperation]] = {}
         for op in spec.operations:
+            print(f"[DEBUG] IROperation for {op.operation_id} ({op.path}):")
+            for param in op.parameters:
+                print(
+                    f"    param: name={param.name}, in_={param.in_}, required={param.required}, type={getattr(param.schema, 'type', None)}"
+                )
             tags = op.tags or ["default"]
             for tag in tags:
                 tag_to_ops.setdefault(tag, []).append(op)
@@ -129,8 +133,9 @@ class EndpointsEmitter:
             file_path = os.path.join(endpoints_dir, f"{module_name}.py")
             context.mark_generated_module(file_path)
 
+        generated_files: List[str] = []
         # Generate endpoint files per tag
-        client_classes = []
+        client_classes: List[Tuple[str, str]] = []
         for tag, ops in tag_to_ops.items():
             module_name = NameSanitizer.sanitize_module_name(tag)
             class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
@@ -139,9 +144,7 @@ class EndpointsEmitter:
             # Render all methods for this tag
             methods = [self.visitor.visit(op, context) for op in ops]
             # Compose class content
-            class_content = self.visitor.emit_endpoint_client_class(
-                tag, methods, context
-            )
+            class_content = self.visitor.emit_endpoint_client_class(tag, methods, context)
             # Render imports for this file
             imports_code = context.render_imports(endpoints_dir)
             print(f"[DEBUG] Imports for {file_path}:\n{imports_code}")
@@ -149,6 +152,7 @@ class EndpointsEmitter:
             # file_content = self.formatter.format(file_content)
             context.file_manager.write_file(file_path, file_content)
             client_classes.append((class_name, module_name))
+            generated_files.append(file_path)
 
         # Deduplicate client classes by canonical name
         unique_clients = _deduplicate_tag_clients(client_classes)
@@ -160,6 +164,6 @@ class EndpointsEmitter:
             init_lines.append(f"__all__ = [{all_list}]")
             for cls, mod in unique_clients:
                 init_lines.append(f"from .{mod} import {cls}")
-        context.file_manager.write_file(
-            os.path.join(endpoints_dir, "__init__.py"), "\n".join(init_lines) + "\n"
-        )
+        context.file_manager.write_file(os.path.join(endpoints_dir, "__init__.py"), "\n".join(init_lines) + "\n")
+        generated_files.append(os.path.join(endpoints_dir, "__init__.py"))
+        return generated_files

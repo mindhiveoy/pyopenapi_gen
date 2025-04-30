@@ -1,5 +1,7 @@
-from typing import Protocol, Any, Optional, Dict, Union
+from typing import Any, Dict, Optional, Protocol
+
 import httpx
+
 from .auth.base import BaseAuth
 
 
@@ -37,7 +39,7 @@ class HttpTransport(Protocol):
         Raises:
             Exception: Implementations may raise exceptions for network errors or invalid responses.
         """
-        return Ellipsis
+        raise NotImplementedError()
 
 
 class HttpxTransport:
@@ -75,9 +77,7 @@ class HttpxTransport:
         Note:
             If both auth and bearer_token are provided, auth takes precedence.
         """
-        self._client: httpx.AsyncClient = httpx.AsyncClient(
-            base_url=base_url, timeout=timeout
-        )
+        self._client: httpx.AsyncClient = httpx.AsyncClient(base_url=base_url, timeout=timeout)
         self._auth: Optional[BaseAuth] = auth
         self._bearer_token: Optional[str] = bearer_token
 
@@ -92,8 +92,10 @@ class HttpxTransport:
 
         Args:
             method (str): The HTTP method (e.g., 'GET', 'POST').
-            url (str): The target URL path, relative to the `base_url` provided during initialization, or an absolute URL.
-            **kwargs: Additional keyword arguments passed directly to `httpx.AsyncClient.request` (e.g., headers, params, json, data).
+            url (str): The target URL path, relative to the `base_url` provided during initialization, or an absolute
+            URL.
+            **kwargs: Additional keyword arguments passed directly to `httpx.AsyncClient.request` (e.g., headers,
+            params, json, data).
 
         Returns:
             httpx.Response: The HTTP response object from the server.

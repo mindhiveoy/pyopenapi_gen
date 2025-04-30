@@ -1,6 +1,7 @@
+from typing import Any
+
 from pyopenapi_gen import IROperation
 from pyopenapi_gen.helpers.endpoint_utils import (
-    format_method_args,
     get_param_type,
     get_params,
     get_request_body_type,
@@ -21,7 +22,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
     Returns the rendered code as a string (does not write files).
     """
 
-    def __init__(self, schemas=None) -> None:
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
         self.formatter = Formatter()
         self.schemas = schemas or {}
 
@@ -41,7 +42,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         self._write_response_parsing(writer, op, context)
         return writer.get_code()
 
-    def _prepare_parameters(self, op: IROperation, context: RenderContext):
+    def _prepare_parameters(self, op: IROperation, context: RenderContext) -> tuple[list[dict[str, Any]], str | None]:
         """
         Analyze and merge parameters for the endpoint method, including request body and files if present.
         Ensures all path variables are present as function arguments and orders required/optional params.
@@ -85,8 +86,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer: CodeWriter,
         op: IROperation,
         context: RenderContext,
-        ordered_params,
-    ):
+        ordered_params: list[dict[str, Any]],
+    ) -> None:
         """
         Write the async method signature for the endpoint, including type annotations.
 
@@ -121,7 +122,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         )
         writer.indent()
 
-    def _write_docstring(self, writer: CodeWriter, op: IROperation):
+    def _write_docstring(self, writer: CodeWriter, op: IROperation) -> None:
         """
         Write the docstring for the endpoint method, using the operation summary if present.
 
@@ -138,9 +139,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer: CodeWriter,
         op: IROperation,
         context: RenderContext,
-        ordered_params,
-        body_type,
-    ):
+        ordered_params: list[dict[str, Any]],
+        body_type: str | None,
+    ) -> None:
         """
         Write the URL construction, params, headers, and request body/file setup for the endpoint method.
 
@@ -171,7 +172,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
             writer.write_line("files_data: Dict[str, IO[Any]] = files")
 
-    def _write_query_params(self, writer: CodeWriter, op: IROperation, ordered_params):
+    def _write_query_params(self, writer: CodeWriter, op: IROperation, ordered_params: list[dict[str, Any]]) -> None:
         """
         Write the query parameters dictionary for the endpoint method.
 
@@ -180,13 +181,17 @@ class EndpointVisitor(Visitor[IROperation, str]):
             op: The IROperation node.
             ordered_params: List of parameters for the method.
         """
-        for p in ordered_params:
-            if hasattr(op, "parameters"):
-                for param in op.parameters:
-                    if param.name == p["name"] and getattr(param, "in_", None) == "query":
-                        writer.write_line(f'"{param.name}": {p["name"]},')
+        from ..core.utils import NameSanitizer
 
-    def _write_header_params(self, writer: CodeWriter, op: IROperation, ordered_params):
+        for param in op.parameters:
+            if getattr(param, "in_", None) == "query":
+                var_name = NameSanitizer.sanitize_method_name(param.name)
+                if not param.required:
+                    writer.write_line(f'**({{"{param.name}": {var_name}}} if {var_name} is not None else {{}}),')
+                else:
+                    writer.write_line(f'"{param.name}": {var_name},')
+
+    def _write_header_params(self, writer: CodeWriter, op: IROperation, ordered_params: list[dict[str, Any]]) -> None:
         """
         Write the header parameters dictionary for the endpoint method.
 
@@ -201,7 +206,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
                     if param.name == p["name"] and getattr(param, "in_", None) == "header":
                         writer.write_line(f'"{param.name}": {p["name"]},')
 
-    def _write_request(self, writer: CodeWriter, op: IROperation):
+    def _write_request(self, writer: CodeWriter, op: IROperation) -> None:
         """
         Write the HTTP request invocation for the endpoint method.
 
@@ -221,7 +226,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.dedent()
         writer.write_line(")")
 
-    def _write_error_handling(self, writer: CodeWriter):
+    def _write_error_handling(self, writer: CodeWriter) -> None:
         """
         Write the error handling logic for HTTP responses in the endpoint method.
 
@@ -239,7 +244,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.write_line("raise Exception(f'HTTP {response.status_code}: {response.text}')")
         writer.dedent()
 
-    def _write_response_parsing(self, writer: CodeWriter, op: IROperation, context: RenderContext):
+    def _write_response_parsing(self, writer: CodeWriter, op: IROperation, context: RenderContext) -> None:
         """
         Write the response parsing and return statement for the endpoint method, based on the return type.
 
@@ -264,7 +269,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         elif return_type.startswith("AsyncIterator["):
             # Use a helper function for streaming responses
             item_type = return_type[len("AsyncIterator[") : -1].strip()
-            context.add_import("pyopenapi_gen.core.streaming_helpers", "iter_bytes")
+            context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
             context.add_plain_import("json")  # import json
             # PATCH: Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
             if item_type not in (
@@ -318,7 +323,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
             The complete Python code for the endpoint client class as a string.
         """
         context.add_import("typing", "cast")
-        context.add_import("pyopenapi_gen.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
         context.add_import("typing", "Callable")
         context.add_import("typing", "Optional")
         class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
@@ -339,9 +344,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.indent()
         writer.write_line("self._transport: HttpTransport = transport")
         writer.write_line("self.base_url: str = base_url")
-        writer.write_line(
-            "self._get_exception_class: Callable[[int], Optional[type]] = lambda status_code: None  # Should be set by client factory"
-        )
+        writer.write_line("# Should be set by client factory")
+        writer.write_line("self._get_exception_class: Callable[[int], Optional[type]] = (lambda status_code: None)")
         writer.dedent()
         writer.write_line("")
         for method_code in methods:
@@ -372,7 +376,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         ):
             context.add_plain_import("collections.abc")
 
-    def _get_exception_class(self, status_code: int):
+    def _get_exception_class(self, status_code: int) -> type | None:
         """
         Map an HTTP status code to a generated exception class if available.
         Returns the exception class (as a symbol) or None if not found.
@@ -383,7 +387,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
             return globals().get(f"Error{status_code}")
         return None
 
-    def _ensure_path_variables_as_params(self, op: IROperation, all_params: list[dict]) -> list[dict]:
+    def _ensure_path_variables_as_params(
+        self, op: IROperation, all_params: list[dict[str, Any]]
+    ) -> list[dict[str, object]]:
         """
         Ensure all path variables from the path template are present as function arguments.
         """
@@ -417,7 +423,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
         """
         self._analyze_and_register_imports(op, context)
         context.add_import("typing", "cast")
-        context.add_import("pyopenapi_gen.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
         context.add_import("typing", "Callable")
         context.add_import("typing", "Optional")
         method_name = NameSanitizer.sanitize_method_name(op.operation_id)
@@ -454,7 +461,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         ordered_params = required_params + optional_params
 
         # --- 2. Build method signature ---
-        args = [self_param]
+        args = ["self"]
         for p in ordered_params:
             arg = f"{p['name']}: {p['type']}"
             if p.get("default") is not None:
@@ -483,7 +490,12 @@ class EndpointVisitor(Visitor[IROperation, str]):
             if hasattr(op, "parameters"):
                 for param in op.parameters:
                     if param.name == p["name"] and getattr(param, "in_", None) == "query":
-                        writer.write_line(f'"{param.name}": {p["name"]},')
+                        if not param.required:
+                            writer.write_line(
+                                f'**({{"{param.name}": {p["name"]}}} if {p["name"]} is not None else {{}}),'
+                            )
+                        else:
+                            writer.write_line(f'"{param.name}": {p["name"]},')
         writer.dedent()
         writer.write_line("}")
         writer.write_line("headers: dict[str, Any] = {")
@@ -538,7 +550,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         elif return_type.startswith("AsyncIterator["):
             # Use a helper function for streaming responses
             item_type = return_type[len("AsyncIterator[") : -1].strip()
-            context.add_import("pyopenapi_gen.core.streaming_helpers", "iter_bytes")
+            context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
             context.add_plain_import("json")  # import json
             # PATCH: Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
             if item_type not in (

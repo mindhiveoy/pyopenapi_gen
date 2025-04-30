@@ -1,12 +1,12 @@
-from pathlib import Path
-import subprocess
 import os
+import subprocess
+from pathlib import Path
+
 import yaml
 from pyopenapi_gen.core.loader import load_ir_from_spec
-from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
-from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
-from pyopenapi_gen.emitters.config_emitter import ConfigEmitter
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
+from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
 def test_business_swagger_generation(tmp_path: Path) -> None:
@@ -18,7 +18,7 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         - config.py, client.py, and endpoint modules are present and correct.
     """
     # Arrange
-    spec_source = Path(__file__).parent.parent / "input" / "business_swagger.json"
+    spec_source = Path(__file__).parent / "input" / "business_swagger.json"
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(spec_source.read_text())
     out_dir = tmp_path / "out"
@@ -29,7 +29,6 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     ir = load_ir_from_spec(spec_dict)
     ModelsEmitter().emit(ir, str(out_dir))
     EndpointsEmitter().emit(ir, str(out_dir))
-    ConfigEmitter().emit(str(out_dir))
     ClientEmitter().emit(ir, str(out_dir))
 
     # Assert
@@ -44,16 +43,12 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     # Run mypy on the generated code to ensure type correctness
     env = os.environ.copy()
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-    env["PYTHONPATH"] = os.pathsep.join(
-        [str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")]
-    )
-    result = subprocess.run(
-        ["mypy", str(out_dir)], capture_output=True, text=True, env=env
-    )
+    env["PYTHONPATH"] = os.pathsep.join([str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")])
+    result = subprocess.run(["mypy", str(out_dir)], capture_output=True, text=True, env=env)
     assert result.returncode == 0, f"mypy errors:\n{result.stdout}\n{result.stderr}"
 
 
-def test_generated_agent_datasources_imports_are_valid(tmp_path):
+def test_generated_agent_datasources_imports_are_valid(tmp_path: Path) -> None:
     """
     Scenario:
         - Generate the business_swagger client as in the main test.
@@ -62,31 +57,25 @@ def test_generated_agent_datasources_imports_are_valid(tmp_path):
         - The first import line is a valid Python import (no slashes, starts with 'from ..models.' or 'from .').
     """
     # Copy the provided business_swagger.json into a temporary spec file
-    spec_source = Path(__file__).parent.parent / "input" / "business_swagger.json"
+    spec_source = Path(__file__).parent / "input" / "business_swagger.json"
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(spec_source.read_text())
 
     out_dir = tmp_path / "out"
-    runner = CliRunner()
-    result = runner.invoke(
-        app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--no-postprocess"],
-    )
-    assert (
-        out_dir / "endpoints" / "agent_datasources.py"
-    ).exists(), "agent_datasources.py not generated"
+    out_dir.mkdir()
+
+    spec_dict = yaml.safe_load(spec_file.read_text())
+    ir = load_ir_from_spec(spec_dict)
+    ModelsEmitter().emit(ir, str(out_dir))
+    EndpointsEmitter().emit(ir, str(out_dir))
+    ClientEmitter().emit(ir, str(out_dir))
+
+    assert (out_dir / "endpoints" / "agent_datasources.py").exists(), "agent_datasources.py not generated"
     content = (out_dir / "endpoints" / "agent_datasources.py").read_text().splitlines()
     # Find the first non-empty, non-comment line that is a relative import
     first_relative_import = next(
-        (
-            line
-            for line in content
-            if line.strip().startswith("from ..models.")
-            or line.strip().startswith("from .")
-        ),
+        (line for line in content if line.strip().startswith("from ..models.") or line.strip().startswith("from .")),
         "",
     )
     assert first_relative_import, "No relative import found in agent_datasources.py"
-    assert (
-        "/" not in first_relative_import
-    ), f"Relative import line contains a slash: {first_relative_import}"
+    assert "/" not in first_relative_import, f"Relative import line contains a slash: {first_relative_import}"

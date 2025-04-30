@@ -22,7 +22,7 @@ class ExceptionsEmitter:
     def __init__(self) -> None:
         self.visitor = ExceptionVisitor()
 
-    def emit(self, spec: IRSpec, output_dir: str) -> None:
+    def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
         file_path = os.path.join(output_dir, "exceptions.py")
         context = RenderContext()
         context.mark_generated_module(file_path)
@@ -33,3 +33,4 @@ class ExceptionsEmitter:
         imports_code = context.render_imports(output_dir)
         file_content = imports_code + "\n\n" + exception_code
         context.file_manager.write_file(file_path, file_content)
+        return [file_path]

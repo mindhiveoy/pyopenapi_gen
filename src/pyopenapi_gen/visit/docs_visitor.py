@@ -1,12 +1,13 @@
 from pyopenapi_gen import IRSpec
-from ..core.utils import NameSanitizer, CodeWriter
+
 from ..context.render_context import RenderContext
+from ..core.utils import CodeWriter, NameSanitizer
 
 
 class DocsVisitor:
     """Visitor for rendering markdown documentation from IRSpec."""
 
-    def visit(self, spec: IRSpec, context: RenderContext) -> dict:
+    def visit(self, spec: IRSpec, context: RenderContext) -> dict[str, str]:
         # List tags
         tags = sorted({t for op in spec.operations for t in op.tags})
         # Generate index.md with sanitized links
@@ -15,9 +16,7 @@ class DocsVisitor:
         writer.write_line("Generated documentation for the API.\n")
         writer.write_line("## Tags")
         for tag in tags:
-            writer.write_line(
-                f"- [{tag}]({NameSanitizer.sanitize_module_name(tag)}.md)"
-            )
+            writer.write_line(f"- [{tag}]({NameSanitizer.sanitize_module_name(tag)}.md)")
         index_content = writer.get_code()
         result = {"index.md": index_content}
         # Generate docs per tag

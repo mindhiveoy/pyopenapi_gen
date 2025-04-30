@@ -1,8 +1,8 @@
-from pathlib import Path
-from typer.testing import CliRunner
 import json
+from pathlib import Path
 
 from pyopenapi_gen.cli import app
+from typer.testing import CliRunner
 
 # Minimal spec with tags for docs generation
 DOC_SPEC = {

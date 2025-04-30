@@ -1,11 +1,12 @@
-import os
 import json
+import os
 import time
+from typing import Any
 
 from pyopenapi_gen.core.telemetry import TelemetryClient
 
 
-def test_telemetry_client_default_disabled(monkeypatch, capsys):
+def test_telemetry_client_default_disabled(monkeypatch: Any, capsys: Any) -> None:
     """By default (no env var), telemetry is disabled and track_event prints nothing."""
     env_before = os.environ.pop("PYOPENAPI_TELEMETRY_ENABLED", None)
     tc = TelemetryClient()
@@ -19,7 +20,7 @@ def test_telemetry_client_default_disabled(monkeypatch, capsys):
         os.environ["PYOPENAPI_TELEMETRY_ENABLED"] = env_before
 
 
-def test_telemetry_client_enabled_via_env(monkeypatch, capsys):
+def test_telemetry_client_enabled_via_env(monkeypatch: Any, capsys: Any) -> None:
     """Setting PYOPENAPI_TELEMETRY_ENABLED enables telemetry and prints JSON telemetry data."""
     monkeypatch.setenv("PYOPENAPI_TELEMETRY_ENABLED", "true")
     tc = TelemetryClient()
@@ -36,7 +37,7 @@ def test_telemetry_client_enabled_via_env(monkeypatch, capsys):
     assert start <= payload["timestamp"] <= time.time()
 
 
-def test_telemetry_client_enabled_via_constructor(monkeypatch, capsys):
+def test_telemetry_client_enabled_via_constructor(monkeypatch: Any, capsys: Any) -> None:
     """Constructor flag enabled=True should override environment and print telemetry."""
     monkeypatch.delenv("PYOPENAPI_TELEMETRY_ENABLED", raising=False)
     tc = TelemetryClient(enabled=True)
@@ -49,7 +50,7 @@ def test_telemetry_client_enabled_via_constructor(monkeypatch, capsys):
     assert data["properties"] == {}
 
 
-def test_track_event_handles_print_exceptions(monkeypatch, capsys):
+def test_track_event_handles_print_exceptions(monkeypatch: Any, capsys: Any) -> None:
     """If print/json dumping throws, track_event should catch and not raise."""
     # Simulate enabled
     tc = TelemetryClient(enabled=True)

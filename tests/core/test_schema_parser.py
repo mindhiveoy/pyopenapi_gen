@@ -1,10 +1,8 @@
-import pytest
-
-from pyopenapi_gen.core.loader import _parse_schema, _build_schemas
 from pyopenapi_gen import IRSchema
+from pyopenapi_gen.core.loader import _build_schemas, _parse_schema
 
 
-def test_parse_schema_null_node():
+def test_parse_schema_null_node() -> None:
     """Parsing a None node returns an IRSchema with just the name."""
     schema = _parse_schema("MySchema", None, {}, {})
     assert isinstance(schema, IRSchema)
@@ -15,7 +13,7 @@ def test_parse_schema_null_node():
     assert schema.enum is None
 
 
-def test_build_schemas_and_ref_resolution():
+def test_build_schemas_and_ref_resolution() -> None:
     """_build_schemas should preload named schemas and resolve $ref chains."""
     raw_schemas = {
         "A": {
@@ -32,17 +30,17 @@ def test_build_schemas_and_ref_resolution():
     assert isinstance(schemas["A"], IRSchema)
 
     # Resolve B reference via parse
-    b_schema = _parse_schema(
-        None, {"$ref": "#/components/schemas/B"}, raw_schemas, schemas
-    )
+    b_schema = _parse_schema(None, {"$ref": "#/components/schemas/B"}, raw_schemas, schemas)
     # Should end up being same object as schemas['A']
     assert b_schema is schemas.get("B") or b_schema.name == "A"
     # Properties and enum preserved
-    assert b_schema.properties.get("x").type == "string"
+    x_prop = b_schema.properties.get("x")
+    assert x_prop is not None
+    assert x_prop.type == "string"
     assert b_schema.enum == ["a", "b"]
 
 
-def test_parse_schema_with_properties_and_items():
+def test_parse_schema_with_properties_and_items() -> None:
     """_parse_schema should handle object properties and array items correctly."""
     raw_schemas = {
         "Item": {"type": "integer", "format": "int32"},
@@ -64,9 +62,9 @@ def test_parse_schema_with_properties_and_items():
     assert arr_schema.items is schemas["Item"]
 
 
-def test_parse_schema_enum_and_description():
+def test_parse_schema_enum_and_description() -> None:
     """_parse_schema should capture enum and description fields."""
-    raw_schemas = {}
+    raw_schemas: dict[str, dict[str, object]] = {}
     node = {"enum": [1, 2, 3], "description": "Test enum"}
     enum_schema = _parse_schema("E", node, raw_schemas, {})
     assert enum_schema.name == "E"
@@ -74,13 +72,13 @@ def test_parse_schema_enum_and_description():
     assert enum_schema.description == "Test enum"
 
 
-def test_parse_schema_cycle_ref():
+def test_parse_schema_cycle_ref() -> None:
     """_parse_schema should guard against infinite recursion in cyclic refs."""
     raw_schemas = {
         "C1": {"$ref": "#/components/schemas/C2"},
         "C2": {"$ref": "#/components/schemas/C1"},
     }
-    schemas = {}
+    schemas: dict[str, IRSchema] = {}
     # Should not infinite-loop
     c1 = _parse_schema("C1", raw_schemas["C1"], raw_schemas, schemas)
     c2 = _parse_schema("C2", raw_schemas["C2"], raw_schemas, schemas)

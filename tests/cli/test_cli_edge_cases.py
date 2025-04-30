@@ -1,9 +1,8 @@
 import json
 from pathlib import Path
-from typer.testing import CliRunner
-import pytest
 
 from pyopenapi_gen.cli import app
+from typer.testing import CliRunner
 
 # Minimal spec for code generation
 MIN_SPEC = {
@@ -36,9 +35,7 @@ def test_docs_nonexistent_spec_path(tmp_path: Path) -> None:
     """Invoking docs with a missing spec path should error with URL loading message."""
     out_dir = tmp_path / "docs"
     runner = CliRunner()
-    result = runner.invoke(
-        app, ["docs", str(tmp_path / "no_spec.json"), "-o", str(out_dir)]
-    )
+    result = runner.invoke(app, ["docs", str(tmp_path / "no_spec.json"), "-o", str(out_dir)])
     assert result.exit_code == 1
     assert "URL loading not implemented" in result.stdout
 
@@ -67,7 +64,7 @@ def test_gen_with_docs_flag_does_not_break(tmp_path: Path) -> None:
     assert (out_dir / "client.py").exists(), "client.py missing after gen --docs"
 
 
-def test_cli_no_args_shows_help_and_exits_cleanly():
+def test_cli_no_args_shows_help_and_exits_cleanly() -> None:
     """
     Scenario:
         Run the CLI with no arguments.

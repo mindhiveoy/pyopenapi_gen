@@ -1,16 +1,16 @@
+import os
+
 import pytest
 from pyopenapi_gen.context.render_context import RenderContext
-from pyopenapi_gen.core.utils import ImportCollector
-import os
 
 
 @pytest.fixture
-def context():
+def context() -> RenderContext:
     ctx = RenderContext()
     return ctx
 
 
-def set_file(ctx, rel_path):
+def set_file(ctx: RenderContext, rel_path: str) -> None:
     # Simulate setting the current file being rendered
     root = os.path.abspath("/fake/out")
     ctx.set_current_file(os.path.join(root, rel_path))
@@ -51,18 +51,16 @@ def set_file(ctx, rel_path):
         ),
     ],
 )
-def test_add_import_logic(context, current_file, module, symbol, expected):
+def test_add_import_logic(context: RenderContext, current_file: str, module: str, symbol: str, expected: str) -> None:
     set_file(context, current_file)
     context.add_import(module, symbol)
     imports = context.render_imports("/fake/out")
     # Remove whitespace and split lines for comparison
-    lines = [l.strip() for l in imports.splitlines() if l.strip()]
-    assert any(
-        expected in line for line in lines
-    ), f"Expected '{expected}' in imports: {lines}"
+    lines = [line.strip() for line in imports.splitlines() if line.strip()]
+    assert any(expected in line for line in lines), f"Expected '{expected}' in imports: {lines}"
 
 
-def test_render_imports__endpoint_to_models__double_dot():
+def test_render_imports__endpoint_to_models__double_dot() -> None:
     """
     Scenario:
         - Simulate an endpoint file context and add a models import.

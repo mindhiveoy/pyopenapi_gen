@@ -31,10 +31,11 @@ def get_params(op: IROperation, context: RenderContext) -> List[Dict[str, Any]]:
 def get_param_type(param: IRParameter, context: RenderContext) -> str:
     s = param.schema
     # If schema is a named model, use the class name
-    if getattr(s, "name", None):
-        class_name = NameSanitizer.sanitize_class_name(s.name)
+    name = getattr(s, "name", None)
+    if isinstance(name, str):
+        class_name = NameSanitizer.sanitize_class_name(name)
         # Use correct module path for models from endpoints
-        model_module = f"models.{NameSanitizer.sanitize_module_name(s.name)}"
+        model_module = f"models.{NameSanitizer.sanitize_module_name(name)}"
         context.add_import(model_module, class_name)
         py_type = class_name
     elif s.type == "array" and s.items:
@@ -62,16 +63,19 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext) -> str:
     """
     for mt, sch in body.content.items():
         if "json" in mt.lower():
+            name = getattr(sch, "name", None)
             # If schema is a named model, use the class name
-            if getattr(sch, "name", None):
-                class_name = NameSanitizer.sanitize_class_name(sch.name)
-                model_module = f"models.{NameSanitizer.sanitize_module_name(sch.name)}"
+            if isinstance(name, str):
+                class_name = NameSanitizer.sanitize_class_name(name)
+                model_module = f"models.{NameSanitizer.sanitize_module_name(name)}"
                 context.add_import(model_module, class_name)
                 return class_name
             # If array of models
-            if sch.type == "array" and getattr(sch.items, "name", None):
-                item_class = NameSanitizer.sanitize_class_name(sch.items.name)
-                model_module = f"models.{NameSanitizer.sanitize_module_name(sch.items.name)}"
+            items = getattr(sch, "items", None)
+            item_name = getattr(items, "name", None) if items is not None else None
+            if sch.type == "array" and isinstance(item_name, str):
+                item_class = NameSanitizer.sanitize_class_name(item_name)
+                model_module = f"models.{NameSanitizer.sanitize_module_name(item_name)}"
                 context.add_import(model_module, item_class)
                 return f"List[{item_class}]"
             # If generic object
@@ -93,7 +97,7 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext) -> str:
 def get_return_type(
     op: IROperation,
     context: RenderContext,
-    schemas: dict = None,
+    schemas: Optional[dict[str, Any]] = None,
 ) -> str:
     """
     Determine the Python return type for the endpoint method based on the operation's responses.
@@ -106,24 +110,27 @@ def get_return_type(
     """
     schemas = schemas or {}
 
-    def schema_to_pytype(schema, context):
+    def schema_to_pytype(schema: Optional[IRSchema], context: RenderContext) -> str:
         if not schema:
             return "Any"
         # Only treat as model if name is present in schemas
-        if getattr(schema, "name", None) and schema.name in schemas:
-            class_name = NameSanitizer.sanitize_class_name(schema.name)
-            model_module = f"models.{NameSanitizer.sanitize_module_name(schema.name)}"
+        name = getattr(schema, "name", None)
+        if isinstance(name, str) and name in schemas:
+            class_name = NameSanitizer.sanitize_class_name(name)
+            model_module = f"models.{NameSanitizer.sanitize_module_name(name)}"
             context.add_import(model_module, class_name)
             return class_name
-        if schema.type == "array" and getattr(schema.items, "name", None) and schema.items.name in schemas:
-            item_class = NameSanitizer.sanitize_class_name(schema.items.name)
+        items = getattr(schema, "items", None)
+        item_name = getattr(items, "name", None) if items is not None else None
+        if schema.type == "array" and isinstance(item_name, str) and item_name in schemas:
+            item_class = NameSanitizer.sanitize_class_name(item_name)
             context.add_import(
-                f"models.{NameSanitizer.sanitize_module_name(schema.items.name)}",
+                f"models.{NameSanitizer.sanitize_module_name(item_name)}",
                 item_class,
             )
             return f"List[{item_class}]"
-        if schema.type == "array" and schema.items:
-            item_type = schema_to_pytype(schema.items, context)
+        if schema.type == "array" and items:
+            item_type = schema_to_pytype(items, context)
             return f"List[{item_type}]"
         # PATCH: For binary streaming, return bytes
         if schema.type == "string" and getattr(schema, "format", None) == "binary":
@@ -167,7 +174,8 @@ def get_return_type(
     # Streaming response
     if getattr(resp, "stream", False):
         # Only use a named model if schema is a global, named schema (present in schemas)
-        is_global_named_model = getattr(schema, "name", None) and schema.name in schemas
+        name = getattr(schema, "name", None)
+        is_global_named_model = isinstance(name, str) and name in schemas
         if is_global_named_model:
             item_type = schema_to_pytype(schema, context)
             return f"AsyncIterator[{item_type}]"
@@ -180,15 +188,17 @@ def get_return_type(
         # Fallback
         return "AsyncIterator[Any]"
     # List response
-    if schema.type == "array" and getattr(schema.items, "name", None) and schema.items.name in schemas:
-        item_class = NameSanitizer.sanitize_class_name(schema.items.name)
+    items = getattr(schema, "items", None)
+    item_name = getattr(items, "name", None) if items is not None else None
+    if schema.type == "array" and isinstance(item_name, str) and item_name in schemas:
+        item_class = NameSanitizer.sanitize_class_name(item_name)
         context.add_import(
-            f"models.{NameSanitizer.sanitize_module_name(schema.items.name)}",
+            f"models.{NameSanitizer.sanitize_module_name(item_name)}",
             item_class,
         )
         return f"List[{item_class}]"
-    if schema.type == "array" and schema.items:
-        item_type = schema_to_pytype(schema.items, context)
+    if schema.type == "array" and items:
+        item_type = schema_to_pytype(items, context)
         return f"List[{item_type}]"
     # Model or primitive
     return schema_to_pytype(schema, context)
@@ -246,7 +256,7 @@ def merge_params_with_model_fields(
     op: IROperation,
     model_schema: IRSchema,
     context: RenderContext,
-) -> list[dict]:
+) -> List[Dict[str, Any]]:
     """
     Merge endpoint parameters with required model fields for function signatures.
     - Ensures all required model fields are present as parameters (without duplication).

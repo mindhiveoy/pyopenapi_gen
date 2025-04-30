@@ -6,7 +6,7 @@ This module contains utility classes and functions used across the code generati
 import keyword
 import re
 import textwrap
-from typing import Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from jinja2 import Environment
 
@@ -16,21 +16,21 @@ class CodeWriter:
     Utility for writing indented code blocks. Use write_line, indent, dedent, write_block, and get_code.
     """
 
-    def __init__(self, indent_str: str = "    "):
-        self.lines = []
-        self.indent_level = 0
-        self.indent_str = indent_str
+    def __init__(self, indent_str: str = "    ") -> None:
+        self.lines: list[str] = []
+        self.indent_level: int = 0
+        self.indent_str: str = indent_str
 
-    def write_line(self, line: str = ""):
+    def write_line(self, line: str = "") -> None:
         self.lines.append(f"{self.indent_str * self.indent_level}{line}")
 
-    def indent(self):
+    def indent(self) -> None:
         self.indent_level += 1
 
-    def dedent(self):
+    def dedent(self) -> None:
         self.indent_level = max(0, self.indent_level - 1)
 
-    def write_block(self, code: str):
+    def write_block(self, code: str) -> None:
         """
         Write a multi-line code block using the current indentation level.
         Each non-empty line is prefixed with the current indentation.
@@ -47,7 +47,7 @@ class CodeWriter:
     def get_code(self) -> str:
         return "\n".join(self.lines)
 
-    def write_wrapped_line(self, text: str, width: int = 120):
+    def write_wrapped_line(self, text: str, width: int = 120) -> None:
         """
         Write a line (or lines) wrapped to the given width, respecting current indentation.
         """
@@ -56,7 +56,9 @@ class CodeWriter:
         for line in wrapped:
             self.write_line(line)
 
-    def write_function_signature(self, name: str, args: list[str], return_type: str = None, async_: bool = False):
+    def write_function_signature(
+        self, name: str, args: list[str], return_type: Optional[str] = None, async_: bool = False
+    ) -> None:
         """
         Write a function signature with each argument on its own line, indented, and the return type annotation.
         Example:
@@ -291,7 +293,7 @@ class ParamSubstitutor:
     """Helper for rendering path templates with path parameters."""
 
     @staticmethod
-    def render_path(template: str, values: Dict[str, any]) -> str:
+    def render_path(template: str, values: Dict[str, Any]) -> str:
         """Replace placeholders in a URL path template using provided values."""
         rendered = template
         for key, val in values.items():
@@ -303,21 +305,21 @@ class KwargsBuilder:
     """Builder for assembling HTTP request keyword arguments."""
 
     def __init__(self) -> None:
-        self._kwargs: Dict[str, any] = {}
+        self._kwargs: Dict[str, Any] = {}
 
-    def with_params(self, **params: any) -> "KwargsBuilder":
+    def with_params(self, **params: Any) -> "KwargsBuilder":
         """Add query parameters, skipping None values."""
         filtered = {k: v for k, v in params.items() if v is not None}
         if filtered:
             self._kwargs["params"] = filtered
         return self
 
-    def with_json(self, body: any) -> "KwargsBuilder":
+    def with_json(self, body: Any) -> "KwargsBuilder":
         """Add a JSON body to the request."""
         self._kwargs["json"] = body
         return self
 
-    def build(self) -> Dict[str, any]:
+    def build(self) -> Dict[str, Any]:
         """Return the assembled kwargs dictionary."""
         return self._kwargs
 
@@ -350,7 +352,7 @@ class TemplateRenderer:
         self.env.globals["NameSanitizer"] = NameSanitizer
         self.env.globals["render_path"] = ParamSubstitutor.render_path
 
-    def render(self, template_str: str, **context) -> str:
+    def render(self, template_str: str, **context: Any) -> str:
         """Render a template string with the shared environment."""
         template = self.env.from_string(template_str)
         return template.render(**context)
@@ -372,7 +374,7 @@ class Formatter:
 
     def format(self, code: str) -> str:
         """Format the given code string with Black if possible."""
-        if self._format_str and self._file_mode:
+        if self._format_str is not None and self._file_mode is not None:
             try:
                 return self._format_str(code, mode=self._file_mode)
             except Exception:

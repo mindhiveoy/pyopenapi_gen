@@ -1,7 +1,7 @@
 from pyopenapi_gen.core.utils import ImportCollector, NameSanitizer
 
 
-def test_import_collector_basic():
+def test_import_collector_basic() -> None:
     """Test the basic functionality of the ImportCollector.
 
     Scenario:
@@ -22,7 +22,7 @@ def test_import_collector_basic():
     assert "from sys import exit" in statements
 
 
-def test_import_collector_multiple_from_same_module():
+def test_import_collector_multiple_from_same_module() -> None:
     """Test collecting multiple imports from the same module.
 
     Scenario:
@@ -42,7 +42,7 @@ def test_import_collector_multiple_from_same_module():
     assert "from os import environ, makedirs, path" in statements
 
 
-def test_import_collector_typing_imports():
+def test_import_collector_typing_imports() -> None:
     """Test the specialized helper for typing imports.
 
     Scenario:
@@ -64,7 +64,7 @@ def test_import_collector_typing_imports():
     assert "from typing import Dict, List, Optional" in statements
 
 
-def test_import_collector_direct_imports():
+def test_import_collector_direct_imports() -> None:
     """Test the direct import collection functionality.
 
     Scenario:
@@ -86,7 +86,7 @@ def test_import_collector_direct_imports():
     assert "from dataclasses import dataclass" in statements
 
 
-def test_import_collector_relative_imports():
+def test_import_collector_relative_imports() -> None:
     """Test the relative import collection functionality.
 
     Scenario:
@@ -106,7 +106,7 @@ def test_import_collector_relative_imports():
     assert "from .models import Pet, User" in statements
 
 
-def test_import_collector_ordering():
+def test_import_collector_ordering() -> None:
     """Test the ordering of different import types.
 
     Scenario:
@@ -147,7 +147,7 @@ def test_import_collector_ordering():
     assert relative_import_index > direct_import_index, "Relative imports should come after direct imports"
 
 
-def test_import_collector_formatted_output():
+def test_import_collector_formatted_output() -> None:
     """Test the formatted string output method.
 
     Scenario:
@@ -170,7 +170,7 @@ def test_import_collector_formatted_output():
     assert isinstance(formatted, str)
 
 
-def test_import_collector_deduplication():
+def test_import_collector_deduplication() -> None:
     """Test that duplicate imports are automatically deduplicated.
 
     Scenario:
@@ -204,7 +204,7 @@ def test_import_collector_deduplication():
     assert "from datetime import date" in datetime_statements
 
 
-def test_import_collector_empty():
+def test_import_collector_empty() -> None:
     """Test the behavior when no imports have been added.
 
     Scenario:
@@ -224,7 +224,7 @@ def test_import_collector_empty():
     assert formatted == ""
 
 
-def test_import_collector_has_import():
+def test_import_collector_has_import() -> None:
     """Test the has_import method for checking if imports exist.
 
     Scenario:
@@ -245,7 +245,7 @@ def test_import_collector_has_import():
     assert collector.has_import("sys", "exit") is False
 
 
-def test_normalize_tag_key__varied_cases_and_punctuation__returns_same_key():
+def test_normalize_tag_key__varied_cases_and_punctuation__returns_same_key() -> None:
     """
     Scenario:
         - Tags with different cases and punctuation (e.g., 'DataSources', 'datasources', 'data-sources', 'DATA_SOURCES')
@@ -266,7 +266,7 @@ def test_normalize_tag_key__varied_cases_and_punctuation__returns_same_key():
     assert list(keys)[0] == "datasources"
 
 
-def test_tag_deduplication__multiple_variants__only_one_survives():
+def test_tag_deduplication__multiple_variants__only_one_survives() -> None:
     """
     Scenario:
         - Given a list of tags with different cases and punctuation, simulate deduplication logic as in the client emitter.
@@ -292,7 +292,7 @@ def test_tag_deduplication__multiple_variants__only_one_survives():
     assert deduped == ["DataSources"]
 
 
-def test_sanitize_module_name__camel_and_pascal_case__snake_case_result():
+def test_sanitize_module_name__camel_and_pascal_case__snake_case_result() -> None:
     """
     Scenario:
         - Test sanitize_module_name with camel case, PascalCase, and mixed-case names.
@@ -310,7 +310,7 @@ def test_sanitize_module_name__camel_and_pascal_case__snake_case_result():
     assert NameSanitizer.sanitize_module_name("class") == "class_"  # Python keyword
 
 
-def test_sanitize_method_name__various_cases__returns_valid_python_identifier():
+def test_sanitize_method_name__various_cases__returns_valid_python_identifier() -> None:
     """
     Scenario:
         - Test sanitize_method_name with paths, operationIds, and invalid Python identifiers.
@@ -333,7 +333,7 @@ def test_sanitize_method_name__various_cases__returns_valid_python_identifier():
     assert NameSanitizer.sanitize_method_name("_leading_underscore") == "leading_underscore"
 
 
-def test_import_collector_double_dot_relative_import():
+def test_import_collector_double_dot_relative_import() -> None:
     """
     Scenario:
         - Add a relative import with two leading dots (e.g., '..models.agent_history').
@@ -347,7 +347,7 @@ def test_import_collector_double_dot_relative_import():
     assert "from ..models.agent_history import AgentHistory" in statements
 
 
-def test_import_collector_triple_dot_relative_import():
+def test_import_collector_triple_dot_relative_import() -> None:
     """
     Scenario:
         - Add a relative import with three leading dots (e.g., '...models.foo').
@@ -364,7 +364,7 @@ def test_import_collector_triple_dot_relative_import():
         assert "/" not in stmt, f"Slash found in import statement: {stmt}"
 
 
-def test_import_collector_sibling_directory_import():
+def test_import_collector_sibling_directory_import() -> None:
     """
     Scenario:
         - Simulate an endpoint importing from a sibling models directory (e.g., '..models.bar').
@@ -381,7 +381,7 @@ def test_import_collector_sibling_directory_import():
         assert "/" not in stmt, f"Slash found in import statement: {stmt}"
 
 
-def test_codewriter__write_wrapped_line__wraps_long_lines():
+def test_codewriter__write_wrapped_line__wraps_long_lines() -> None:
     """
     Scenario:
         Write a long line using CodeWriter.write_wrapped_line with a small width.

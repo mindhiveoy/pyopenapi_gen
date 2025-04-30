@@ -1,14 +1,16 @@
-import pytest
-import httpx
-from httpx import Response
-from pyopenapi_gen.http_transport import HttpxTransport
-from pyopenapi_gen.core.pagination import paginate_by_next
-from typer.testing import CliRunner
-from pathlib import Path
 import json
-from pyopenapi_gen.cli import app
 import os
 import subprocess
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+from httpx import Response
+from pyopenapi_gen.cli import app
+from pyopenapi_gen.core.pagination import paginate_by_next
+from pyopenapi_gen.http_transport import HttpxTransport
+from typer.testing import CliRunner
 
 # Minimal spec reused for CLI flag tests
 MIN_SPEC = {
@@ -27,10 +29,10 @@ MIN_SPEC = {
 
 
 @pytest.mark.asyncio
-async def test_httpx_transport_request_and_close(monkeypatch):
+async def test_httpx_transport_request_and_close(monkeypatch: Any) -> None:
     """Test HttpxTransport.request and close using a mock transport."""
     # Handler to simulate responses
-    calls = []
+    calls: list[tuple[str, str]] = []
 
     def handler(request: httpx.Request) -> Response:
         calls.append((request.method, request.url.path))
@@ -38,9 +40,7 @@ async def test_httpx_transport_request_and_close(monkeypatch):
 
     transport = HttpxTransport(base_url="https://api.test", timeout=1.0)
     # Replace underlying client with mock transport
-    transport._client = httpx.AsyncClient(
-        transport=httpx.MockTransport(handler), base_url="https://api.test"
-    )
+    transport._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://api.test")
 
     resp = await transport.request("GET", "/test-path", params={"x": 1})
     assert resp.status_code == 200
@@ -52,12 +52,12 @@ async def test_httpx_transport_request_and_close(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_paginate_by_next_default_and_custom_keys():
+async def test_paginate_by_next_default_and_custom_keys() -> None:
     """Test paginate_by_next yields items and respects custom keys."""
     # Default keys: items, next
     sequence = [([1, 2], "token1"), ([3], None)]
 
-    async def fetch_page(**params):
+    async def fetch_page(**params: Any) -> dict[str, Any]:
         if not params:
             items, nxt = sequence[0]
             return {"items": items, "next": nxt}
@@ -73,23 +73,18 @@ async def test_paginate_by_next_default_and_custom_keys():
     # Custom keys
     sequence2 = [(["a"], "c1"), (["b"], None)]
 
-    async def fetch_page2(**params):
+    async def fetch_page2(**params: Any) -> dict[str, Any]:
         if not params:
             return {"data": sequence2[0][0], "cursor": sequence2[0][1]}
         if params.get("cursor") == "c1":
             return {"data": sequence2[1][0], "cursor": None}
         return {"data": [], "cursor": None}
 
-    result2 = [
-        i
-        async for i in paginate_by_next(
-            fetch_page2, items_key="data", next_key="cursor"
-        )
-    ]
+    result2 = [i async for i in paginate_by_next(fetch_page2, items_key="data", next_key="cursor")]
     assert result2 == ["a", "b"]
 
 
-def test_cli_with_optional_flags(tmp_path: Path):
+def test_cli_with_optional_flags(tmp_path: Path) -> None:
     """Test that CLI accepts and processes optional flags without error."""
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(json.dumps(MIN_SPEC))
@@ -118,6 +113,6 @@ def test_cli_with_optional_flags(tmp_path: Path):
     # Run mypy on the generated code to ensure type correctness
     env = os.environ.copy()
     env["PYTHONPATH"] = str(out_dir.parent.resolve())
-    result = subprocess.run(
+    mypy_result: subprocess.CompletedProcess[str] = subprocess.run(
         ["mypy", str(out_dir)], capture_output=True, text=True, env=env
     )
