@@ -161,11 +161,7 @@ def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
     streaming_resp = IRResponse(
         status_code="200",
         description="Stream bytes",
-        content={
-            "application/octet-stream": IRSchema(
-                name=None, type="string", format="binary"
-            )
-        },
+        content={"application/octet-stream": IRSchema(name=None, type="string", format="binary")},
         stream=True,
     )
     op = IROperation(
@@ -436,9 +432,7 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path):
     # __all__ should include the sanitized client name
     assert f'"{sanitized}"' in text, "__all__ missing sanitized client name"
     # Should import from the sanitized module
-    assert (
-        f"from .{module_name} import {sanitized}" in text
-    ), "Import statement missing or incorrect"
+    assert f"from .{module_name} import {sanitized}" in text, "Import statement missing or incorrect"
 
 
 def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path):
@@ -474,9 +468,7 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
                     IRResponse(
                         status_code="200",
                         description="OK",
-                        content={
-                            "application/json": IRSchema(name=None, type="object")
-                        },
+                        content={"application/json": IRSchema(name=None, type="object")},
                         stream=False,
                     )
                 ],
@@ -493,9 +485,7 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     endpoints_dir = out_dir / "endpoints"
     # Only one module file should exist for all tag variants
     expected_module = endpoints_dir / "data_sources.py"
-    assert (
-        expected_module.exists()
-    ), "Expected data_sources.py to exist for deduplicated tags"
+    assert expected_module.exists(), "Expected data_sources.py to exist for deduplicated tags"
     content = expected_module.read_text()
     # The client class should be present (canonicalized, PascalCase)
     assert "class DataSourcesClient" in content, "Client class name not as expected"
@@ -732,3 +722,64 @@ def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path):
     assert '"end_date": end_date' in content
     # Also check that tenant_id is not in params (it's a path param)
     assert '"tenant_id": tenant_id' not in content
+
+
+def test_endpoints_emitter__post_with_body__only_body_param_and_path_query_args(tmp_path: Path) -> None:
+    """
+    Scenario:
+        - A POST endpoint has path params and a JSON request body with multiple fields.
+        - The code generator should only include path/query params and a single 'body' argument in the method signature.
+        - The body fields should NOT appear as top-level method arguments.
+
+    Expected Outcome:
+        - The generated method signature contains only path/query params and 'body', not the body fields.
+    """
+    # Arrange: Create IR for a POST endpoint with path params and a JSON body
+    from pyopenapi_gen import HTTPMethod, IROperation, IRParameter, IRRequestBody, IRSchema, IRSpec
+
+    path_param = IRParameter(name="tenant_id", in_="path", required=True, schema=IRSchema(name=None, type="string"))
+    body_schema = IRSchema(
+        name="ElaborateSearchPhraseRequest",
+        type="object",
+        properties={
+            "searchPhrase": IRSchema(name=None, type="string"),
+            "instructions": IRSchema(name=None, type="string"),
+        },
+        required=["searchPhrase", "instructions"],
+    )
+    request_body = IRRequestBody(required=True, content={"application/json": body_schema})
+    op = IROperation(
+        operation_id="elaborate_search_phrase",
+        method=HTTPMethod.POST,
+        path="/tenants/{tenant_id}/search",
+        summary="Elaborate search phrase",
+        description="Elaborates a search phrase.",
+        parameters=[path_param],
+        request_body=request_body,
+        responses=[],
+        tags=["search"],
+    )
+    spec = IRSpec(
+        title="Test API",
+        version="1.0.0",
+        operations=[op],
+        schemas={"ElaborateSearchPhraseRequest": body_schema},
+        servers=["https://api.example.com"],
+    )
+    out_dir: Path = tmp_path / "out"
+    emitter = EndpointsEmitter()
+
+    # Act: Generate the endpoints
+    emitter.emit(spec, str(out_dir))
+    search_file: Path = out_dir / "endpoints" / "search.py"
+    assert search_file.exists()
+    content = search_file.read_text()
+
+    # Assert: The method signature should have only tenant_id and body, not searchPhrase/instructions
+    # Accept multiline signature (indented)
+    assert "async def elaborate_search_phrase(" in content
+    assert "tenant_id: str," in content
+    assert "body: ElaborateSearchPhraseRequest," in content
+    # Ensure body fields are NOT present as top-level args
+    assert "searchPhrase:" not in content
+    assert "instructions:" not in content

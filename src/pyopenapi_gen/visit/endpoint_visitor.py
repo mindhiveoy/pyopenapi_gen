@@ -59,10 +59,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         body_type = None
         if op.request_body:
             body_type = get_request_body_type(op.request_body, context)
-            for mt, sch in op.request_body.content.items():
-                if "json" in mt.lower() and hasattr(sch, "properties") and sch.properties:
-                    params = merge_params_with_model_fields(op, sch, context)
-                    break
+            # Only add a single 'body' param, do NOT merge model fields
             extra_params.append({
                 "name": "body",
                 "type": body_type,
@@ -280,7 +277,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
                 "bytes",
             ):
                 context.add_import("..models", item_type)
-            writer.write_line("async def _stream():")
+            # Add explicit return type annotation to _stream
+            writer.write_line(f"async def _stream() -> {return_type}:")
             writer.indent()
             writer.write_line("async for chunk in iter_bytes(response):")
             writer.indent()
@@ -289,8 +287,11 @@ class EndpointVisitor(Visitor[IROperation, str]):
                 writer.write_line("yield json.loads(chunk)")
             elif item_type == "bytes":
                 writer.write_line("yield chunk")
-            elif item_type in ("str", "int", "float", "bool", "Any"):
+            elif item_type in ("str", "int", "float", "bool"):
                 writer.write_line(f"yield {item_type}(json.loads(chunk))")
+            elif item_type == "Any":
+                context.add_import("typing", "cast")
+                writer.write_line("yield cast(Any, json.loads(chunk))")
             else:
                 writer.write_line(f"yield {item_type}(**json.loads(chunk))")
             writer.dedent()
@@ -550,7 +551,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
                 "bytes",
             ):
                 context.add_import("..models", item_type)
-            writer.write_line("async def _stream():")
+            # Add explicit return type annotation to _stream
+            writer.write_line(f"async def _stream() -> {return_type}:")
             writer.indent()
             writer.write_line("async for chunk in iter_bytes(response):")
             writer.indent()
@@ -559,8 +561,11 @@ class EndpointVisitor(Visitor[IROperation, str]):
                 writer.write_line("yield json.loads(chunk)")
             elif item_type == "bytes":
                 writer.write_line("yield chunk")
-            elif item_type in ("str", "int", "float", "bool", "Any"):
+            elif item_type in ("str", "int", "float", "bool"):
                 writer.write_line(f"yield {item_type}(json.loads(chunk))")
+            elif item_type == "Any":
+                context.add_import("typing", "cast")
+                writer.write_line("yield cast(Any, json.loads(chunk))")
             else:
                 writer.write_line(f"yield {item_type}(**json.loads(chunk))")
             writer.dedent()

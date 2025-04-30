@@ -31,10 +31,10 @@ validate_spec = None  # override imported validate_spec
 
 from pyopenapi_gen import (
     HTTPMethod,
-    IRParameter,
-    IRResponse,
-    IRRequestBody,
     IROperation,
+    IRParameter,
+    IRRequestBody,
+    IRResponse,
     IRSchema,
     IRSpec,
 )
@@ -65,11 +65,7 @@ def _parse_schema(
         # Determine name: use provided name or derive from first $ref
         comp_name = name
         for sub in node["allOf"]:
-            if (
-                isinstance(sub, Mapping)
-                and "$ref" in sub
-                and sub["$ref"].startswith("#/components/schemas/")
-            ):
+            if isinstance(sub, Mapping) and "$ref" in sub and sub["$ref"].startswith("#/components/schemas/"):
                 comp_name = sub["$ref"].rsplit("/", 1)[-1]
                 break
         combined_required: List[str] = []
@@ -118,27 +114,18 @@ def _parse_schema(
                 return IRSchema(name=ref_name)
             _visited.add(ref_name)
             referenced = raw_schemas.get(ref_name, {})
-            schema_obj = _parse_schema(
-                ref_name, referenced, raw_schemas, schemas, _visited
-            )
+            schema_obj = _parse_schema(ref_name, referenced, raw_schemas, schemas, _visited)
             schemas[ref_name] = schema_obj
             return schema_obj
         # For unresolved $ref, return IRSchema(name=None, _from_unresolved_ref=True)
         return IRSchema(name=None, _from_unresolved_ref=True)
     raw_required = node.get("required")
-    required_fields = (
-        cast(List[str], raw_required) if isinstance(raw_required, list) else []
-    )
+    required_fields = cast(List[str], raw_required) if isinstance(raw_required, list) else []
     properties = {
-        key: _parse_schema(None, val, raw_schemas, schemas, _visited)
-        for key, val in node.get("properties", {}).items()
+        key: _parse_schema(None, val, raw_schemas, schemas, _visited) for key, val in node.get("properties", {}).items()
     }
     items = node.get("items")
-    items_schema = (
-        _parse_schema(None, items, raw_schemas, schemas, _visited)
-        if items is not None
-        else None
-    )
+    items_schema = _parse_schema(None, items, raw_schemas, schemas, _visited) if items is not None else None
     return IRSchema(
         name=name,
         type=node.get("type"),
@@ -166,9 +153,7 @@ def _parse_parameter(
 ) -> IRParameter:
     """Convert an OpenAPI parameter node into IRParameter."""
     sch = node.get("schema")
-    schema = (
-        _parse_schema(None, sch, raw_schemas, schemas) if sch else IRSchema(name=None)
-    )
+    schema = _parse_schema(None, sch, raw_schemas, schemas) if sch else IRSchema(name=None)
     return IRParameter(
         name=node["name"],
         in_=node.get("in", "query"),
@@ -244,11 +229,7 @@ def _parse_operations(
         base_params: List[IRParameter] = []
         for p in cast(List[Mapping[str, Any]], entry.get("parameters", [])):
             # Resolve parameter $ref if present (skip if unresolved)
-            if (
-                "$ref" in p
-                and isinstance(p.get("$ref"), str)
-                and p["$ref"].startswith("#/components/parameters/")
-            ):
+            if "$ref" in p and isinstance(p.get("$ref"), str) and p["$ref"].startswith("#/components/parameters/"):
                 ref_name = p["$ref"].split("/")[-1]
                 if ref_name in raw_parameters:
                     p_node = raw_parameters[ref_name]
@@ -312,17 +293,11 @@ def _parse_operations(
                     desc = rb_node.get("description")
                     content_map: Dict[str, IRSchema] = {}
                     for mt, media in rb_node.get("content", {}).items():
-                        content_map[mt] = _parse_schema(
-                            None, media.get("schema"), raw_schemas, schemas
-                        )
-                    rb = IRRequestBody(
-                        required=required_flag, content=content_map, description=desc
-                    )
+                        content_map[mt] = _parse_schema(None, media.get("schema"), raw_schemas, schemas)
+                    rb = IRRequestBody(required=required_flag, content=content_map, description=desc)
                 # Build responses
                 resps: List[IRResponse] = []
-                for sc, rn in cast(
-                    Mapping[str, Any], node.get("responses", {})
-                ).items():
+                for sc, rn in cast(Mapping[str, Any], node.get("responses", {})).items():
                     if (
                         isinstance(rn, Mapping)
                         and "$ref" in rn
@@ -338,9 +313,7 @@ def _parse_operations(
                 if "operationId" in node:
                     operation_id = node["operationId"]
                 else:
-                    operation_id = NameSanitizer.sanitize_method_name(
-                        f"{mu}_{path}".strip("/")
-                    )
+                    operation_id = NameSanitizer.sanitize_method_name(f"{mu}_{path}".strip("/"))
                 op = IROperation(
                     operation_id=operation_id,
                     method=HTTPMethod[mu],
@@ -381,7 +354,12 @@ def _parse_operations(
                         if sch.name is None:
                             if getattr(sch, "_from_unresolved_ref", False):
                                 # Defensive: never assign a name to unresolved $ref schemas
-                                # (test expects name=None for these)
+                                continue
+                            is_streaming = getattr(resp, "stream", False)
+                            # PATCH: Only assign a name for streaming responses if schema is a global, named schema
+                            if is_streaming:
+                                # If this schema is not a global component (i.e., not in schemas), skip naming
+                                # Inline objects (even with properties) should not get a name for streaming
                                 continue
                             # Use the raw operation_id (not sanitized) + 'Response', then sanitize once
                             generated_name = NameSanitizer.sanitize_class_name(

@@ -38,9 +38,7 @@ def get_param_type(param: IRParameter, context: RenderContext) -> str:
         context.add_import(model_module, class_name)
         py_type = class_name
     elif s.type == "array" and s.items:
-        item_type = get_param_type(
-            IRParameter(name="", in_="", required=False, schema=s.items), context
-        )
+        item_type = get_param_type(IRParameter(name="", in_="", required=False, schema=s.items), context)
         py_type = f"List[{item_type}]"
     elif s.type == "object" and s.properties:
         py_type = "Dict[str, Any]"
@@ -73,9 +71,7 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext) -> str:
             # If array of models
             if sch.type == "array" and getattr(sch.items, "name", None):
                 item_class = NameSanitizer.sanitize_class_name(sch.items.name)
-                model_module = (
-                    f"models.{NameSanitizer.sanitize_module_name(sch.items.name)}"
-                )
+                model_module = f"models.{NameSanitizer.sanitize_module_name(sch.items.name)}"
                 context.add_import(model_module, item_class)
                 return f"List[{item_class}]"
             # If generic object
@@ -119,11 +115,7 @@ def get_return_type(
             model_module = f"models.{NameSanitizer.sanitize_module_name(schema.name)}"
             context.add_import(model_module, class_name)
             return class_name
-        if (
-            schema.type == "array"
-            and getattr(schema.items, "name", None)
-            and schema.items.name in schemas
-        ):
+        if schema.type == "array" and getattr(schema.items, "name", None) and schema.items.name in schemas:
             item_class = NameSanitizer.sanitize_class_name(schema.items.name)
             context.add_import(
                 f"models.{NameSanitizer.sanitize_module_name(schema.items.name)}",
@@ -155,11 +147,7 @@ def get_return_type(
     resp: Optional[IRResponse] = None
     for code in (
         ["200"]
-        + [
-            r.status_code
-            for r in op.responses
-            if r.status_code.startswith("2") and r.status_code != "200"
-        ]
+        + [r.status_code for r in op.responses if r.status_code.startswith("2") and r.status_code != "200"]
         + ["default"]
     ):
         resp = next((r for r in op.responses if r.status_code == code), None)
@@ -178,12 +166,13 @@ def get_return_type(
     schema = resp.content[mt]
     # Streaming response
     if getattr(resp, "stream", False):
-        # Only treat as model if name is present in schemas
-        if getattr(schema, "name", None) and schema.name in schemas:
+        # Only use a named model if schema is a global, named schema (present in schemas)
+        is_global_named_model = getattr(schema, "name", None) and schema.name in schemas
+        if is_global_named_model:
             item_type = schema_to_pytype(schema, context)
             return f"AsyncIterator[{item_type}]"
-        # If schema is an object with properties, use Dict[str, Any]
-        if schema.type == "object" and getattr(schema, "properties", None):
+        # For all inline object schemas (even with properties), use Dict[str, Any]
+        if schema.type == "object":
             return "AsyncIterator[Dict[str, Any]]"
         # If binary
         if schema.type == "string" and getattr(schema, "format", None) == "binary":
@@ -191,11 +180,7 @@ def get_return_type(
         # Fallback
         return "AsyncIterator[Any]"
     # List response
-    if (
-        schema.type == "array"
-        and getattr(schema.items, "name", None)
-        and schema.items.name in schemas
-    ):
+    if schema.type == "array" and getattr(schema.items, "name", None) and schema.items.name in schemas:
         item_class = NameSanitizer.sanitize_class_name(schema.items.name)
         context.add_import(
             f"models.{NameSanitizer.sanitize_module_name(schema.items.name)}",
@@ -226,9 +211,7 @@ def format_method_args(params: list[dict[str, Any]]) -> str:
     return ", ".join(arg_strs)
 
 
-def get_model_stub_args(
-    schema: IRSchema, context: RenderContext, present_args: set[str]
-) -> str:
+def get_model_stub_args(schema: IRSchema, context: RenderContext, present_args: set[str]) -> str:
     """
     Generate a string of arguments for instantiating a model.
     For each required field, use the variable if present in present_args, otherwise use

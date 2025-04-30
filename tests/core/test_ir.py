@@ -1,10 +1,10 @@
 from pyopenapi_gen import (
-    IRSpec,
-    IRSchema,
+    HTTPMethod,
     IROperation,
     IRParameter,
     IRResponse,
-    HTTPMethod,
+    IRSchema,
+    IRSpec,
 )
 
 
@@ -41,11 +41,7 @@ def test_ir_smoke():
             IRResponse(
                 status_code="200",
                 description="A paged array of pets",
-                content={
-                    "application/json": IRSchema(
-                        name=None, type="array", items=pet_schema
-                    )
-                },
+                content={"application/json": IRSchema(name=None, type="array", items=pet_schema)},
             )
         ],
         tags=["pets"],
