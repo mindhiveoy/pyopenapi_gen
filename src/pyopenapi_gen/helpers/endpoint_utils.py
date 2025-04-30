@@ -4,8 +4,10 @@ Used by EndpointVisitor and related emitters.
 """
 
 from typing import Any, Dict, List, Optional
+
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
+
 from ..core.utils import NameSanitizer
 
 
@@ -17,14 +19,12 @@ def get_params(op: IROperation, context: RenderContext) -> List[Dict[str, Any]]:
     for param in op.parameters:
         py_type = get_param_type(param, context)
         default = None if param.required else "None"
-        params.append(
-            {
-                "name": NameSanitizer.sanitize_method_name(param.name),
-                "type": py_type,
-                "default": default,
-                "required": param.required,
-            }
-        )
+        params.append({
+            "name": NameSanitizer.sanitize_method_name(param.name),
+            "type": py_type,
+            "default": default,
+            "required": param.required,
+        })
     return params
 
 
@@ -94,7 +94,11 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext) -> str:
     return "Dict[str, Any]"
 
 
-def get_return_type(op: IROperation, context: RenderContext) -> str:
+def get_return_type(
+    op: IROperation,
+    context: RenderContext,
+    schemas: dict = None,
+) -> str:
     """
     Determine the Python return type for the endpoint method based on the operation's responses.
     - Prefer 200/2xx responses, then default, then any.
@@ -104,17 +108,22 @@ def get_return_type(op: IROperation, context: RenderContext) -> str:
     - If the response is a stream, use AsyncIterator[Type].
     - If no schema, fallback to Any.
     """
+    schemas = schemas or {}
 
     def schema_to_pytype(schema, context):
         if not schema:
             return "Any"
-        # Model reference
-        if getattr(schema, "name", None):
+        # Only treat as model if name is present in schemas
+        if getattr(schema, "name", None) and schema.name in schemas:
             class_name = NameSanitizer.sanitize_class_name(schema.name)
             model_module = f"models.{NameSanitizer.sanitize_module_name(schema.name)}"
             context.add_import(model_module, class_name)
             return class_name
-        if schema.type == "array" and getattr(schema.items, "name", None):
+        if (
+            schema.type == "array"
+            and getattr(schema.items, "name", None)
+            and schema.items.name in schemas
+        ):
             item_class = NameSanitizer.sanitize_class_name(schema.items.name)
             context.add_import(
                 f"models.{NameSanitizer.sanitize_module_name(schema.items.name)}",
@@ -124,8 +133,15 @@ def get_return_type(op: IROperation, context: RenderContext) -> str:
         if schema.type == "array" and schema.items:
             item_type = schema_to_pytype(schema.items, context)
             return f"List[{item_type}]"
-        if schema.type == "object" and schema.properties:
-            return "Dict[str, Any]"
+        # PATCH: For binary streaming, return bytes
+        if schema.type == "string" and getattr(schema, "format", None) == "binary":
+            return "bytes"
+        # PATCH: For inline object schemas, only use Dict[str, Any] if no name and no properties
+        if schema.type == "object":
+            if getattr(schema, "properties", None):
+                return "Dict[str, Any]"
+            # If no properties and no name, fallback to Any
+            return "Any"
         if schema.type in ("integer", "number", "boolean", "string"):
             return {
                 "integer": "int",
@@ -153,16 +169,33 @@ def get_return_type(op: IROperation, context: RenderContext) -> str:
         resp = op.responses[0]
     if not resp or not resp.content:
         return "Any"
-    # Pick first content type (prefer application/json)
+    # Pick first content type (prefer application/json, then event-stream, then any)
     content_types = list(resp.content.keys())
-    mt = next((ct for ct in content_types if "json" in ct), content_types[0])
+    mt = next(
+        (ct for ct in content_types if "json" in ct),
+        next((ct for ct in content_types if "event-stream" in ct), content_types[0]),
+    )
     schema = resp.content[mt]
     # Streaming response
     if getattr(resp, "stream", False):
-        item_type = schema_to_pytype(schema, context)
-        return f"AsyncIterator[{item_type}]"
+        # Only treat as model if name is present in schemas
+        if getattr(schema, "name", None) and schema.name in schemas:
+            item_type = schema_to_pytype(schema, context)
+            return f"AsyncIterator[{item_type}]"
+        # If schema is an object with properties, use Dict[str, Any]
+        if schema.type == "object" and getattr(schema, "properties", None):
+            return "AsyncIterator[Dict[str, Any]]"
+        # If binary
+        if schema.type == "string" and getattr(schema, "format", None) == "binary":
+            return "AsyncIterator[bytes]"
+        # Fallback
+        return "AsyncIterator[Any]"
     # List response
-    if schema.type == "array" and getattr(schema.items, "name", None):
+    if (
+        schema.type == "array"
+        and getattr(schema.items, "name", None)
+        and schema.items.name in schemas
+    ):
         item_class = NameSanitizer.sanitize_class_name(schema.items.name)
         context.add_import(
             f"models.{NameSanitizer.sanitize_module_name(schema.items.name)}",
@@ -178,8 +211,8 @@ def get_return_type(op: IROperation, context: RenderContext) -> str:
 
 def format_method_args(params: list[dict[str, Any]]) -> str:
     """
-    Format a list of parameter dicts into a Python function argument string (excluding 'self').
-    Each dict must have: name, type, default (None or string), required (bool).
+    Format a list of parameter dicts into a Python function argument string (excluding
+    'self'). Each dict must have: name, type, default (None or string), required (bool).
     Required params come first, then optional params with defaults.
     """
     required = [p for p in params if p.get("required", True)]
@@ -198,8 +231,8 @@ def get_model_stub_args(
 ) -> str:
     """
     Generate a string of arguments for instantiating a model.
-    For each required field, use the variable if present in present_args, otherwise use a safe default.
-    For optional fields, use None.
+    For each required field, use the variable if present in present_args, otherwise use
+    a safe default. For optional fields, use None.
     """
     if not hasattr(schema, "properties") or not schema.properties:
         return ""
@@ -263,12 +296,10 @@ def merge_params_with_model_fields(
                 IRParameter(name=prop, in_="body", required=True, schema=pschema),
                 context,
             )
-            merged_params.append(
-                {
-                    "name": sanitized_name,
-                    "type": py_type,
-                    "default": None,
-                    "required": True,
-                }
-            )
+            merged_params.append({
+                "name": sanitized_name,
+                "type": py_type,
+                "default": None,
+                "required": True,
+            })
     return merged_params

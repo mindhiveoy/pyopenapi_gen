@@ -460,3 +460,48 @@ def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path):
     assert "Optional" in content
     assert "Any" in content
     assert "meta: Optional[Any] = field(default_factory=dict)" in content
+
+
+def test_models_emitter__inline_response_schema__generates_model(tmp_path):
+    """
+    Scenario:
+        The IRSpec contains a schema for an inline response (e.g., ListenEventsResponse) that was not in components/schemas.
+        The model emitter should generate a dataclass for this inline response schema.
+
+    Expected Outcome:
+        - A model file is generated for ListenEventsResponse in the models directory
+        - The file contains a dataclass definition for ListenEventsResponse
+    """
+    from pyopenapi_gen import IRSpec, IRSchema
+    from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
+    import os
+
+    # Simulate an inline response schema named ListenEventsResponse
+    schema = IRSchema(
+        name="ListenEventsResponse",
+        type="object",
+        properties={
+            "data": IRSchema(name=None, type="object"),
+            "event": IRSchema(name=None, type="string"),
+            "id": IRSchema(name=None, type="string"),
+        },
+        required=["data", "event", "id"],
+    )
+    spec = IRSpec(
+        title="Test API",
+        version="1.0.0",
+        schemas={"ListenEventsResponse": schema},
+        operations=[],
+        servers=[],
+    )
+    out_dir = tmp_path / "out"
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "listen_events_response.py"
+    assert model_file.exists(), "Model file for ListenEventsResponse not generated"
+    content = model_file.read_text()
+    assert "@dataclass" in content
+    assert "class ListenEventsResponse" in content
+    assert "data:" in content
+    assert "event:" in content
+    assert "id:" in content

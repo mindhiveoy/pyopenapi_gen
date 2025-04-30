@@ -72,8 +72,6 @@ def gen(
         False, "--no-postprocess", help="Skip post-processing (type checking, etc.)"
     ),
 ):
-    print(f"[DEBUG] gen() called. Output directory: {output}")
-    """Generate a Python client from an OpenAPI spec."""
     # Load and convert spec to IR
     spec_dict = _load_spec(spec)
     ir = load_ir_from_spec(spec_dict)

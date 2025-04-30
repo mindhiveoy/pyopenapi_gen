@@ -1,16 +1,15 @@
 from pathlib import Path
+
 from pyopenapi_gen import (
-    IROperation,
-    IRSpec,
     HTTPMethod,
-    IRRequestBody,
-    IRSchema,
-    IRResponse,
+    IROperation,
     IRParameter,
+    IRRequestBody,
+    IRResponse,
+    IRSchema,
+    IRSpec,
 )
 from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
-import os
-import pytest
 
 
 def test_endpoints_emitter_basic(tmp_path: Path) -> None:
@@ -198,18 +197,18 @@ def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
     # The return type should be AsyncIterator[bytes]
     assert "AsyncIterator[bytes]" in content
     # Should yield chunks from resp.aiter_bytes()
-    assert "async for chunk in iter_bytes(resp):" in content
+    assert "async for chunk in iter_bytes(response):" in content
 
 
 def test_endpoints_emitter_imports(tmp_path: Path) -> None:
     """Test that the endpoint module has the correct import statements."""
     from pyopenapi_gen import (
-        IRSpec,
+        HTTPMethod,
         IROperation,
-        IRSchema,
         IRRequestBody,
         IRResponse,
-        HTTPMethod,
+        IRSchema,
+        IRSpec,
     )
 
     # Prepare IR pieces: path param, query param, JSON body, streaming response
@@ -259,8 +258,6 @@ def test_endpoints_emitter_imports(tmp_path: Path) -> None:
     assert "Dict" in content
     assert "IO" in content
     assert "Optional" in content
-    # Ensure httpx AsyncClient import is present
-    assert "from httpx import AsyncClient" in content
 
 
 def create_simple_response_schema():
@@ -280,7 +277,8 @@ def test_endpoints_emitter__sanitize_tag_name__creates_sanitized_module_and_clas
     Scenario:
         Emit endpoints for a spec with a tag that contains spaces and special chars.
     Expected Outcome:
-        A module file with a sanitized filename and a client class with a sanitized name is created.
+        A module file with a sanitized filename and a client class with a sanitized name
+        is created.
     """
     # Arrange
     tag = "My Tag!"
@@ -400,7 +398,8 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path):
     Scenario:
         Emit endpoints for a spec and inspect the __init__.py file.
     Expected Outcome:
-        The __init__.py contains correct __all__ entry and import statement for the sanitized client module.
+        The __init__.py contains correct __all__ entry and import statement for the
+        sanitized client module.
     """
     # Arrange
     tag = "Test Tag"
@@ -422,7 +421,7 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path):
         ],
         tags=[tag],
     )
-    spec = IRSpec(title="API", version="1.0.0", schemas={}, operations=[op])
+    spec = IRSpec(title="Test API", version="1.0.0", schemas={}, operations=[op])
     out_dir = tmp_path / "out"
 
     # Act
@@ -445,10 +444,12 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path):
 def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path):
     """
     Scenario:
-        Emit endpoints for a spec with multiple operations using tags that differ only by case or punctuation.
+        Emit endpoints for a spec with multiple operations using tags that differ only
+        by case or punctuation.
     Expected Outcome:
         Only one client module/class is generated for all tag variants.
-        __init__.py contains only one entry in __all__ and one import statement for the deduplicated client.
+        __init__.py contains only one entry in __all__ and one import statement for the
+        deduplicated client.
     """
     # Arrange
     tag_variants = [
@@ -498,7 +499,8 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     content = expected_module.read_text()
     # The client class should be present (canonicalized, PascalCase)
     assert "class DataSourcesClient" in content, "Client class name not as expected"
-    # __init__.py should only have one entry in __all__ and one import, using PascalCase for public API
+    # __init__.py should only have one entry in __all__ and one import, using PascalCase
+    #  for public API
     init_file = endpoints_dir / "__init__.py"
     assert init_file.exists(), "__init__.py not generated in endpoints/"
     text = init_file.read_text()
@@ -508,3 +510,225 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     assert (
         text.count("from .data_sources import DataSourcesClient") == 1
     ), "Only one import from data_sources module should exist"
+
+
+def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_path):
+    """
+    Scenario:
+        Generate an endpoint for a streaming (event-stream) response where the schema is
+        an inline object (not a named model). This matches the /listen endpoint in the
+        business_swagger.json spec.
+
+    Expected Outcome:
+        - The generated method has return type AsyncIterator[Dict[str, Any]]
+        - The method yields json.loads(chunk)
+        - The file does NOT import or reference ListenEventsResponse
+    """
+    from pyopenapi_gen import (
+        HTTPMethod,
+        IROperation,
+        IRParameter,
+        IRResponse,
+        IRSchema,
+        IRSpec,
+    )
+    from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+
+    # Inline object schema for event-stream
+    event_schema = IRSchema(
+        name=None,
+        type="object",
+        properties={
+            "data": IRSchema(name=None, type="object"),
+            "event": IRSchema(name=None, type="string"),
+            "id": IRSchema(name=None, type="string"),
+        },
+        required=["data", "event", "id"],
+    )
+    streaming_resp = IRResponse(
+        status_code="200",
+        description="Server-Sent Events stream established",
+        content={"text/event-stream": event_schema},
+        stream=True,
+        stream_format="event-stream",
+    )
+    op = IROperation(
+        operation_id="listen_events",
+        method=HTTPMethod.GET,
+        path="/listen",
+        summary="Establish a Server-Sent Events connection",
+        description="Establishes a Server-Sent Events connection with optional filters.",
+        parameters=[
+            IRParameter(
+                name="filters",
+                in_="query",
+                required=True,
+                schema=IRSchema(name=None, type="object"),
+                description="JSON object defining filters for the events",
+            )
+        ],
+        request_body=None,
+        responses=[streaming_resp],
+        tags=["listen"],
+    )
+    spec = IRSpec(
+        title="Test API",
+        version="1.0.0",
+        operations=[op],
+        schemas={},
+        servers=["https://api.example.com"],
+    )
+    out_dir = tmp_path / "out"
+    emitter = EndpointsEmitter()
+    emitter.emit(spec, str(out_dir))
+    listen_file = out_dir / "endpoints" / "listen.py"
+    assert listen_file.exists()
+    content = listen_file.read_text()
+    # The return type should be AsyncIterator[Dict[str, Any]]
+    assert "AsyncIterator[Dict[str, Any]]" in content
+    # Should yield json.loads(chunk)
+    assert "json.loads(chunk)" in content
+    # Should NOT import or reference ListenEventsResponse
+    assert "ListenEventsResponse" not in content
+    assert "from ..models" not in content or "ListenEventsResponse" not in content
+
+
+def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yields_dict(
+    tmp_path,
+):
+    """
+    Scenario:
+        Generate an endpoint for a streaming (event-stream) response where the schema is an inline object (not a named model and not present in IRSpec.schemas).
+        This matches the /listen endpoint in the business_swagger.json spec, but the schema is not registered as a model.
+
+    Expected Outcome:
+        - The generated method has return type AsyncIterator[Dict[str, Any]]
+        - The method yields json.loads(chunk) (not a fabricated model class)
+        - No import or reference to a fabricated model class is present
+    """
+
+    from pyopenapi_gen import (
+        HTTPMethod,
+        IROperation,
+        IRResponse,
+        IRSchema,
+        IRSpec,
+    )
+    from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+
+    # Inline schema (not in IRSpec.schemas)
+    inline_schema = IRSchema(
+        name=None,  # No name, not a model
+        type="object",
+        properties={"foo": IRSchema(name=None, type="string")},
+        required=["foo"],
+    )
+    op = IROperation(
+        path="/listen",
+        method=HTTPMethod.GET,
+        operation_id="listenEvents",
+        parameters=[],
+        request_body=None,
+        responses=[
+            IRResponse(
+                status_code="200",
+                description="stream",
+                content={"text/event-stream": inline_schema},
+                stream=True,
+            )
+        ],
+        tags=["Listen"],
+        summary="Listen SSE",
+        description="",
+    )
+    spec = IRSpec(
+        title="Test API",
+        version="1.0.0",
+        schemas={},  # No schemas registered
+        operations=[op],
+        servers=[],
+    )
+    out_dir = tmp_path / "out"
+    emitter = EndpointsEmitter()
+    emitter.emit(spec, str(out_dir))
+    listen_file = out_dir / "endpoints" / "listen.py"
+    assert listen_file.exists(), "listen.py not generated"
+    content = listen_file.read_text()
+    # Should use AsyncIterator[Dict[str, Any]]
+    assert "AsyncIterator[Dict[str, Any]]" in content
+    # Should yield json.loads(chunk)
+    assert "json.loads(chunk)" in content
+    # Should NOT import or reference a fabricated model class
+    assert "ListenEventsResponse" not in content
+    assert "from ..models" not in content or "ListenEventsResponse" not in content
+
+
+def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path):
+    """
+    Scenario:
+        Generate an endpoint with multiple query parameters.
+    Expected Outcome:
+        - All query parameters in the method signature are included in the params dictionary in the generated code.
+    """
+    import os
+
+    from pyopenapi_gen import (
+        HTTPMethod,
+        IROperation,
+        IRParameter,
+        IRResponse,
+        IRSchema,
+        IRSpec,
+    )
+    from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+
+    # Simulate an endpoint with query parameters
+    op = IROperation(
+        path="/tenants/{tenant_id}/analytics/chat-stats",
+        method=HTTPMethod.GET,
+        operation_id="getTenantChatStats",
+        parameters=[
+            IRParameter(
+                name="tenant_id",
+                in_="path",
+                required=True,
+                schema=IRSchema(name=None, type="string"),
+            ),
+            IRParameter(
+                name="start_date",
+                in_="query",
+                required=False,
+                schema=IRSchema(name=None, type="string"),
+            ),
+            IRParameter(
+                name="end_date",
+                in_="query",
+                required=False,
+                schema=IRSchema(name=None, type="string"),
+            ),
+        ],
+        request_body=None,
+        responses=[
+            IRResponse(
+                status_code="200",
+                description="OK",
+                content={"application/json": IRSchema(name=None, type="object")},
+                stream=False,
+            )
+        ],
+        tags=["Tenants"],
+        summary="Get chat statistics for a tenant",
+        description="",
+    )
+    spec = IRSpec(title="Test API", version="1.0.0", operations=[op], schemas={})
+    out_dir = tmp_path / "out"
+    emitter = EndpointsEmitter(spec.schemas)
+    emitter.emit(spec, str(out_dir))
+    # Read the generated code
+    with open(os.path.join(out_dir, "endpoints", "tenants.py")) as f:
+        content = f.read()
+    # Assert that all query params are included in the params dict
+    assert '"start_date": start_date' in content
+    assert '"end_date": end_date' in content
+    # Also check that tenant_id is not in params (it's a path param)
+    assert '"tenant_id": tenant_id' not in content

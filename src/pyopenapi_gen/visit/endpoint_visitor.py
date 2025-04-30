@@ -1,16 +1,17 @@
 from pyopenapi_gen import IROperation
-from .visitor import Visitor
-from ..context.render_context import RenderContext
-from ..core.utils import NameSanitizer, Formatter, CodeWriter
 from pyopenapi_gen.helpers.endpoint_utils import (
-    get_params,
+    format_method_args,
     get_param_type,
+    get_params,
     get_request_body_type,
     get_return_type,
-    format_method_args,
     merge_params_with_model_fields,
 )
 from pyopenapi_gen.helpers.url_utils import extract_url_variables
+
+from ..context.render_context import RenderContext
+from ..core.utils import CodeWriter, Formatter, NameSanitizer
+from .visitor import Visitor
 
 
 class EndpointVisitor(Visitor[IROperation, str]):
@@ -20,8 +21,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
     Returns the rendered code as a string (does not write files).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, schemas=None) -> None:
         self.formatter = Formatter()
+        self.schemas = schemas or {}
 
     def visit_IROperation(self, op: IROperation, context: RenderContext) -> str:
         """
@@ -58,30 +60,22 @@ class EndpointVisitor(Visitor[IROperation, str]):
         if op.request_body:
             body_type = get_request_body_type(op.request_body, context)
             for mt, sch in op.request_body.content.items():
-                if (
-                    "json" in mt.lower()
-                    and hasattr(sch, "properties")
-                    and sch.properties
-                ):
+                if "json" in mt.lower() and hasattr(sch, "properties") and sch.properties:
                     params = merge_params_with_model_fields(op, sch, context)
                     break
-            extra_params.append(
-                {
-                    "name": "body",
-                    "type": body_type,
+            extra_params.append({
+                "name": "body",
+                "type": body_type,
+                "default": None if op.request_body.required else "None",
+                "required": op.request_body.required,
+            })
+            if any("multipart/form-data" in mt for mt in op.request_body.content):
+                extra_params.append({
+                    "name": "files",
+                    "type": "Dict[str, IO[Any]]",
                     "default": None if op.request_body.required else "None",
                     "required": op.request_body.required,
-                }
-            )
-            if any("multipart/form-data" in mt for mt in op.request_body.content):
-                extra_params.append(
-                    {
-                        "name": "files",
-                        "type": "Dict[str, IO[Any]]",
-                        "default": None if op.request_body.required else "None",
-                        "required": op.request_body.required,
-                    }
-                )
+                })
         all_params = params + extra_params
         all_params = self._ensure_path_variables_as_params(op, all_params)
         required_params = [p for p in all_params if p.get("required", True)]
@@ -105,26 +99,29 @@ class EndpointVisitor(Visitor[IROperation, str]):
             context: The RenderContext for type resolution.
             ordered_params: List of parameters for the method signature.
         """
-        arg_str = format_method_args(ordered_params)
-        self_param = f"self"
         # Ensure all types in the signature are registered for import
         for p in ordered_params:
             context.add_typing_imports_for_type(p["type"])
-        return_type = get_return_type(op, context)
+        return_type = get_return_type(op, context, self.schemas)
         context.add_typing_imports_for_type(return_type)
         # Ensure plain import for collections.abc if AsyncIterator is used
         if ("AsyncIterator" in return_type) or any(
             "AsyncIterator" in get_param_type(p, context) for p in op.parameters
         ):
             context.add_plain_import("collections.abc")
-        if arg_str:
-            writer.write_line(
-                f"async def {NameSanitizer.sanitize_method_name(op.operation_id)}({self_param}, {arg_str}) -> {return_type}:"
-            )
-        else:
-            writer.write_line(
-                f"async def {NameSanitizer.sanitize_method_name(op.operation_id)}({self_param}) -> {return_type}:"
-            )
+        # Build argument list for signature
+        args = ["self"]
+        for p in ordered_params:
+            arg = f"{p['name']}: {p['type']}"
+            if p.get("default") is not None:
+                arg += f" = {p['default']}"
+            args.append(arg)
+        writer.write_function_signature(
+            NameSanitizer.sanitize_method_name(op.operation_id),
+            args,
+            return_type=return_type,
+            async_=True,
+        )
         writer.indent()
 
     def _write_docstring(self, writer: CodeWriter, op: IROperation):
@@ -172,13 +169,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
         self._write_header_params(writer, op, ordered_params)
         writer.dedent()
         writer.write_line("}")
-        if op.request_body and any(
-            "json" in mt.lower() for mt in op.request_body.content
-        ):
+        if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line(f"json_body: {body_type} = body")
-        if op.request_body and any(
-            "multipart/form-data" in mt for mt in op.request_body.content
-        ):
+        if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
             writer.write_line("files_data: Dict[str, IO[Any]] = files")
 
     def _write_query_params(self, writer: CodeWriter, op: IROperation, ordered_params):
@@ -193,10 +186,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         for p in ordered_params:
             if hasattr(op, "parameters"):
                 for param in op.parameters:
-                    if (
-                        param.name == p["name"]
-                        and getattr(param, "in_", None) == "query"
-                    ):
+                    if param.name == p["name"] and getattr(param, "in_", None) == "query":
                         writer.write_line(f'"{param.name}": {p["name"]},')
 
     def _write_header_params(self, writer: CodeWriter, op: IROperation, ordered_params):
@@ -211,10 +201,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         for p in ordered_params:
             if hasattr(op, "parameters"):
                 for param in op.parameters:
-                    if (
-                        param.name == p["name"]
-                        and getattr(param, "in_", None) == "header"
-                    ):
+                    if param.name == p["name"] and getattr(param, "in_", None) == "header":
                         writer.write_line(f'"{param.name}": {p["name"]},')
 
     def _write_request(self, writer: CodeWriter, op: IROperation):
@@ -230,13 +217,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.write_line(f'"{op.method.upper()}", url,')
         writer.write_line("params=params,")
         writer.write_line("headers=headers,")
-        if op.request_body and any(
-            "json" in mt.lower() for mt in op.request_body.content
-        ):
+        if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line("json=json_body,")
-        if op.request_body and any(
-            "multipart/form-data" in mt for mt in op.request_body.content
-        ):
+        if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
             writer.write_line("files=files_data,")
         writer.dedent()
         writer.write_line(")")
@@ -248,9 +231,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         Args:
             writer: The CodeWriter to emit code to.
         """
-        writer.write_line(
-            "if response.status_code < 200 or response.status_code >= 300:"
-        )
+        writer.write_line("if response.status_code < 200 or response.status_code >= 300:")
         writer.indent()
         writer.write_line("# Map status code to exception class if available")
         writer.write_line("exc_class = self._get_exception_class(response.status_code)")
@@ -258,14 +239,10 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.indent()
         writer.write_line("raise exc_class(response.text)")
         writer.dedent()
-        writer.write_line(
-            "raise Exception(f'HTTP {response.status_code}: {response.text}')"
-        )
+        writer.write_line("raise Exception(f'HTTP {response.status_code}: {response.text}')")
         writer.dedent()
 
-    def _write_response_parsing(
-        self, writer: CodeWriter, op: IROperation, context: RenderContext
-    ):
+    def _write_response_parsing(self, writer: CodeWriter, op: IROperation, context: RenderContext):
         """
         Write the response parsing and return statement for the endpoint method, based on the return type.
 
@@ -274,10 +251,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
             op: The IROperation node.
             context: The RenderContext for type resolution.
         """
-        return_type = get_return_type(op, context)
-        context.add_typing_imports_for_type(
-            return_type
-        )  # Ensure return type is registered
+        return_type = get_return_type(op, context, self.schemas)
+        context.add_typing_imports_for_type(return_type)  # Ensure return type is registered
         writer.write_line("# Parse response into correct return type")
         if return_type.startswith("List["):
             writer.write_line("return [item for item in response.json()]")
@@ -294,13 +269,30 @@ class EndpointVisitor(Visitor[IROperation, str]):
             item_type = return_type[len("AsyncIterator[") : -1].strip()
             context.add_import("pyopenapi_gen.core.streaming_helpers", "iter_bytes")
             context.add_plain_import("json")  # import json
-            # Try to import the response type from models (assume models.<item_type>)
-            context.add_import("..models", item_type)
+            # PATCH: Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
+            if item_type not in (
+                "Dict[str, Any]",
+                "str",
+                "int",
+                "float",
+                "bool",
+                "Any",
+                "bytes",
+            ):
+                context.add_import("..models", item_type)
             writer.write_line("async def _stream():")
             writer.indent()
             writer.write_line("async for chunk in iter_bytes(response):")
             writer.indent()
-            writer.write_line(f"yield {item_type}(**json.loads(chunk))")
+            # PATCH: For Dict[str, Any], yield json.loads(chunk) directly
+            if item_type == "Dict[str, Any]":
+                writer.write_line("yield json.loads(chunk)")
+            elif item_type == "bytes":
+                writer.write_line("yield chunk")
+            elif item_type in ("str", "int", "float", "bool", "Any"):
+                writer.write_line(f"yield {item_type}(json.loads(chunk))")
+            else:
+                writer.write_line(f"yield {item_type}(**json.loads(chunk))")
             writer.dedent()
             writer.dedent()
             writer.write_line("return _stream()")
@@ -342,9 +334,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
             "    _get_exception_class (Callable[[int], Optional[type]]): Maps status codes to exception classes.\n"
             '"""'
         )
-        writer.write_line(
-            "def __init__(self, transport: HttpTransport, base_url: str) -> None:"
-        )
+        writer.write_line("def __init__(self, transport: HttpTransport, base_url: str) -> None:")
         writer.indent()
         writer.write_line("self._transport: HttpTransport = transport")
         writer.write_line("self.base_url: str = base_url")
@@ -359,9 +349,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.dedent()
         return writer.get_code()
 
-    def _analyze_and_register_imports(
-        self, op: IROperation, context: RenderContext
-    ) -> None:
+    def _analyze_and_register_imports(self, op: IROperation, context: RenderContext) -> None:
         # Analyze parameters
         for param in op.parameters:
             py_type = get_param_type(param, context)
@@ -375,7 +363,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
                 context.add_import("typing", "Any")
                 context.add_import("typing", "IO")
         # Analyze return type
-        return_type = get_return_type(op, context)
+        return_type = get_return_type(op, context, self.schemas)
         context.add_typing_imports_for_type(return_type)
         # Ensure plain import for collections.abc if AsyncIterator is used
         if ("AsyncIterator" in return_type) or any(
@@ -394,9 +382,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
             return globals().get(f"Error{status_code}")
         return None
 
-    def _ensure_path_variables_as_params(
-        self, op: IROperation, all_params: list[dict]
-    ) -> list[dict]:
+    def _ensure_path_variables_as_params(self, op: IROperation, all_params: list[dict]) -> list[dict]:
         """
         Ensure all path variables from the path template are present as function arguments.
         """
@@ -405,14 +391,12 @@ class EndpointVisitor(Visitor[IROperation, str]):
         for var in url_vars:
             sanitized_var = NameSanitizer.sanitize_method_name(var)
             if sanitized_var not in param_names:
-                all_params.append(
-                    {
-                        "name": sanitized_var,
-                        "type": "str",
-                        "default": None,
-                        "required": True,
-                    }
-                )
+                all_params.append({
+                    "name": sanitized_var,
+                    "type": "str",
+                    "default": None,
+                    "required": True,
+                })
                 param_names.add(sanitized_var)
         return all_params
 
@@ -426,9 +410,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
             path = path.replace(f"{{{var}}}", f"{{{sanitized_var}}}")
         return f'f"{{self.base_url}}{path}"'
 
-    def _generate_endpoint_method(
-        self, op: IROperation, context: RenderContext, class_name: str
-    ) -> str:
+    def _generate_endpoint_method(self, op: IROperation, context: RenderContext, class_name: str) -> str:
         """
         Generate the endpoint method as a method of the endpoint client class.
         """
@@ -448,30 +430,22 @@ class EndpointVisitor(Visitor[IROperation, str]):
         if op.request_body:
             body_type = get_request_body_type(op.request_body, context)
             for mt, sch in op.request_body.content.items():
-                if (
-                    "json" in mt.lower()
-                    and hasattr(sch, "properties")
-                    and sch.properties
-                ):
+                if "json" in mt.lower() and hasattr(sch, "properties") and sch.properties:
                     params = merge_params_with_model_fields(op, sch, context)
                     break
-            extra_params.append(
-                {
-                    "name": "body",
-                    "type": body_type,
+            extra_params.append({
+                "name": "body",
+                "type": body_type,
+                "default": None if op.request_body.required else "None",
+                "required": op.request_body.required,
+            })
+            if any("multipart/form-data" in mt for mt in op.request_body.content):
+                extra_params.append({
+                    "name": "files",
+                    "type": "Dict[str, IO[Any]]",
                     "default": None if op.request_body.required else "None",
                     "required": op.request_body.required,
-                }
-            )
-            if any("multipart/form-data" in mt for mt in op.request_body.content):
-                extra_params.append(
-                    {
-                        "name": "files",
-                        "type": "Dict[str, IO[Any]]",
-                        "default": None if op.request_body.required else "None",
-                        "required": op.request_body.required,
-                    }
-                )
+                })
         all_params = params + extra_params
         all_params = self._ensure_path_variables_as_params(op, all_params)
         required_params = [p for p in all_params if p.get("required", True)]
@@ -479,17 +453,19 @@ class EndpointVisitor(Visitor[IROperation, str]):
         ordered_params = required_params + optional_params
 
         # --- 2. Build method signature ---
-        arg_str = format_method_args(ordered_params)
-        self_param = f"self"
+        args = [self_param]
+        for p in ordered_params:
+            arg = f"{p['name']}: {p['type']}"
+            if p.get("default") is not None:
+                arg += f" = {p['default']}"
+            args.append(arg)
         writer = CodeWriter()
-        if arg_str:
-            writer.write_line(
-                f"async def {method_name}({self_param}, {arg_str}) -> {get_return_type(op, context)}:"
-            )
-        else:
-            writer.write_line(
-                f"async def {method_name}({self_param}) -> {get_return_type(op, context)}:"
-            )
+        writer.write_function_signature(
+            method_name,
+            args,
+            return_type=get_return_type(op, context, self.schemas),
+            async_=True,
+        )
         writer.indent()
         # Always emit a docstring or pass to avoid empty method body
         if summary.strip():
@@ -505,10 +481,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         for p in ordered_params:
             if hasattr(op, "parameters"):
                 for param in op.parameters:
-                    if (
-                        param.name == p["name"]
-                        and getattr(param, "in_", None) == "query"
-                    ):
+                    if param.name == p["name"] and getattr(param, "in_", None) == "query":
                         writer.write_line(f'"{param.name}": {p["name"]},')
         writer.dedent()
         writer.write_line("}")
@@ -517,20 +490,13 @@ class EndpointVisitor(Visitor[IROperation, str]):
         for p in ordered_params:
             if hasattr(op, "parameters"):
                 for param in op.parameters:
-                    if (
-                        param.name == p["name"]
-                        and getattr(param, "in_", None) == "header"
-                    ):
+                    if param.name == p["name"] and getattr(param, "in_", None) == "header":
                         writer.write_line(f'"{param.name}": {p["name"]},')
         writer.dedent()
         writer.write_line("}")
-        if op.request_body and any(
-            "json" in mt.lower() for mt in op.request_body.content
-        ):
+        if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line(f"json_body: {body_type} = body")
-        if op.request_body and any(
-            "multipart/form-data" in mt for mt in op.request_body.content
-        ):
+        if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
             writer.write_line("files_data: Dict[str, IO[Any]] = files")
         # --- 4. Make the HTTP request ---
         writer.write_line("response = await self._transport.request(")
@@ -538,20 +504,14 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.write_line(f'"{op.method.upper()}", url,')
         writer.write_line("params=params,")
         writer.write_line("headers=headers,")
-        if op.request_body and any(
-            "json" in mt.lower() for mt in op.request_body.content
-        ):
+        if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line("json=json_body,")
-        if op.request_body and any(
-            "multipart/form-data" in mt for mt in op.request_body.content
-        ):
+        if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
             writer.write_line("files=files_data,")
         writer.dedent()
         writer.write_line(")")
         # --- 5. Handle errors ---
-        writer.write_line(
-            "if response.status_code < 200 or response.status_code >= 300:"
-        )
+        writer.write_line("if response.status_code < 200 or response.status_code >= 300:")
         writer.indent()
         writer.write_line("# Map status code to exception class if available")
         writer.write_line("exc_class = self._get_exception_class(response.status_code)")
@@ -559,12 +519,10 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.indent()
         writer.write_line("raise exc_class(response.text)")
         writer.dedent()
-        writer.write_line(
-            "raise Exception(f'HTTP {response.status_code}: {response.text}')"
-        )
+        writer.write_line("raise Exception(f'HTTP {response.status_code}: {response.text}')")
         writer.dedent()
         # --- 6. Parse and return the response ---
-        return_type = get_return_type(op, context)
+        return_type = get_return_type(op, context, self.schemas)
         writer.write_line("# Parse response into correct return type")
         if return_type.startswith("List["):
             writer.write_line("return [item for item in response.json()]")
@@ -581,13 +539,30 @@ class EndpointVisitor(Visitor[IROperation, str]):
             item_type = return_type[len("AsyncIterator[") : -1].strip()
             context.add_import("pyopenapi_gen.core.streaming_helpers", "iter_bytes")
             context.add_plain_import("json")  # import json
-            # Try to import the response type from models (assume models.<item_type>)
-            context.add_import("..models", item_type)
+            # PATCH: Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
+            if item_type not in (
+                "Dict[str, Any]",
+                "str",
+                "int",
+                "float",
+                "bool",
+                "Any",
+                "bytes",
+            ):
+                context.add_import("..models", item_type)
             writer.write_line("async def _stream():")
             writer.indent()
             writer.write_line("async for chunk in iter_bytes(response):")
             writer.indent()
-            writer.write_line(f"yield {item_type}(**json.loads(chunk))")
+            # PATCH: For Dict[str, Any], yield json.loads(chunk) directly
+            if item_type == "Dict[str, Any]":
+                writer.write_line("yield json.loads(chunk)")
+            elif item_type == "bytes":
+                writer.write_line("yield chunk")
+            elif item_type in ("str", "int", "float", "bool", "Any"):
+                writer.write_line(f"yield {item_type}(json.loads(chunk))")
+            else:
+                writer.write_line(f"yield {item_type}(**json.loads(chunk))")
             writer.dedent()
             writer.dedent()
             writer.write_line("return _stream()")

@@ -3,10 +3,11 @@
 This module contains utility classes and functions used across the code generation process.
 """
 
+import keyword
+import re
+import textwrap
 from typing import Dict, List, Set
 
-import re
-import keyword
 from jinja2 import Environment
 
 
@@ -45,6 +46,45 @@ class CodeWriter:
 
     def get_code(self) -> str:
         return "\n".join(self.lines)
+
+    def write_wrapped_line(self, text: str, width: int = 120):
+        """
+        Write a line (or lines) wrapped to the given width, respecting current indentation.
+        """
+        indent = self.indent_str * self.indent_level
+        wrapped = textwrap.wrap(text, width=width - len(indent))
+        for line in wrapped:
+            self.write_line(line)
+
+    def write_function_signature(self, name: str, args: list[str], return_type: str = None, async_: bool = False):
+        """
+        Write a function signature with each argument on its own line, indented, and the return type annotation.
+        Example:
+            def foo(
+                arg1: int,
+                arg2: str,
+            ) -> str:
+        If async_ is True, emits 'async def ...'.
+        Always emits a trailing comma after the last argument.
+        """
+        indent = self.indent_str * self.indent_level
+        def_prefix = "async def" if async_ else "def"
+        if args:
+            self.write_line(f"{def_prefix} {name}(")
+            self.indent()
+            for arg in args:
+                self.write_line(f"{arg},")
+            # Always emit a trailing comma (already present after each arg)
+            self.dedent()
+            if return_type:
+                self.write_line(f") -> {return_type}:")
+            else:
+                self.write_line("):")
+        else:
+            if return_type:
+                self.write_line(f"{def_prefix} {name}(self) -> {return_type}:")
+            else:
+                self.write_line(f"{def_prefix} {name}(self):")
 
 
 class ImportCollector:

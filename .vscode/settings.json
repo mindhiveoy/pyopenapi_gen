@@ -1,0 +1,7 @@
+{
+  "editor.defaultFormatter": "ms-python.vscode-pylance",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
+}

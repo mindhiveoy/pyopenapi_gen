@@ -71,12 +71,28 @@ def _get_request_body_type(body: IRRequestBody) -> str:
     return "Dict[str, Any]"
 
 
+def _deduplicate_tag_clients(client_classes):
+    """
+    Deduplicate client class/module pairs by canonical module/class name.
+    Returns a list of unique (class_name, module_name) pairs.
+    """
+    seen = set()
+    unique = []
+    for cls, mod in client_classes:
+        key = (cls.lower(), mod.lower())
+        if key not in seen:
+            seen.add(key)
+            unique.append((cls, mod))
+    return unique
+
+
 class EndpointsEmitter:
     """Generates endpoint modules organized by tag from IRSpec using the visitor/context architecture."""
 
-    def __init__(self) -> None:
+    def __init__(self, schemas=None) -> None:
         self.formatter = Formatter()
-        self.visitor = EndpointVisitor()
+        self.visitor = None
+        self._schemas = schemas
 
     def emit(self, spec: IRSpec, output_dir: str) -> None:
         """Render endpoint client files per tag under <output_dir>/endpoints using the visitor/context/registry pattern."""
@@ -96,6 +112,10 @@ class EndpointsEmitter:
         if not os.path.exists(pytyped_path):
             context.file_manager.write_file(pytyped_path, "")
 
+        # Always use schemas from the current spec
+        if self.visitor is None:
+            self.visitor = EndpointVisitor(spec.schemas)
+
         # Group operations by tag
         tag_to_ops = {}
         for op in spec.operations:
@@ -110,8 +130,10 @@ class EndpointsEmitter:
             context.mark_generated_module(file_path)
 
         # Generate endpoint files per tag
+        client_classes = []
         for tag, ops in tag_to_ops.items():
             module_name = NameSanitizer.sanitize_module_name(tag)
+            class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
             file_path = os.path.join(endpoints_dir, f"{module_name}.py")
             context.set_current_file(file_path)
             # Render all methods for this tag
@@ -126,3 +148,18 @@ class EndpointsEmitter:
             file_content = imports_code + "\n\n" + class_content
             # file_content = self.formatter.format(file_content)
             context.file_manager.write_file(file_path, file_content)
+            client_classes.append((class_name, module_name))
+
+        # Deduplicate client classes by canonical name
+        unique_clients = _deduplicate_tag_clients(client_classes)
+
+        # Write __init__.py with __all__ and imports for all unique client classes
+        init_lines = []
+        if unique_clients:
+            all_list = ", ".join(f'"{cls}"' for cls, _ in unique_clients)
+            init_lines.append(f"__all__ = [{all_list}]")
+            for cls, mod in unique_clients:
+                init_lines.append(f"from .{mod} import {cls}")
+        context.file_manager.write_file(
+            os.path.join(endpoints_dir, "__init__.py"), "\n".join(init_lines) + "\n"
+        )

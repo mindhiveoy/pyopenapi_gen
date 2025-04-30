@@ -143,12 +143,8 @@ def test_import_collector_ordering():
             relative_import_index = i
             break
 
-    assert (
-        direct_import_index > first_import_index
-    ), "Direct imports should come after standard imports"
-    assert (
-        relative_import_index > direct_import_index
-    ), "Relative imports should come after direct imports"
+    assert direct_import_index > first_import_index, "Direct imports should come after standard imports"
+    assert relative_import_index > direct_import_index, "Relative imports should come after direct imports"
 
 
 def test_import_collector_formatted_output():
@@ -304,23 +300,12 @@ def test_sanitize_module_name__camel_and_pascal_case__snake_case_result():
     Expected Outcome:
         - All are converted to proper snake_case: 'get_datasource_response', 'data_source', etc.
     """
-    assert (
-        NameSanitizer.sanitize_module_name("GetDatasourceResponse")
-        == "get_datasource_response"
-    )
+    assert NameSanitizer.sanitize_module_name("GetDatasourceResponse") == "get_datasource_response"
     assert NameSanitizer.sanitize_module_name("DataSource") == "data_source"
     assert NameSanitizer.sanitize_module_name("getDataSource") == "get_data_source"
-    assert (
-        NameSanitizer.sanitize_module_name("get_datasource_response")
-        == "get_datasource_response"
-    )
-    assert (
-        NameSanitizer.sanitize_module_name("get-datasource-response")
-        == "get_datasource_response"
-    )
-    assert (
-        NameSanitizer.sanitize_module_name("getDataSource123") == "get_data_source_123"
-    )
+    assert NameSanitizer.sanitize_module_name("get_datasource_response") == "get_datasource_response"
+    assert NameSanitizer.sanitize_module_name("get-datasource-response") == "get_datasource_response"
+    assert NameSanitizer.sanitize_module_name("getDataSource123") == "get_data_source_123"
     assert NameSanitizer.sanitize_module_name("123DataSource") == "_123_data_source"
     assert NameSanitizer.sanitize_module_name("class") == "class_"  # Python keyword
 
@@ -335,29 +320,17 @@ def test_sanitize_method_name__various_cases__returns_valid_python_identifier():
         - All are converted to valid, snake_case Python method names.
     """
     # Arrange & Act & Assert
-    assert (
-        NameSanitizer.sanitize_method_name("GET_/tenants/{tenantId}/feedback")
-        == "get_tenants_tenant_id_feedback"
-    )
+    assert NameSanitizer.sanitize_method_name("GET_/tenants/{tenantId}/feedback") == "get_tenants_tenant_id_feedback"
     assert NameSanitizer.sanitize_method_name("get-user-by-id") == "get_user_by_id"
     assert NameSanitizer.sanitize_method_name("postUser") == "post_user"
     assert NameSanitizer.sanitize_method_name("/foo/bar/{baz}") == "foo_bar_baz"
     assert NameSanitizer.sanitize_method_name("123start") == "_123start"
     assert NameSanitizer.sanitize_method_name("class") == "class_"
     assert NameSanitizer.sanitize_method_name("already_valid") == "already_valid"
-    assert (
-        NameSanitizer.sanitize_method_name("multiple___underscores")
-        == "multiple_underscores"
-    )
-    assert (
-        NameSanitizer.sanitize_method_name("with space and-dash")
-        == "with_space_and_dash"
-    )
+    assert NameSanitizer.sanitize_method_name("multiple___underscores") == "multiple_underscores"
+    assert NameSanitizer.sanitize_method_name("with space and-dash") == "with_space_and_dash"
     assert NameSanitizer.sanitize_method_name("{param}") == "param"
-    assert (
-        NameSanitizer.sanitize_method_name("_leading_underscore")
-        == "leading_underscore"
-    )
+    assert NameSanitizer.sanitize_method_name("_leading_underscore") == "leading_underscore"
 
 
 def test_import_collector_double_dot_relative_import():
@@ -406,3 +379,30 @@ def test_import_collector_sibling_directory_import():
     assert "from ..models.bar import Baz" in statements
     for stmt in statements:
         assert "/" not in stmt, f"Slash found in import statement: {stmt}"
+
+
+def test_codewriter__write_wrapped_line__wraps_long_lines():
+    """
+    Scenario:
+        Write a long line using CodeWriter.write_wrapped_line with a small width.
+    Expected Outcome:
+        The output is split into multiple lines, each not exceeding the specified width, and indentation is preserved.
+    """
+    from pyopenapi_gen.core.utils import CodeWriter
+
+    writer = CodeWriter()
+    long_text = (
+        "This is a very long line that should be wrapped by the CodeWriter at the specified width for readability."
+    )
+    writer.indent()
+    writer.write_wrapped_line(long_text, width=40)
+    code = writer.get_code()
+    lines = code.splitlines()
+    # All lines should be <= 40 chars (plus indentation)
+    for line in lines:
+        assert len(line.strip()) <= 40
+    # Should be more than one line
+    assert len(lines) > 1
+    # Indentation should be present
+    for line in lines:
+        assert line.startswith("    ")
