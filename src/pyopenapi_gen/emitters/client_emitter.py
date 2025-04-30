@@ -73,10 +73,10 @@ class ClientEmitter:
             context = RenderContext(core_package=self.core_package)
             context.mark_generated_module(client_path)
             context.set_current_file(client_path)
-            # Render imports for this file
-            imports_code = context.render_imports(output_dir)
             # Render client code using the visitor
             client_code = self.visitor.visit(spec, context)
+            # Render imports for this file (AFTER visitor, so all types are registered)
+            imports_code = context.render_imports(output_dir)
             file_content = imports_code + "\n\n" + client_code
             context.file_manager.write_file(client_path, file_content)
             generated_files.append(client_path)
