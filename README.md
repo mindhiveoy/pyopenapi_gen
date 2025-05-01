@@ -120,21 +120,21 @@ The client supports pluggable authentication via the `BaseAuth` protocol. You ca
 ### BearerAuth
 For simple Bearer token authentication:
 ```python
-from pyopenapi_gen.auth.plugins import BearerAuth
+from pyopenapi_gen.core.auth.plugins import BearerAuth
 transport = HttpxTransport(base_url, auth=BearerAuth("your-token"))
 ```
 
 ### HeadersAuth
 For arbitrary custom headers:
 ```python
-from pyopenapi_gen.auth.plugins import HeadersAuth
+from pyopenapi_gen.core.auth.plugins import HeadersAuth
 transport = HttpxTransport(base_url, auth=HeadersAuth({"X-API-Key": "value"}))
 ```
 
 ### ApiKeyAuth
 For API key authentication in header, query, or cookie:
 ```python
-from pyopenapi_gen.auth.plugins import ApiKeyAuth
+from pyopenapi_gen.core.auth.plugins import ApiKeyAuth
 # Header
 auth = ApiKeyAuth("mykey", location="header", name="X-API-Key")
 # Query
@@ -147,7 +147,7 @@ transport = HttpxTransport(base_url, auth=auth)
 ### OAuth2Auth
 For OAuth2 Bearer tokens, with optional auto-refresh:
 ```python
-from pyopenapi_gen.auth.plugins import OAuth2Auth
+from pyopenapi_gen.core.auth.plugins import OAuth2Auth
 # Static token
 auth = OAuth2Auth("access-token")
 # With refresh callback (async)
@@ -158,7 +158,7 @@ auth = OAuth2Auth("access-token", refresh_callback=refresh_token)
 transport = HttpxTransport(base_url, auth=auth)
 ```
 
-See the `pyopenapi_gen.auth.plugins` module for details and extension points.
+See the `pyopenapi_gen.core.auth.plugins` module for details and extension points.
 
 ---
 

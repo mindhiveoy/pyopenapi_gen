@@ -1,7 +1,7 @@
 import inspect
 from typing import Any, Dict
 
-from pyopenapi_gen.auth.base import BaseAuth
+from pyopenapi_gen.core.auth.base import BaseAuth
 
 
 def test_base_auth_method_signature() -> None:

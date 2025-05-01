@@ -6,7 +6,6 @@ from pyopenapi_gen.core.utils import (
     KwargsBuilder,
     NameSanitizer,
     ParamSubstitutor,
-    TemplateRenderer,
 )
 from pytest import MonkeyPatch
 
@@ -153,21 +152,6 @@ def test_sanitize_class_name__keyword__appends_underscore() -> None:
     """
     # Arrange/Act
     result = NameSanitizer.sanitize_class_name("class")
-    # Assert
-    assert result == "Class_"
-
-
-def test_template_renderer__jinja_sanitize_class_keyword__appends_underscore() -> None:
-    """
-    Scenario:
-        Use the Jinja2 'sanitize_class_name' filter with a Python keyword as input.
-    Expected Outcome:
-        The result is the capitalized keyword with an underscore appended (e.g., 'Class_').
-    """
-    # Arrange
-    renderer = TemplateRenderer()
-    # Act
-    result = renderer.env.filters["sanitize_class_name"]("class")
     # Assert
     assert result == "Class_"
 

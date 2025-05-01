@@ -6,87 +6,9 @@ This module contains utility classes and functions used across the code generati
 import keyword
 import re
 import textwrap
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from jinja2 import Environment
-
-
-class CodeWriter:
-    """
-    Utility for writing indented code blocks. Use write_line, indent, dedent, write_block, and get_code.
-    """
-
-    def __init__(self, indent_str: str = "    ") -> None:
-        self.lines: list[str] = []
-        self.indent_level: int = 0
-        self.indent_str: str = indent_str
-
-    def write_line(self, line: str = "") -> None:
-        self.lines.append(f"{self.indent_str * self.indent_level}{line}")
-
-    def indent(self) -> None:
-        self.indent_level += 1
-
-    def dedent(self) -> None:
-        self.indent_level = max(0, self.indent_level - 1)
-
-    def write_block(self, code: str) -> None:
-        """
-        Write a multi-line code block using the current indentation level.
-        Each non-empty line is prefixed with the current indentation.
-        Preserves empty lines.
-        Args:
-            code (str): The code block to write (may be multiple lines).
-        """
-        for line in code.splitlines():
-            if line.strip():
-                self.write_line(line)
-            else:
-                self.write_line("")
-
-    def get_code(self) -> str:
-        return "\n".join(self.lines)
-
-    def write_wrapped_line(self, text: str, width: int = 120) -> None:
-        """
-        Write a line (or lines) wrapped to the given width, respecting current indentation.
-        """
-        indent = self.indent_str * self.indent_level
-        wrapped = textwrap.wrap(text, width=width - len(indent))
-        for line in wrapped:
-            self.write_line(line)
-
-    def write_function_signature(
-        self, name: str, args: list[str], return_type: Optional[str] = None, async_: bool = False
-    ) -> None:
-        """
-        Write a function signature with each argument on its own line, indented, and the return type annotation.
-        Example:
-            def foo(
-                arg1: int,
-                arg2: str,
-            ) -> str:
-        If async_ is True, emits 'async def ...'.
-        Always emits a trailing comma after the last argument.
-        """
-        indent = self.indent_str * self.indent_level
-        def_prefix = "async def" if async_ else "def"
-        if args:
-            self.write_line(f"{def_prefix} {name}(")
-            self.indent()
-            for arg in args:
-                self.write_line(f"{arg},")
-            # Always emit a trailing comma (already present after each arg)
-            self.dedent()
-            if return_type:
-                self.write_line(f") -> {return_type}:")
-            else:
-                self.write_line("):")
-        else:
-            if return_type:
-                self.write_line(f"{def_prefix} {name}(self) -> {return_type}:")
-            else:
-                self.write_line(f"{def_prefix} {name}(self):")
 
 
 class ImportCollector:
@@ -322,40 +244,6 @@ class KwargsBuilder:
     def build(self) -> Dict[str, Any]:
         """Return the assembled kwargs dictionary."""
         return self._kwargs
-
-
-class TemplateRenderer:
-    """Centralized Jinja2 template renderer with shared filters and globals."""
-
-    def __init__(self) -> None:
-        # Create a shared environment for all templates
-        self.env = Environment(trim_blocks=True, lstrip_blocks=True)
-        # Register sanitization filters
-        self.env.filters["sanitize_module_name"] = NameSanitizer.sanitize_module_name
-
-        # Register class name sanitization filter (custom Jinja version splits on underscores too)
-        def jinja_sanitize_class(name: str) -> str:
-            parts = re.split(r"[\W_]+", name)
-            cls = "".join(p[:1].upper() + p[1:] for p in parts if p)
-            if cls and cls[0].isdigit():
-                cls = "_" + cls
-            # Avoid Python keywords (case-insensitive)
-            if keyword.iskeyword(cls.lower()):
-                cls += "_"
-            return cls
-
-        self.env.filters["sanitize_class_name"] = jinja_sanitize_class
-        # Register path rendering filter
-        self.env.filters["render_path"] = ParamSubstitutor.render_path
-        # Expose helpers and global functions
-        self.env.globals["KwargsBuilder"] = KwargsBuilder
-        self.env.globals["NameSanitizer"] = NameSanitizer
-        self.env.globals["render_path"] = ParamSubstitutor.render_path
-
-    def render(self, template_str: str, **context: Any) -> str:
-        """Render a template string with the shared environment."""
-        template = self.env.from_string(template_str)
-        return template.render(**context)
 
 
 class Formatter:

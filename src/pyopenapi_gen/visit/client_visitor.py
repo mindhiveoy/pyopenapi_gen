@@ -3,7 +3,9 @@ import re
 from pyopenapi_gen import IRSpec
 
 from ..context.render_context import RenderContext
-from ..core.utils import CodeWriter, NameSanitizer
+from ..core.utils import NameSanitizer
+from ..core.writers.code_writer import CodeWriter
+from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
 
 
 class ClientVisitor:
@@ -64,9 +66,22 @@ class ClientVisitor:
         # Class definition
         writer.write_line("class APIClient:")
         writer.indent()
-        writer.write_line(
-            '"""Async API client with pluggable transport, tag-specific clients, and client-level headers."""'
+        # Build docstring for APIClient
+        summary = "Async API client with pluggable transport, tag-specific clients, and client-level headers."
+        args = [
+            ("config", "ClientConfig", "Client configuration object."),
+            ("transport", "Optional[HttpTransport]", "Custom HTTP transport (optional)."),
+        ]
+        # List endpoint clients as Args
+        for tag, class_name, module_name in tag_tuples:
+            args.append((module_name, class_name, f"Client for '{tag}' endpoints."))
+        doc_block = DocumentationBlock(
+            summary=summary,
+            args=args,
         )
+        docstring = DocumentationWriter(width=88).render_docstring(doc_block, indent=0)
+        for line in docstring.splitlines():
+            writer.write_line(line)
         writer.write_line("")
         # __init__
         writer.write_line(

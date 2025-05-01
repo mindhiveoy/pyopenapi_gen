@@ -1,7 +1,7 @@
 from pyopenapi_gen import IRSpec
 
 from ..context.render_context import RenderContext
-from ..core.utils import CodeWriter
+from ..core.writers.code_writer import CodeWriter
 
 
 class ExceptionVisitor:

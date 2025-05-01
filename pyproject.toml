@@ -66,6 +66,8 @@ implicit_optional = false
 addopts = "-ra"
 testpaths = ["tests"]
 pythonpath = "src"
+python_files = ["test_*.py"]
+python_functions = ["test_"]
 
 
 [tool.poetry.group.dev.dependencies]

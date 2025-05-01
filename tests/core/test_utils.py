@@ -379,30 +379,3 @@ def test_import_collector_sibling_directory_import() -> None:
     assert "from ..models.bar import Baz" in statements
     for stmt in statements:
         assert "/" not in stmt, f"Slash found in import statement: {stmt}"
-
-
-def test_codewriter__write_wrapped_line__wraps_long_lines() -> None:
-    """
-    Scenario:
-        Write a long line using CodeWriter.write_wrapped_line with a small width.
-    Expected Outcome:
-        The output is split into multiple lines, each not exceeding the specified width, and indentation is preserved.
-    """
-    from pyopenapi_gen.core.utils import CodeWriter
-
-    writer = CodeWriter()
-    long_text = (
-        "This is a very long line that should be wrapped by the CodeWriter at the specified width for readability."
-    )
-    writer.indent()
-    writer.write_wrapped_line(long_text, width=40)
-    code = writer.get_code()
-    lines = code.splitlines()
-    # All lines should be <= 40 chars (plus indentation)
-    for line in lines:
-        assert len(line.strip()) <= 40
-    # Should be more than one line
-    assert len(lines) > 1
-    # Indentation should be present
-    for line in lines:
-        assert line.startswith("    ")

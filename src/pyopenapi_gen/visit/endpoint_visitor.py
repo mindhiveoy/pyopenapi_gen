@@ -11,7 +11,9 @@ from pyopenapi_gen.helpers.endpoint_utils import (
 from pyopenapi_gen.helpers.url_utils import extract_url_variables
 
 from ..context.render_context import RenderContext
-from ..core.utils import CodeWriter, Formatter, NameSanitizer
+from ..core.utils import Formatter, NameSanitizer
+from ..core.writers.code_writer import CodeWriter
+from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
 from .visitor import Visitor
 
 
@@ -35,7 +37,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer = CodeWriter()
         ordered_params, body_type = self._prepare_parameters(op, context)
         self._write_method_signature(writer, op, context, ordered_params)
-        self._write_docstring(writer, op)
+        self._write_docstring(writer, op, context)
         has_header_params = self._write_url_and_args(writer, op, context, ordered_params, body_type)
         self._write_request(writer, op, has_header_params)
         self._write_response_parsing(writer, op, context)
@@ -121,17 +123,70 @@ class EndpointVisitor(Visitor[IROperation, str]):
         )
         writer.indent()
 
-    def _write_docstring(self, writer: CodeWriter, op: IROperation) -> None:
+    def _write_docstring(self, writer: CodeWriter, op: IROperation, context: RenderContext) -> None:
         """
-        Write the docstring for the endpoint method, using the operation summary if present.
+        Write a comprehensive Google-style docstring for the endpoint method using DocumentationWriter.
+        """
 
-        Args:
-            writer: The CodeWriter to emit code to.
-            op: The IROperation node.
-        """
-        summary = op.summary or ""
-        if summary.strip():
-            writer.write_line(f'"""{summary}"""')
+        # Build DocumentationBlock
+        summary = op.summary or None
+        description = op.description or None
+        args: list[tuple[str, str, str] | tuple[str, str]] = []
+        for param in op.parameters:
+            param_type = get_param_type(param, context)
+            desc = param.description or ""
+            args.append((param.name, param_type, desc))
+        if op.request_body:
+            body_type = get_request_body_type(op.request_body, context)
+            desc = op.request_body.description or "Request body."
+            args.append(("body", body_type, desc))
+            if any("multipart/form-data" in mt for mt in op.request_body.content):
+                args.append(("files", "Dict[str, IO[Any]]", "Multipart form files (if required)."))
+        return_type = get_return_type(op, context, getattr(self, "schemas", {}))
+        # Find the best response description
+        response_desc = None
+        for code in ("200", "201", "202", "default"):
+            resp = next((r for r in op.responses if r.status_code == code), None)
+            if resp and resp.description:
+                response_desc = resp.description.strip()
+                break
+        if not response_desc:
+            for resp in op.responses:
+                if resp.description:
+                    response_desc = resp.description.strip()
+                    break
+        returns = (return_type, response_desc or "Response object.") if return_type and return_type != "None" else None
+        # Raises
+        error_codes = [r for r in op.responses if r.status_code.isdigit() and int(r.status_code) >= 400]
+        raises = []
+        if error_codes:
+            for resp in error_codes:
+                code = "HTTPError"
+                desc = f"{resp.status_code}: {resp.description.strip() if resp.description else 'HTTP error.'}"
+                raises.append((code, desc))
+        else:
+            raises.append(("HTTPError", "If the server returns a non-2xx HTTP response."))
+        doc_block = DocumentationBlock(
+            summary=summary,
+            description=description,
+            args=args,
+            returns=returns,
+            raises=raises,
+        )
+        docstring = DocumentationWriter(width=88).render_docstring(doc_block, indent=0)
+        for line in docstring.splitlines():
+            writer.write_line(line)
+
+    @staticmethod
+    def _wrap_docstring(prefix: str, text: str, width: int = 88) -> str:
+        import textwrap
+
+        if not text:
+            return prefix.rstrip()
+        initial_indent = prefix
+        subsequent_indent = " " * len(prefix)
+        wrapped = textwrap.wrap(text, width=width, initial_indent=initial_indent, subsequent_indent=subsequent_indent)
+        return "\n    ".join(wrapped)
 
     def _write_url_and_args(
         self,

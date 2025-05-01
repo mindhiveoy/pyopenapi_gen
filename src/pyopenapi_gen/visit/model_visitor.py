@@ -3,7 +3,9 @@ from typing import Optional
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 
-from ..core.utils import CodeWriter, Formatter
+from ..core.utils import Formatter
+from ..core.writers.code_writer import CodeWriter
+from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
 from .visitor import Visitor
 
 
@@ -37,11 +39,19 @@ class ModelVisitor(Visitor[IRSchema, str]):
             base = "str" if schema.type == "string" else "int"
             writer.write_line(f"class {schema.name}(" + base + ", Enum):")
             writer.indent()
-            if schema.description:
-                writer.write_line('"""')
-                for line in schema.description.splitlines():
-                    writer.write_line(line)
-                writer.write_line('"""')
+            # Build docstring for enum
+            summary = schema.description or None
+            args: list[tuple[str, str, str] | tuple[str, str]] = []
+            if schema.enum is not None:
+                for val in schema.enum:
+                    args.append((str(val), base, "Possible value."))
+            doc_block = DocumentationBlock(
+                summary=summary,
+                args=args if args else None,
+            )
+            docstring = DocumentationWriter(width=88).render_docstring(doc_block, indent=0)
+            for line in docstring.splitlines():
+                writer.write_line(line)
             if schema.enum is not None:
                 for val in schema.enum:
                     if schema.type == "string":
@@ -59,11 +69,20 @@ class ModelVisitor(Visitor[IRSchema, str]):
             writer.write_line("@dataclass")
             writer.write_line(f"class {schema.name}:")
             writer.indent()
-            if schema.description:
-                writer.write_line('"""')
-                for line in schema.description.splitlines():
-                    writer.write_line(line)
-                writer.write_line('"""')
+            # Build docstring for dataclass
+            summary = schema.description or None
+            field_args: list[tuple[str, str, str] | tuple[str, str]] = []
+            for prop, ps in schema.properties.items():
+                py_type = self._get_python_type(ps, required=prop in schema.required)
+                desc = ps.description or ""
+                field_args.append((prop, py_type, desc))
+            doc_block = DocumentationBlock(
+                summary=summary,
+                args=field_args if field_args else None,
+            )
+            docstring = DocumentationWriter(width=88).render_docstring(doc_block, indent=0)
+            for line in docstring.splitlines():
+                writer.write_line(line)
             required_props = []
             optional_props = []
             for prop, ps in schema.properties.items():

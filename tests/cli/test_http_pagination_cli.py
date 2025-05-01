@@ -8,8 +8,8 @@ import httpx
 import pytest
 from httpx import Response
 from pyopenapi_gen.cli import app
+from pyopenapi_gen.core.http_transport import HttpxTransport
 from pyopenapi_gen.core.pagination import paginate_by_next
-from pyopenapi_gen.http_transport import HttpxTransport
 from typer.testing import CliRunner
 
 # Minimal spec reused for CLI flag tests

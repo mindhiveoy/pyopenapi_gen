@@ -1,0 +1,591 @@
+/Users/villevenalainen/development/pyopenapi_gen/venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:217: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================= test session starts ==============================
+platform darwin -- Python 3.12.3, pytest-8.3.5, pluggy-1.5.0 -- /Users/villevenalainen/development/pyopenapi_gen/venv/bin/python3.12
+cachedir: .pytest_cache
+rootdir: /Users/villevenalainen/development/pyopenapi_gen
+configfile: pyproject.toml
+plugins: anyio-4.9.0, asyncio-0.26.0, cov-6.1.1, xdist-3.6.1
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 14 items
+
+tests/core/writers/test_documentation_writer.py::test_render_docstring__summary_only__renders_summary PASSED [  7%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__summary_and_description__renders_both PASSED [ 14%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__args_section__renders_args_with_types_and_desc FAILED [ 21%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__returns_section__renders_return_type_and_desc PASSED [ 28%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__raises_section__renders_exceptions PASSED [ 35%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__all_sections__renders_full_docstring FAILED [ 42%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__wrapping_and_alignment__long_lines_are_wrapped PASSED [ 50%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_prefix_exactly_at_desc_col__colon_and_space_on_next_line PASSED [ 57%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_prefix_longer_than_desc_col__colon_and_space_on_next_line FAILED [ 64%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_with_empty_description__renders_colon_only FAILED [ 71%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_with_multiline_description__all_lines_aligned FAILED [ 78%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_prefix_with_unicode__renders_colon_and_space FAILED [ 85%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_prefix_with_special_characters__renders_colon_and_space FAILED [ 92%]
+tests/core/writers/test_documentation_writer.py::test_render_docstring__multiple_args__alignment_and_wrapping FAILED [100%]
+
+=================================== FAILURES ===================================
+____ test_render_docstring__args_section__renders_args_with_types_and_desc _____
+
+    def test_render_docstring__args_section__renders_args_with_types_and_desc() -> None:
+        """
+        Scenario:
+            A DocumentationBlock is created with multiple arguments, each with a name, type, and description.
+            We want to verify that the Args section is rendered, with correct alignment and wrapping.
+    
+        Expected Outcome:
+            The Args section lists each argument with its type and description, aligned and wrapped.
+        """
+        # Arrange
+        args: list[tuple[str, str, str] | tuple[str, str]] = [
+            ("foo", "int", "The foo parameter."),
+            ("bar", "str", "A longer description that should wrap to the next line for readability."),
+        ]
+        doc = DocumentationBlock(summary="Has args.", args=args)
+        writer = DocumentationWriter(width=50, min_desc_col=20)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Has args.
+    
+    Args:
+        foo (int)         : The foo parameter.
+        bar (str)         : A longer description that should wrap to the
+                            next line for readability.
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:96: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nHas args.\n\nArgs:\n    foo (int)           : The foo parameter.\n    bar (str)           : A longer description...         that should wrap to the\n                          next line for\n                          readability.\n"""'
+expected = '"""\nHas args.\n\nArgs:\n    foo (int)         : The foo parameter.\n    bar (str)         : A longer description that should wrap to the\n                        next line for readability.\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -2,7 +2,9 @@
+E            Has args.
+E            
+E            Args:
+E           -    foo (int)         : The foo parameter.
+E           -    bar (str)         : A longer description that should wrap to the
+E           -                        next line for readability.
+E           +    foo (int)           : The foo parameter.
+E           +    bar (str)           : A longer description
+E           +                          that should wrap to the
+E           +                          next line for
+E           +                          readability.
+E            """
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+_________ test_render_docstring__all_sections__renders_full_docstring __________
+
+    def test_render_docstring__all_sections__renders_full_docstring() -> None:
+        """
+        Scenario:
+            A DocumentationBlock is created with summary, description, args, returns, and raises.
+            We want to verify that all sections are rendered in the correct order and format.
+    
+        Expected Outcome:
+            The docstring contains all sections, each with correct content and formatting.
+        """
+        # Arrange
+        doc = DocumentationBlock(
+            summary="Full docstring.",
+            description="Covers all sections.",
+            args=[("x", "int", "First param."), ("y", "str", "Second param.")],
+            returns=("bool", "True if success."),
+            raises=[("400", "On failure.")],
+        )
+        writer = DocumentationWriter(width=70)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Full docstring.
+    
+    Covers all sections.
+    
+    Args:
+        x (int)          : First param.
+        y (str)          : Second param.
+    
+    Returns:
+        bool: True if success.
+    
+    Raises:
+        HttpError:
+            400: On failure.
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nFull docstring.\n\nCovers all sections.\n\nArgs:\n    x (int)                       : First param.\n    y (str) ...     : Second param.\n\nReturns:\n    bool: True if success.\n\nRaises:\n    HttpError:\n        400: On failure.\n"""'
+expected = '"""\nFull docstring.\n\nCovers all sections.\n\nArgs:\n    x (int)          : First param.\n    y (str)          : Second param.\n\nReturns:\n    bool: True if success.\n\nRaises:\n    HttpError:\n        400: On failure.\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -4,8 +4,8 @@
+E            Covers all sections.
+E            
+E            Args:
+E           -    x (int)          : First param.
+E           -    y (str)          : Second param.
+E           +    x (int)                       : First param.
+E           +    y (str)                       : Second param.
+E            
+E            Returns:
+E                bool: True if success.
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+_ test_render_docstring__arg_prefix_longer_than_desc_col__colon_and_space_on_next_line _
+
+    def test_render_docstring__arg_prefix_longer_than_desc_col__colon_and_space_on_next_line() -> None:
+        """
+        Scenario:
+            The argument prefix is longer than desc_col, so the description starts on the next line.
+            We want to verify that the colon and space are present before the description.
+    
+        Expected Outcome:
+            The prefix line ends with a colon, and the next line (description) starts with a space.
+        """
+        # Arrange
+        args: list[tuple[str, str, str] | tuple[str, str]] = [
+            ("averyveryverylongargumentnameindeed", "str", "Description for a very long argument name.")
+        ]
+        writer = DocumentationWriter(width=50, min_desc_col=20)
+        doc = DocumentationBlock(summary="Edge case.", args=args)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Edge case.
+    
+    Args:
+        averyveryverylongargumentnameindeed (str)
+                                               : Description for a very long argument name.
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:287: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nEdge case.\n\nArgs:\n    averyveryverylongargumentnameindeed (str):\n                     Description for a very long\n                     argument name.\n"""'
+expected = '"""\nEdge case.\n\nArgs:\n    averyveryverylongargumentnameindeed (str)\n                                           : Description for a very long argument name.\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -2,6 +2,7 @@
+E            Edge case.
+E            
+E            Args:
+E           -    averyveryverylongargumentnameindeed (str)
+E           -                                           : Description for a very long argument name.
+E           +    averyveryverylongargumentnameindeed (str):
+E           +                     Description for a very long
+E           +                     argument name.
+E            """
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+____ test_render_docstring__arg_with_empty_description__renders_colon_only _____
+
+    def test_render_docstring__arg_with_empty_description__renders_colon_only() -> None:
+        """
+        Scenario:
+            An argument is provided with an empty description. We want to verify that the colon is still present.
+    
+        Expected Outcome:
+            The prefix line ends with a colon, and no description follows.
+        """
+        # Arrange
+        args: list[tuple[str, str, str] | tuple[str, str]] = [("foo", "int", "")]
+        writer = DocumentationWriter(width=50, min_desc_col=20)
+        doc = DocumentationBlock(summary="Empty desc.", args=args)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Empty desc.
+    
+    Args:
+        foo (int)         :
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:312: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nEmpty desc.\n\nArgs:\n    foo (int)           :\n"""'
+expected = '"""\nEmpty desc.\n\nArgs:\n    foo (int)         :\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -2,5 +2,5 @@
+E            Empty desc.
+E            
+E            Args:
+E           -    foo (int)         :
+E           +    foo (int)           :
+E            """
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+___ test_render_docstring__arg_with_multiline_description__all_lines_aligned ___
+
+    def test_render_docstring__arg_with_multiline_description__all_lines_aligned() -> None:
+        """
+        Scenario:
+            An argument is provided with a multiline description. We want to verify that all lines of the description
+            are aligned under the colon, not just desc_col+1.
+    
+        Expected Outcome:
+            All lines of the description are aligned under the colon, with a space after the colon.
+        """
+        # Arrange
+        desc = "This is a long description.\nIt has multiple lines.\nEach should be aligned."
+        args: list[tuple[str, str, str] | tuple[str, str]] = [("foo", "str", desc)]
+        writer = DocumentationWriter(width=50, min_desc_col=20)
+        doc = DocumentationBlock(summary="Multiline desc.", args=args)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Multiline desc.
+    
+    Args:
+        foo (str)         : This is a long description.
+                            It has multiple lines.
+                            Each should be aligned.
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:341: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nMultiline desc.\n\nArgs:\n    foo (str)           : This is a long\n                          description.\n                         It has multiple lines.\n                         Each should be aligned.\n"""'
+expected = '"""\nMultiline desc.\n\nArgs:\n    foo (str)         : This is a long description.\n                        It has multiple lines.\n                        Each should be aligned.\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -2,7 +2,8 @@
+E            Multiline desc.
+E            
+E            Args:
+E           -    foo (str)         : This is a long description.
+E           -                        It has multiple lines.
+E           -                        Each should be aligned.
+E           +    foo (str)           : This is a long
+E           +                          description.
+E           +                         It has multiple lines.
+E           +                         Each should be aligned.
+E            """
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+___ test_render_docstring__arg_prefix_with_unicode__renders_colon_and_space ____
+
+    def test_render_docstring__arg_prefix_with_unicode__renders_colon_and_space() -> None:
+        """
+        Scenario:
+            The argument prefix contains unicode characters. We want to verify that the colon and space are handled correctly.
+    
+        Expected Outcome:
+            The prefix line ends with a colon, and the description line starts with a space.
+        """
+        # Arrange
+        args: list[tuple[str, str, str] | tuple[str, str]] = [("tên", "str", "Unicode argument name.")]
+        writer = DocumentationWriter(width=40, min_desc_col=15)
+        doc = DocumentationBlock(summary="Unicode prefix.", args=args)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Unicode prefix.
+    
+    Args:
+        tên (str)   : Unicode argument name.
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:366: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nUnicode prefix.\n\nArgs:\n    tên (str)      : Unicode argument\n                     name.\n"""'
+expected = '"""\nUnicode prefix.\n\nArgs:\n    tên (str)   : Unicode argument name.\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -2,5 +2,6 @@
+E            Unicode prefix.
+E            
+E            Args:
+E           -    tên (str)   : Unicode argument name.
+E           +    tên (str)      : Unicode argument
+E           +                     name.
+E            """
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+_ test_render_docstring__arg_prefix_with_special_characters__renders_colon_and_space _
+
+    def test_render_docstring__arg_prefix_with_special_characters__renders_colon_and_space() -> None:
+        """
+        Scenario:
+            The argument prefix contains special characters. We want to verify that the colon and space are handled correctly.
+    
+        Expected Outcome:
+            The prefix line ends with a colon, and the description line starts with a space.
+        """
+        # Arrange
+        args: list[tuple[str, str, str] | tuple[str, str]] = [("foo-bar_baz", "str", "Special chars in name.")]
+        writer = DocumentationWriter(width=40, min_desc_col=15)
+        doc = DocumentationBlock(summary="Special chars.", args=args)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Special chars.
+    
+    Args:
+        foo-bar_baz (str) : Special chars in name.
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:391: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nSpecial chars.\n\nArgs:\n    foo-bar_baz (str):\n                Special chars in name.\n"""'
+expected = '"""\nSpecial chars.\n\nArgs:\n    foo-bar_baz (str) : Special chars in name.\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -2,5 +2,6 @@
+E            Special chars.
+E            
+E            Args:
+E           -    foo-bar_baz (str) : Special chars in name.
+E           +    foo-bar_baz (str):
+E           +                Special chars in name.
+E            """
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+_________ test_render_docstring__multiple_args__alignment_and_wrapping _________
+
+    def test_render_docstring__multiple_args__alignment_and_wrapping() -> None:
+        """
+        Scenario:
+            Multiple arguments are provided, including a short description, a long description that wraps,
+            and a multiline description. We want to verify that all are aligned and wrapped correctly.
+    
+        Expected Outcome:
+            Each argument's description is aligned under the colon, with wrapped and multiline lines indented
+            to the same column as the first line after the colon.
+        """
+        # Arrange
+        args: list[tuple[str, str, str] | tuple[str, str]] = [
+            ("foo", "int", "Short desc."),
+            ("bar", "str", "This is a long description that should wrap to the next line for readability."),
+            ("baz", "str", "First line.\nSecond line of multiline desc.\nThird line."),
+        ]
+        writer = DocumentationWriter(width=60, min_desc_col=20)
+        doc = DocumentationBlock(summary="Multiple args.", args=args)
+    
+        # Act
+        result = writer.render_docstring(doc)
+        expected = '''"""
+    Multiple args.
+    
+    Args:
+        foo (int)         : Short desc.
+        bar (str)         : This is a long description that should wrap to the
+                            next line for readability.
+        baz (str)         : First line.
+                            Second line of multiline desc.
+                            Third line.
+    """'''
+        # Assert
+>       assert_docstring_output(result, expected)
+
+tests/core/writers/test_documentation_writer.py:427: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = '"""\nMultiple args.\n\nArgs:\n    foo (int)           : Short desc.\n    bar (str)           : This is a long descrip...     : First line.\n                         Second line of multiline desc.\n                         Third line.\n"""'
+expected = '"""\nMultiple args.\n\nArgs:\n    foo (int)         : Short desc.\n    bar (str)         : This is a long description...       : First line.\n                        Second line of multiline desc.\n                        Third line.\n"""'
+
+    def assert_docstring_output(actual: str, expected: str) -> None:
+        """
+        Helper to compare actual and expected docstring output, normalizing whitespace and line endings.
+        Raises AssertionError with a diff if they do not match.
+        """
+        import difflib
+    
+        actual_norm = actual.strip().replace("\r\n", "\n")
+        expected_norm = expected.strip().replace("\r\n", "\n")
+        if actual_norm != expected_norm:
+            diff = "\n".join(
+                difflib.unified_diff(
+                    expected_norm.splitlines(), actual_norm.splitlines(), fromfile="expected", tofile="actual", lineterm=""
+                )
+            )
+>           raise AssertionError(f"Docstring output does not match expected:\n{diff}")
+E           AssertionError: Docstring output does not match expected:
+E           --- expected
+E           +++ actual
+E           @@ -2,10 +2,11 @@
+E            Multiple args.
+E            
+E            Args:
+E           -    foo (int)         : Short desc.
+E           -    bar (str)         : This is a long description that should wrap to the
+E           -                        next line for readability.
+E           -    baz (str)         : First line.
+E           -                        Second line of multiline desc.
+E           -                        Third line.
+E           +    foo (int)           : Short desc.
+E           +    bar (str)           : This is a long description that
+E           +                          should wrap to the next line for
+E           +                          readability.
+E           +    baz (str)           : First line.
+E           +                         Second line of multiline desc.
+E           +                         Third line.
+E            """
+
+tests/core/writers/test_documentation_writer.py:19: AssertionError
+=========================== short test summary info ============================
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__args_section__renders_args_with_types_and_desc
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__all_sections__renders_full_docstring
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_prefix_longer_than_desc_col__colon_and_space_on_next_line
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_with_empty_description__renders_colon_only
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_with_multiline_description__all_lines_aligned
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_prefix_with_unicode__renders_colon_and_space
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__arg_prefix_with_special_characters__renders_colon_and_space
+FAILED tests/core/writers/test_documentation_writer.py::test_render_docstring__multiple_args__alignment_and_wrapping
+========================= 8 failed, 6 passed in 0.05s ==========================

@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 import pytest
-from pyopenapi_gen.auth.plugins import BearerAuth, HeadersAuth
+from pyopenapi_gen.core.auth.plugins import BearerAuth, HeadersAuth
 
 
 @pytest.mark.asyncio
@@ -43,7 +43,7 @@ async def test_apikey_auth__header_location__sets_header() -> None:
     Expected Outcome:
         The header is present and has the correct value.
     """
-    from pyopenapi_gen.auth.plugins import ApiKeyAuth
+    from pyopenapi_gen.core.auth.plugins import ApiKeyAuth
 
     auth = ApiKeyAuth("mykey", location="header", name="X-API-Key")
     result = await auth.authenticate_request({})
@@ -58,7 +58,7 @@ async def test_apikey_auth__query_location__sets_query_param() -> None:
     Expected Outcome:
         The query param is present and has the correct value.
     """
-    from pyopenapi_gen.auth.plugins import ApiKeyAuth
+    from pyopenapi_gen.core.auth.plugins import ApiKeyAuth
 
     auth = ApiKeyAuth("mykey", location="query", name="api_key")
     result = await auth.authenticate_request({})
@@ -73,7 +73,7 @@ async def test_apikey_auth__cookie_location__sets_cookie() -> None:
     Expected Outcome:
         The cookie is present and has the correct value.
     """
-    from pyopenapi_gen.auth.plugins import ApiKeyAuth
+    from pyopenapi_gen.core.auth.plugins import ApiKeyAuth
 
     auth = ApiKeyAuth("mykey", location="cookie", name="sessionid")
     result = await auth.authenticate_request({})
@@ -88,7 +88,7 @@ async def test_apikey_auth__invalid_location__raises_value_error() -> None:
     Expected Outcome:
         ValueError is raised.
     """
-    from pyopenapi_gen.auth.plugins import ApiKeyAuth
+    from pyopenapi_gen.core.auth.plugins import ApiKeyAuth
 
     auth = ApiKeyAuth("mykey", location="invalid", name="foo")
     with pytest.raises(ValueError):
@@ -103,7 +103,7 @@ async def test_oauth2_auth__simple_token__sets_bearer_header() -> None:
     Expected Outcome:
         The Authorization header is set to 'Bearer <token>'.
     """
-    from pyopenapi_gen.auth.plugins import OAuth2Auth
+    from pyopenapi_gen.core.auth.plugins import OAuth2Auth
 
     auth = OAuth2Auth("abc123")
     result = await auth.authenticate_request({})
@@ -118,7 +118,7 @@ async def test_oauth2_auth__refresh_callback__updates_token() -> None:
     Expected Outcome:
         The Authorization header is set to the new token after refresh.
     """
-    from pyopenapi_gen.auth.plugins import OAuth2Auth
+    from pyopenapi_gen.core.auth.plugins import OAuth2Auth
 
     async def refresh_cb(old_token: str) -> str:
         return "newtoken"
