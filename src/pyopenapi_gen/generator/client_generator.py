@@ -76,8 +76,19 @@ class ClientGenerator:
         def pkg_to_path(pkg: str) -> Path:
             return project_root.joinpath(*pkg.split("."))
 
+        # Default output_package if not set
+        if not output_package:
+            output_package = "client"
         out_dir = pkg_to_path(output_package)
-        core_dir = pkg_to_path(core_package)
+
+        # Determine core_dir for correct subfolder logic
+        shared_core = core_package and core_package != output_package + ".core"
+        if not core_package:
+            core_package = output_package + ".core"
+        if shared_core:
+            core_dir = pkg_to_path(core_package)
+        else:
+            core_dir = out_dir / "core"
         generated_files = []
 
         if not force and out_dir.exists():
@@ -90,12 +101,12 @@ class ClientGenerator:
                 generated_files += [
                     Path(p)
                     for p in CoreEmitter(
-                        core_dir=core_dir.name if core_package == output_package + ".core" else "",
+                        core_dir="",
                         core_package=core_package,
                     ).emit(str(core_dir))
                 ]
-                # Write config.py to the client output directory (not core)
-                config_dst = out_dir / "config.py"
+                # Write config.py to the core directory (not client root)
+                config_dst = core_dir / "config.py"
                 config_dst.write_text(CONFIG_TEMPLATE)
                 generated_files.append(config_dst)
                 generated_files += [
@@ -127,12 +138,12 @@ class ClientGenerator:
             generated_files += [
                 Path(p)
                 for p in CoreEmitter(
-                    core_dir=core_dir.name if core_package == output_package + ".core" else "",
+                    core_dir="",
                     core_package=core_package,
                 ).emit(str(core_dir))
             ]
-            # Write config.py to the client output directory (not core)
-            config_dst = out_dir / "config.py"
+            # Write config.py to the core directory (not client root)
+            config_dst = core_dir / "config.py"
             config_dst.write_text(CONFIG_TEMPLATE)
             generated_files.append(config_dst)
             generated_files += [Path(p) for p in ModelsEmitter(core_import_path=core_package).emit(ir, str(out_dir))]

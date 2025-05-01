@@ -35,23 +35,19 @@ class CoreEmitter:
     def emit(self, output_dir: str) -> list[str]:
         generated_files = []
         for module, filename, rel_dst in RUNTIME_FILES:
-            if self.core_dir:
-                dst = os.path.join(output_dir, rel_dst.replace("core", self.core_dir, 1))
-            else:
-                # Remove 'core/' prefix from rel_dst
-                dst = os.path.join(output_dir, rel_dst[len("core/") :] if rel_dst.startswith("core/") else rel_dst)
+            dst = os.path.join(output_dir, rel_dst.replace("core/", "", 1))
             self.file_manager.ensure_dir(os.path.dirname(dst))
             # Use importlib.resources to read the file from the package
             with importlib.resources.files(module).joinpath(filename).open("r") as f:
                 content = f.read()
             self.file_manager.write_file(dst, content)
             generated_files.append(dst)
-        # Always create __init__.py files for core and subfolders if core_dir is set
-        if self.core_dir:
-            core_init = os.path.join(output_dir, self.core_dir, "__init__.py")
-            self.file_manager.write_file(core_init, "")
-            generated_files.append(core_init)
-            auth_init = os.path.join(output_dir, self.core_dir, "auth", "__init__.py")
-            self.file_manager.write_file(auth_init, "")
-            generated_files.append(auth_init)
+        # Always create __init__.py files for core and subfolders
+        core_init = os.path.join(output_dir, "__init__.py")
+        self.file_manager.write_file(core_init, "")
+        generated_files.append(core_init)
+        auth_init = os.path.join(output_dir, "auth", "__init__.py")
+        self.file_manager.ensure_dir(os.path.dirname(auth_init))
+        self.file_manager.write_file(auth_init, "")
+        generated_files.append(auth_init)
         return generated_files

@@ -1,4 +1,5 @@
 import re
+import textwrap
 from typing import cast
 
 from pyopenapi_gen import IRSpec
@@ -58,7 +59,7 @@ class ClientVisitor:
             writer.write_line(f"from .endpoints.{module_name} import {class_name}")
         writer.write_line("")
         # Register core/config/typing imports for class signature
-        context.add_import(".config", "ClientConfig")
+        context.add_import(f"{context.core_package}.config", "ClientConfig")
         context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
         context.add_import(f"{context.core_package}.http_transport", "HttpxTransport")
         context.add_typing_imports_for_type("Optional[HttpTransport]")
@@ -68,12 +69,25 @@ class ClientVisitor:
         writer.write_line("class APIClient:")
         writer.indent()
         # Build docstring for APIClient
+        docstring_lines = []
+        # Add API title and version
+        docstring_lines.append(f"{spec.title} (version {spec.version})")
+        # Add API description if present
+        if getattr(spec, "description", None):
+            desc = spec.description
+            if desc is not None:
+                # Remove triple quotes, escape backslashes, and dedent
+                desc_clean = desc.replace('"""', "'").replace("'''", "'").replace("\\", "\\\\").strip()
+                desc_clean = textwrap.dedent(desc_clean)
+                docstring_lines.append("")
+                docstring_lines.append(desc_clean)
+        # Add a blank line before the generated summary/args
+        docstring_lines.append("")
         summary = "Async API client with pluggable transport, tag-specific clients, and client-level headers."
         args: list[tuple[str, str, str]] = [
             ("config", "ClientConfig", "Client configuration object."),
             ("transport", "Optional[HttpTransport]", "Custom HTTP transport (optional)."),
         ]
-        # List endpoint clients as Args
         for tag, class_name, module_name in tag_tuples:
             args.append((module_name, class_name, f"Client for '{tag}' endpoints."))
         doc_block = DocumentationBlock(
@@ -81,9 +95,14 @@ class ClientVisitor:
             args=cast(list[tuple[str, str, str] | tuple[str, str]], args),
         )
         docstring = DocumentationWriter(width=88).render_docstring(doc_block, indent=0)
-        for line in docstring.splitlines():
-            writer.write_line(line)
-        writer.write_line("")
+        docstring_lines.extend([line for line in docstring.splitlines()])
+        # Write only one docstring, no extra triple quotes after
+        writer.write_line('"""')  # At class indent (1)
+        writer.dedent()  # Go to indent 0 for docstring content
+        for line in docstring_lines:
+            writer.write_line(line.rstrip('"'))
+        writer.indent()  # Back to class indent (1)
+        writer.write_line('"""')
         # __init__
         writer.write_line(
             "def __init__(self, config: ClientConfig, transport: Optional[HttpTransport] = None) -> None:"

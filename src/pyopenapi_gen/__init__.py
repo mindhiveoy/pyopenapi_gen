@@ -126,10 +126,20 @@ class IRSchema:
 
 @dataclass(slots=True)
 class IRSpec:
-    """Top‑level container for all IR nodes extracted from the spec."""
+    """Top‑level container for all IR nodes extracted from the spec.
+
+    Attributes:
+        title: The API title from the OpenAPI info block.
+        version: The API version from the OpenAPI info block.
+        description: The API description from the OpenAPI info block, if present.
+        schemas: All parsed schemas.
+        operations: All parsed operations.
+        servers: List of server URLs.
+    """
 
     title: str
     version: str
+    description: Optional[str] = None
     schemas: Dict[str, IRSchema] = field(default_factory=dict)
     operations: List[IROperation] = field(default_factory=list)
     servers: List[str] = field(default_factory=list)

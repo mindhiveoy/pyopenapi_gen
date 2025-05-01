@@ -93,7 +93,7 @@ class ModelsEmitter:
     def __init__(self, core_import_path: Optional[str] = None) -> None:
         self.formatter = Formatter()
         self.schema_names: Set[str] = set()
-        self.visitor = ModelVisitor()
+        self.visitor: Optional[ModelVisitor] = None
         self.core_import_path = core_import_path
 
     def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
@@ -115,6 +115,10 @@ class ModelsEmitter:
         # Store schema names for cross-references
         self.schema_names = {name for name in spec.schemas.keys() if name}
 
+        # Create a single ModelVisitor with all schemas for correct type resolution
+        if self.visitor is None:
+            self.visitor = ModelVisitor(schemas=spec.schemas)
+
         # Prepare context and mark all generated modules
         for name in spec.schemas.keys():
             if not name:
@@ -134,7 +138,7 @@ class ModelsEmitter:
             context.file_manager.ensure_dir(models_dir)
             context.mark_generated_module(file_path)
             context.set_current_file(file_path)
-            # Render model code using the visitor
+            # Render model code using the visitor (with schemas for type resolution)
             model_code = self.visitor.visit(schema, context)
             # Render imports for this file
             imports_code = context.render_imports(models_dir)

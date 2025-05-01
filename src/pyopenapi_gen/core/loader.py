@@ -15,8 +15,9 @@ supported **only** for ``#/components/schemas/<Name>`` references for now.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping, Optional, cast
+import copy
 import warnings
+from typing import Any, Dict, List, Mapping, Optional, cast
 
 try:
     # Use the newer validate() API if available to avoid deprecation warnings
@@ -375,6 +376,34 @@ def _parse_operations(
     return ops
 
 
+def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
+    """Extract inline property enums as unique schemas and update property references."""
+    new_enums = {}
+    for schema_name, schema in list(schemas.items()):
+        for prop_name, prop_schema in list(schema.properties.items()):
+            if prop_schema.enum and not prop_schema.name:
+                # Generate a unique name
+                enum_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Enum"
+                # Avoid collision
+                base_enum_name = enum_name
+                i = 1
+                while enum_name in schemas or enum_name in new_enums:
+                    enum_name = f"{base_enum_name}{i}"
+                    i += 1
+                # Create a new IRSchema for the enum
+                enum_schema = IRSchema(
+                    name=enum_name,
+                    type=prop_schema.type,
+                    enum=copy.deepcopy(prop_schema.enum),
+                    description=prop_schema.description or f"Enum for {schema_name}.{prop_name}",
+                )
+                new_enums[enum_name] = enum_schema
+                # Update the property to reference the new enum
+                prop_schema.name = enum_name
+    schemas.update(new_enums)
+    return schemas
+
+
 def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
     """Orchestrate the transformation of a spec dict into IRSpec."""
     # Validate OpenAPI spec but continue on errors
@@ -390,11 +419,13 @@ def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
     info = spec.get("info", {})
     title = info.get("title", "API Client")
     version = info.get("version", "0.0.0")
+    description = info.get("description")
     raw_schemas = spec.get("components", {}).get("schemas", {})
     raw_parameters = spec.get("components", {}).get("parameters", {})
     raw_responses = spec.get("components", {}).get("responses", {})
     raw_request_bodies = spec.get("components", {}).get("requestBodies", {})
     schemas = _build_schemas(raw_schemas)
+    schemas = extract_inline_enums(schemas)
     paths = spec["paths"]
     operations = _parse_operations(
         paths,
@@ -408,6 +439,7 @@ def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
     return IRSpec(
         title=title,
         version=version,
+        description=description,
         schemas=schemas,
         operations=operations,
         servers=servers,

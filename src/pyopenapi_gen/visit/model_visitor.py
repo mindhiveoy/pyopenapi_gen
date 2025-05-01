@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 
-from ..core.utils import Formatter
+from ..core.utils import Formatter, NameSanitizer
 from ..core.writers.code_writer import CodeWriter
 from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
 from .visitor import Visitor
@@ -16,14 +16,16 @@ class ModelVisitor(Visitor[IRSchema, str]):
     Only adds imports/types to the context if they are actually used in the rendered code for the module.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, schemas: Optional[Dict[str, IRSchema]] = None) -> None:
         self.formatter = Formatter()
+        self.schemas = schemas or {}
 
     def visit_IRSchema(self, schema: IRSchema, context: RenderContext) -> str:
         # Enum detection
         is_enum = schema.enum and schema.type in ("string", "integer")
         if is_enum:
             context.add_import("enum", "Enum")
+            context.add_import("enum", "unique")
         # Dataclass detection
         if not is_enum:
             context.add_import("dataclasses", "dataclass")
@@ -35,6 +37,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
         # Generate code using CodeWriter
         writer = CodeWriter()
         if is_enum:
+            writer.write_line("@unique")
             # Enum class
             base = "str" if schema.type == "string" else "int"
             writer.write_line(f"class {schema.name}(" + base + ", Enum):")
@@ -73,7 +76,9 @@ class ModelVisitor(Visitor[IRSchema, str]):
             summary = schema.description or None
             field_args: list[tuple[str, str, str] | tuple[str, str]] = []
             for prop, ps in schema.properties.items():
-                py_type = self._get_python_type(ps, required=prop in schema.required)
+                py_type = self._get_python_type(
+                    ps, required=prop in schema.required, schemas=self.schemas, context=context
+                )
                 desc = ps.description or ""
                 field_args.append((prop, py_type, desc))
             doc_block = DocumentationBlock(
@@ -93,7 +98,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
             # Emit required fields first (no default values)
             for prop, ps in required_props:
                 is_object = ps.type == "object" and not ps.name
-                py_type = self._get_python_type(ps, required=True)
+                py_type = self._get_python_type(ps, required=True, schemas=self.schemas, context=context)
                 line = f"{prop}: {py_type}"
                 if ps.description:
                     line += f"  # {ps.description.replace('\n', ' ')}"
@@ -101,7 +106,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
             # Then emit optional fields (with defaults)
             for prop, ps in optional_props:
                 is_object = ps.type == "object" and not ps.name
-                py_type = self._get_python_type(ps, required=False)
+                py_type = self._get_python_type(ps, required=False, schemas=self.schemas, context=context)
                 line = f"{prop}: {py_type}"
                 if is_object:
                     line += " = field(default_factory=dict)"
@@ -131,19 +136,32 @@ class ModelVisitor(Visitor[IRSchema, str]):
             if (ps.type == "object" and not ps.name) or ps.type == "array":
                 context.add_import("dataclasses", "field")
             # Any if type is unknown
-            context.add_typing_imports_for_type(self._get_python_type(ps))
+            context.add_typing_imports_for_type(self._get_python_type(ps, schemas=self.schemas, context=context))
             # --- Recursive registration for nested schemas ---
             if ps.type == "array" and ps.items:
                 self._analyze_and_register_imports(ps.items, context)
             if ps.type == "object" and ps.properties:
                 self._analyze_and_register_imports(ps, context)
 
-    def _get_python_type(self, schema: IRSchema, required: bool = True) -> str:
-        # Simplified: always use Any for unknowns
-        if not schema:
-            return "Any"
-        if schema.type == "array" and schema.items:
-            item_type = self._get_python_type(schema.items)
+    def _get_python_type(
+        self,
+        schema: IRSchema,
+        required: bool = True,
+        schemas: Optional[Dict[str, IRSchema]] = None,
+        context: Optional[RenderContext] = None,
+    ) -> str:
+        schemas = schemas or self.schemas
+        # If this is a reference to a named model, use the class name
+        if schema.name and schema.name in schemas:
+            class_name = NameSanitizer.sanitize_class_name(schema.name)
+            if context:
+                model_module = f".{NameSanitizer.sanitize_module_name(schema.name)}"
+                context.add_import(model_module, class_name)
+            py_type = class_name
+        elif schema.enum:
+            py_type = NameSanitizer.sanitize_class_name(schema.name) if schema.name else "str"
+        elif schema.type == "array" and schema.items:
+            item_type = self._get_python_type(schema.items, required=True, schemas=schemas, context=context)
             py_type = f"List[{item_type}]"
         elif schema.type == "object" and schema.properties:
             py_type = "Dict[str, Any]"
