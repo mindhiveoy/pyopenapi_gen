@@ -3,12 +3,12 @@ import os
 from pyopenapi_gen.context.file_manager import FileManager
 
 RUNTIME_FILES = [
-    ("src/pyopenapi_gen/http_transport.py", "core/http_transport.py"),
+    ("src/pyopenapi_gen/core/http_transport.py", "core/http_transport.py"),
     ("src/pyopenapi_gen/core/exceptions.py", "core/exceptions.py"),
     ("src/pyopenapi_gen/core/streaming_helpers.py", "core/streaming_helpers.py"),
     ("src/pyopenapi_gen/core/pagination.py", "core/pagination.py"),
-    ("src/pyopenapi_gen/auth/base.py", "core/auth/base.py"),
-    ("src/pyopenapi_gen/auth/plugins.py", "core/auth/plugins.py"),
+    ("src/pyopenapi_gen/core/auth/base.py", "core/auth/base.py"),
+    ("src/pyopenapi_gen/core/auth/plugins.py", "core/auth/plugins.py"),
 ]
 
 CONFIG_TEMPLATE = """

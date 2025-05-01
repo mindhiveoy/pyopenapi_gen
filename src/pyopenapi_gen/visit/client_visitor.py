@@ -60,10 +60,13 @@ class ClientVisitor:
         context.add_import(f"{context.core_package}.http_transport", "HttpxTransport")
         context.add_typing_imports_for_type("Optional[HttpTransport]")
         context.add_typing_imports_for_type("Any")
+        context.add_typing_imports_for_type("Dict")
         # Class definition
         writer.write_line("class APIClient:")
         writer.indent()
-        writer.write_line('"""Async API client with pluggable transport and tag-specific clients."""')
+        writer.write_line(
+            '"""Async API client with pluggable transport, tag-specific clients, and client-level headers."""'
+        )
         writer.write_line("")
         # __init__
         writer.write_line(

@@ -36,9 +36,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
         ordered_params, body_type = self._prepare_parameters(op, context)
         self._write_method_signature(writer, op, context, ordered_params)
         self._write_docstring(writer, op)
-        self._write_url_and_args(writer, op, context, ordered_params, body_type)
-        self._write_request(writer, op)
-        self._write_error_handling(writer)
+        has_header_params = self._write_url_and_args(writer, op, context, ordered_params, body_type)
+        self._write_request(writer, op, has_header_params)
         self._write_response_parsing(writer, op, context)
         return writer.get_code()
 
@@ -141,16 +140,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
         context: RenderContext,
         ordered_params: list[dict[str, Any]],
         body_type: str | None,
-    ) -> None:
+    ) -> bool:
         """
         Write the URL construction, params, headers, and request body/file setup for the endpoint method.
-
-        Args:
-            writer: The CodeWriter to emit code to.
-            op: The IROperation node.
-            context: The RenderContext for import tracking.
-            ordered_params: List of parameters for the method.
-            body_type: The Python type for the request body, if any.
         """
         context.add_import("typing", "Any")
         context.add_import("typing", "Dict")
@@ -162,15 +154,18 @@ class EndpointVisitor(Visitor[IROperation, str]):
         self._write_query_params(writer, op, ordered_params)
         writer.dedent()
         writer.write_line("}")
-        writer.write_line("headers: dict[str, Any] = {")
-        writer.indent()
-        self._write_header_params(writer, op, ordered_params)
-        writer.dedent()
-        writer.write_line("}")
+        has_header_params = any(getattr(param, "in_", None) == "header" for param in op.parameters)
+        if has_header_params:
+            writer.write_line("headers: dict[str, Any] = {")
+            writer.indent()
+            self._write_header_params(writer, op, ordered_params)
+            writer.dedent()
+            writer.write_line("}")
         if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line(f"json_body: {body_type} = body")
         if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
             writer.write_line("files_data: Dict[str, IO[Any]] = files")
+        return has_header_params
 
     def _write_query_params(self, writer: CodeWriter, op: IROperation, ordered_params: list[dict[str, Any]]) -> None:
         """
@@ -206,43 +201,22 @@ class EndpointVisitor(Visitor[IROperation, str]):
                     if param.name == p["name"] and getattr(param, "in_", None) == "header":
                         writer.write_line(f'"{param.name}": {p["name"]},')
 
-    def _write_request(self, writer: CodeWriter, op: IROperation) -> None:
+    def _write_request(self, writer: CodeWriter, op: IROperation, has_header_params: bool) -> None:
         """
         Write the HTTP request invocation for the endpoint method.
-
-        Args:
-            writer: The CodeWriter to emit code to.
-            op: The IROperation node.
         """
         writer.write_line("response = await self._transport.request(")
         writer.indent()
         writer.write_line(f'"{op.method.upper()}", url,')
         writer.write_line("params=params,")
-        writer.write_line("headers=headers,")
+        if has_header_params:
+            writer.write_line("headers=headers,")
         if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line("json=json_body,")
         if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
             writer.write_line("files=files_data,")
         writer.dedent()
         writer.write_line(")")
-
-    def _write_error_handling(self, writer: CodeWriter) -> None:
-        """
-        Write the error handling logic for HTTP responses in the endpoint method.
-
-        Args:
-            writer: The CodeWriter to emit code to.
-        """
-        writer.write_line("if response.status_code < 200 or response.status_code >= 300:")
-        writer.indent()
-        writer.write_line("# Map status code to exception class if available")
-        writer.write_line("exc_class = self._get_exception_class(response.status_code)")
-        writer.write_line("if exc_class:")
-        writer.indent()
-        writer.write_line("raise exc_class(response.text)")
-        writer.dedent()
-        writer.write_line("raise Exception(f'HTTP {response.status_code}: {response.text}')")
-        writer.dedent()
 
     def _write_response_parsing(self, writer: CodeWriter, op: IROperation, context: RenderContext) -> None:
         """
@@ -319,38 +293,22 @@ class EndpointVisitor(Visitor[IROperation, str]):
             tag: The tag name for the endpoint group.
             methods: List of method code blocks as strings.
             context: The RenderContext for import tracking.
-        Returns:
-            The complete Python code for the endpoint client class as a string.
         """
-        context.add_import("typing", "cast")
         context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
-        context.add_import("typing", "Callable")
-        context.add_import("typing", "Optional")
-        class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
         writer = CodeWriter()
+        class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
         writer.write_line(f"class {class_name}:")
         writer.indent()
-        writer.write_block(
-            f'"""Client for operations under the {class_name} tag.\n\n'
-            "This client is generated automatically and provides strongly-typed async methods for each endpoint.\n"
-            "All HTTP communication is performed via the provided HttpTransport implementation.\n"
-            "Attributes:\n"
-            "    _transport (HttpTransport): The HTTP transport used for requests.\n"
-            "    base_url (str): The base URL for all requests.\n"
-            "    _get_exception_class (Callable[[int], Optional[type]]): Maps status codes to exception classes.\n"
-            '"""'
-        )
+        writer.write_line(f'"""Client for {tag} endpoints. Uses HttpTransport for all HTTP and header management."""')
+        writer.write_line("")
         writer.write_line("def __init__(self, transport: HttpTransport, base_url: str) -> None:")
         writer.indent()
-        writer.write_line("self._transport: HttpTransport = transport")
+        writer.write_line("self._transport = transport")
         writer.write_line("self.base_url: str = base_url")
-        writer.write_line("# Should be set by client factory")
-        writer.write_line("self._get_exception_class: Callable[[int], Optional[type]] = (lambda status_code: None)")
         writer.dedent()
         writer.write_line("")
-        for method_code in methods:
-            writer.write_block(method_code)
-            writer.write_line("")
+        for method in methods:
+            writer.write_block(method)
         writer.dedent()
         return writer.get_code()
 
@@ -375,17 +333,6 @@ class EndpointVisitor(Visitor[IROperation, str]):
             "AsyncIterator" in get_param_type(p, context) for p in op.parameters
         ):
             context.add_plain_import("collections.abc")
-
-    def _get_exception_class(self, status_code: int) -> type | None:
-        """
-        Map an HTTP status code to a generated exception class if available.
-        Returns the exception class (as a symbol) or None if not found.
-        """
-        # This assumes exception classes like Error404, Error400, etc. are imported in the endpoint module.
-        # In real codegen, you would ensure these are imported or available in the namespace.
-        if 400 <= status_code < 600:
-            return globals().get(f"Error{status_code}")
-        return None
 
     def _ensure_path_variables_as_params(
         self, op: IROperation, all_params: list[dict[str, Any]]
@@ -498,15 +445,14 @@ class EndpointVisitor(Visitor[IROperation, str]):
                             writer.write_line(f'"{param.name}": {p["name"]},')
         writer.dedent()
         writer.write_line("}")
-        writer.write_line("headers: dict[str, Any] = {")
-        writer.indent()
-        for p in ordered_params:
-            if hasattr(op, "parameters"):
-                for param in op.parameters:
-                    if param.name == p["name"] and getattr(param, "in_", None) == "header":
-                        writer.write_line(f'"{param.name}": {p["name"]},')
-        writer.dedent()
-        writer.write_line("}")
+        # Check if there are any header parameters
+        has_header_params = any(getattr(param, "in_", None) == "header" for param in op.parameters)
+        if has_header_params:
+            writer.write_line("headers: dict[str, Any] = {")
+            writer.indent()
+            self._write_header_params(writer, op, ordered_params)
+            writer.dedent()
+            writer.write_line("}")
         if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line(f"json_body: {body_type} = body")
         if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
@@ -516,7 +462,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.indent()
         writer.write_line(f'"{op.method.upper()}", url,')
         writer.write_line("params=params,")
-        writer.write_line("headers=headers,")
+        if has_header_params:
+            writer.write_line("headers=headers,")
         if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
             writer.write_line("json=json_body,")
         if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
@@ -526,13 +473,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         # --- 5. Handle errors ---
         writer.write_line("if response.status_code < 200 or response.status_code >= 300:")
         writer.indent()
-        writer.write_line("# Map status code to exception class if available")
-        writer.write_line("exc_class = self._get_exception_class(response.status_code)")
-        writer.write_line("if exc_class:")
-        writer.indent()
-        writer.write_line("raise exc_class(response.text)")
-        writer.dedent()
-        writer.write_line("raise Exception(f'HTTP {response.status_code}: {response.text}')")
+        writer.write_line("raise HTTPError(response.status_code, response.text)")
         writer.dedent()
         # --- 6. Parse and return the response ---
         return_type = get_return_type(op, context, self.schemas)
