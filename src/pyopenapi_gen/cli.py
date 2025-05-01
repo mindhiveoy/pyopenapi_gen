@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import typer
-import yaml  # type: ignore  # Library stubs not installed for "yaml"
+import yaml
 
 from .core.loader import load_ir_from_spec
 from .emitters.docs_emitter import DocsEmitter
