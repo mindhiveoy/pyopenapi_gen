@@ -16,6 +16,7 @@ dependencies = [
   "black (>=25.1.0,<26.0.0)",
   "mypy (>=1.15.0,<2.0.0)",
   "types-pyyaml (>=6.0.12.20250402,<7.0.0.0)",
+  "ruff>=0.4",
 ]
 license = { text = "MIT" }
 keywords = ["openapi", "swagger", "client", "generator", "async", "python"]

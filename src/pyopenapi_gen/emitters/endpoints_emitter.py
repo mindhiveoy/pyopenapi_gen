@@ -115,28 +115,44 @@ class EndpointsEmitter:
         if self.visitor is None:
             self.visitor = EndpointVisitor(spec.schemas)
 
-        # Group operations by tag
-        tag_to_ops: Dict[str, List[IROperation]] = {}
+        # Group operations by normalized tag key
+        tag_key_to_ops: Dict[str, List[IROperation]] = {}
+        tag_key_to_candidates: Dict[str, List[str]] = {}
         for op in spec.operations:
-            print(f"[DEBUG] IROperation for {op.operation_id} ({op.path}):")
-            for param in op.parameters:
-                print(
-                    f"    param: name={param.name}, in_={param.in_}, required={param.required}, type={getattr(param.schema, 'type', None)}"
-                )
-            tags = op.tags or ["default"]
+            tags = op.tags or [DEFAULT_TAG]
             for tag in tags:
-                tag_to_ops.setdefault(tag, []).append(op)
+                key = NameSanitizer.normalize_tag_key(tag)
+                tag_key_to_ops.setdefault(key, []).append(op)
+                tag_key_to_candidates.setdefault(key, []).append(tag)
 
-        # Prepare context and mark all generated modules
-        for tag in tag_to_ops:
+        # For each normalized tag, pick a canonical tag (best formatted)
+        def tag_score(t: str) -> tuple[bool, int, int, str]:
+            import re
+
+            is_pascal = bool(re.search(r"[a-z][A-Z]", t)) or bool(re.search(r"[A-Z]{2,}", t))
+            words = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|[0-9]+", t)
+            words += re.split(r"[_-]+", t)
+            word_count = len([w for w in words if w])
+            upper = sum(1 for c in t if c.isupper())
+            return (is_pascal, word_count, upper, t)
+
+        tag_map = {}
+        for key, candidates in tag_key_to_candidates.items():
+            best = max(candidates, key=tag_score)
+            tag_map[key] = best
+
+        # Prepare context and mark all generated modules (one per normalized tag)
+        for key, ops in tag_key_to_ops.items():
+            tag = tag_map[key]
             module_name = NameSanitizer.sanitize_module_name(tag)
             file_path = os.path.join(endpoints_dir, f"{module_name}.py")
             context.mark_generated_module(file_path)
 
         generated_files: List[str] = []
-        # Generate endpoint files per tag
         client_classes: List[Tuple[str, str]] = []
-        for tag, ops in tag_to_ops.items():
+        # Generate endpoint files per canonical tag
+        for key, ops in tag_key_to_ops.items():
+            tag = tag_map[key]
             module_name = NameSanitizer.sanitize_module_name(tag)
             class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
             file_path = os.path.join(endpoints_dir, f"{module_name}.py")
