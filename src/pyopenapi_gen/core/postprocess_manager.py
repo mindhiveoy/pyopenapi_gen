@@ -2,7 +2,14 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Union
-import io
+
+SUCCESS_LINE = "Success: no issues found in 1 source file"
+
+
+def _print_filtered_stdout(stdout: str) -> None:
+    lines = [line for line in stdout.splitlines() if line.strip() and line.strip() != SUCCESS_LINE]
+    if lines:
+        print("\n".join(lines))
 
 
 class PostprocessManager:
@@ -27,8 +34,6 @@ class PostprocessManager:
 
     def remove_unused_imports(self, target: Union[str, Path]) -> None:
         """Remove unused imports from the target using Ruff."""
-        stdout_stream = io.StringIO()
-        stderr_stream = io.StringIO()
         result = subprocess.run(
             [
                 sys.executable,
@@ -39,18 +44,18 @@ class PostprocessManager:
                 "--fix",
                 str(target),
             ],
-            stdout=stdout_stream,
-            stderr=stderr_stream,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        if result.returncode != 0 or stderr_stream.getvalue():
-            print(stdout_stream.getvalue())
-            print(stderr_stream.getvalue(), file=sys.stderr)
+        if result.returncode != 0 or result.stderr:
+            if result.stdout:
+                _print_filtered_stdout(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
 
     def sort_imports(self, target: Union[str, Path]) -> None:
         """Sort imports in the target using Ruff."""
-        stdout_stream = io.StringIO()
-        stderr_stream = io.StringIO()
         result = subprocess.run(
             [
                 sys.executable,
@@ -61,18 +66,18 @@ class PostprocessManager:
                 "--fix",
                 str(target),
             ],
-            stdout=stdout_stream,
-            stderr=stderr_stream,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        if result.returncode != 0 or stderr_stream.getvalue():
-            print(stdout_stream.getvalue())
-            print(stderr_stream.getvalue(), file=sys.stderr)
+        if result.returncode != 0 or result.stderr:
+            if result.stdout:
+                _print_filtered_stdout(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
 
     def format_code(self, target: Union[str, Path]) -> None:
         """Format code in the target using Ruff."""
-        stdout_stream = io.StringIO()
-        stderr_stream = io.StringIO()
         result = subprocess.run(
             [
                 sys.executable,
@@ -81,30 +86,30 @@ class PostprocessManager:
                 "format",
                 str(target),
             ],
-            stdout=stdout_stream,
-            stderr=stderr_stream,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        if result.returncode != 0 or stderr_stream.getvalue():
-            print(stdout_stream.getvalue())
-            print(stderr_stream.getvalue(), file=sys.stderr)
+        if result.returncode != 0 or result.stderr:
+            if result.stdout:
+                _print_filtered_stdout(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
             print(f"Formatting found and fixed issues in {target}.", file=sys.stderr)
 
     def type_check(self, target: Union[str, Path]) -> None:
         """Type check the target using mypy."""
-        stdout_stream = io.StringIO()
-        stderr_stream = io.StringIO()
         result = subprocess.run(
             [sys.executable, "-m", "mypy", str(target), "--strict"],
-            stdout=stdout_stream,
-            stderr=stderr_stream,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        if stdout_stream.getvalue() or stderr_stream.getvalue() or result.returncode != 0:
-            if stdout_stream.getvalue():
-                print(stdout_stream.getvalue())
-            if stderr_stream.getvalue():
-                print(stderr_stream.getvalue(), file=sys.stderr)
+        if result.stdout or result.stderr or result.returncode != 0:
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
             if result.returncode != 0:
                 print(f"Type checking failed for {target}. Please fix the above issues.", file=sys.stderr)
                 sys.exit(result.returncode)

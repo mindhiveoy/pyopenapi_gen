@@ -1,4 +1,5 @@
 import re
+from typing import cast
 
 from pyopenapi_gen import IRSpec
 
@@ -68,7 +69,7 @@ class ClientVisitor:
         writer.indent()
         # Build docstring for APIClient
         summary = "Async API client with pluggable transport, tag-specific clients, and client-level headers."
-        args = [
+        args: list[tuple[str, str, str]] = [
             ("config", "ClientConfig", "Client configuration object."),
             ("transport", "Optional[HttpTransport]", "Custom HTTP transport (optional)."),
         ]
@@ -77,7 +78,7 @@ class ClientVisitor:
             args.append((module_name, class_name, f"Client for '{tag}' endpoints."))
         doc_block = DocumentationBlock(
             summary=summary,
-            args=args,
+            args=cast(list[tuple[str, str, str] | tuple[str, str]], args),
         )
         docstring = DocumentationWriter(width=88).render_docstring(doc_block, indent=0)
         for line in docstring.splitlines():
@@ -122,6 +123,7 @@ class ClientVisitor:
         writer.dedent()
         writer.write_line("")
         # close method
+        context.add_typing_imports_for_type("None")
         writer.write_line("async def close(self) -> None:")
         writer.indent()
         writer.write_line('"""Close the underlying transport if supported."""')
@@ -130,4 +132,35 @@ class ClientVisitor:
         writer.write_line("await self.transport.close()")
         writer.dedent()
         writer.dedent()
+        writer.write_line("")
+        # __aenter__ for async context management (dedented)
+        writer.write_line("async def __aenter__(self) -> 'APIClient':")
+        writer.indent()
+        writer.write_line('"""Enter the async context manager. Returns self."""')
+        writer.write_line("if hasattr(self.transport, '__aenter__'):")
+        writer.indent()
+        writer.write_line("await self.transport.__aenter__()")
+        writer.dedent()
+        writer.write_line("return self")
+        writer.dedent()
+        writer.write_line("")
+        # __aexit__ for async context management (dedented)
+        context.add_typing_imports_for_type("type[BaseException] | None")
+        context.add_typing_imports_for_type("BaseException | None")
+        context.add_typing_imports_for_type("object | None")
+        writer.write_line(
+            "async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None) -> None:"
+        )
+        writer.indent()
+        writer.write_line('"""Exit the async context manager. Calls close()."""')
+        writer.write_line("if hasattr(self.transport, '__aexit__'):")
+        writer.indent()
+        writer.write_line("await self.transport.__aexit__(exc_type, exc_val, exc_tb)")
+        writer.dedent()
+        writer.write_line("else:")
+        writer.indent()
+        writer.write_line("await self.close()")
+        writer.dedent()
+        writer.dedent()
+        writer.write_line("")
         return writer.get_code()

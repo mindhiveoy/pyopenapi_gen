@@ -48,24 +48,40 @@ def _show_diffs(old_dir: str, new_dir: str) -> bool:
 @app.command()
 def gen(
     spec: str = typer.Argument(..., help="Path or URL to OpenAPI spec"),
-    output: Path = typer.Option(..., "-o", "--output", help="Output directory"),
+    project_root: Path = typer.Option(
+        ...,
+        "--project-root",
+        help="Absolute path to the root of your Python project (where your top-level package(s) live).",
+    ),
+    output_package: str = typer.Option(
+        ..., "--output-package", help="Python package path for the generated client (e.g., 'pyapis.my_api_client')."
+    ),
     force: bool = typer.Option(False, "-f", "--force", help="Overwrite without diff check"),
-    name: str = typer.Option(None, "-n", "--name", help="Custom client package name"),
+    name: str = typer.Option(
+        None, "-n", "--name", help="Custom client package name (deprecated, use --output-package instead)"
+    ),
     docs: bool = typer.Option(False, help="Also generate docs"),
     telemetry: bool = typer.Option(False, help="Enable telemetry"),
     auth: str = typer.Option(None, help="Auth plugins comma-separated"),
     no_postprocess: bool = typer.Option(False, "--no-postprocess", help="Skip post-processing (type checking, etc.)"),
-    core_package: str = typer.Option("core", "--core-package", help="Name of the core package/folder (default: core)"),
+    core_package: str = typer.Option(
+        None,
+        "--core-package",
+        help="Python package path for the core package (e.g., 'pyapis.core'). If not set, defaults to <output-package>.core.",
+    ),
 ) -> None:
     """
     Generate a Python OpenAPI client from a spec file or URL.
     This function only parses CLI arguments and delegates to ClientGenerator.
     """
+    if core_package is None:
+        core_package = output_package + ".core"
     generator = ClientGenerator()
     try:
         generator.generate(
             spec_path=spec,
-            output=output,
+            project_root=project_root,
+            output_package=output_package,
             force=force,
             name=name,
             docs=docs,

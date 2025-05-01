@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Set
+from typing import Dict, Optional, Set
 
 from pyopenapi_gen import IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -90,15 +90,16 @@ class {{ schema.name | sanitize_class_name }}:
 class ModelsEmitter:
     """Generates Python dataclass models from IRSpec using the visitor/context architecture."""
 
-    def __init__(self) -> None:
+    def __init__(self, core_import_path: Optional[str] = None) -> None:
         self.formatter = Formatter()
         self.schema_names: Set[str] = set()
         self.visitor = ModelVisitor()
+        self.core_import_path = core_import_path
 
     def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
         """Render one model file per schema under <output_dir>/models using the visitor/context/registry pattern. Returns a list of generated file paths."""
         models_dir = os.path.join(output_dir, "models")
-        context = RenderContext()
+        context = RenderContext(core_import_path=self.core_import_path)
         context.file_manager.ensure_dir(models_dir)
         # Always create an empty __init__.py to ensure package
         empty_init_path = os.path.join(models_dir, "__init__.py")
@@ -129,7 +130,7 @@ class ModelsEmitter:
                 continue
             module_name = NameSanitizer.sanitize_module_name(name)
             file_path = os.path.join(models_dir, f"{module_name}.py")
-            context = RenderContext()  # Create a new context for each file
+            context = RenderContext(core_import_path=self.core_import_path)  # Create a new context for each file
             context.file_manager.ensure_dir(models_dir)
             context.mark_generated_module(file_path)
             context.set_current_file(file_path)

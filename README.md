@@ -4,13 +4,121 @@ A modern, async-first Python client generator for OpenAPI (Swagger) specificatio
 
 ---
 
+## Quick Start
+
+### 1. Install
+
+```bash
+pip install pyopenapi-gen
+```
+
+### 2. Generate a Client
+
+```bash
+pyopenapi-gen gen input/openapi.yaml \
+  --project-root . \
+  --output-package pyapis.my_api_client
+```
+
+- By default, the core package will be generated as a subpackage under your output package (e.g., `pyapis/my_api_client/core/`).
+- All imports in the generated client will use relative imports (e.g., `from .core.http_transport import ...`).
+
+#### To use a shared core package:
+
+```bash
+pyopenapi-gen gen input/openapi.yaml \
+  --project-root . \
+  --output-package pyapis.my_api_client \
+  --core-package pyapis.core
+
+```bash
+- Core files: `/absolute/path/to/your/project/pyapis/core/`
+- Client files: `/absolute/path/to/your/project/pyapis/my_api_client/`
+- Imports: `from pyapis.core.http_transport import ...`
+
+### 3. Use the Generated Client
+
+```python
+import asyncio
+from pyapis.my_api_client.config import ClientConfig
+from pyapis.my_api_client.client import APIClient
+
+async def main():
+    config = ClientConfig(base_url="https://api.example.com", timeout=5.0)
+    # Option 1: Manual close
+    client = APIClient(config)
+    users = await client.users.listUsers(page=1, pageSize=10)
+    print(users)
+    await client.close()
+
+    # Option 2: Async context manager (recommended)
+    async with APIClient(config) as client:
+        users = await client.users.listUsers(page=1)
+        print(users)
+
+asyncio.run(main())
+```
+
+### 4. Customizing the Core Module Name/Location
+
+> **IMPORTANT:**
+> The value of `--core-package` **must match the full Python import path** to your core package as it will be imported in your project. For example, if your project is called `pyapis` and your core code is in `pyapis/core/`, you must use `--core-package pyapis.core`.
+> 
+> - If you do not set `--core-package`, the core code will be generated as a subpackage under your output package (e.g., `pyapis/my_api_client/core/`), and imports will be relative.
+> - For most real-world projects, always use the full dotted path (e.g., `pyapis.core`) for shared core scenarios.
+> 
+> **Tip:** Using `--core-package` is strongly encouraged when you are generating multiple clients that should share the same core code. This is a common pattern in backend projects that integrate with multiple external systems—each client package can import from a single, shared core implementation, reducing duplication and easing maintenance.
+
+#### Example: Shared Core in a Monorepo
+
+Suppose your project structure is:
+
+```bash
+my-monorepo/
+  pyapis/
+    core/
+    my_api_client/
+    another_client/
+```
+
+Generate the client with:
+
+```bash
+pyopenapi-gen gen input/business_swagger.json \
+  --project-root /absolute/path/to/my-monorepo \
+  --output-package pyapis.my_api_client \
+  --core-package pyapis.core
+```
+
+- Core files: `/absolute/path/to/my-monorepo/pyapis/core/`
+- Client files: `/absolute/path/to/my-monorepo/pyapis/my_api_client/`
+- Imports: `from pyapis.core.http_transport import ...`
+
+> **Note:** This approach is ideal for backend projects with multiple API integrations, as it allows all generated clients to share a single, well-maintained core implementation.
+
+#### Example: Standalone Client (Default)
+
+If you want the core code inside the client output folder (standalone client):
+
+```bash
+pyopenapi-gen gen input/business_swagger.json \
+  --project-root /absolute/path/to/my-monorepo \
+  --output-package pyapis.my_api_client
+```
+
+- Core files: `/absolute/path/to/my-monorepo/pyapis/my_api_client/core/`
+- Client files: `/absolute/path/to/my-monorepo/pyapis/my_api_client/`
+- Imports: `from .core.http_transport import ...`
+
+---
+
 ## Motivation
 
-Building and maintaining HTTP clients for APIs by hand is a repetitive and error-prone process, especially as APIs evolve. While OpenAPI/Swagger specs promise automation, most generators fall short in type safety, extensibility, and developer experience. This project was created to address these challenges and provide a truly modern Python client generator.
+Building and maintaining HTTP clients for APIs by hand is a repetitive and error-prone process, especially as APIs evolve. While OpenAPI/Swagger specs promise automation, most generators fall short in type safety, extensibility, and developer experience. This project was created to address these challenges and provide a modern Python client generator.
 
 - **Type Safety**: 100% type hints and dataclasses for all models and endpoints.
 - **Async-First**: Modern Python codebases demand async support; this generator delivers it out of the box.
-- **Modular & Extensible**: Plugin architecture for emitters, authentication, and pagination.
+- **Modular & Extensible**: You can provide your own `http_transport.py` for custom HTTP client logic, and the generator supports pluggable authentication and pagination.
 - **IntelliSense & DX**: Rich docstrings, grouped endpoints, and strong typing for a first-class IDE experience.
 - **Minimal Dependencies**: Generated clients have ≤1 runtime dependency.
 - **Graceful Degradation**: Handles incomplete specs with actionable warnings, not cryptic errors.
@@ -40,16 +148,23 @@ The generated client is organized as a real Python package, with a clear and mod
 ├── __init__.py
 ├── client.py                # Main APIClient class, tag clients as attributes
 ├── config.py                # ClientConfig: env/TOML/kwarg config layering
-├── exceptions.py            # HTTPError, ClientError, ServerError, etc.
-├── auth/
-│   ├── base.py              # BaseAuth protocol for plugins
-│   ├── plugins.py           # BearerAuth, HeadersAuth, etc.
+├── core/                    # All runtime dependencies (see below)
+│   ├── http_transport.py
+│   ├── exceptions.py
+│   ├── streaming_helpers.py
+│   ├── pagination.py
+│   ├── utils.py
+│   └── auth/
+│       ├── base.py
+│       └── plugins.py
 ├── models/
 │   ├── <model>.py           # One file per schema, all as dataclasses
 ├── endpoints/
 │   ├── <tag>.py             # One file per tag, with async methods per operation
 └── ...
 ```
+
+> **Note:** If you use a custom core name (e.g., `shared_core`), all imports will reference that folder instead of `core`.
 
 ### 3. **Features at a Glance**
 
@@ -85,31 +200,48 @@ from my_api_client.client import APIClient
 
 async def main():
     config = ClientConfig(base_url="https://api.example.com", timeout=5.0)
-    client = APIClient(config)
+    # Option 1: Async context manager (recommended)
+    async with APIClient(config) as client:
+        users = await client.users.listUsers(page=1)
+        print(users)
 
-    # Call an endpoint (e.g., list users)
+    # Option 2: Manual close
+    client = APIClient(config)
     users = await client.users.listUsers(page=1, pageSize=10)
     print(users)
-
     await client.close()
 
 asyncio.run(main())
 ```
 
-### 6. **CLI Usage**
+---
+
+## CLI Usage
 
 The generator comes with a powerful CLI that makes it easy to generate clients from your OpenAPI spec. You can customize the output, enable plugins, and control overwriting behavior with simple flags.
 
 ```bash
 pip install pyopenapi-gen
-pyopenapi-gen gen input/openapi.yaml --output generated --force
+pyopenapi-gen gen input/openapi.yaml \
+  --project-root . \
+  --output-package pyapis.my_api_client
 ```
 
-- `--name`: Custom client package name
+- `--project-root`: Path to the root of your Python project (can be relative or absolute; e.g., `.` or `/path/to/project`).
+- `--output-package`: Python package path for the generated client (e.g., 'pyapis.my_api_client').
+- `--core-package`: (Optional) Python package path for the core package (e.g., 'pyapis.core'). If not set, the core package will be placed under the output package.
+- `--force`: Overwrite output without diff check.
+- `--name`: Custom client package name (deprecated, use --output-package instead)
 - `--auth`: Comma-separated list of auth plugins
 - `--docs`: Also generate Markdown docs
 - `--telemetry`: Enable opt-in telemetry
-- `--force`: Overwrite output directory without diff check
+- `--no-postprocess`: Skip post-processing (type checking, etc.)
+
+### Generate Markdown Documentation
+
+```bash
+pyopenapi-gen docs input/openapi.yaml --output docs/
+```
 
 ---
 
@@ -117,24 +249,32 @@ pyopenapi-gen gen input/openapi.yaml --output generated --force
 
 The client supports pluggable authentication via the `BaseAuth` protocol. You can use built-in plugins or implement your own. Below are the available plugins:
 
+> **Note:** In generated clients, import plugins from your own core module (e.g., `from .core.auth.plugins import BearerAuth`), not from `pyopenapi_gen`.
+
 ### BearerAuth
+
 For simple Bearer token authentication:
+
 ```python
-from pyopenapi_gen.core.auth.plugins import BearerAuth
+from .core.auth.plugins import BearerAuth  # In generated client
 transport = HttpxTransport(base_url, auth=BearerAuth("your-token"))
 ```
 
 ### HeadersAuth
+
 For arbitrary custom headers:
+
 ```python
-from pyopenapi_gen.core.auth.plugins import HeadersAuth
+from .core.auth.plugins import HeadersAuth
 transport = HttpxTransport(base_url, auth=HeadersAuth({"X-API-Key": "value"}))
 ```
 
 ### ApiKeyAuth
+
 For API key authentication in header, query, or cookie:
+
 ```python
-from pyopenapi_gen.core.auth.plugins import ApiKeyAuth
+from .core.auth.plugins import ApiKeyAuth
 # Header
 auth = ApiKeyAuth("mykey", location="header", name="X-API-Key")
 # Query
@@ -145,9 +285,11 @@ transport = HttpxTransport(base_url, auth=auth)
 ```
 
 ### OAuth2Auth
+
 For OAuth2 Bearer tokens, with optional auto-refresh:
+
 ```python
-from pyopenapi_gen.core.auth.plugins import OAuth2Auth
+from .core.auth.plugins import OAuth2Auth
 # Static token
 auth = OAuth2Auth("access-token")
 # With refresh callback (async)
@@ -158,7 +300,24 @@ auth = OAuth2Auth("access-token", refresh_callback=refresh_token)
 transport = HttpxTransport(base_url, auth=auth)
 ```
 
-See the `pyopenapi_gen.core.auth.plugins` module for details and extension points.
+### Composing Multiple Auth Plugins
+
+For advanced scenarios, you can combine multiple authentication plugins using `CompositeAuth`. This allows you to, for example, add both a Bearer token and custom headers to every request:
+
+```python
+from .core.auth.plugins import BearerAuth, HeadersAuth
+from .core.auth.base import CompositeAuth
+
+composite_auth = CompositeAuth(
+    BearerAuth("your-token"),
+    HeadersAuth({"X-API-Key": "value"})
+)
+transport = HttpxTransport(base_url, auth=composite_auth)
+```
+
+Each plugin will be applied in sequence, so you can flexibly combine any number of authentication strategies.
+
+See the `.core.auth.plugins` module in your generated client for details and extension points.
 
 ---
 
@@ -176,11 +335,11 @@ Beyond the basics, the generator and generated clients include advanced features
 
 ## Independence from pyopenapi_gen
 
-The generated client code is **fully independent** and does not require `pyopenapi_gen` at runtime. All runtime dependencies (HTTP transport, authentication, exceptions, utilities) are included in the generated `core/` module. You can use the generated client in any Python project without installing the generator package.
+The generated client code is **fully independent** and does not require `pyopenapi_gen` at runtime. All runtime dependencies (HTTP transport, authentication, exceptions, utilities) are included in the generated `core/` module (or your custom core name). You can use the generated client in any Python project without installing the generator package.
 
 ### Output Structure Example
 
-```
+```bash
 my_generated_client/
     core/
         http_transport.py
@@ -212,6 +371,15 @@ We welcome contributions from the community! Whether you're fixing bugs, adding 
 - Fork, branch, and PR as usual.
 - All code must be Black-formatted, Ruff-clean, and 100% mypy-typed.
 - Tests must pass locally and on CI (macOS & Ubuntu, Python 3.10–3.12).
+- See the `src/pyopenapi_gen` folder for architecture and core logic.
+
+### Running Tests and Linting Locally
+
+```bash
+pytest
+mypy src/
+ruff check src/
+```
 
 ---
 

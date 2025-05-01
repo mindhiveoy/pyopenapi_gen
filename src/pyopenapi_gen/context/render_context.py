@@ -14,12 +14,18 @@ class RenderContext:
     or an external dependency.
     """
 
-    def __init__(self, file_manager: Optional[FileManager] = None, core_package: str = "core"):
+    def __init__(
+        self,
+        file_manager: Optional[FileManager] = None,
+        core_package: str = "core",
+        core_import_path: Optional[str] = None,
+    ):
         self.file_manager = file_manager or FileManager()
         self.import_collector = ImportCollector()
         self.generated_modules: Set[str] = set()  # abs_module_paths of generated files
         self.current_file: Optional[str] = None  # abs path of file being rendered
         self.core_package: str = core_package
+        self.core_import_path: Optional[str] = core_import_path
 
     def set_current_file(self, abs_path: str) -> None:
         """Set the absolute path of the file currently being rendered."""
@@ -50,6 +56,15 @@ class RenderContext:
         """
         # Handle core package imports
         if module.startswith("core.") or module.startswith(f"{self.core_package}."):
+            if self.core_import_path:
+                # Use absolute import path for core
+                abs_module = (
+                    module.replace("core", self.core_import_path, 1)
+                    if module.startswith("core.")
+                    else module.replace(self.core_package, self.core_import_path, 1)
+                )
+                self.import_collector.add_import(abs_module, symbol)
+                return
             if not self.current_file:
                 raise RuntimeError("Current file not set in RenderContext.")
             current_dir = os.path.dirname(self.current_file)

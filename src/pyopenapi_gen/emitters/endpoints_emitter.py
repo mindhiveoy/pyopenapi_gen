@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -87,16 +87,17 @@ def _deduplicate_tag_clients(client_classes: List[Tuple[str, str]]) -> List[Tupl
 class EndpointsEmitter:
     """Generates endpoint modules organized by tag from IRSpec using the visitor/context architecture."""
 
-    def __init__(self, schemas: dict[str, object] | None = None) -> None:
+    def __init__(self, schemas: dict[str, object] | None = None, core_import_path: Optional[str] = None) -> None:
         self.formatter = Formatter()
         self.visitor: EndpointVisitor = None  # type: ignore
         self._schemas = schemas
+        self.core_import_path = core_import_path
 
     def emit(self, spec: IRSpec, output_dir: str) -> List[str]:
         """Render endpoint client files per tag under <output_dir>/endpoints using the visitor/context/registry
         pattern. Returns a list of generated file paths."""
         endpoints_dir = os.path.join(output_dir, "endpoints")
-        context = RenderContext()
+        context = RenderContext(core_import_path=self.core_import_path)
         context.file_manager.ensure_dir(endpoints_dir)
         # Always create an empty __init__.py to ensure package
         empty_init_path = os.path.join(endpoints_dir, "__init__.py")

@@ -1,5 +1,6 @@
 import os
 import traceback
+from typing import Optional
 
 from pyopenapi_gen import IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -58,9 +59,10 @@ class APIClient:
 class ClientEmitter:
     """Generates core client files (client.py) from IRSpec using visitor/context."""
 
-    def __init__(self, core_package: str = "core") -> None:
+    def __init__(self, core_package: str = "core", core_import_path: Optional[str] = None) -> None:
         self.visitor = ClientVisitor()
         self.core_package = core_package
+        self.core_import_path = core_import_path
 
     def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
         error_log = "/tmp/pyopenapi_gen_error.log"
@@ -70,7 +72,7 @@ class ClientEmitter:
             # Remove config.py emission
             # Prepare context and mark generated client module
             client_path = os.path.join(output_dir, "client.py")
-            context = RenderContext(core_package=self.core_package)
+            context = RenderContext(core_package=self.core_package, core_import_path=self.core_import_path)
             context.mark_generated_module(client_path)
             context.set_current_file(client_path)
             # Render client code using the visitor

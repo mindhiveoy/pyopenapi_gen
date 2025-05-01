@@ -55,6 +55,15 @@ class HttpTransport(Protocol):
         """
         raise NotImplementedError()
 
+    async def close(self) -> None:
+        """
+        Closes any resources held by the transport (e.g., HTTP connections).
+
+        All implementations must provide this method. If the transport does not hold resources,
+        this should be a no-op.
+        """
+        raise NotImplementedError()
+
 
 class HttpxTransport:
     """
@@ -64,7 +73,7 @@ class HttpxTransport:
     generated API client. It wraps an `httpx.AsyncClient` instance to handle
     request sending, connection pooling, and resource management.
 
-    Optionally supports authentication via a BaseAuth instance or a raw bearer token.
+    Optionally supports authentication via any BaseAuth-compatible plugin, including CompositeAuth.
 
     CONTRACT:
         - This implementation strictly raises `HTTPError` for all HTTP responses with status codes < 200 or >= 300.
@@ -74,7 +83,7 @@ class HttpxTransport:
 
     Attributes:
         _client (httpx.AsyncClient): Configured HTTPX async client for all requests.
-        _auth (Optional[BaseAuth]): Optional authentication plugin for request signing.
+        _auth (Optional[BaseAuth]): Optional authentication plugin for request signing (can be CompositeAuth).
         _bearer_token (Optional[str]): Optional bearer token for Authorization header.
     """
 
@@ -91,7 +100,7 @@ class HttpxTransport:
         Args:
             base_url (str): The base URL for all API requests made through this transport.
             timeout (Optional[float]): The default timeout in seconds for requests. If None, httpx's default is used.
-            auth (Optional[BaseAuth]): Optional authentication plugin for request signing.
+            auth (Optional[BaseAuth]): Optional authentication plugin for request signing (can be CompositeAuth).
             bearer_token (Optional[str]): Optional raw bearer token string for Authorization header.
 
         Note:
@@ -129,7 +138,7 @@ class HttpxTransport:
         headers = request_args.get("headers", {})
         # Apply authentication
         if self._auth is not None:
-            # Use the provided BaseAuth instance
+            # Use the provided BaseAuth instance (can be CompositeAuth)
             request_args = await self._auth.authenticate_request(request_args)
         elif self._bearer_token is not None:
             # Add Bearer token header
@@ -150,3 +159,20 @@ class HttpxTransport:
         of network connections.
         """
         await self._client.aclose()
+
+    async def __aenter__(self) -> "HttpxTransport":
+        """
+        Enter the async context manager. Returns self.
+        """
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> None:
+        """
+        Exit the async context manager. Calls close().
+        """
+        await self.close()
