@@ -30,8 +30,8 @@ pyopenapi-gen gen input/openapi.yaml \
   --project-root . \
   --output-package pyapis.my_api_client \
   --core-package pyapis.core
+```
 
-```bash
 - Core files: `/absolute/path/to/your/project/pyapis/core/`
 - Client files: `/absolute/path/to/your/project/pyapis/my_api_client/`
 - Imports: `from pyapis.core.http_transport import ...`
@@ -231,10 +231,6 @@ pyopenapi-gen gen input/openapi.yaml \
 - `--output-package`: Python package path for the generated client (e.g., 'pyapis.my_api_client').
 - `--core-package`: (Optional) Python package path for the core package (e.g., 'pyapis.core'). If not set, the core package will be placed under the output package.
 - `--force`: Overwrite output without diff check.
-- `--name`: Custom client package name (deprecated, use --output-package instead)
-- `--auth`: Comma-separated list of auth plugins
-- `--docs`: Also generate Markdown docs
-- `--telemetry`: Enable opt-in telemetry
 - `--no-postprocess`: Skip post-processing (type checking, etc.)
 
 ### Generate Markdown Documentation

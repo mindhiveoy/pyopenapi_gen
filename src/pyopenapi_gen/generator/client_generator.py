@@ -39,10 +39,6 @@ class ClientGenerator:
         project_root: Path,
         output_package: str,
         force: bool = False,
-        name: Optional[str] = None,
-        docs: bool = False,  # Kept for interface compatibility
-        telemetry: bool = False,  # Kept for interface compatibility
-        auth: Optional[str] = None,  # Kept for interface compatibility
         no_postprocess: bool = False,
         core_package: str = "core",
     ) -> None:

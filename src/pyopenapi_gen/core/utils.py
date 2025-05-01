@@ -5,10 +5,7 @@ This module contains utility classes and functions used across the code generati
 
 import keyword
 import re
-import textwrap
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
-
-from jinja2 import Environment
+from typing import Any, Dict, List, Set
 
 
 class ImportCollector:
@@ -76,40 +73,57 @@ class ImportCollector:
         """Generate the import statements in the correct order."""
         statements: List[str] = []
 
+        # Filter out sibling endpoint imports for model classes if a models import exists
+        # Build a set of (symbol, module) for models imports
+        model_symbols = set()
+        for module, names in self.relative_imports.items():
+            if module.startswith("..models"):
+                for name in names:
+                    model_symbols.add((name, module))
+        # Remove .<module> imports for the same symbol if a ..models import exists
+        filtered_relative_imports = {}
+        for module, names in self.relative_imports.items():
+            if module.startswith(".") and not module.startswith(".."):
+                filtered_names = set()
+                for name in names:
+                    # If this symbol is imported from ..models, skip the sibling import
+                    if any(name == sym and mod.startswith("..models") for sym, mod in model_symbols):
+                        continue
+                    filtered_names.add(name)
+                if filtered_names:
+                    filtered_relative_imports[module] = filtered_names
+            else:
+                filtered_relative_imports[module] = names
         # Plain imports first (import x)
         if self.plain_imports:
             for module in sorted(self.plain_imports):
                 statements.append(f"import {module}")
-
         # Standard library imports (from x import y)
         if self.imports:
             for module in sorted(self.imports.keys()):
-                names = sorted(self.imports[module])
-                if len(names) == 1 and names[0] == module:
+                names_sorted = sorted(self.imports[module])
+                if len(names_sorted) == 1 and names_sorted[0] == module:
                     # Already handled by plain_imports
                     continue
                 else:
-                    names_str = ", ".join(sorted(names))
+                    names_str = ", ".join(names_sorted)
                     statements.append(f"from {module} import {names_str}")
-
         # Then direct imports
         if self.direct_imports:
             if statements:  # Add separator if we already have imports
                 statements.append("")  # Empty line separator
             for module in sorted(self.direct_imports.keys()):
-                names = sorted(self.direct_imports[module])
-                names_str = ", ".join(names)
+                names_sorted = sorted(self.direct_imports[module])
+                names_str = ", ".join(names_sorted)
                 statements.append(f"from {module} import {names_str}")
-
-        # Finally relative imports
-        if self.relative_imports:
+        # Finally relative imports (filtered)
+        if filtered_relative_imports:
             if statements:  # Add separator if we already have imports
                 statements.append("")  # Empty line separator
-            for module in sorted(self.relative_imports.keys()):
-                names = sorted(self.relative_imports[module])
-                names_str = ", ".join(names)
+            for module in sorted(filtered_relative_imports.keys()):
+                names_sorted = sorted(filtered_relative_imports[module])
+                names_str = ", ".join(names_sorted)
                 statements.append(f"from {module} import {names_str}")
-
         return statements
 
     def get_formatted_imports(self) -> str:

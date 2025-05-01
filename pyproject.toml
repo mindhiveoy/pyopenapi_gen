@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "0.3.13"
+version = "0.3.15"
 description = "Python OpenAPI client generator – core library"
 authors = [{ name = "PyOpenAPI Team", email = "dev@example.com" }]
 readme = "README.md"

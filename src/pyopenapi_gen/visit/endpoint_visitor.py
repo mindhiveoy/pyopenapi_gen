@@ -15,6 +15,7 @@ from ..core.utils import Formatter, NameSanitizer
 from ..core.writers.code_writer import CodeWriter
 from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
 from .visitor import Visitor
+from .model_visitor import ModelVisitor
 
 
 class EndpointVisitor(Visitor[IROperation, str]):
@@ -101,7 +102,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
         # Ensure all types in the signature are registered for import
         for p in ordered_params:
             context.add_typing_imports_for_type(p["type"])
-        return_type = get_return_type(op, context, self.schemas)
+        schema = self._get_response_schema(op)
+        return_type, _ = self._get_main_response_type(schema, context)
         context.add_typing_imports_for_type(return_type)
         # Ensure plain import for collections.abc if AsyncIterator is used
         if ("AsyncIterator" in return_type) or any(
@@ -142,7 +144,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
             args.append(("body", body_type, desc))
             if any("multipart/form-data" in mt for mt in op.request_body.content):
                 args.append(("files", "Dict[str, IO[Any]]", "Multipart form files (if required)."))
-        return_type = get_return_type(op, context, getattr(self, "schemas", {}))
+        schema = self._get_response_schema(op)
+        return_type, _ = self._get_main_response_type(schema, context)
         # Find the best response description
         response_desc = None
         for code in ("200", "201", "202", "default"):
@@ -282,57 +285,21 @@ class EndpointVisitor(Visitor[IROperation, str]):
             op: The IROperation node.
             context: The RenderContext for type resolution.
         """
-        return_type = get_return_type(op, context, self.schemas)
-        context.add_typing_imports_for_type(return_type)  # Ensure return type is registered
+        schema = self._get_response_schema(op)
+        return_type, extraction_code = self._get_main_response_type(schema, context)
+        context.add_typing_imports_for_type(return_type)
         writer.write_line("# Parse response into correct return type")
-        if return_type.startswith("List["):
-            writer.write_line("return [item for item in response.json()]")
-        elif return_type in ("int", "float", "str", "bool"):
-            writer.write_line(f"return {return_type}(response.json())")
-        elif return_type.startswith("Dict["):
-            writer.write_line("return response.json()")
-        elif return_type == "None":
-            writer.write_line("return None")
-        elif return_type == "Any":
-            writer.write_line("return response.json()")
-        elif return_type.startswith("AsyncIterator["):
-            # Use a helper function for streaming responses
-            item_type = return_type[len("AsyncIterator[") : -1].strip()
-            context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
-            context.add_plain_import("json")  # import json
-            # PATCH: Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
-            if item_type not in (
-                "Dict[str, Any]",
-                "str",
-                "int",
-                "float",
-                "bool",
-                "Any",
-                "bytes",
-            ):
-                context.add_import("..models", item_type)
-            # Add explicit return type annotation to _stream
-            writer.write_line(f"async def _stream() -> {return_type}:")
+        if extraction_code == "resp_obj.data":
+            # Wrapper with data field
+            wrapper_type = NameSanitizer.sanitize_class_name(schema.name) if getattr(schema, "name", None) else "Any"
+            writer.write_line(f"resp_obj = {wrapper_type}(**response.json())")
+            writer.write_line("if resp_obj.data is None:")
             writer.indent()
-            writer.write_line("async for chunk in iter_bytes(response):")
-            writer.indent()
-            # PATCH: For Dict[str, Any], yield json.loads(chunk) directly
-            if item_type == "Dict[str, Any]":
-                writer.write_line("yield json.loads(chunk)")
-            elif item_type == "bytes":
-                writer.write_line("yield chunk")
-            elif item_type in ("str", "int", "float", "bool"):
-                writer.write_line(f"yield {item_type}(json.loads(chunk))")
-            elif item_type == "Any":
-                context.add_import("typing", "cast")
-                writer.write_line("yield cast(Any, json.loads(chunk))")
-            else:
-                writer.write_line(f"yield {item_type}(**json.loads(chunk))")
+            writer.write_line('raise ValueError("Response data is None")')
             writer.dedent()
-            writer.dedent()
-            writer.write_line("return _stream()")
+            writer.write_line("return resp_obj.data")
         else:
-            writer.write_line(f"return {return_type}(**response.json())")
+            writer.write_line(f"return {extraction_code}")
         writer.dedent()
 
     def emit_endpoint_client_class(
@@ -362,8 +329,10 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.write_line("self.base_url: str = base_url")
         writer.dedent()
         writer.write_line("")
-        for method in methods:
+        for i, method in enumerate(methods):
             writer.write_block(method)
+            if i < len(methods) - 1:
+                writer.write_line("")
         writer.dedent()
         return writer.get_code()
 
@@ -548,7 +517,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
             item_type = return_type[len("AsyncIterator[") : -1].strip()
             context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
             context.add_plain_import("json")  # import json
-            # PATCH: Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
+            # Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
             if item_type not in (
                 "Dict[str, Any]",
                 "str",
@@ -558,7 +527,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
                 "Any",
                 "bytes",
             ):
-                context.add_import("..models", item_type)
+                # Use the correct model module path for endpoints
+                model_module = f"models.{NameSanitizer.sanitize_module_name(item_type)}"
+                context.add_import(model_module, item_type)
             # Add explicit return type annotation to _stream
             writer.write_line(f"async def _stream() -> {return_type}:")
             writer.indent()
@@ -583,3 +554,107 @@ class EndpointVisitor(Visitor[IROperation, str]):
             writer.write_line(f"return {return_type}(**response.json())")
         writer.dedent()
         return writer.get_code()
+
+    def _get_main_response_type(self, schema: Any, context: RenderContext) -> tuple[str, str]:
+        """
+        Given a response schema, return the type and code to extract the main data.
+        Returns (type_str, extraction_code_str)
+        """
+        from .model_visitor import ModelVisitor
+
+        def endpoint_model_type(schema: Any, required: bool = True) -> str:
+            # Always use models.<module> for endpoint imports
+            if getattr(schema, "name", None):
+                class_name = NameSanitizer.sanitize_class_name(schema.name)
+                model_module = f"models.{NameSanitizer.sanitize_module_name(schema.name)}"
+                context.add_import(model_module, class_name)
+                py_type = class_name
+            elif getattr(schema, "type", None) == "array" and getattr(schema, "items", None):
+                item_type = endpoint_model_type(schema.items, required=True)
+                py_type = f"List[{item_type}]"
+            elif getattr(schema, "type", None) == "object" and getattr(schema, "properties", None):
+                py_type = "Dict[str, Any]"
+            elif getattr(schema, "type", None) in ("integer", "number", "boolean", "string"):
+                py_type = {
+                    "integer": "int",
+                    "number": "float",
+                    "boolean": "bool",
+                    "string": "str",
+                }[schema.type]
+            else:
+                py_type = "Any"
+            if not required:
+                py_type = f"Optional[{py_type}]"
+            return py_type
+
+        # Only treat as wrapper if 'data' is the ONLY required property and there are no other required or optional properties
+        if (
+            schema
+            and getattr(schema, "type", None) == "object"
+            and hasattr(schema, "properties")
+            and "data" in schema.properties
+            and hasattr(schema, "required")
+            and schema.required == ["data"]
+            and len(schema.properties) == 1
+        ):
+            data_schema = schema.properties["data"]
+            if getattr(data_schema, "name", None):
+                data_type = endpoint_model_type(data_schema)
+                return data_type, "resp_obj.data"
+            else:
+                if data_schema.type == "array" and data_schema.items:
+                    item_type = endpoint_model_type(data_schema.items)
+                    return f"List[{item_type}]", "resp_obj.data"
+                elif data_schema.type == "object" and data_schema.properties:
+                    return "Dict[str, Any]", "resp_obj.data"
+                elif data_schema.type in ("integer", "number", "boolean", "string"):
+                    py_type = {
+                        "integer": "int",
+                        "number": "float",
+                        "boolean": "bool",
+                        "string": "str",
+                    }[data_schema.type]
+                    return py_type, "resp_obj.data"
+                else:
+                    return "Any", "resp_obj.data"
+        elif schema and getattr(schema, "name", None):
+            data_type = endpoint_model_type(schema)
+            return data_type, f"{data_type}(**response.json())"
+        elif schema and getattr(schema, "type", None) == "array" and getattr(schema, "items", None):
+            item_type = endpoint_model_type(schema.items)
+            return f"List[{item_type}]", "[item for item in response.json()]"
+        elif schema and getattr(schema, "type", None) == "object" and getattr(schema, "properties", None):
+            return "Dict[str, Any]", "response.json()"
+        elif schema and getattr(schema, "type", None) in ("integer", "number", "boolean", "string"):
+            py_type = {
+                "integer": "int",
+                "number": "float",
+                "boolean": "bool",
+                "string": "str",
+            }[schema.type]
+            return py_type, f"{py_type}(response.json())"
+        else:
+            return "Any", "response.json()"
+
+    def _get_response_schema(self, op: IROperation) -> Any:
+        # Prefer 200, then first 2xx, then default, then any
+        resp = None
+        for code in (
+            ["200"]
+            + [r.status_code for r in op.responses if r.status_code.startswith("2") and r.status_code != "200"]
+            + ["default"]
+        ):
+            resp = next((r for r in op.responses if r.status_code == code), None)
+            if resp:
+                break
+        if not resp and op.responses:
+            resp = op.responses[0]
+        if not resp or not resp.content:
+            return None
+        # Pick first content type (prefer application/json, then event-stream, then any)
+        content_types = list(resp.content.keys())
+        mt = next(
+            (ct for ct in content_types if "json" in ct),
+            next((ct for ct in content_types if "event-stream" in ct), content_types[0]),
+        )
+        return resp.content[mt]

@@ -55,6 +55,7 @@ class RenderContext:
             add_import('models/agent_history', 'AgentHistory')
         """
         # Handle core package imports
+        rel_module: Optional[str] = None
         if module.startswith("core.") or module.startswith(f"{self.core_package}."):
             if self.core_import_path:
                 # Use absolute import path for core
@@ -107,7 +108,7 @@ class RenderContext:
                     if mod:
                         rel_module = f".{mod}"
                     else:
-                        rel_module = "."  # fallback, should not happen
+                        rel_module = None  # fallback, should not happen
             elif os.path.basename(current_dir) == "models":
                 # Importing from models to models: from .<module> import ...
                 mod = module.split(".", 1)[1] if "." in module else ""
@@ -133,6 +134,9 @@ class RenderContext:
                 with open("/tmp/pyopenapi_gen_import_debug.log", "a") as debug_log:
                     debug_log.write(f"add_relative_import: rel_module={rel_module!r}, symbol={symbol!r}\n")
                 self.import_collector.add_relative_import(rel_module, symbol)
+            elif rel_module is None:
+                # Do not add fallback to '.' for models in endpoint files
+                pass
             else:
                 self.import_collector.add_import(module, symbol)
         else:
