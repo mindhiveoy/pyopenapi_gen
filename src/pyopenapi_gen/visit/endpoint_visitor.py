@@ -1,6 +1,8 @@
-from typing import Any
+import logging
+from typing import Any, Optional
+import re
 
-from pyopenapi_gen import IROperation
+from pyopenapi_gen import IROperation, IRSchema
 from pyopenapi_gen.helpers.endpoint_utils import (
     get_param_type,
     get_params,
@@ -15,7 +17,9 @@ from ..core.utils import Formatter, NameSanitizer
 from ..core.writers.code_writer import CodeWriter
 from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
 from .visitor import Visitor
-from .model_visitor import ModelVisitor
+
+# Get logger instance
+logger = logging.getLogger(__name__)
 
 
 class EndpointVisitor(Visitor[IROperation, str]):
@@ -34,6 +38,11 @@ class EndpointVisitor(Visitor[IROperation, str]):
         Generate a fully functional async endpoint method for the given operation.
         Returns only the method code (not the class).
         """
+        # Add core imports needed by every method
+        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package}.exceptions", "ApiError")
+        context.add_import(f"{context.core_package}.schemas", "ApiResponse")
+
         self._analyze_and_register_imports(op, context)
         writer = CodeWriter()
         ordered_params, body_type = self._prepare_parameters(op, context)
@@ -57,11 +66,11 @@ class EndpointVisitor(Visitor[IROperation, str]):
             ordered_params: List of all parameters, required first, then optional.
             body_type: The Python type for the request body, if any.
         """
-        params = get_params(op, context)
+        params = get_params(op, context, self.schemas)
         extra_params = []
         body_type = None
         if op.request_body:
-            body_type = get_request_body_type(op.request_body, context)
+            body_type = get_request_body_type(op.request_body, context, self.schemas)
             # Only add a single 'body' param, do NOT merge model fields
             extra_params.append({
                 "name": "body",
@@ -102,12 +111,14 @@ class EndpointVisitor(Visitor[IROperation, str]):
         # Ensure all types in the signature are registered for import
         for p in ordered_params:
             context.add_typing_imports_for_type(p["type"])
-        schema = self._get_response_schema(op)
-        return_type, _ = self._get_main_response_type(schema, context)
+        # Pass self.schemas to get_return_type
+        return_type = get_return_type(op, context, self.schemas)
         context.add_typing_imports_for_type(return_type)
         # Ensure plain import for collections.abc if AsyncIterator is used
+        # Pass self.schemas when calling get_param_type indirectly
+        # Note: get_params needs modification to accept schemas
         if ("AsyncIterator" in return_type) or any(
-            "AsyncIterator" in get_param_type(p, context) for p in op.parameters
+            "AsyncIterator" in get_param_type(p, context, self.schemas) for p in op.parameters
         ):
             context.add_plain_import("collections.abc")
         # Build argument list for signature
@@ -135,17 +146,19 @@ class EndpointVisitor(Visitor[IROperation, str]):
         description = op.description or None
         args: list[tuple[str, str, str] | tuple[str, str]] = []
         for param in op.parameters:
-            param_type = get_param_type(param, context)
+            # Pass self.schemas down to get_param_type
+            param_type = get_param_type(param, context, self.schemas)
             desc = param.description or ""
             args.append((param.name, param_type, desc))
         if op.request_body:
-            body_type = get_request_body_type(op.request_body, context)
+            # Pass self.schemas down to get_request_body_type
+            body_type = get_request_body_type(op.request_body, context, self.schemas)
             desc = op.request_body.description or "Request body."
             args.append(("body", body_type, desc))
             if any("multipart/form-data" in mt for mt in op.request_body.content):
                 args.append(("files", "Dict[str, IO[Any]]", "Multipart form files (if required)."))
-        schema = self._get_response_schema(op)
-        return_type, _ = self._get_main_response_type(schema, context)
+        # Pass self.schemas to get_return_type
+        return_type = get_return_type(op, context, self.schemas)
         # Find the best response description
         response_desc = None
         for code in ("200", "201", "202", "default"):
@@ -285,21 +298,12 @@ class EndpointVisitor(Visitor[IROperation, str]):
             op: The IROperation node.
             context: The RenderContext for type resolution.
         """
-        schema = self._get_response_schema(op)
-        return_type, extraction_code = self._get_main_response_type(schema, context)
+        # Pass self.schemas to get_return_type
+        return_type = get_return_type(op, context, self.schemas)
+        extraction_code = self._get_extraction_code(return_type, context, op)
         context.add_typing_imports_for_type(return_type)
         writer.write_line("# Parse response into correct return type")
-        if extraction_code == "resp_obj.data":
-            # Wrapper with data field
-            wrapper_type = NameSanitizer.sanitize_class_name(schema.name) if getattr(schema, "name", None) else "Any"
-            writer.write_line(f"resp_obj = {wrapper_type}(**response.json())")
-            writer.write_line("if resp_obj.data is None:")
-            writer.indent()
-            writer.write_line('raise ValueError("Response data is None")')
-            writer.dedent()
-            writer.write_line("return resp_obj.data")
-        else:
-            writer.write_line(f"return {extraction_code}")
+        writer.write_line(f"return {extraction_code}")
         writer.dedent()
 
     def emit_endpoint_client_class(
@@ -316,7 +320,21 @@ class EndpointVisitor(Visitor[IROperation, str]):
             methods: List of method code blocks as strings.
             context: The RenderContext for import tracking.
         """
-        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
+        context.add_import("typing", "cast")
+        # Ensure logical core package name is used
+        # --- LOGGING START ---
+        # http_module_str = f"{context.core_package}.http_transport"
+        # streaming_module_str = f"{context.core_package}.streaming_helpers"
+        # print(f"[EndpointVisitor.emit_class] context.core_package = '{context.core_package}'")
+        # print(f"[EndpointVisitor.emit_class] Passing http_module_str to add_import: '{http_module_str}'")
+        # context.add_import(http_module_str, "HttpTransport")
+        # print(f"[EndpointVisitor.emit_class] Passing streaming_module_str to add_import: '{streaming_module_str}'")
+        # context.add_import(streaming_module_str, "iter_bytes")
+        # --- LOGGING END ---
+        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")  # Use direct f-string again
+        context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")  # Use direct f-string again
+        context.add_import("typing", "Callable")
+        context.add_import("typing", "Optional")
         writer = CodeWriter()
         class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
         writer.write_line(f"class {class_name}:")
@@ -339,11 +357,11 @@ class EndpointVisitor(Visitor[IROperation, str]):
     def _analyze_and_register_imports(self, op: IROperation, context: RenderContext) -> None:
         # Analyze parameters
         for param in op.parameters:
-            py_type = get_param_type(param, context)
+            py_type = get_param_type(param, context, self.schemas)
             context.add_typing_imports_for_type(py_type)
         # Analyze request body
         if op.request_body:
-            body_type = get_request_body_type(op.request_body, context)
+            body_type = get_request_body_type(op.request_body, context, self.schemas)
             context.add_typing_imports_for_type(body_type)
             if any("multipart/form-data" in mt for mt in op.request_body.content):
                 context.add_import("typing", "Dict")
@@ -354,7 +372,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         context.add_typing_imports_for_type(return_type)
         # Ensure plain import for collections.abc if AsyncIterator is used
         if ("AsyncIterator" in return_type) or any(
-            "AsyncIterator" in get_param_type(p, context) for p in op.parameters
+            "AsyncIterator" in get_param_type(p, context, self.schemas) for p in op.parameters
         ):
             context.add_plain_import("collections.abc")
 
@@ -389,252 +407,89 @@ class EndpointVisitor(Visitor[IROperation, str]):
         return f'f"{{self.base_url}}{path}"'
 
     def _generate_endpoint_method(self, op: IROperation, context: RenderContext, class_name: str) -> str:
-        """
-        Generate the endpoint method as a method of the endpoint client class.
-        """
-        self._analyze_and_register_imports(op, context)
-        context.add_import("typing", "cast")
-        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
-        context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
-        context.add_import("typing", "Callable")
-        context.add_import("typing", "Optional")
+        """Generate the full Python code string for a single endpoint method."""
         method_name = NameSanitizer.sanitize_method_name(op.operation_id)
-        summary = op.summary or ""
-        path = op.path
-
-        # --- 1. Analyze and merge parameters ---
-        params = get_params(op, context)
-        extra_params = []
-
-        if op.request_body:
-            body_type = get_request_body_type(op.request_body, context)
-            for mt, sch in op.request_body.content.items():
-                if "json" in mt.lower() and hasattr(sch, "properties") and sch.properties:
-                    params = merge_params_with_model_fields(op, sch, context)
-                    break
-            extra_params.append({
-                "name": "body",
-                "type": body_type,
-                "default": None if op.request_body.required else "None",
-                "required": op.request_body.required,
-            })
-            if any("multipart/form-data" in mt for mt in op.request_body.content):
-                extra_params.append({
-                    "name": "files",
-                    "type": "Dict[str, IO[Any]]",
-                    "default": None if op.request_body.required else "None",
-                    "required": op.request_body.required,
-                })
-        all_params = params + extra_params
-        all_params = self._ensure_path_variables_as_params(op, all_params)
-        required_params = [p for p in all_params if p.get("required", True)]
-        optional_params = [p for p in all_params if not p.get("required", True)]
-        ordered_params = required_params + optional_params
-
-        # --- 2. Build method signature ---
-        args = ["self"]
-        for p in ordered_params:
-            arg = f"{p['name']}: {p['type']}"
-            if p.get("default") is not None:
-                arg += f" = {p['default']}"
-            args.append(arg)
         writer = CodeWriter()
-        writer.write_function_signature(
-            method_name,
-            args,
-            return_type=get_return_type(op, context, self.schemas),
-            async_=True,
-        )
-        writer.indent()
-        # Always emit a docstring or pass to avoid empty method body
-        if summary.strip():
-            writer.write_line(f'"""{summary}"""')
-        # --- 3. Build URL and request arguments ---
-        context.add_import("typing", "Any")
-        context.add_import("typing", "Dict")
-        url_expr = self._build_url_with_path_vars(op.path)
-        if url_expr:
-            writer.write_line(f"url = {url_expr}")
-        writer.write_line("params: dict[str, Any] = {")
-        writer.indent()
-        for p in ordered_params:
-            if hasattr(op, "parameters"):
-                for param in op.parameters:
-                    if param.name == p["name"] and getattr(param, "in_", None) == "query":
-                        if not param.required:
-                            writer.write_line(
-                                f'**({{"{param.name}": {p["name"]}}} if {p["name"]} is not None else {{}}),'
-                            )
-                        else:
-                            writer.write_line(f'"{param.name}": {p["name"]},')
-        writer.dedent()
-        writer.write_line("}")
-        # Check if there are any header parameters
-        has_header_params = any(getattr(param, "in_", None) == "header" for param in op.parameters)
-        if has_header_params:
-            writer.write_line("headers: dict[str, Any] = {")
-            writer.indent()
-            self._write_header_params(writer, op, ordered_params)
-            writer.dedent()
-            writer.write_line("}")
-        if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
-            writer.write_line(f"json_body: {body_type} = body")
-        if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
-            writer.write_line("files_data: Dict[str, IO[Any]] = files")
-        # --- 4. Make the HTTP request ---
-        writer.write_line("response = await self._transport.request(")
-        writer.indent()
-        writer.write_line(f'"{op.method.upper()}", url,')
-        writer.write_line("params=params,")
-        if has_header_params:
-            writer.write_line("headers=headers,")
-        if op.request_body and any("json" in mt.lower() for mt in op.request_body.content):
-            writer.write_line("json=json_body,")
-        if op.request_body and any("multipart/form-data" in mt for mt in op.request_body.content):
-            writer.write_line("files=files_data,")
-        writer.dedent()
-        writer.write_line(")")
-        # --- 5. Handle errors ---
-        writer.write_line("if response.status_code < 200 or response.status_code >= 300:")
-        writer.indent()
-        writer.write_line("raise HTTPError(response.status_code, response.text)")
-        writer.dedent()
-        # --- 6. Parse and return the response ---
+        # Prepare parameters and determine body type
+        ordered_params, body_type = self._prepare_parameters(op, context)
+        # Write method signature
+        self._write_method_signature(writer, op, context, ordered_params)
+        # Write docstring
+        self._write_docstring(writer, op, context)
+        # Write URL, params, headers, body setup
+        has_header_params = self._write_url_and_args(writer, op, context, ordered_params, body_type)
+        # Write request call
+        self._write_request(writer, op, has_header_params)
+        # Get the return type
         return_type = get_return_type(op, context, self.schemas)
-        writer.write_line("# Parse response into correct return type")
-        if return_type.startswith("List["):
-            writer.write_line("return [item for item in response.json()]")
-        elif return_type in ("int", "float", "str", "bool"):
-            writer.write_line(f"return {return_type}(response.json())")
-        elif return_type.startswith("Dict["):
-            writer.write_line("return response.json()")
-        elif return_type == "None":
-            writer.write_line("return None")
-        elif return_type == "Any":
-            writer.write_line("return response.json()")
-        elif return_type.startswith("AsyncIterator["):
-            # Use a helper function for streaming responses
-            item_type = return_type[len("AsyncIterator[") : -1].strip()
-            context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
-            context.add_plain_import("json")  # import json
-            # Only import model if item_type is a real model class (not Dict[str, Any], str, etc.)
-            if item_type not in (
-                "Dict[str, Any]",
-                "str",
-                "int",
-                "float",
-                "bool",
-                "Any",
-                "bytes",
-            ):
-                # Use the correct model module path for endpoints
-                model_module = f"models.{NameSanitizer.sanitize_module_name(item_type)}"
-                context.add_import(model_module, item_type)
-            # Add explicit return type annotation to _stream
-            writer.write_line(f"async def _stream() -> {return_type}:")
-            writer.indent()
-            writer.write_line("async for chunk in iter_bytes(response):")
-            writer.indent()
-            # PATCH: For Dict[str, Any], yield json.loads(chunk) directly
-            if item_type == "Dict[str, Any]":
-                writer.write_line("yield json.loads(chunk)")
-            elif item_type == "bytes":
-                writer.write_line("yield chunk")
-            elif item_type in ("str", "int", "float", "bool"):
-                writer.write_line(f"yield {item_type}(json.loads(chunk))")
-            elif item_type == "Any":
-                context.add_import("typing", "cast")
-                writer.write_line("yield cast(Any, json.loads(chunk))")
+
+        # <<< Restore Original Return Logic >>>
+        if return_type.startswith("Union["):
+            context.add_import("typing", "Union")
+            context.add_import("typing", "cast")
+            context.add_import("typing", "Dict")
+            context.add_import("typing", "Any")
+
+            # Attempt to parse Type1 and Type2 from Union[Type1, Type2]
+            # This is a simplification and might need refinement for >2 types or complex nested types
+            match = re.match(r"Union\[(.*?),(.*?)\]", return_type)
+            if match:
+                type1_str = match.group(1).strip()
+                type2_str = match.group(2).strip()
+
+                # Import the component types of the Union
+                context.add_typing_imports_for_type(type1_str)
+                context.add_typing_imports_for_type(type2_str)
+
+                writer.write_line("try:")
+                writer.indent()
+                # Attempt to parse as the first type (assuming it's the primary model)
+                # We need to ensure Type1 is imported if it's a model
+                writer.write_line(f"    return cast({type1_str}, response.json())")
+                writer.dedent()
+                writer.write_line("except Exception: # TODO: More specific exception handling")
+                writer.indent()
+                # Attempt to parse as the second type (fallback, e.g., Dict[str, Any])
+                writer.write_line(f"    return cast({type2_str}, response.json())")
+                writer.dedent()
             else:
-                writer.write_line(f"yield {item_type}(**json.loads(chunk))")
-            writer.dedent()
-            writer.dedent()
-            writer.write_line("return _stream()")
+                # Fallback if regex fails - cast to the full Union type (may not work well)
+                # Ensure the full Union[...] type string itself doesn't trigger bad imports
+                context.add_typing_imports_for_type(return_type)  # Import components
+                writer.write_line(f"return cast({return_type}, response.json())")
+
+        elif return_type == "None":
+            pass
         else:
-            writer.write_line(f"return {return_type}(**response.json())")
+            # Handle single return types (including primitives, models, lists, etc.)
+            # Ensure the type itself is imported if it's a model or complex type
+            context.add_typing_imports_for_type(return_type)
+            extraction_code = self._get_extraction_code(return_type, context, op)
+            writer.write_line(f"return {extraction_code}")
+        # <<< End Restored Logic >>>
+
+        # Dedent from method body
         writer.dedent()
         return writer.get_code()
 
-    def _get_main_response_type(self, schema: Any, context: RenderContext) -> tuple[str, str]:
-        """
-        Given a response schema, return the type and code to extract the main data.
-        Returns (type_str, extraction_code_str)
-        """
-        from .model_visitor import ModelVisitor
-
-        def endpoint_model_type(schema: Any, required: bool = True) -> str:
-            # Always use models.<module> for endpoint imports
-            if getattr(schema, "name", None):
-                class_name = NameSanitizer.sanitize_class_name(schema.name)
-                model_module = f"models.{NameSanitizer.sanitize_module_name(schema.name)}"
-                context.add_import(model_module, class_name)
-                py_type = class_name
-            elif getattr(schema, "type", None) == "array" and getattr(schema, "items", None):
-                item_type = endpoint_model_type(schema.items, required=True)
-                py_type = f"List[{item_type}]"
-            elif getattr(schema, "type", None) == "object" and getattr(schema, "properties", None):
-                py_type = "Dict[str, Any]"
-            elif getattr(schema, "type", None) in ("integer", "number", "boolean", "string"):
-                py_type = {
-                    "integer": "int",
-                    "number": "float",
-                    "boolean": "bool",
-                    "string": "str",
-                }[schema.type]
-            else:
-                py_type = "Any"
-            if not required:
-                py_type = f"Optional[{py_type}]"
-            return py_type
-
-        # Only treat as wrapper if 'data' is the ONLY required property and there are no other required or optional properties
-        if (
-            schema
-            and getattr(schema, "type", None) == "object"
-            and hasattr(schema, "properties")
-            and "data" in schema.properties
-            and hasattr(schema, "required")
-            and schema.required == ["data"]
-            and len(schema.properties) == 1
-        ):
-            data_schema = schema.properties["data"]
-            if getattr(data_schema, "name", None):
-                data_type = endpoint_model_type(data_schema)
-                return data_type, "resp_obj.data"
-            else:
-                if data_schema.type == "array" and data_schema.items:
-                    item_type = endpoint_model_type(data_schema.items)
-                    return f"List[{item_type}]", "resp_obj.data"
-                elif data_schema.type == "object" and data_schema.properties:
-                    return "Dict[str, Any]", "resp_obj.data"
-                elif data_schema.type in ("integer", "number", "boolean", "string"):
-                    py_type = {
-                        "integer": "int",
-                        "number": "float",
-                        "boolean": "bool",
-                        "string": "str",
-                    }[data_schema.type]
-                    return py_type, "resp_obj.data"
-                else:
-                    return "Any", "resp_obj.data"
-        elif schema and getattr(schema, "name", None):
-            data_type = endpoint_model_type(schema)
-            return data_type, f"{data_type}(**response.json())"
-        elif schema and getattr(schema, "type", None) == "array" and getattr(schema, "items", None):
-            item_type = endpoint_model_type(schema.items)
-            return f"List[{item_type}]", "[item for item in response.json()]"
-        elif schema and getattr(schema, "type", None) == "object" and getattr(schema, "properties", None):
-            return "Dict[str, Any]", "response.json()"
-        elif schema and getattr(schema, "type", None) in ("integer", "number", "boolean", "string"):
-            py_type = {
-                "integer": "int",
-                "number": "float",
-                "boolean": "bool",
-                "string": "str",
-            }[schema.type]
-            return py_type, f"{py_type}(response.json())"
+    def _get_extraction_code(self, return_type: str, context: RenderContext, op: IROperation) -> str:
+        """Generate the Python code snippet to parse the httpx.Response into the target return_type."""
+        # Restore original logic
+        if return_type == "str":
+            return "response.text"
+        elif return_type == "bytes":
+            return "response.content"
+        elif return_type == "Any":
+            context.add_import("typing", "Any")
+            return "response.json() # Type is Any"
+        elif return_type == "None":
+            return "None"
         else:
-            return "Any", "response.json()"
+            # Assumes it's a model, list, dict, or primitive parsable from JSON
+            # We need to cast to the specific type for type checkers
+            context.add_import("typing", "cast")
+            context.add_typing_imports_for_type(return_type)
+            return f"cast({return_type}, response.json())"
 
     def _get_response_schema(self, op: IROperation) -> Any:
         # Prefer 200, then first 2xx, then default, then any

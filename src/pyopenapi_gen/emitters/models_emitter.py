@@ -1,149 +1,149 @@
 import os
-from typing import Dict, Optional, Set
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional, Set
 
-from pyopenapi_gen import IRSpec
+from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.visit.model.model_visitor import ModelVisitor
+from pyopenapi_gen.visit.visitor import Visitor
 
+from ..context.file_manager import FileManager
 from ..core.utils import Formatter, NameSanitizer
-from ..visit.model_visitor import ModelVisitor
+from ..core.writers.code_writer import CodeWriter
 
-# OpenAPI to Python type mapping
-OPENAPI_TO_PYTHON_TYPES: Dict[str, str] = {
-    "integer": "int",
-    "number": "float",
-    "boolean": "bool",
-    "string": "str",
-    "array": "List",
-    "object": "Dict[str, Any]",  # Any is used in the dict definition here
-}
-
-# Format-specific type mappings
-FORMAT_TYPE_MAPPING: Dict[str, str] = {
-    "int32": "int",
-    "int64": "int",
-    "float": "float",
-    "double": "float",
-    "byte": "str",  # base64 encoded string
-    "binary": "bytes",
-    "date": "date",  # Would require datetime import
-    "date-time": "datetime",  # Would require datetime import
-    "password": "str",
-    "email": "str",
-    "uuid": "str",  # Could be UUID with uuid import
-}
-
-# Model template without imports, as these will be handled by ImportCollector
-MODEL_TEMPLATE = '''
-{% if schema.enum and schema.type == "string" %}
-class {{ schema.name | sanitize_class_name }}(str, Enum):
-    """
-    {{ (schema.description or ('Enum values for ' + schema.name)) | wordwrap(72, wrapstring='\n    ') }}
-    """
-{% for val in schema.enum %}
-    {{ val|upper|replace('-', '_')|replace(' ', '_') }} = "{{ val }}"
-{% endfor %}
-{% elif schema.enum and schema.type == "integer" %}
-class {{ schema.name | sanitize_class_name }}(int, Enum):
-    """
-    {{ (schema.description or ('Enum values for ' + schema.name)) | wordwrap(72, wrapstring='\n    ') }}
-    """
-{% for val in schema.enum %}
-    {%- if val is string -%}
-    {{ val|replace('-', '_')|replace(' ', '_')|upper }} = {{ val }}
-    {%- else -%}
-    _{{ val }} = {{ val }}
-    {%- endif %}
-{% endfor %}
-{% else %}
-@dataclass
-class {{ schema.name | sanitize_class_name }}:
-{% if schema.description %}    """
-    {{ schema.description | wordwrap(72, wrapstring='\n    ') }}
-    """
-{% endif %}
-{% set required_props = [] %}
-{% set optional_props = [] %}
-{% for prop, ps in schema.properties.items() %}
-    {% if prop in schema.required %}
-        {% set _ = required_props.append((prop, ps)) %}
-    {% else %}
-        {% set _ = optional_props.append((prop, ps)) %}
-    {% endif %}
-{% endfor %}
-{% for prop, ps in required_props %}
-    {# If the property is a true object (not a model reference), use default_factory #}
-    {% set is_object = ps.type == 'object' and not ps.name %}
-    {{ prop }}: {{ get_type(ps, required=True) }}{% set factory = get_default_factory(ps) %}{% if factory and is_object %} = field(default_factory={{ factory }}){% endif %}  # {{ ps.description | replace('\n', ' ') if ps.description else '' }}
-{% endfor %}
-{% for prop, ps in optional_props %}
-    {% set is_object = ps.type == 'object' and not ps.name %}
-    {{ prop }}: {{ get_type(ps, required=False) }}{% if is_object %} = field(default_factory=dict){% else %} = None{% endif %}  # {{ ps.description | replace('\n', ' ') if ps.description else '' }}
-{% endfor %}
-{% if not schema.properties %}
-    # No properties defined in schema
-    pass
-{% endif %}
-{% endif %}
-'''
+# Removed OPENAPI_TO_PYTHON_TYPES, FORMAT_TYPE_MAPPING, and MODEL_TEMPLATE constants
 
 
 class ModelsEmitter:
-    """Generates Python dataclass models from IRSpec using the visitor/context architecture."""
+    """
+    Orchestrates the generation of model files (dataclasses, enums, type aliases).
 
-    def __init__(self, core_import_path: Optional[str] = None) -> None:
+    Uses a ModelVisitor to render code for each schema and writes it to a file.
+    Handles creation of __init__.py and py.typed files.
+    """
+
+    def __init__(self, visitor: Optional[Visitor[IRSchema, str]] = None) -> None:
+        self.visitor: Visitor[IRSchema, str] = visitor or ModelVisitor()
         self.formatter = Formatter()
-        self.schema_names: Set[str] = set()
-        self.visitor: Optional[ModelVisitor] = None
-        self.core_import_path = core_import_path
 
-    def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
+    def emit(self, spec: IRSpec, output_dir_str: str) -> list[str]:
         """Render one model file per schema under <output_dir>/models using the visitor/context/registry pattern. Returns a list of generated file paths."""
-        models_dir = os.path.join(output_dir, "models")
-        context = RenderContext(core_import_path=self.core_import_path)
-        context.file_manager.ensure_dir(models_dir)
-        # Always create an empty __init__.py to ensure package
-        empty_init_path = os.path.join(models_dir, "__init__.py")
-        if not context.file_manager:
-            raise RuntimeError("FileManager not set in RenderContext.")
-        if not os.path.exists(empty_init_path):
-            context.file_manager.write_file(empty_init_path, "")
-        # Ensure py.typed marker for mypy
-        pytyped_path = os.path.join(models_dir, "py.typed")
-        if not os.path.exists(pytyped_path):
-            context.file_manager.write_file(pytyped_path, "")
+        schemas: Dict[str, IRSchema] = spec.schemas
+        output_dir_path: Path = Path(output_dir_str).resolve()
+        models_dir: Path = output_dir_path / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
 
-        # Store schema names for cross-references
-        self.schema_names = {name for name in spec.schemas.keys() if name}
+        context = RenderContext(
+            file_manager=FileManager(),
+            core_package="core",
+            core_import_path=None,
+            package_root=str(output_dir_path),
+        )
 
-        # Create a single ModelVisitor with all schemas for correct type resolution
-        if self.visitor is None:
-            self.visitor = ModelVisitor(schemas=spec.schemas)
+        if isinstance(self.visitor, ModelVisitor):
+            self.visitor.schemas = schemas
 
-        # Prepare context and mark all generated modules
-        for name in spec.schemas.keys():
+        generated_files: List[str] = []
+        schema_names: Set[str] = {name for name in schemas.keys() if name}
+
+        init_path = models_dir / "__init__.py"
+        pytyped_path = models_dir / "py.typed"
+        if not init_path.exists():
+            context.file_manager.write_file(str(init_path), "")
+        if not pytyped_path.exists():
+            context.file_manager.write_file(str(pytyped_path), "")
+        generated_files.extend([str(init_path), str(pytyped_path)])
+
+        for name in schema_names:
+            module_name = NameSanitizer.sanitize_module_name(name)
+            file_path = models_dir / f"{module_name}.py"
+            context.mark_generated_module(str(file_path))
+
+        for name, schema in schemas.items():
             if not name:
                 continue
-            module_name = NameSanitizer.sanitize_module_name(name)
-            file_path = os.path.join(models_dir, f"{module_name}.py")
-            context.mark_generated_module(file_path)
 
-        generated_files = []
-        # Generate model files for all schemas
-        for name, schema in spec.schemas.items():
-            if not name:
-                continue
             module_name = NameSanitizer.sanitize_module_name(name)
-            file_path = os.path.join(models_dir, f"{module_name}.py")
-            context = RenderContext(core_import_path=self.core_import_path)  # Create a new context for each file
-            context.file_manager.ensure_dir(models_dir)
-            context.mark_generated_module(file_path)
-            context.set_current_file(file_path)
-            # Render model code using the visitor (with schemas for type resolution)
+            file_path = models_dir / f"{module_name}.py"
+
+            context.set_current_file(str(file_path))
+
+            # # <<< DEBUG PRINT >>>
+            # print(f"DEBUG [ModelsEmitter]: Visiting schema: '{name}'", file=sys.stderr)
+            # # <<< END DEBUG >>>
+
+            # # <<< NEW DEBUG PRINT >>>
+            # print(f"DEBUG [ModelsEmitter]: Loop name='{name}', Schema name='{schema.name}', Schema type='{schema.type}', Has enum='{bool(schema.enum)}'", file=sys.stderr)
+            # # <<< END NEW DEBUG >>>
+
             model_code = self.visitor.visit(schema, context)
-            # Render imports for this file
-            imports_code = context.render_imports(models_dir)
-            file_content = imports_code + "\n\n" + model_code
-            file_content = self.formatter.format(file_content)
-            context.file_manager.write_file(file_path, file_content)
-            generated_files.append(file_path)
+
+            if model_code.strip():
+                generated_files.append(str(file_path))
+                context.file_manager.write_file(str(file_path), model_code)
+            else:
+                context.generated_modules.discard(str(file_path))
+
+        self._emit_models_init(models_dir, schemas, context)
+        generated_files.append(str(models_dir / "__init__.py"))
+
         return generated_files
+
+    def _emit_models_init(self, models_dir: Path, schemas: Dict[str, IRSchema], context: RenderContext) -> None:
+        """Generates the models/__init__.py file with imports and __all__ for non-Enum models."""
+        writer = CodeWriter()
+        init_path = models_dir / "__init__.py"
+        context.set_current_file(str(init_path))
+
+        writer.write_line('"""Auto-generated models package."""')  # Docstring
+
+        # Get generated schema names
+        generated_schema_names = set()
+        for gen_file_path_str in context.generated_modules:
+            gen_file_path = Path(gen_file_path_str)
+            if (
+                gen_file_path.parent == models_dir
+                and gen_file_path.name != "__init__.py"
+                and gen_file_path.name != "py.typed"
+            ):
+                # Attempt to reverse sanitize the module name back to schema name
+                # This is brittle; ideally, we'd track generated schema names directly
+                module_name = gen_file_path.stem
+                # Find original schema name (this assumes sanitization is reversible or unique enough)
+                # A better approach would be to store a map {module_name: schema_name} during generation
+                original_name = next(
+                    (s_name for s_name in schemas if NameSanitizer.sanitize_module_name(s_name) == module_name), None
+                )
+                if original_name:
+                    generated_schema_names.add(original_name)
+
+        sorted_names = sorted(list(generated_schema_names))
+        all_items = []
+        import_lines = []
+        for name in sorted_names:
+            schema = schemas.get(name)
+            if not schema:
+                continue  # Should not happen if name came from generated_modules
+
+            class_name = NameSanitizer.sanitize_class_name(name)
+            module_name = NameSanitizer.sanitize_module_name(name)
+
+            # Import everything that was generated
+            import_lines.append(f"from .{module_name} import {class_name}")
+
+            # --- Add ALL generated classes/enums to __all__ ---
+            all_items.append(f'"{class_name}"')
+            # --- End Change ---
+
+        # Write imports first
+        for line in import_lines:
+            writer.write_line(line)
+
+        # Write __all__ on a single line if items exist
+        if all_items:
+            writer.write_line("")  # Blank line before __all__
+            writer.write_line(f"__all__ = [{', '.join(all_items)}]")
+        # else: # No need to write empty __all__
+
+        context.file_manager.write_file(str(init_path), writer.get_code())

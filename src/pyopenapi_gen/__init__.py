@@ -121,7 +121,16 @@ class IRSchema:
     items: Optional["IRSchema"] = None  # for array types
     enum: Optional[List[Any]] = None
     description: Optional[str] = None
+
+    # -- Added fields for richer type representation --
+    is_nullable: bool = False  # True if the type explicitly allows null (e.g., type: [string, "null"])
+    any_of: Optional[List["IRSchema"]] = None  # List of schemas for anyOf composition
+    one_of: Optional[List["IRSchema"]] = None  # List of schemas for oneOf composition
+    all_of: Optional[List["IRSchema"]] = None  # List of schemas for allOf composition (alternative to merging)
+    # -- End added fields --
+
     _from_unresolved_ref: bool = False  # Marker for unresolved $ref fallback
+    is_data_wrapper: bool = False  # True if this schema is a wrapper with a 'data' property
 
 
 @dataclass(slots=True)

@@ -11,49 +11,7 @@ from ..visit.client_visitor import ClientVisitor
 # hence we avoid importing config and http_transport modules to prevent runtime errors
 
 # Jinja template for base async client file with tag-specific clients
-CLIENT_TEMPLATE = '''
-from typing import Optional, Any
-{% for tag, class_name, module_name in tag_tuples %}
-from .endpoints.{{ module_name }} import {{ class_name }}
-{% endfor %}
-from .config import ClientConfig
-from .core.http_transport import HttpTransport, HttpxTransport
-
-class APIClient:
-    """Async API client with pluggable transport and tag-specific clients."""
-
-    def __init__(
-        self,
-        config: ClientConfig,
-        transport: Optional[HttpTransport] = None,
-    ) -> None:
-        self.config = config
-        # Use provided transport or default to HttpxTransport (concrete class)
-        self.transport = transport if transport is not None else HttpxTransport(
-            config.base_url, config.timeout  # type: ignore[arg-type]
-        )
-        # Always extract the underlying AsyncClient for endpoint clients
-        from httpx import AsyncClient
-        if hasattr(self.transport, "_client") and isinstance(self.transport._client, AsyncClient):
-            client = self.transport._client
-        else:
-            raise TypeError("Transport must provide an httpx.AsyncClient as _client for endpoint clients.")
-        base_url: str = str(self.config.base_url)
-{% for tag, class_name, module_name in tag_tuples %}
-        self.{{ module_name }} = {{ class_name }}(
-            client, base_url
-        )
-{% endfor %}
-
-    async def request(self, method: str, url: str, **kwargs: Any) -> Any:
-        """Send an HTTP request via the transport."""
-        return await self.transport.request(method, url, **kwargs)
-
-    async def close(self) -> None:
-        """Close the underlying transport if supported."""
-        if hasattr(self.transport, "close"):
-            await self.transport.close()
-'''
+# CLIENT_TEMPLATE = ''' ... removed ... '''
 
 
 class ClientEmitter:
@@ -72,13 +30,15 @@ class ClientEmitter:
             # Remove config.py emission
             # Prepare context and mark generated client module
             client_path = os.path.join(output_dir, "client.py")
-            context = RenderContext(core_package=self.core_package, core_import_path=self.core_import_path)
+            context = RenderContext(
+                core_package=self.core_package, core_import_path=self.core_import_path, package_root=output_dir
+            )
             context.mark_generated_module(client_path)
             context.set_current_file(client_path)
             # Render client code using the visitor
             client_code = self.visitor.visit(spec, context)
             # Render imports for this file (AFTER visitor, so all types are registered)
-            imports_code = context.render_imports(output_dir)
+            imports_code = context.render_imports()
             file_content = imports_code + "\n\n" + client_code
             context.file_manager.write_file(client_path, file_content)
             generated_files.append(client_path)

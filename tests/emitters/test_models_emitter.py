@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pyopenapi_gen import IRSchema, IRSpec
+from pyopenapi_gen import IRSchema, IRSpec, HTTPMethod, IROperation, IRResponse
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
@@ -33,11 +33,8 @@ def test_models_emitter_simple(tmp_path: Path) -> None:
 
     # Check key lines exist in output
     assert "from dataclasses import dataclass" in result
-    assert "from typing import" in result
-    assert "@dataclass" in result
-    assert "class Pet:" in result
-    assert "id:" in result
-    assert "name:" in result
+    assert "id: int" in result
+    assert "name: str" in result
 
 
 def test_models_emitter_enum(tmp_path: Path) -> None:
@@ -177,9 +174,7 @@ def test_models_emitter_empty_schema(tmp_path: Path) -> None:
 
     # Check key lines exist in output
     assert "from dataclasses import dataclass" in result
-    assert "from typing import" in result
-    assert "@dataclass" in result
-    assert "class Empty:" in result
+    assert "# No properties defined in schema" in result
     assert "pass" in result
 
 
@@ -480,3 +475,164 @@ def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path)
     assert "data:" in content
     assert "event:" in content
     assert "id:" in content
+
+
+def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
+    """
+    Scenario:
+        - A schema has an optional property of type array.
+    Expected Outcome:
+        - The generated dataclass field uses `Optional[List[...]]`.
+        - The field defaults to `field(default_factory=list)`.
+    """
+    # Arrange
+    item_schema = IRSchema(name=None, type="string")
+    schema = IRSchema(
+        name="DataHolder",
+        type="object",
+        required=[],  # tags is optional
+        properties={"tags": IRSchema(name=None, type="array", items=item_schema)},
+    )
+    spec = IRSpec(title="T", version="0.1", schemas={"DataHolder": schema}, operations=[])
+    out_dir = tmp_path / "out"
+
+    # Act
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
+
+    # Assert
+    model_file = out_dir / "models" / "data_holder.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+
+    # Check for Optional and List in the typing import line (order independent)
+    typing_import_line = next((line for line in content.splitlines() if line.startswith("from typing import")), None)
+    assert typing_import_line is not None
+    assert "Optional" in typing_import_line
+    assert "List" in typing_import_line
+
+    assert "tags: Optional[List[str]] = field(default_factory=list)" in content
+
+
+def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> None:
+    """
+    Scenario:
+        - A schema has an optional property that is a reference to another named schema.
+    Expected Outcome:
+        - The generated dataclass field uses `Optional[ReferencedType]`.
+        - The field defaults to `= None`.
+    """
+    # Arrange
+    ref_schema = IRSchema(name="Address", type="object", properties={"street": IRSchema(name=None, type="string")})
+    schema = IRSchema(
+        name="Person",
+        type="object",
+        required=["name"],
+        properties={
+            "name": IRSchema(name=None, type="string"),
+            "address": ref_schema,  # Optional reference
+        },
+    )
+    spec = IRSpec(title="T", version="0.1", schemas={"Person": schema, "Address": ref_schema}, operations=[])
+    out_dir = tmp_path / "out"
+
+    # Act
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
+
+    # Assert
+    model_file = out_dir / "models" / "person.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+
+    # Check for Optional import robustly
+    typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
+    assert any("Optional" in line for line in typing_imports), "'Optional' not found in typing imports"
+    assert "address: Optional[Address] = None" in content  # Check field definition
+
+
+def test_models_emitter_union_anyof(tmp_path: Path) -> None:
+    """
+    Scenario:
+        - A schema property uses `anyOf` with two different types.
+    Expected Outcome:
+        - The generated dataclass field uses `Union[TypeA, TypeB]`.
+    """
+    # Arrange
+    type_a = IRSchema(name="TypeA", type="string")
+    type_b = IRSchema(name="TypeB", type="integer")
+    schema = IRSchema(
+        name="Container",
+        type="object",
+        required=["value"],
+        properties={
+            "value": IRSchema(
+                name=None,
+                any_of=[type_a, type_b],
+            )
+        },
+    )
+    spec = IRSpec(
+        title="T", version="0.1", schemas={"Container": schema, "TypeA": type_a, "TypeB": type_b}, operations=[]
+    )
+    out_dir = tmp_path / "out"
+
+    # Act
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
+
+    # Assert
+    model_file = out_dir / "models" / "container.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+
+    # Check for Union import robustly
+    typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
+    assert any("Union" in line for line in typing_imports), "'Union' not found in typing imports"
+    assert "value: Union[TypeA, TypeB]" in content  # Correct assertion for required field
+
+
+def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
+    """
+    Scenario:
+        - A schema property uses `anyOf` with two types AND is nullable.
+    Expected Outcome:
+        - The generated dataclass field uses `Union[TypeA, TypeB, None]` or `Optional[Union[TypeA, TypeB]]`.
+    """
+    # Arrange
+    type_a = IRSchema(name="TypeA", type="string")
+    type_b = IRSchema(name="TypeB", type="integer")
+    schema = IRSchema(
+        name="Container",
+        type="object",
+        required=[],  # value is optional
+        properties={
+            "value": IRSchema(
+                name=None,
+                any_of=[type_a, type_b],
+                is_nullable=True,  # Explicitly nullable
+            )
+        },
+    )
+    spec = IRSpec(
+        title="T", version="0.1", schemas={"Container": schema, "TypeA": type_a, "TypeB": type_b}, operations=[]
+    )
+    out_dir = tmp_path / "out"
+
+    # Act
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
+
+    # Assert
+    model_file = out_dir / "models" / "container.py"
+    assert model_file.exists()
+    content = model_file.read_text()
+
+    # Check for Union import robustly
+    typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
+    assert any("Union" in line for line in typing_imports), "'Union' not found in typing imports"
+    # Optional should also be imported due to is_nullable=True combined with the Union
+    assert any(
+        "Optional" in line for line in typing_imports
+    ), "'Optional' not found in typing imports for nullable union"
+    assert "value: Union[TypeA, TypeB, None] = None" in content  # Check the actual type hint

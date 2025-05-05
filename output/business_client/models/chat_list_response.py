@@ -1,0 +1,13 @@
+from dataclasses import dataclass, field
+from typing import Any, Dict
+
+
+@dataclass
+class ChatListResponse:
+    """
+    Data model for ChatListResponse
+
+    Attributes:
+        data (Dict[str, Any]): No description provided.
+        meta (Dict[str, Any]): No description provided.
+    """

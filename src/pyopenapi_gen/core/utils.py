@@ -6,6 +6,10 @@ This module contains utility classes and functions used across the code generati
 import keyword
 import re
 from typing import Any, Dict, List, Set
+from collections import defaultdict
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ImportCollector:
@@ -30,9 +34,9 @@ class ImportCollector:
         # Direct imports like 'from datetime import date'
         self.direct_imports: Dict[str, Set[str]] = {}
         # Relative imports like 'from .models import Pet'
-        self.relative_imports: Dict[str, Set[str]] = {}
+        self.relative_imports: defaultdict[str, set[str]] = defaultdict(set)
         # Plain imports like 'import json'
-        self.plain_imports: Set[str] = set()
+        self.plain_imports: set[str] = set()
 
     def add_import(self, module: str, name: str) -> None:
         """Add an import from a specific module."""
@@ -56,7 +60,10 @@ class ImportCollector:
         self.direct_imports[module].add(name)
 
     def add_relative_import(self, module: str, name: str) -> None:
-        """Add relative import (from .x import y)."""
+        """Add a relative import module and name."""
+        # <<< DEBUG PRINT >>>
+        print(f"DEBUG [add_relative_import]: Adding module='{module}', name='{name}'")
+        # <<< END DEBUG >>>
         if module not in self.relative_imports:
             self.relative_imports[module] = set()
         self.relative_imports[module].add(name)
@@ -69,65 +76,59 @@ class ImportCollector:
         """Check if a specific import exists."""
         return module in self.imports and name in self.imports[module]
 
-    def get_import_statements(self) -> List[str]:
-        """Generate the import statements in the correct order."""
-        statements: List[str] = []
+    def get_import_statements(self, current_module_path: str | None = None) -> list[str]:
+        """Generate import statements, potentially filtering relative imports."""
+        import_lines = []
 
-        # Filter out sibling endpoint imports for model classes if a models import exists
-        # Build a set of (symbol, module) for models imports
-        model_symbols = set()
+        # Standard imports (absolute)
+        standard_import_lines = []
+        for module, names in sorted(self.imports.items()):
+            names_str = ", ".join(sorted(list(names)))
+            standard_import_lines.append(f"from {module} import {names_str}")
+
+        # Plain imports
+        plain_import_lines = []
+        for module in sorted(self.plain_imports):
+            plain_import_lines.append(f"import {module}")
+
+        # Relative imports
+        relative_import_lines = []
+        # print(f"DEBUG [get_import_statements]: Processing relative imports for {current_module_path}") # DEBUG REMOVE
+        # print(f"DEBUG [get_import_statements]: Raw relative_imports dict: {self.relative_imports}") # DEBUG REMOVE
+
+        filtered_relative_imports = defaultdict(set)
         for module, names in self.relative_imports.items():
-            if module.startswith("..models"):
-                for name in names:
-                    model_symbols.add((name, module))
-        # Remove .<module> imports for the same symbol if a ..models import exists
-        filtered_relative_imports = {}
-        for module, names in self.relative_imports.items():
-            if module.startswith(".") and not module.startswith(".."):
-                filtered_names = set()
-                for name in names:
-                    # If this symbol is imported from ..models, skip the sibling import
-                    if any(name == sym and mod.startswith("..models") for sym, mod in model_symbols):
-                        continue
-                    filtered_names.add(name)
-                if filtered_names:
-                    filtered_relative_imports[module] = filtered_names
-            else:
-                filtered_relative_imports[module] = names
-        # Plain imports first (import x)
-        if self.plain_imports:
-            for module in sorted(self.plain_imports):
-                statements.append(f"import {module}")
-        # Standard library imports (from x import y)
-        if self.imports:
-            for module in sorted(self.imports.keys()):
-                names_sorted = sorted(self.imports[module])
-                if len(names_sorted) == 1 and names_sorted[0] == module:
-                    # Already handled by plain_imports
-                    continue
-                else:
-                    names_str = ", ".join(names_sorted)
-                    statements.append(f"from {module} import {names_str}")
-        # Then direct imports
-        if self.direct_imports:
-            if statements:  # Add separator if we already have imports
-                statements.append("")  # Empty line separator
-            for module in sorted(self.direct_imports.keys()):
-                names_sorted = sorted(self.direct_imports[module])
-                names_str = ", ".join(names_sorted)
-                statements.append(f"from {module} import {names_str}")
-        # Finally relative imports (filtered)
-        if filtered_relative_imports:
-            if statements:  # Add separator if we already have imports
-                statements.append("")  # Empty line separator
-            for module in sorted(filtered_relative_imports.keys()):
-                names_sorted = sorted(filtered_relative_imports[module])
-                names_str = ", ".join(names_sorted)
-                statements.append(f"from {module} import {names_str}")
-        return statements
+            if not module.startswith(".") or module != current_module_path:
+                filtered_relative_imports[module].update(names)
+
+        for module, names in sorted(filtered_relative_imports.items()):
+            names_str = ", ".join(sorted(list(names)))
+            # ----> Add print right before formatting <----
+            print(
+                f"DEBUG [get_import_statements]: Formatting relative import: module='{module}', names='{names_str}'"
+            )  # ADD THIS
+            relative_import_lines.append(f"from {module} import {names_str}")
+
+        # print(f"DEBUG [get_import_statements]: Generated relative import lines: {relative_import_lines}") # DEBUG REMOVE
+
+        # Combine and sort imports according to PEP 8 recommendations (stdlib, third-party, local)
+        # Note: This simple sorting might not perfectly adhere to PEP 8 grouping.
+        import_lines = sorted(plain_import_lines) + sorted(standard_import_lines) + sorted(relative_import_lines)
+
+        # Add future import for annotations if needed (typically handled by CodeWriter)
+        # if self.needs_future_annotations:
+        #     import_lines.insert(0, "from __future__ import annotations")
+
+        return import_lines
 
     def get_formatted_imports(self) -> str:
         """Return the import statements as a formatted string."""
+        # <<< DEBUG PRINT >>>
+        # Temporarily add print to check internal state just before formatting
+        # print(f"DEBUG [get_formatted_imports]: Raw self.imports = {self.imports}") # COMMENTED
+        # print(f"DEBUG [get_formatted_imports]: Raw self.relative_imports = {self.relative_imports}") # COMMENTED
+        # print(f"DEBUG [get_formatted_imports]: Raw self.plain_imports = {self.plain_imports}") # COMMENTED
+        # <<< END DEBUG >>>
         return "\n".join(self.get_import_statements())
 
     def merge(self, other: "ImportCollector") -> None:
@@ -152,6 +153,13 @@ class NameSanitizer:
     @staticmethod
     def sanitize_module_name(name: str) -> str:
         """Convert a raw name into a valid Python module name in snake_case, splitting camel case and PascalCase."""
+        # # <<< Add Check for problematic input >>>
+        # if '[' in name or ']' in name or ',' in name:
+        #     logger.error(f"sanitize_module_name received potentially invalid input: '{name}'")
+        #     # Optionally, return a default/error value or raise exception
+        #     # For now, just log and continue
+        # # <<< End Check >>>
+
         # Split on non-alphanumeric and camel case boundaries
         words = re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+", name)
         if not words:

@@ -97,7 +97,11 @@ class EndpointsEmitter:
         """Render endpoint client files per tag under <output_dir>/endpoints using the visitor/context/registry
         pattern. Returns a list of generated file paths."""
         endpoints_dir = os.path.join(output_dir, "endpoints")
-        context = RenderContext(core_import_path=self.core_import_path)
+        context = RenderContext(
+            core_package="core",  # Assume default for now
+            core_import_path=self.core_import_path,
+            package_root=output_dir,  # Explicitly set package_root
+        )
         context.file_manager.ensure_dir(endpoints_dir)
         # Always create an empty __init__.py to ensure package
         empty_init_path = os.path.join(endpoints_dir, "__init__.py")
@@ -162,10 +166,12 @@ class EndpointsEmitter:
             methods = [self.visitor.visit(op, context) for op in ops]
             # Compose class content
             class_content = self.visitor.emit_endpoint_client_class(tag, methods, context)
+
             # Render imports for this file
-            imports_code = context.render_imports(endpoints_dir)
-            print(f"[DEBUG] Imports for {file_path}:\n{imports_code}")
-            file_content = imports_code + "\n\n" + class_content
+            imports = context.render_imports()
+
+            # Write the file
+            file_content = imports + "\n\n" + class_content
             # file_content = self.formatter.format(file_content)
             context.file_manager.write_file(file_path, file_content)
             client_classes.append((class_name, module_name))

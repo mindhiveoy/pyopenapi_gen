@@ -30,7 +30,7 @@ class ExceptionsEmitter:
         # Render exception code using the visitor
         exception_code = self.visitor.visit(spec, context)
         # Render imports for this file
-        imports_code = context.render_imports(output_dir)
+        imports_code = context.render_imports()
         file_content = imports_code + "\n\n" + exception_code
         context.file_manager.write_file(file_path, file_content)
         return [file_path]

@@ -9,15 +9,17 @@ from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, I
 from pyopenapi_gen.context.render_context import RenderContext
 
 from ..core.utils import NameSanitizer
+from .type_helper import get_python_type_for_schema
 
 
-def get_params(op: IROperation, context: RenderContext) -> List[Dict[str, Any]]:
+def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSchema]) -> List[Dict[str, Any]]:
     """
     Returns a list of dicts with name, type, default, and required for template rendering.
+    Requires the full schema dictionary for type resolution.
     """
     params = []
     for param in op.parameters:
-        py_type = get_param_type(param, context)
+        py_type = get_param_type(param, context, schemas)
         default = None if param.required else "None"
         params.append({
             "name": NameSanitizer.sanitize_method_name(param.name),
@@ -28,180 +30,158 @@ def get_params(op: IROperation, context: RenderContext) -> List[Dict[str, Any]]:
     return params
 
 
-def get_param_type(param: IRParameter, context: RenderContext) -> str:
-    s = param.schema
-    # If schema is a named model, use the class name
-    name = getattr(s, "name", None)
-    if isinstance(name, str):
-        class_name = NameSanitizer.sanitize_class_name(name)
-        # Use correct module path for models from endpoints
-        model_module = f"models.{NameSanitizer.sanitize_module_name(name)}"
-        context.add_import(model_module, class_name)
-        py_type = class_name
-    elif s.type == "array" and s.items:
-        item_type = get_param_type(IRParameter(name="", in_="", required=False, schema=s.items), context)
-        py_type = f"List[{item_type}]"
-    elif s.type == "object" and s.properties:
-        py_type = "Dict[str, Any]"
-    elif s.type in ("integer", "number", "boolean", "string"):
-        py_type = {
-            "integer": "int",
-            "number": "float",
-            "boolean": "bool",
-            "string": "str",
-        }[s.type]
-    else:
-        py_type = "Any"
-    if not param.required:
-        py_type = f"Optional[{py_type}]"
+def get_param_type(param: IRParameter, context: RenderContext, schemas: Dict[str, IRSchema]) -> str:
+    """Returns the Python type hint for a parameter, resolving references using the schemas dict."""
+    py_type = get_python_type_for_schema(param.schema, schemas, context, required=param.required)
+
+    # Adjust model import path for endpoints (expecting models.<module>)
+    if py_type.startswith(".") and not py_type.startswith(".."):  # Simple relative import
+        py_type = "models" + py_type
+
+    # Special handling for file uploads in multipart/form-data
+    if (
+        getattr(param, "in_", None) == "formData"
+        and getattr(param.schema, "type", None) == "string"
+        and getattr(param.schema, "format", None) == "binary"
+    ):
+        context.add_import("typing", "IO")
+        context.add_import("typing", "Any")
+        return "IO[Any]"
     return py_type
 
 
-def get_request_body_type(body: IRRequestBody, context: RenderContext) -> str:
-    """
-    Determine the Python type for a request body schema (prefer model class if available).
-    """
-    for mt, sch in body.content.items():
-        if "json" in mt.lower():
-            name = getattr(sch, "name", None)
-            # If schema is a named model, use the class name
-            if isinstance(name, str):
-                class_name = NameSanitizer.sanitize_class_name(name)
-                model_module = f"models.{NameSanitizer.sanitize_module_name(name)}"
-                context.add_import(model_module, class_name)
-                return class_name
-            # If array of models
-            items = getattr(sch, "items", None)
-            item_name = getattr(items, "name", None) if items is not None else None
-            if sch.type == "array" and isinstance(item_name, str):
-                item_class = NameSanitizer.sanitize_class_name(item_name)
-                model_module = f"models.{NameSanitizer.sanitize_module_name(item_name)}"
-                context.add_import(model_module, item_class)
-                return f"List[{item_class}]"
-            # If generic object
-            if sch.type == "object":
-                return "Dict[str, Any]"
-            # Otherwise, fallback
-            return get_param_type(
-                IRParameter(
-                    name="body",
-                    in_="body",
-                    required=body.required,
-                    schema=sch,
-                ),
-                context,
-            )
-    return "Dict[str, Any]"
+def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: Dict[str, IRSchema]) -> str:
+    """Returns the Python type hint for a request body, resolving references using the schemas dict."""
+    # Prefer application/json schema if available
+    json_schema = body.content.get("application/json")
+    if json_schema:
+        py_type = get_python_type_for_schema(json_schema, schemas, context, required=body.required)
+        if py_type.startswith(".") and not py_type.startswith(".."):
+            py_type = "models" + py_type
+        return py_type
+    # Fallback for other content types (e.g., octet-stream)
+    # TODO: Handle other types more specifically if needed
+    context.add_import("typing", "Any")
+    return "Any"
 
 
 def get_return_type(
     op: IROperation,
     context: RenderContext,
-    schemas: Optional[dict[str, Any]] = None,
+    schemas: Dict[str, IRSchema],  # Pass schemas dict
 ) -> str:
     """
-    Determine the Python return type for the endpoint method based on the operation's responses.
-    - Prefer 200/2xx responses, then default, then any.
-    - If the response schema is a primitive, use the correct Python type.
-    - If the response schema is a model, use the model class name and add import.
-    - If the response is a list, use List[Model] or List[Type].
-    - If the response is a stream, use AsyncIterator[Type].
-    - If no schema, fallback to Any.
+    Determines the primary return type hint for an operation.
+    Detects and handles response unwrapping if the success schema is an object
+    with a single 'data' property.
     """
-    schemas = schemas or {}
+    # Find the best success response (200, 201, etc.)
+    resp = _get_primary_response(op)
 
-    def schema_to_pytype(schema: Optional[IRSchema], context: RenderContext) -> str:
-        if not schema:
-            return "Any"
-        # Only treat as model if name is present in schemas
-        name = getattr(schema, "name", None)
-        if isinstance(name, str) and name in schemas:
-            class_name = NameSanitizer.sanitize_class_name(name)
-            model_module = f"models.{NameSanitizer.sanitize_module_name(name)}"
-            context.add_import(model_module, class_name)
-            return class_name
-        items = getattr(schema, "items", None)
-        item_name = getattr(items, "name", None) if items is not None else None
-        if schema.type == "array" and isinstance(item_name, str) and item_name in schemas:
-            item_class = NameSanitizer.sanitize_class_name(item_name)
-            context.add_import(
-                f"models.{NameSanitizer.sanitize_module_name(item_name)}",
-                item_class,
-            )
-            return f"List[{item_class}]"
-        if schema.type == "array" and items:
-            item_type = schema_to_pytype(items, context)
-            return f"List[{item_type}]"
-        # PATCH: For binary streaming, return bytes
-        if schema.type == "string" and getattr(schema, "format", None) == "binary":
-            return "bytes"
-        # PATCH: For inline object schemas, only use Dict[str, Any] if no name and no properties
-        if schema.type == "object":
-            if getattr(schema, "properties", None):
-                return "Dict[str, Any]"
-            # If no properties and no name, fallback to Any
-            return "Any"
-        if schema.type in ("integer", "number", "boolean", "string"):
-            return {
-                "integer": "int",
-                "number": "float",
-                "boolean": "bool",
-                "string": "str",
-            }[schema.type]
-        return "Any"
+    if not resp or not resp.content or resp.status_code == "204":
+        return "None"
 
-    # Prefer 200, then first 2xx, then default, then any
-    resp: Optional[IRResponse] = None
-    for code in (
-        ["200"]
-        + [r.status_code for r in op.responses if r.status_code.startswith("2") and r.status_code != "200"]
-        + ["default"]
-    ):
+    schema, mt = _get_response_schema_and_content_type(resp)
+
+    if not schema:
+        return "Any"  # Fallback if no schema found for content type
+
+    # --- Unwrapping Logic ---
+    should_unwrap = False
+    data_schema: Optional[IRSchema] = None
+    wrapper_type_str: Optional[str] = None
+
+    if isinstance(schema, IRSchema) and getattr(schema, "type", None) == "object" and hasattr(schema, "properties"):
+        properties = schema.properties
+        if len(properties) == 1 and "data" in properties:
+            should_unwrap = True
+            data_schema = properties["data"]
+            # Get the original wrapper type string BEFORE potentially unwrapping
+            # This ensures the wrapper model (e.g., TenantResponse) is imported if needed for deserialization
+            wrapper_type_str = get_python_type_for_schema(schema, schemas, context, required=True)
+            if wrapper_type_str and wrapper_type_str != "Any" and "." in wrapper_type_str:
+                # Ensure the wrapper type is imported even if we return the inner type
+                # We might need it temporarily during parsing before accessing .data
+                # Check if it's likely a model import (contains '.')
+                if wrapper_type_str.startswith("models."):  # Already adjusted
+                    context.add_import(wrapper_type_str.split(".")[0], wrapper_type_str.split(".")[1])
+                elif wrapper_type_str.startswith("."):  # Needs adjustment
+                    adjusted_wrapper_type = "models" + wrapper_type_str
+                    context.add_import(adjusted_wrapper_type.split(".")[0], adjusted_wrapper_type.split(".")[1])
+                else:  # Assume it's a model name directly
+                    # This assumes ModelVisitor places models in <package_root>/models/<model_name>.py
+                    model_module = f"models.{NameSanitizer.sanitize_module_name(wrapper_type_str)}"
+                    context.add_import(model_module, wrapper_type_str)
+
+    # Determine the final schema to use for type generation
+    final_schema = data_schema if should_unwrap and data_schema else schema
+    is_streaming = resp.stream and not should_unwrap  # Don't unwrap streams for now
+
+    # Handle streaming response (if not unwrapped)
+    if is_streaming:
+        item_type = get_python_type_for_schema(final_schema, schemas, context, required=True)
+        # Adjust import path if needed (relative model -> models.<module>)
+        if item_type.startswith(".") and not item_type.startswith(".."):
+            item_type = "models" + item_type
+        context.add_import("typing", "AsyncIterator")
+        context.add_plain_import("collections.abc")
+        return f"AsyncIterator[{item_type}]"
+
+    # Handle regular response schema (or unwrapped schema)
+    py_type = get_python_type_for_schema(
+        final_schema, schemas, context, required=True
+    )  # Response implies required content
+
+    # Adjust model import path for endpoints (expecting models.<module>)
+    # This adjustment might be redundant if get_python_type_for_schema handles context correctly,
+    # but kept for safety.
+    if py_type.startswith(".") and not py_type.startswith(".."):
+        py_type = "models" + py_type
+
+    return py_type
+
+
+def _get_primary_response(op: IROperation) -> Optional[IRResponse]:
+    """Helper to find the best primary success response."""
+    resp = None
+    # Prioritize 200, 201, 202, 204
+    for code in ["200", "201", "202", "204"]:
         resp = next((r for r in op.responses if r.status_code == code), None)
         if resp:
-            break
-    if not resp and op.responses:
-        resp = op.responses[0]
-    if not resp or not resp.content:
-        return "Any"
-    # Pick first content type (prefer application/json, then event-stream, then any)
+            return resp
+    # Then other 2xx
+    for r in op.responses:
+        if r.status_code.startswith("2"):
+            return r
+    # Then default
+    resp = next((r for r in op.responses if r.status_code == "default"), None)
+    if resp:
+        return resp
+    # Finally, the first listed response if any
+    if op.responses:
+        return op.responses[0]
+    return None
+
+
+def _get_response_schema_and_content_type(resp: IRResponse) -> tuple[Optional[IRSchema], Optional[str]]:
+    """Helper to get the schema and content type from a response."""
+    if not resp.content:
+        return None, None
+
     content_types = list(resp.content.keys())
-    mt = next(
-        (ct for ct in content_types if "json" in ct),
-        next((ct for ct in content_types if "event-stream" in ct), content_types[0]),
-    )
-    schema = resp.content[mt]
-    # Streaming response
-    if getattr(resp, "stream", False):
-        # Only use a named model if schema is a global, named schema (present in schemas)
-        name = getattr(schema, "name", None)
-        is_global_named_model = isinstance(name, str) and name in schemas
-        if is_global_named_model:
-            item_type = schema_to_pytype(schema, context)
-            return f"AsyncIterator[{item_type}]"
-        # For all inline object schemas (even with properties), use Dict[str, Any]
-        if schema.type == "object":
-            return "AsyncIterator[Dict[str, Any]]"
-        # If binary
-        if schema.type == "string" and getattr(schema, "format", None) == "binary":
-            return "AsyncIterator[bytes]"
-        # Fallback
-        return "AsyncIterator[Any]"
-    # List response
-    items = getattr(schema, "items", None)
-    item_name = getattr(items, "name", None) if items is not None else None
-    if schema.type == "array" and isinstance(item_name, str) and item_name in schemas:
-        item_class = NameSanitizer.sanitize_class_name(item_name)
-        context.add_import(
-            f"models.{NameSanitizer.sanitize_module_name(item_name)}",
-            item_class,
-        )
-        return f"List[{item_class}]"
-    if schema.type == "array" and items:
-        item_type = schema_to_pytype(items, context)
-        return f"List[{item_type}]"
-    # Model or primitive
-    return schema_to_pytype(schema, context)
+    # Prefer application/json, then event-stream, then any other json, then first
+    mt = next((ct for ct in content_types if ct == "application/json"), None)
+    if not mt:
+        mt = next((ct for ct in content_types if "event-stream" in ct), None)
+    if not mt:
+        mt = next((ct for ct in content_types if "json" in ct), None)  # Catch application/vnd.api+json etc.
+    if not mt and content_types:
+        mt = content_types[0]
+
+    if not mt:
+        return None, None
+
+    return resp.content.get(mt), mt
 
 
 def format_method_args(params: list[dict[str, Any]]) -> str:
@@ -256,6 +236,7 @@ def merge_params_with_model_fields(
     op: IROperation,
     model_schema: IRSchema,
     context: RenderContext,
+    schemas: Dict[str, IRSchema],  # Pass schemas dict
 ) -> List[Dict[str, Any]]:
     """
     Merge endpoint parameters with required model fields for function signatures.
@@ -267,12 +248,13 @@ def merge_params_with_model_fields(
         op: The IROperation (endpoint operation).
         model_schema: The IRSchema for the model (request body or return type).
         context: The RenderContext for imports/type resolution.
+        schemas: Dictionary of all named schemas.
 
     Returns:
         List of parameter dicts suitable for use in endpoint method signatures.
     """
     # Get endpoint parameters (already sanitized)
-    endpoint_params = get_params(op, context)
+    endpoint_params = get_params(op, context, schemas)
     endpoint_param_names = {p["name"] for p in endpoint_params}
     merged_params = list(endpoint_params)
 
@@ -285,10 +267,12 @@ def merge_params_with_model_fields(
             sanitized_name = NameSanitizer.sanitize_method_name(prop)
             if sanitized_name in endpoint_param_names:
                 continue  # Already present as endpoint param
-            py_type = get_param_type(
-                IRParameter(name=prop, in_="body", required=True, schema=pschema),
-                context,
-            )
+
+            # Use the helper function to get the type
+            py_type = get_python_type_for_schema(pschema, schemas, context, required=True)
+            if py_type.startswith(".") and not py_type.startswith(".."):
+                py_type = "models" + py_type
+
             merged_params.append({
                 "name": sanitized_name,
                 "type": py_type,

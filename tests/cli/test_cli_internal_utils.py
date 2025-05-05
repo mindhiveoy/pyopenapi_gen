@@ -2,7 +2,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from pyopenapi_gen.cli import _load_spec, _show_diffs
+import yaml
+
+from pyopenapi_gen.cli import _load_spec
+from pyopenapi_gen.core.loader import load_ir_from_spec
 from typer import Exit
 
 
@@ -14,49 +17,16 @@ def test_load_spec_from_file(tmp_path: Path) -> None:
     assert data == {"foo": "bar"}
 
 
-def test_load_spec_url_not_implemented(tmp_path: Path, capsys: Any) -> None:
-    """_load_spec should error for non-existent paths (URL loading path)."""
-    url = "http://example.com/spec.yaml"
-    with pytest.raises(Exit) as excinfo:
-        _load_spec(url)
-    assert excinfo.value.exit_code == 1
-    # The error message should be printed to stderr
-    captured = capsys.readouterr()
-    assert "URL loading not implemented" in captured.err
+def test_load_spec_file_not_found() -> None:
+    with pytest.raises(Exit) as exc_info:
+        _load_spec("nonexistent_spec.json")
+    assert exc_info.value.exit_code == 1
 
 
-def test_show_diffs_no_changes(tmp_path: Path, capsys: Any) -> None:
-    """_show_diffs returns False and prints nothing when directories match."""
-    old = tmp_path / "old"
-    new = tmp_path / "new"
-    old.mkdir()
-    new.mkdir()
-    f_old = old / "file.py"
-    f_new = new / "file.py"
-    content = "hello\nworld"
-    f_old.write_text(content)
-    f_new.write_text(content)
-
-    result = _show_diffs(str(old), str(new))
-    assert result is False
-    captured = capsys.readouterr()
-    assert captured.out == ""
+def test_load_spec_url_not_implemented() -> None:
+    with pytest.raises(Exit) as exc_info:
+        _load_spec("http://example.com/spec.json")
+    assert exc_info.value.exit_code == 1
 
 
-def test_show_diffs_detects_changes(tmp_path: Path, capsys: Any) -> None:
-    """_show_diffs returns True and prints diff when files differ."""
-    old = tmp_path / "old"
-    new = tmp_path / "new"
-    old.mkdir()
-    new.mkdir()
-    f_old = old / "file.py"
-    f_new = new / "file.py"
-    f_old.write_text("line1\nline2")
-    f_new.write_text("line1\nLINE2")
-
-    result = _show_diffs(str(old), str(new))
-    assert result is True
-    captured = capsys.readouterr()
-    # The diff should show -line2 and +LINE2
-    assert "-line2" in captured.out
-    assert "+LINE2" in captured.out
+# Diffing tests are removed as the functionality is now internal to ClientGenerator

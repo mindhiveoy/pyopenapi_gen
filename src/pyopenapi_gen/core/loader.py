@@ -16,6 +16,7 @@ supported **only** for ``#/components/schemas/<Name>`` references for now.
 from __future__ import annotations
 
 import copy
+import sys
 import warnings
 from typing import Any, Dict, List, Mapping, Optional, cast
 
@@ -28,7 +29,6 @@ except ImportError:
     except ImportError:  # pragma: no cover – optional in early bootstrapping
         validate_spec = None  # type: ignore[assignment]
 # Disable strict spec validation by default to allow lenient parsing
-validate_spec = None  # override imported validate_spec
 
 from pyopenapi_gen import (
     HTTPMethod,
@@ -56,70 +56,122 @@ def _parse_schema(
     schemas: Dict[str, IRSchema],
     _visited: Optional[set[str]] = None,
 ) -> IRSchema:
-    """Recursively parse a schema node, resolving limited $ref links."""
+    """Recursively parse a schema node, resolving refs and composition keywords."""
     if _visited is None:
         _visited = set()
     if node is None:
+        # Handle cases where a schema node might be null (e.g., invalid spec)
         return IRSchema(name=name)
-    # Handle allOf composition before $ref resolution to merge sub-schemas' properties
-    if "allOf" in node:
-        # Determine name: use provided name or derive from first $ref
-        comp_name = name
-        for sub in node["allOf"]:
-            if isinstance(sub, Mapping) and "$ref" in sub and sub["$ref"].startswith("#/components/schemas/"):
-                comp_name = sub["$ref"].rsplit("/", 1)[-1]
-                break
-        combined_required: List[str] = []
-        combined_properties: Dict[str, IRSchema] = {}
-        combined_items = None
-        combined_enum = None
-        combined_description = node.get("description")
-        for sub in node["allOf"]:
-            sub_schema = _parse_schema(None, sub, raw_schemas, schemas, _visited)
-            # Merge required and properties
-            combined_required.extend(sub_schema.required)
-            combined_properties.update(sub_schema.properties)
-            # Merge items
-            if sub_schema.items:
-                combined_items = sub_schema.items
-            # Merge enum
-            if sub_schema.enum is not None:
-                combined_enum = sub_schema.enum
-            # Merge description if missing
-            if not combined_description and sub_schema.description:
-                combined_description = sub_schema.description
-        # Deduplicate
-        combined_required = list(dict.fromkeys(combined_required))
-        # Construct composed schema
-        composed = IRSchema(
-            name=comp_name,
-            type="object",
-            format=None,
-            required=combined_required,
-            properties=combined_properties,
-            items=combined_items,
-            enum=combined_enum,
-            description=combined_description,
-        )
-        # Update schemas mapping for named compositions
-        if comp_name:
-            schemas[comp_name] = composed
-        return composed
+
+    # --- Handle $ref --- (Prioritize over other keywords)
     if "$ref" in node:
         ref = node["$ref"]
         if ref.startswith("#/components/schemas/"):
             ref_name = ref.rsplit("/", 1)[-1]
             if ref_name in schemas:
+                # Already parsed or being parsed (cycle)
                 return schemas[ref_name]
             if ref_name in _visited:
-                return IRSchema(name=ref_name)
+                # Cycle detected, return placeholder to break recursion
+                return IRSchema(name=ref_name)  # Mark as placeholder?
+
             _visited.add(ref_name)
-            referenced = raw_schemas.get(ref_name, {})
+            referenced = raw_schemas.get(ref_name)
+            if referenced is None:
+                warnings.warn(f"Could not resolve $ref: {ref}", UserWarning)
+                return IRSchema(name=ref_name, _from_unresolved_ref=True)
+
             schema_obj = _parse_schema(ref_name, referenced, raw_schemas, schemas, _visited)
-            schemas[ref_name] = schema_obj
+            # Store the fully parsed schema only if it's not just a cycle placeholder
+            if not schema_obj._from_unresolved_ref:
+                schemas[ref_name] = schema_obj
+            _visited.remove(ref_name)
             return schema_obj
-        # For unresolved $ref, return IRSchema(name=None, _from_unresolved_ref=True)
-        return IRSchema(name=None, _from_unresolved_ref=True)
+        else:
+            # Non-schema ref or invalid ref format
+            warnings.warn(f"Unsupported or invalid $ref format: {ref}", UserWarning)
+            return IRSchema(name=None, _from_unresolved_ref=True)
+
+    # --- Initialize IRSchema fields --- (Defaults)
+    schema_type: Optional[str] = None
+    is_nullable: bool = False
+    any_of_schemas: Optional[List[IRSchema]] = None
+    one_of_schemas: Optional[List[IRSchema]] = None
+    all_of_schemas: Optional[List[IRSchema]] = None
+
+    # --- Handle Composition Keywords (anyOf, oneOf, allOf) ---
+    if "anyOf" in node:
+        any_of_schemas = [_parse_schema(None, sub, raw_schemas, schemas, _visited) for sub in node["anyOf"]]
+        # Check for nullability within anyOf
+        # Explicitly check the raw sub-schema for {type: "null"}
+        if any(isinstance(sub, dict) and sub.get("type") == "null" for sub in node["anyOf"]):
+            is_nullable = True
+            # Filter out the null type schema from the parsed list
+            # Note: This assumes the parsed null schema will have schema.type == None or similar
+            # We might need a more robust way to identify the parsed null schema if type becomes Any
+            any_of_schemas = [
+                s
+                for s in any_of_schemas
+                if not (
+                    s.type is None
+                    and not s.properties
+                    and not s.items
+                    and not s.enum
+                    and not s.any_of
+                    and not s.one_of
+                    and not s.all_of
+                )
+            ]  # Heuristic to find the parsed null
+
+            # If only null was present, it's just a nullable type, not a Union
+            if not any_of_schemas:
+                # What should the base type be? Use 'Any' or try to infer?
+                # For now, let's just mark nullable and maybe visitor uses 'Any'
+                schema_type = None  # Or 'Any'?
+                any_of_schemas = None  # Reset as it's not a Union anymore
+
+    if "oneOf" in node:
+        one_of_schemas = [_parse_schema(None, sub, raw_schemas, schemas, _visited) for sub in node["oneOf"]]
+        # Nullability check for oneOf might be less common but possible
+        if any(s.type == "null" for s in one_of_schemas):
+            is_nullable = True
+            one_of_schemas = [s for s in one_of_schemas if s.type != "null"]
+            if not one_of_schemas:
+                schema_type = None
+                one_of_schemas = None
+
+    if "allOf" in node:
+        # Store sub-schemas, delegate merging/interpretation to visitor
+        all_of_schemas = [_parse_schema(None, sub, raw_schemas, schemas, _visited) for sub in node["allOf"]]
+
+    # --- Determine Primary Type and Nullability --- (if not set by composition)
+    raw_type = node.get("type")
+    if schema_type is None and not any_of_schemas and not one_of_schemas:
+        if isinstance(raw_type, list):
+            # Handles `type: ["string", "null"]`
+            if "null" in raw_type:
+                is_nullable = True
+            # Find the first non-null type as the primary type
+            primary_types = [t for t in raw_type if t != "null"]
+            if primary_types:
+                schema_type = primary_types[0]
+                if len(primary_types) > 1:
+                    warnings.warn(
+                        f"Schema '{name or 'anonymous'}' has multiple non-null types ({primary_types}) "
+                        f"in 'type' array. Using first type '{schema_type}'.",
+                        UserWarning,
+                    )
+            else:
+                # Only "null" was present
+                schema_type = None  # Represent as nullable Any
+        elif isinstance(raw_type, str):
+            if raw_type == "null":
+                is_nullable = True
+                schema_type = None  # Represent as nullable Any
+            else:
+                schema_type = raw_type
+
+    # --- Parse other standard keywords ---
     raw_required = node.get("required")
     required_fields = cast(List[str], raw_required) if isinstance(raw_required, list) else []
     properties = {
@@ -127,15 +179,28 @@ def _parse_schema(
     }
     items = node.get("items")
     items_schema = _parse_schema(None, items, raw_schemas, schemas, _visited) if items is not None else None
+    enum_values = node.get("enum")
+
+    # --- Data wrapper detection --- (Keep existing logic)
+    is_data_wrapper = schema_type == "object" and "data" in properties and "data" in required_fields
+
+    # --- Construct final IRSchema --- (using potentially updated fields)
     return IRSchema(
         name=name,
-        type=node.get("type"),
+        type=schema_type,
         format=node.get("format"),
         required=required_fields,
         properties=properties,
         items=items_schema,
-        enum=node.get("enum"),
+        enum=enum_values,
         description=node.get("description"),
+        # New fields
+        is_nullable=is_nullable,
+        any_of=any_of_schemas,
+        one_of=one_of_schemas,
+        all_of=all_of_schemas,
+        # Other flags
+        is_data_wrapper=is_data_wrapper,
     )
 
 
@@ -390,6 +455,7 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
                 while enum_name in schemas or enum_name in new_enums:
                     enum_name = f"{base_enum_name}{i}"
                     i += 1
+
                 # Create a new IRSchema for the enum
                 enum_schema = IRSchema(
                     name=enum_name,
@@ -409,7 +475,9 @@ def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
     # Validate OpenAPI spec but continue on errors
     if validate_spec is not None:
         try:
-            validate_spec(spec)
+            from typing import Hashable
+
+            validate_spec(cast(Mapping[Hashable, Any], spec))
         except Exception as e:
             warnings.warn(f"OpenAPI spec validation error: {e}", UserWarning)
     if "openapi" not in spec:

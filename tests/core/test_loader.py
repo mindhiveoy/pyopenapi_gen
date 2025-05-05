@@ -1,7 +1,8 @@
+import re
+from pathlib import Path
+
 from pyopenapi_gen import HTTPMethod
 from pyopenapi_gen.core.loader import load_ir_from_spec
-from pathlib import Path
-import re
 
 MIN_SPEC = {
     "openapi": "3.1.0",
@@ -175,3 +176,158 @@ def test_codegen_analytics_query_params(tmp_path: Path) -> None:
     assert "tenant_id" not in params_block, f"tenant_id should not be in params dict: {params_block}"
     # Ensure params dict is not empty
     assert params_block.strip(), "params dict is empty, should include query params"
+
+
+def test_parse_schema_nullable_type_array() -> None:
+    """
+    Scenario:
+        - A schema property uses `type: ["string", "null"]`.
+    Expected Outcome:
+        - The corresponding IRSchema in `properties` should have `type="string"` and `is_nullable=True`.
+    """
+    # Arrange
+    spec = {
+        "openapi": "3.1.0",
+        "info": {"title": "Nullable Test", "version": "1.0.0"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "TestSchema": {
+                    "type": "object",
+                    "properties": {
+                        "nullable_prop": {"type": ["string", "null"], "description": "Can be string or null"}
+                    },
+                }
+            }
+        },
+    }
+
+    # Act
+    ir = load_ir_from_spec(spec)
+
+    # Assert
+    assert "TestSchema" in ir.schemas
+    test_schema = ir.schemas["TestSchema"]
+    assert "nullable_prop" in test_schema.properties
+    prop_schema = test_schema.properties["nullable_prop"]
+
+    assert prop_schema.type == "string"
+    assert prop_schema.is_nullable is True
+    assert prop_schema.any_of is None  # Ensure composition fields are not set
+
+
+def test_parse_schema_nullable_anyof() -> None:
+    """
+    Scenario:
+        - A schema uses `anyOf` containing a reference and `{type: "null"}`.
+    Expected Outcome:
+        - The resulting IRSchema should have `is_nullable=True`.
+        - Its `any_of` list should contain only the IRSchema for the referenced type.
+    """
+    # Arrange
+    spec = {
+        "openapi": "3.1.0",
+        "info": {"title": "Nullable anyOf Test", "version": "1.0.0"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "TypeA": {"type": "string"},
+                "TestSchema": {
+                    "anyOf": [{"$ref": "#/components/schemas/TypeA"}, {"type": "null"}],
+                    "description": "Can be TypeA or null",
+                },
+            }
+        },
+    }
+
+    # Act
+    ir = load_ir_from_spec(spec)
+
+    # Assert
+    assert "TestSchema" in ir.schemas
+    test_schema = ir.schemas["TestSchema"]
+
+    assert test_schema.is_nullable is True
+    assert test_schema.any_of is not None
+    assert len(test_schema.any_of) == 1
+    assert test_schema.any_of[0].name == "TypeA"
+    assert test_schema.type is None  # Primary type shouldn't be set directly
+
+
+def test_parse_schema_anyof_union() -> None:
+    """
+    Scenario:
+        - A schema uses `anyOf` with two different references.
+    Expected Outcome:
+        - The resulting IRSchema should have `any_of` populated with IRSchemas for both types.
+        - `is_nullable` should be False.
+    """
+    # Arrange
+    spec = {
+        "openapi": "3.1.0",
+        "info": {"title": "anyOf Union Test", "version": "1.0.0"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "TypeA": {"type": "string"},
+                "TypeB": {"type": "integer"},
+                "TestSchema": {
+                    "anyOf": [{"$ref": "#/components/schemas/TypeA"}, {"$ref": "#/components/schemas/TypeB"}],
+                    "description": "Can be TypeA or TypeB",
+                },
+            }
+        },
+    }
+
+    # Act
+    ir = load_ir_from_spec(spec)
+
+    # Assert
+    assert "TestSchema" in ir.schemas
+    test_schema = ir.schemas["TestSchema"]
+
+    assert test_schema.is_nullable is False
+    assert test_schema.any_of is not None
+    assert len(test_schema.any_of) == 2
+    assert {s.name for s in test_schema.any_of} == {"TypeA", "TypeB"}
+    assert test_schema.type is None
+
+
+def test_parse_schema_allof_storage() -> None:
+    """
+    Scenario:
+        - A schema uses `allOf` with two different references.
+    Expected Outcome:
+        - The resulting IRSchema should have `all_of` populated with IRSchemas for both types.
+        - Other fields like `properties` should not be merged from the components.
+    """
+    # Arrange
+    spec = {
+        "openapi": "3.1.0",
+        "info": {"title": "allOf Storage Test", "version": "1.0.0"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "Base": {"type": "object", "properties": {"base_prop": {"type": "string"}}},
+                "Mixin": {"type": "object", "properties": {"mixin_prop": {"type": "integer"}}},
+                "TestSchema": {
+                    "allOf": [{"$ref": "#/components/schemas/Base"}, {"$ref": "#/components/schemas/Mixin"}],
+                    "description": "Combines Base and Mixin",
+                },
+            }
+        },
+    }
+
+    # Act
+    ir = load_ir_from_spec(spec)
+
+    # Assert
+    assert "TestSchema" in ir.schemas
+    test_schema = ir.schemas["TestSchema"]
+
+    assert test_schema.is_nullable is False
+    assert test_schema.all_of is not None
+    assert len(test_schema.all_of) == 2
+    assert {s.name for s in test_schema.all_of} == {"Base", "Mixin"}
+    assert test_schema.type is None  # Type is not directly set for allOf wrapper
+    assert not test_schema.properties  # Properties are not merged in the loader anymore

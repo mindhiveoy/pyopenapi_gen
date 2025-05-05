@@ -19,18 +19,19 @@ class ClientVisitor:
     def visit(self, spec: IRSpec, context: RenderContext) -> str:
         tag_candidates: dict[str, list[str]] = {}
         for op in spec.operations:
-            if op.tags:
-                for tag in op.tags:
-                    key = NameSanitizer.normalize_tag_key(tag)
-                    if key not in tag_candidates:
-                        tag_candidates[key] = []
-                    tag_candidates[key].append(tag)
-            else:
-                fallback = op.path.strip("/").split("/")[0] or "root"
-                key = NameSanitizer.normalize_tag_key(fallback)
+            # Use DEFAULT_TAG consistent with EndpointsEmitter
+            tags = op.tags or ["default"]  # Use literal "default" here
+            # Loop through the determined tags (original or default)
+            for tag in tags:
+                key = NameSanitizer.normalize_tag_key(tag)
                 if key not in tag_candidates:
                     tag_candidates[key] = []
-                tag_candidates[key].append(fallback)
+                tag_candidates[key].append(tag)
+            # Ensure the old logic is removed (idempotent if already gone)
+            # if op.tags:
+            #     ...
+            # else:
+            #     ...
 
         def tag_score(t: str) -> tuple[bool, int, int, str]:
             is_pascal = bool(re.search(r"[a-z][A-Z]", t)) or bool(re.search(r"[A-Z]{2,}", t))
@@ -53,15 +54,21 @@ class ClientVisitor:
             for key in sorted(tag_map)
         ]
         writer = CodeWriter()
-        # Register all endpoint client imports
+        # Register all endpoint client imports using context.add_import
         for _, class_name, module_name in tag_tuples:
+            # Use package-relative logical path
             context.add_import(f"endpoints.{module_name}", class_name)
-            writer.write_line(f"from .endpoints.{module_name} import {class_name}")
-        writer.write_line("")
+
         # Register core/config/typing imports for class signature
-        context.add_import(f"{context.core_package}.config", "ClientConfig")
-        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
-        context.add_import(f"{context.core_package}.http_transport", "HttpxTransport")
+        # Use LOGICAL import path for core components
+
+        # <<< Force core package name >>>
+        actual_core_package = "core"  # Override context value just in case
+        context.add_import(f"{actual_core_package}.http_transport", "HttpTransport")
+        context.add_import(f"{actual_core_package}.http_transport", "HttpxTransport")
+        context.add_import(f"{actual_core_package}.config", "ClientConfig")
+        # <<< End Force >>>
+
         context.add_typing_imports_for_type("Optional[HttpTransport]")
         context.add_typing_imports_for_type("Any")
         context.add_typing_imports_for_type("Dict")
@@ -122,6 +129,7 @@ class ClientVisitor:
         # @property for each tag client
         for tag, class_name, module_name in tag_tuples:
             writer.write_line(f"@property")
+            # Use context.add_import here too
             context.add_import(f"endpoints.{module_name}", class_name)
             writer.write_line(f"def {module_name}(self) -> {class_name}:")
             writer.indent()

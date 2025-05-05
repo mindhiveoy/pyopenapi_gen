@@ -40,7 +40,7 @@ class ClientGenerator:
         output_package: str,
         force: bool = False,
         no_postprocess: bool = False,
-        core_package: str = "core",
+        core_package: Optional[str] = "core",
     ) -> None:
         """
         Generate the client code from the OpenAPI spec.
@@ -74,17 +74,26 @@ class ClientGenerator:
 
         # Default output_package if not set
         if not output_package:
-            output_package = "client"
+            raise ValueError("Output package name cannot be empty")
         out_dir = pkg_to_path(output_package)
 
+        # --- Robust Defaulting for core_package ---
+        if not core_package:  # Handles None or empty string
+            core_package = "core"
+        # Assert that core_package is now definitely a string
+        assert core_package is not None
+        # --- End Robust Defaulting ---
+
         # Determine core_dir for correct subfolder logic
-        shared_core = core_package and core_package != output_package + ".core"
-        if not core_package:
-            core_package = output_package + ".core"
+        shared_core = core_package != "core"
         if shared_core:
             core_dir = pkg_to_path(core_package)
+            core_import_path_to_use = core_package
         else:
+            core_package = "core"
             core_dir = out_dir / "core"
+            core_import_path_to_use = None
+
         generated_files = []
 
         if not force and out_dir.exists():
@@ -105,20 +114,18 @@ class ClientGenerator:
                 config_dst = core_dir / "config.py"
                 config_dst.write_text(CONFIG_TEMPLATE)
                 generated_files.append(config_dst)
+                generated_files += [Path(p) for p in ModelsEmitter().emit(ir, str(out_dir))]
                 generated_files += [
-                    Path(p) for p in ModelsEmitter(core_import_path=core_package).emit(ir, str(out_dir))
-                ]
-                generated_files += [
-                    Path(p) for p in EndpointsEmitter(core_import_path=core_package).emit(ir, str(out_dir))
+                    Path(p) for p in EndpointsEmitter(core_import_path=core_import_path_to_use).emit(ir, str(out_dir))
                 ]
                 generated_files += [
                     Path(p)
-                    for p in ClientEmitter(core_package=core_package, core_import_path=core_package).emit(
+                    for p in ClientEmitter(core_package=core_package, core_import_path=core_import_path_to_use).emit(
                         ir, str(out_dir)
                     )
                 ]
                 if not no_postprocess:
-                    PostprocessManager().run([str(p) for p in generated_files])
+                    PostprocessManager(str(project_root)).run([str(p) for p in generated_files])
                 has_diff = self._show_diffs(str(out_dir), str(tmp_output))
                 if has_diff:
                     raise GenerationError("Differences found between generated and existing output.")
@@ -142,14 +149,18 @@ class ClientGenerator:
             config_dst = core_dir / "config.py"
             config_dst.write_text(CONFIG_TEMPLATE)
             generated_files.append(config_dst)
-            generated_files += [Path(p) for p in ModelsEmitter(core_import_path=core_package).emit(ir, str(out_dir))]
-            generated_files += [Path(p) for p in EndpointsEmitter(core_import_path=core_package).emit(ir, str(out_dir))]
+            generated_files += [Path(p) for p in ModelsEmitter().emit(ir, str(out_dir))]
+            generated_files += [
+                Path(p) for p in EndpointsEmitter(core_import_path=core_import_path_to_use).emit(ir, str(out_dir))
+            ]
             generated_files += [
                 Path(p)
-                for p in ClientEmitter(core_package=core_package, core_import_path=core_package).emit(ir, str(out_dir))
+                for p in ClientEmitter(core_package=core_package, core_import_path=core_import_path_to_use).emit(
+                    ir, str(out_dir)
+                )
             ]
             if not no_postprocess:
-                PostprocessManager().run([str(p) for p in generated_files])
+                PostprocessManager(str(project_root)).run([str(p) for p in generated_files])
 
     def _load_spec(self, path_or_url: str) -> dict[str, Any]:
         """
