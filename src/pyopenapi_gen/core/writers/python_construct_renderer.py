@@ -1,4 +1,11 @@
-"""Renderer for common Python code constructs like classes, enums, and aliases."""
+"""
+PythonConstructRenderer: Renders Python language constructs like classes, enums, and type aliases.
+
+This module provides the PythonConstructRenderer class, which is responsible for
+generating well-formatted Python code for common constructs used in the generated client.
+It handles all the details of formatting, import registration, and docstring generation
+for these constructs.
+"""
 
 from typing import List, Optional, Tuple
 
@@ -10,9 +17,18 @@ from .documentation_writer import DocumentationBlock, DocumentationWriter
 
 class PythonConstructRenderer:
     """
-    Generates Python code strings for common constructs like dataclasses, enums, and type aliases.
-    Uses CodeWriter and DocumentationWriter internally.
-    Registers necessary imports (e.g., dataclass, Enum) into the provided RenderContext.
+    Generates Python code for common constructs like dataclasses, enums, and type aliases.
+    
+    This class provides methods to render different Python language constructs with
+    proper formatting, documentation, and import handling. It uses CodeWriter and
+    DocumentationWriter internally to ensure consistent output and automatically 
+    registers necessary imports into the provided RenderContext.
+    
+    The renderer handles:
+    - Type aliases (e.g., UserId = str)
+    - Enums (with str or int values)
+    - Dataclasses (with required and optional fields)
+    - Generic classes (with bases, docstrings, and body)
     """
 
     def render_alias(
@@ -22,7 +38,24 @@ class PythonConstructRenderer:
         description: Optional[str],
         context: RenderContext,
     ) -> str:
-        """Renders a type alias assignment (e.g., UserId = str)."""
+        """
+        Render a type alias assignment as Python code.
+        
+        Args:
+            alias_name: The name for the type alias
+            target_type: The target type expression
+            description: Optional description for the docstring
+            context: The rendering context (not used for aliases)
+            
+        Returns:
+            Formatted Python code for the type alias
+        
+        Example:
+            ```python
+            UserId = str
+            """Alias for a user identifier"""
+            ```
+        """
         writer = CodeWriter()
         writer.write_line(f"{alias_name} = {target_type}")
         if description:
@@ -38,7 +71,29 @@ class PythonConstructRenderer:
         description: Optional[str],
         context: RenderContext,
     ) -> str:
-        """Renders an Enum class."""
+        """
+        Render an Enum class as Python code.
+        
+        Args:
+            enum_name: The name of the enum class
+            base_type: The base type, either 'str' or 'int'
+            values: List of (member_name, value) pairs
+            description: Optional description for the docstring
+            context: The rendering context for import registration
+            
+        Returns:
+            Formatted Python code for the enum class
+            
+        Example:
+            ```python
+            @unique
+            class Color(str, Enum):
+                \"\"\"Color options available in the API\"\"\"
+                RED = "red"
+                GREEN = "green"
+                BLUE = "blue"
+            ```
+        """
         writer = CodeWriter()
         context.add_import("enum", "Enum")
         context.add_import("enum", "unique")
@@ -80,7 +135,29 @@ class PythonConstructRenderer:
         description: Optional[str],
         context: RenderContext,
     ) -> str:
-        """Renders a dataclass."""
+        """
+        Render a dataclass as Python code.
+        
+        Args:
+            class_name: The name of the dataclass
+            fields: List of (name, type_hint, default_expr, description) tuples for each field
+            description: Optional description for the class docstring
+            context: The rendering context for import registration
+            
+        Returns:
+            Formatted Python code for the dataclass
+            
+        Example:
+            ```python
+            @dataclass
+            class User:
+                \"\"\"User information.\"\"\"
+                id: str
+                name: str
+                email: Optional[str] = None
+                is_active: bool = True
+            ```
+        """
         writer = CodeWriter()
         context.add_import("dataclasses", "dataclass")
 
@@ -136,7 +213,28 @@ class PythonConstructRenderer:
         body_lines: Optional[List[str]],
         context: RenderContext,
     ) -> str:
-        """Renders a generic class definition."""
+        """
+        Render a generic class definition as Python code.
+        
+        Args:
+            class_name: The name of the class
+            base_classes: Optional list of base class names (for inheritance)
+            docstring: Optional class docstring content
+            body_lines: Optional list of code lines for the class body
+            context: The rendering context (not used for generic classes)
+            
+        Returns:
+            Formatted Python code for the class
+            
+        Example:
+            ```python
+            class CustomError(Exception):
+                \"\"\"Raised when a custom error occurs.\"\"\"
+                def __init__(self, message: str, code: int):
+                    self.code = code
+                    super().__init__(message)
+            ```
+        """
         writer = CodeWriter()
         bases = f"({', '.join(base_classes)})" if base_classes else ""
         writer.write_line(f"class {class_name}{bases}:")

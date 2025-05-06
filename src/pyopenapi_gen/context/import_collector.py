@@ -1,17 +1,34 @@
+"""
+ImportCollector: Manages imports for generated Python modules.
+
+This module provides the ImportCollector class, which collects, organizes, and formats
+import statements for Python modules. It supports various import styles, including standard,
+direct, relative, and plain imports, with methods to add and query import statements.
+"""
+
 from collections import defaultdict
-from typing import Dict, List, Set  # Added Set
+from typing import Dict, List, Set
 import logging
 
-# Get logger
+# Initialize module logger
 logger = logging.getLogger(__name__)
 
 
 class ImportCollector:
-    """Manages imports for generated Python modules.
-
-    This class helps collect and organize imports in a structured way,
-    ensuring consistency across all generated files.
-
+    """
+    Manages imports for generated Python modules.
+    
+    This class collects and organizes imports in a structured way, ensuring
+    consistency across all generated files. It provides methods to add different
+    types of imports and generate properly formatted import statements.
+    
+    Attributes:
+        imports: Dictionary mapping module names to sets of imported names
+                (for standard imports like `from typing import List`)
+        direct_imports: Dictionary for direct imports (similar to imports)
+        relative_imports: Dictionary for relative imports (like `from .models import Pet`)
+        plain_imports: Set of module names for plain imports (like `import json`)
+    
     Example usage:
         imports = ImportCollector()
         imports.add_import("dataclasses", "dataclass")
@@ -23,7 +40,8 @@ class ImportCollector:
     """
 
     def __init__(self) -> None:
-        # Standard imports (import x or from x import y)
+        """Initialize a new ImportCollector with empty collections for all import types."""
+        # Standard imports (from x import y)
         self.imports: Dict[str, Set[str]] = {}
         # Direct imports like 'from datetime import date'
         self.direct_imports: Dict[str, Set[str]] = {}
@@ -33,53 +51,98 @@ class ImportCollector:
         self.plain_imports: set[str] = set()
 
     def add_import(self, module: str, name: str) -> None:
-        """Add an import from a specific module."""
+        """
+        Add an import from a specific module.
+        
+        Args:
+            module: The module to import from (e.g., "typing")
+            name: The name to import (e.g., "List")
+        """
         if module not in self.imports:
             self.imports[module] = set()
         self.imports[module].add(name)
 
     def add_imports(self, module: str, names: List[str]) -> None:
-        """Add multiple imports from a module."""
+        """
+        Add multiple imports from a module.
+        
+        Args:
+            module: The module to import from
+            names: List of names to import
+        """
         for name in names:
             self.add_import(module, name)
 
     def add_typing_import(self, name: str) -> None:
-        """Shortcut for adding typing imports."""
+        """
+        Shortcut for adding typing imports.
+        
+        Args:
+            name: The typing name to import (e.g., "List", "Optional")
+        """
         self.add_import("typing", name)
 
     def add_direct_import(self, module: str, name: str) -> None:
-        """Add direct import (from x import y)."""
+        """
+        Add direct import (from x import y).
+        
+        Args:
+            module: The module to import from
+            name: The name to import
+        """
         if module not in self.direct_imports:
             self.direct_imports[module] = set()
         self.direct_imports[module].add(name)
 
     def add_relative_import(self, module: str, name: str) -> None:
-        """Add a relative import module and name."""
-        # # <<< DEBUG PRINT -> If re-enabled, ensure logger or sys is available >>>
-        # print(f"DEBUG [add_relative_import]: Adding module='{module}', name='{name}'", file=sys.stderr)
-        # # <<< END DEBUG >>>
+        """
+        Add a relative import module and name.
+        
+        Args:
+            module: The relative module path (e.g., ".models")
+            name: The name to import
+        """
         if module not in self.relative_imports:
             self.relative_imports[module] = set()
         self.relative_imports[module].add(name)
 
     def add_plain_import(self, module: str) -> None:
-        """Add a plain import (import x)."""
+        """
+        Add a plain import (import x).
+        
+        Args:
+            module: The module to import
+        """
         self.plain_imports.add(module)
 
     def has_import(self, module: str, name: str) -> bool:
-        """Check if a specific import exists."""
+        """
+        Check if a specific import exists.
+        
+        Args:
+            module: The module to check
+            name: The imported name to check
+            
+        Returns:
+            True if the import exists, False otherwise
+        """
         return module in self.imports and name in self.imports[module]
 
     def get_import_statements(self, current_module_path: str | None = None) -> list[str]:
-        """Generate import statements, potentially filtering relative imports."""
-        import_lines = []
-
-        # # +++ Add logging +++
-        # logger.debug(f"get_import_statements CALLED. self.imports = {self.imports}")
-        # logger.debug(f"  self.plain_imports = {self.plain_imports}")
-        # logger.debug(f"  self.relative_imports = {self.relative_imports}")
-        # # +++ End logging +++
-
+        """
+        Generate import statements, potentially filtering relative imports.
+        
+        This method generates properly formatted import statements for all
+        registered imports, organized by type (plain, standard, relative)
+        and sorted alphabetically.
+        
+        Args:
+            current_module_path: Optional path of the current module, used to
+                                filter out self-referential imports
+            
+        Returns:
+            List of import statements as strings
+        """
         # Standard imports (absolute)
         standard_import_lines = []
         for module, names in sorted(self.imports.items()):
@@ -91,35 +154,40 @@ class ImportCollector:
         for module in sorted(self.plain_imports):
             plain_import_lines.append(f"import {module}")
 
-        # Relative imports
-        relative_import_lines = []
-
-        # The HACK related to "union_agent_response_dict_str_any" should be permanently removed
-        # as the underlying issue was fixed.
-
+        # Relative imports - filter out self-referential imports
         filtered_relative_imports = defaultdict(set)
         for module, names in self.relative_imports.items():
-            if not module.startswith(".") or module != current_module_path:  # Condition from original utils.py
+            if not module.startswith(".") or module != current_module_path:
                 filtered_relative_imports[module].update(names)
 
+        # Format relative imports
+        relative_import_lines = []
         for module, names in sorted(filtered_relative_imports.items()):
             names_str = ", ".join(sorted(list(names)))
-            # # ----> Add print right before formatting <---- (If re-enabled, ensure logger or sys)
-            # print(
-            #     f"DEBUG [get_import_statements]: Formatting relative import: module='{module}', names='{names_str}'",
-            #     file=sys.stderr
-            # )
             relative_import_lines.append(f"from {module} import {names_str}")
 
+        # Combine all import lines in the proper order
         import_lines = sorted(plain_import_lines) + sorted(standard_import_lines) + sorted(relative_import_lines)
         return import_lines
 
     def get_formatted_imports(self) -> str:
-        """Return the import statements as a formatted string."""
+        """
+        Return the import statements as a formatted string.
+        
+        Returns:
+            A newline-separated string of import statements
+        """
         return "\n".join(self.get_import_statements())
 
     def merge(self, other: "ImportCollector") -> None:
-        """Merge imports from another ImportCollector instance."""
+        """
+        Merge imports from another ImportCollector instance.
+        
+        This method combines all imports from the other collector into this one.
+        
+        Args:
+            other: Another ImportCollector instance to merge imports from
+        """
         for module, names in other.imports.items():
             if module not in self.imports:
                 self.imports[module] = set()

@@ -50,14 +50,8 @@ class EndpointVisitor(Visitor[IROperation, str]):
         self._write_docstring(writer, op, context)
         has_header_params = self._write_url_and_args(writer, op, context, ordered_params, body_type)
         self._write_request(writer, op, has_header_params)
-        # Change: Expect 2-tuple
+        # Get return type and whether it needs unwrapping
         return_type, needs_unwrap = get_return_type(op, context, self.schemas)
-
-        # # +++ Add logging for needs_unwrap in visit_IROperation +++
-        # logger.info(
-        #     f"visit_IROperation for op '{op.operation_id}': received needs_unwrap = {needs_unwrap}, return_type = {return_type}"
-        # )
-        # # +++ End logging +++
 
         writer.write_line("# Parse response into correct return type")
 
@@ -343,18 +337,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
             context: The RenderContext for import tracking.
         """
         context.add_import("typing", "cast")
-        # Ensure logical core package name is used
-        # --- LOGGING START ---
-        # http_module_str = f"{context.core_package}.http_transport"
-        # streaming_module_str = f"{context.core_package}.streaming_helpers"
-        # print(f"[EndpointVisitor.emit_class] context.core_package = '{context.core_package}'")
-        # print(f"[EndpointVisitor.emit_class] Passing http_module_str to add_import: '{http_module_str}'")
-        # context.add_import(http_module_str, "HttpTransport")
-        # print(f"[EndpointVisitor.emit_class] Passing streaming_module_str to add_import: '{streaming_module_str}'")
-        # context.add_import(streaming_module_str, "iter_bytes")
-        # --- LOGGING END ---
-        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")  # Use direct f-string again
-        context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")  # Use direct f-string again
+        # Import core transport and streaming helpers
+        context.add_import(f"{context.core_package}.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package}.streaming_helpers", "iter_bytes")
         context.add_import("typing", "Callable")
         context.add_import("typing", "Optional")
         writer = CodeWriter()

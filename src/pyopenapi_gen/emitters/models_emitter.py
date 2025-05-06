@@ -68,15 +68,6 @@ class ModelsEmitter:
             file_path = models_dir / f"{module_name}.py"
 
             context.set_current_file(str(file_path))
-
-            # # <<< DEBUG PRINT >>>
-            # print(f"DEBUG [ModelsEmitter]: Visiting schema: '{name}'", file=sys.stderr)
-            # # <<< END DEBUG >>>
-
-            # # <<< NEW DEBUG PRINT >>>
-            # print(f"DEBUG [ModelsEmitter]: Loop name='{name}', Schema name='{schema.name}', Schema type='{schema.type}', Has enum='{bool(schema.enum)}'", file=sys.stderr)
-            # # <<< END NEW DEBUG >>>
-
             model_code = self.visitor.visit(schema, context)
 
             if model_code.strip():
@@ -144,6 +135,5 @@ class ModelsEmitter:
         if all_items:
             writer.write_line("")  # Blank line before __all__
             writer.write_line(f"__all__ = [{', '.join(all_items)}]")
-        # else: # No need to write empty __all__
 
         context.file_manager.write_file(str(init_path), writer.get_code())

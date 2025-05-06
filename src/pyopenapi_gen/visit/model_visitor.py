@@ -1,4 +1,10 @@
-import sys  # Add import
+"""
+ModelVisitor: Transforms IRSchema objects into Python model code (dataclasses and enums).
+
+This module provides the ModelVisitor class that generates Python code for data models
+defined in OpenAPI specifications, supporting type aliases, enums, and dataclasses.
+"""
+
 from typing import Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IRSchema
@@ -13,16 +19,38 @@ from .visitor import Visitor
 class ModelVisitor(Visitor[IRSchema, str]):
     """
     Visitor for rendering a Python model (dataclass or enum) from an IRSchema.
+    
+    This visitor analyzes an IRSchema and generates the appropriate Python construct:
+    - Type aliases for primitive or array types with names
+    - Enums for string or integer types with enum values
+    - Dataclasses for object types with properties
+    
     Returns the rendered code as a string (does not write files).
-    Only adds imports/types to the context if they are actually used in the rendered code for the module.
+    Only adds imports/types to the context if they are actually used in the rendered code.
     """
 
     def __init__(self, schemas: Optional[Dict[str, IRSchema]] = None) -> None:
+        """
+        Initialize a new ModelVisitor.
+        
+        Args:
+            schemas: Dictionary of all schemas for reference resolution
+        """
         self.formatter = Formatter()
         self.schemas = schemas or {}
         self.renderer = PythonConstructRenderer()
 
     def visit_IRSchema(self, schema: IRSchema, context: RenderContext) -> str:
+        """
+        Visit an IRSchema node and generate Python code for it.
+        
+        Args:
+            schema: The schema to visit
+            context: The rendering context for imports and configuration
+            
+        Returns:
+            Formatted Python code for the model as a string
+        """
         # ---- Type Alias Detection ----
         is_primitive_alias = (
             schema.name and not schema.properties and schema.type in ("string", "integer", "number", "boolean")
@@ -35,19 +63,6 @@ class ModelVisitor(Visitor[IRSchema, str]):
 
         # --- Dataclass Detection ---
         is_dataclass = not is_enum and not is_type_alias
-
-        # --- Debug Print for Success.success ---
-        if schema.name == "Success.success":
-            print(f"DEBUG [ModelVisitor]: Classifying 'Success.success':", file=sys.stderr)
-            print(f"  - schema.enum: {schema.enum}", file=sys.stderr)
-            print(f"  - schema.type: {schema.type}", file=sys.stderr)
-            print(f"  - schema.properties: {schema.properties}", file=sys.stderr)
-            print(f"  - is_primitive_alias: {is_primitive_alias}", file=sys.stderr)
-            print(f"  - is_array_alias: {is_array_alias}", file=sys.stderr)
-            print(f"  - is_type_alias: {is_type_alias}", file=sys.stderr)
-            print(f"  - is_enum: {is_enum}", file=sys.stderr)
-            print(f"  - is_dataclass: {is_dataclass}", file=sys.stderr)
-        # --- End Debug Print ---
 
         # --- Basic Validation & Skipping ---
         if not schema.name and (is_type_alias or is_enum or is_dataclass):
@@ -131,9 +146,17 @@ class ModelVisitor(Visitor[IRSchema, str]):
 
         return self.formatter.format(rendered_code)
 
-    # --- Helper to get default expression ---
     def _get_field_default(self, ps: IRSchema, context: RenderContext) -> Optional[str]:
-        """Determines the default value expression string for a dataclass field."""
+        """
+        Determines the default value expression string for a dataclass field.
+        
+        Args:
+            ps: The property schema to analyze
+            context: The rendering context
+            
+        Returns:
+            A string representing the Python default value expression
+        """
         if ps.type == "array":
             return "field(default_factory=list)"
         elif ps.type == "object" and ps.name is None and not ps.any_of and not ps.one_of and not ps.all_of:
@@ -143,31 +166,19 @@ class ModelVisitor(Visitor[IRSchema, str]):
             # Primitives, enums, named objects, unions default to None when optional
             return "None"
 
-    # --- Other Private Helpers (Keep _analyze_and_register_imports, _get_field_default) ---
-
     def _analyze_and_register_imports(self, schema: IRSchema, context: RenderContext) -> None:
-        # Add imports based on the schema type itself (Keep basic ones, helper handles deeper types)
-        # The helper get_python_type_for_schema will register most typing imports needed
-        # for the types it returns. However, we might still need some base imports registered
-        # early, or analyze structure for dataclass/enum imports.
-
-        # Imports for the *construct* being generated (handled by PythonConstructRenderer now)
-        # if schema.enum and schema.type in ("string", "integer") and schema.name: context.add_import("enum", "Enum"), etc.
-        # if not schema.enum and not is_type_alias and schema.name: context.add_import("dataclasses", "dataclass")
-
-        # Imports for structural types (List, Union, Dict, Optional) are handled by get_python_type_for_schema
-        # when it encounters arrays, compositions, nullability etc.
-        # Call the helper to ensure types within properties/items/composition are analyzed and imports registered.
+        """
+        Analyze a schema and register necessary imports for the generated code.
+        
+        This ensures that all necessary types used in the model are properly imported
+        in the generated Python file.
+        
+        Args:
+            schema: The schema to analyze
+            context: The rendering context for import registration
+        """
+        # Call the helper to ensure types within properties/items/composition are analyzed 
+        # and imports registered
         _ = get_python_type_for_schema(
             schema, self.schemas, context, required=True
-        )  # Call mainly for import side effects
-
-        # Consider if this method is still needed or if logic can be merged into visit_IRSchema
-        # or fully handled by the type helper + construct renderer calls.
-        # For now, keep it simple and rely on the helper call above.
-
-    # REMOVED: _get_python_type method - replaced by helper
-
-    # Keep: _get_field_default method
-
-    # REMOVED: _get_default_factory - logic moved to _get_field_default
+        )

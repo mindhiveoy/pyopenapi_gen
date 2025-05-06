@@ -1,3 +1,11 @@
+"""
+Pagination utilities for handling paginated API endpoints.
+
+This module provides functions for working with paginated API responses,
+turning them into convenient async iterators that automatically handle
+fetching subsequent pages.
+"""
+
 from typing import AsyncIterator, Callable, Any, Dict, Awaitable
 
 
@@ -8,10 +16,36 @@ def paginate_by_next(
     **params: Any,
 ) -> AsyncIterator[Any]:
     """
-    Generic asynchronous paginator.
-
-    Calls `fetch_page(**params)` repeatedly, yielding each element in the returned mapping under `items_key`.
-    Uses mapping[next_key] to retrieve the token for the next page. Stops when no token is provided.
+    Create an async iterator that yields items from paginated API responses.
+    
+    This function creates a paginator that automatically handles fetching
+    subsequent pages of results by using a "next page token" pattern. It calls
+    the provided `fetch_page` function repeatedly with the given parameters,
+    updating the next token parameter between calls.
+    
+    Args:
+        fetch_page: Async function to fetch a page of results
+        items_key: The key in the response dict where items are located (default: "items")
+        next_key: The key in the response dict for the next page token (default: "next")
+        **params: Initial parameters to pass to fetch_page
+        
+    Returns:
+        An AsyncIterator that yields individual items from all pages
+        
+    Example:
+        ```python
+        async def fetch_users_page(page_token=None, limit=100):
+            url = f"/users?limit={limit}"
+            if page_token:
+                url += f"&page_token={page_token}"
+            return await http_client.get(url)
+            
+        async for user in paginate_by_next(fetch_users_page, 
+                                          items_key="users", 
+                                          next_key="page_token",
+                                          limit=50):
+            print(user["name"])
+        ```
     """
 
     async def _paginate() -> AsyncIterator[Any]:
