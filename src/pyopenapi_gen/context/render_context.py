@@ -4,8 +4,8 @@ import re
 import sys
 from typing import Optional, Set
 
-from ..core.utils import ImportCollector
 from .file_manager import FileManager
+from .import_collector import ImportCollector
 
 logger = logging.getLogger(__name__)
 
