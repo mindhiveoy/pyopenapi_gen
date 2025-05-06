@@ -68,23 +68,26 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: 
 def get_return_type(
     op: IROperation,
     context: RenderContext,
-    schemas: Dict[str, IRSchema],  # Pass schemas dict
-) -> str:
+    schemas: Dict[str, IRSchema],
+) -> tuple[str, bool]:
     """
     Determines the primary return type hint for an operation.
     Detects and handles response unwrapping if the success schema is an object
     with a single 'data' property.
+
+    Returns:
+        A tuple: (Python type hint string, boolean indicating if unwrapping occurred).
     """
     # Find the best success response (200, 201, etc.)
     resp = _get_primary_response(op)
 
     if not resp or not resp.content or resp.status_code == "204":
-        return "None"
+        return ("None", False)
 
     schema, mt = _get_response_schema_and_content_type(resp)
 
     if not schema:
-        return "Any"  # Fallback if no schema found for content type
+        return ("Any", False)
 
     # --- Unwrapping Logic ---
     should_unwrap = False
@@ -97,7 +100,6 @@ def get_return_type(
             should_unwrap = True
             data_schema = properties["data"]
             # Get the original wrapper type string BEFORE potentially unwrapping
-            # This ensures the wrapper model (e.g., TenantResponse) is imported if needed for deserialization
             wrapper_type_str = get_python_type_for_schema(schema, schemas, context, required=True)
             if wrapper_type_str and wrapper_type_str != "Any" and "." in wrapper_type_str:
                 # Ensure the wrapper type is imported even if we return the inner type
@@ -125,12 +127,10 @@ def get_return_type(
             item_type = "models" + item_type
         context.add_import("typing", "AsyncIterator")
         context.add_plain_import("collections.abc")
-        return f"AsyncIterator[{item_type}]"
+        return (f"AsyncIterator[{item_type}]", False)
 
     # Handle regular response schema (or unwrapped schema)
-    py_type = get_python_type_for_schema(
-        final_schema, schemas, context, required=True
-    )  # Response implies required content
+    py_type = get_python_type_for_schema(final_schema, schemas, context, required=True)
 
     # Adjust model import path for endpoints (expecting models.<module>)
     # This adjustment might be redundant if get_python_type_for_schema handles context correctly,
@@ -138,7 +138,7 @@ def get_return_type(
     if py_type.startswith(".") and not py_type.startswith(".."):
         py_type = "models" + py_type
 
-    return py_type
+    return (py_type, should_unwrap)
 
 
 def _get_primary_response(op: IROperation) -> Optional[IRResponse]:
@@ -236,7 +236,7 @@ def merge_params_with_model_fields(
     op: IROperation,
     model_schema: IRSchema,
     context: RenderContext,
-    schemas: Dict[str, IRSchema],  # Pass schemas dict
+    schemas: Dict[str, IRSchema],
 ) -> List[Dict[str, Any]]:
     """
     Merge endpoint parameters with required model fields for function signatures.

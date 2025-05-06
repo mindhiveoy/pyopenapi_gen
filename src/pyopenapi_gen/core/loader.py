@@ -181,6 +181,15 @@ def _parse_schema(
     items_schema = _parse_schema(None, items, raw_schemas, schemas, _visited) if items is not None else None
     enum_values = node.get("enum")
 
+    # <<< Start: Parse additionalProperties >>>
+    raw_add_props = node.get("additionalProperties")
+    add_props_value: Optional[bool | IRSchema] = None
+    if isinstance(raw_add_props, bool):
+        add_props_value = raw_add_props
+    elif isinstance(raw_add_props, dict):
+        add_props_value = _parse_schema(None, raw_add_props, raw_schemas, schemas, _visited)
+    # <<< End: Parse additionalProperties >>>
+
     # --- Data wrapper detection --- (Keep existing logic)
     is_data_wrapper = schema_type == "object" and "data" in properties and "data" in required_fields
 
@@ -199,6 +208,7 @@ def _parse_schema(
         any_of=any_of_schemas,
         one_of=one_of_schemas,
         all_of=all_of_schemas,
+        additional_properties=add_props_value,
         # Other flags
         is_data_wrapper=is_data_wrapper,
     )

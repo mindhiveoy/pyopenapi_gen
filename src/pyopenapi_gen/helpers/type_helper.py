@@ -1,7 +1,7 @@
 """Helper functions for determining Python types and managing related imports from IRSchema."""
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .. import IRSchema
 from ..context.render_context import RenderContext
@@ -32,15 +32,15 @@ def get_python_type_for_schema(
     Returns:
         The Python type hint string (e.g., "Optional[str]", "List[MyModel]").
     """
-    py_type: str | None = None  # Default type - Use None to track if set
+    py_type: str | None = None
 
     # --- Handle Composition --- (anyOf, oneOf, allOf)
     union_types: List[str] = []
     if schema.any_of:
         union_types.extend(get_python_type_for_schema(sub, schemas, context, required=True) for sub in schema.any_of)
-    if schema.one_of:  # Treat oneOf as Union for type hinting
+    if schema.one_of:
         union_types.extend(get_python_type_for_schema(sub, schemas, context, required=True) for sub in schema.one_of)
-    if schema.all_of:  # Treat allOf as Union for now (simplification)
+    if schema.all_of:
         union_types.extend(get_python_type_for_schema(sub, schemas, context, required=True) for sub in schema.all_of)
 
     if union_types:
@@ -97,13 +97,25 @@ def get_python_type_for_schema(
                 py_type = f"List[{item_type}]"
                 context.add_import("typing", "List")
             elif schema.type == "object":  # Object type
-                if schema.properties:
+                # <<< Start Change: Handle additionalProperties using IRSchema field >>>
+                if schema.additional_properties is True or isinstance(schema.additional_properties, IRSchema):
+                    # If additionalProperties allows anything or has its own schema, treat as Dict
+                    # TODO: Could refine to use schema of additionalProperties if available
+                    py_type = "Dict[str, Any]"
+                    context.add_import("typing", "Dict")
+                    context.add_import("typing", "Any")
+                elif schema.properties:
+                    # If it has properties but no additionalProperties (or additionalProperties=False),
+                    # it should be treated like a named model if it has a name, otherwise maybe Dict or Any?
+                    # For now, let's assume if it reaches here without a name/ref, it's Dict
                     py_type = "Dict[str, Any]"
                     context.add_import("typing", "Dict")
                     context.add_import("typing", "Any")
                 else:
-                    py_type = "Any"  # Treat object with no props/additionalProps as Any
+                    # No properties, no additionalProperties -> Treat as Any
+                    py_type = "Any"
                     context.add_import("typing", "Any")
+                # <<< End Change >>>
             # Fallback / Unknown schema.type
             else:
                 py_type = "Any"
@@ -120,7 +132,6 @@ def get_python_type_for_schema(
     is_optional = not required or schema.is_nullable
     if is_optional and py_type != "Any":  # Don't wrap Any
         if py_type.startswith("Union["):
-            # Add None to existing Union
             if "None" not in py_type:
                 py_type = py_type.replace("]", ", None]")
         else:

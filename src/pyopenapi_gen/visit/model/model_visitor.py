@@ -137,9 +137,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
 
         if schema.type == "array" and schema.items:
             # Get item type, ensuring nested types are processed and imported
-            item_type = get_python_type_for_schema(
-                schema.items, self.schemas, context, required=True
-            )  # Array items are always non-optional within the List
+            item_type = get_python_type_for_schema(schema.items, self.schemas, context, required=True)
             target_type = f"List[{item_type}]"
             context.add_import("typing", "List")
         elif schema.type in ("string", "integer", "number", "boolean"):
@@ -193,12 +191,15 @@ class ModelVisitor(Visitor[IRSchema, str]):
 
         # Add unique decorator
         writer.write_line("@unique")
-        # <<< End Changes >>>
-
-        # Use base_type for class definition (already derived in visit_IRSchema, but let's be explicit)
-        base_type = "str" if schema.type == "string" else "int"
-        writer.write_line(f"class {class_name}({base_type}, Enum):")
+        # Determine the base type (e.g., str, int)
+        # Change: Expect str
+        base_type_str = get_python_type_for_schema(schema, self.schemas, context, required=True)
+        # Fix: If base type is bool, use int for Enum inheritance
+        if base_type_str == "bool":
+            base_type_str = "int"
+        writer.write_line(f"class {class_name}({base_type_str}, Enum):")
         writer.indent()
+        # <<< End Changes >>>
 
         summary = schema.description or f"An enumeration."
         writer.write_line(f'"""{summary}"""')
@@ -271,20 +272,21 @@ class ModelVisitor(Visitor[IRSchema, str]):
                 prop_name_sanitized = NameSanitizer.sanitize_method_name(prop)
                 is_required = prop in (schema.required or [])
                 # Determine type string AND register imports via helper
-                py_type = get_python_type_for_schema(ps, self.schemas, context, required=is_required)
+                # Change: Expect str
+                py_type_str = get_python_type_for_schema(ps, self.schemas, context, required=is_required)
                 desc = ps.description or ""
-                field_args.append((prop_name_sanitized, py_type, desc))
+                field_args.append((prop_name_sanitized, py_type_str, desc))
 
                 # Track property characteristics for explicit imports
                 if not is_required:
                     has_optional_props = True
-                if "List[" in py_type:
+                if "List[" in py_type_str:
                     has_list_props = True
-                if "Dict[" in py_type:
+                if "Dict[" in py_type_str:
                     has_dict_props = True
-                if "Union[" in py_type:
+                if "Union[" in py_type_str:
                     has_union_props = True
-                if "Any" in py_type:
+                if "Any" in py_type_str:
                     has_any_props = True
 
                 # Prepare default value if necessary
@@ -293,12 +295,12 @@ class ModelVisitor(Visitor[IRSchema, str]):
                     # Optional fields default to None
                     default_value = " = None"
                     optional_props.append(prop_name_sanitized)
-                elif py_type.startswith("List[") and is_required:
+                elif py_type_str.startswith("List[") and is_required:
                     # Required lists should default to empty list via factory
                     default_factory = "list"
                     default_value = f" = field(default_factory={default_factory})"
                     needs_field_import = True
-                elif py_type.startswith("Dict[") and is_required:
+                elif py_type_str.startswith("Dict[") and is_required:
                     # Required dicts should default to empty dict via factory
                     default_factory = "dict"
                     default_value = f" = field(default_factory={default_factory})"
@@ -339,8 +341,10 @@ class ModelVisitor(Visitor[IRSchema, str]):
         if schema.properties:
             docstring_lines.append("Attributes:")
             # Unpack 3 values consistently
-            for prop_name, py_type, desc in field_args:
-                docstring_lines.append(f"    {prop_name} ({py_type}): {desc if desc else 'No description provided.'}")
+            for prop_name, py_type_str, desc in field_args:
+                docstring_lines.append(
+                    f"    {prop_name} ({py_type_str}): {desc if desc else 'No description provided.'}"
+                )
         # TODO: Add example from schema.example if present
         # Write multi-line docstring using write_line
         writer.write_line('"""')
@@ -354,40 +358,40 @@ class ModelVisitor(Visitor[IRSchema, str]):
             writer.write_line("pass")  # Ensure class body is not empty
         else:
             # Write required fields first
-            for prop_name, py_type, _ in field_args:
+            for prop_name, py_type_str, _ in field_args:
                 if prop_name in required_props:
                     # Determine if default factory is needed for required list/dict
                     df = None
-                    if py_type.startswith("List["):
+                    if py_type_str.startswith("List["):
                         df = "list"
-                    elif py_type.startswith("Dict["):
+                    elif py_type_str.startswith("Dict["):
                         df = "dict"
 
                     if df:
-                        writer.write_line(f"{prop_name}: {py_type} = field(default_factory={df})")
+                        writer.write_line(f"{prop_name}: {py_type_str} = field(default_factory={df})")
                         needs_field_import = True  # Re-check in case it wasn't set before
                     else:
-                        writer.write_line(f"{prop_name}: {py_type}")
+                        writer.write_line(f"{prop_name}: {py_type_str}")
 
             # Write optional fields (with defaults or None)
-            for prop_name, py_type, _ in field_args:
+            for prop_name, py_type_str, _ in field_args:
                 if prop_name in optional_props:
                     # Always default optional fields to None unless a default_factory was needed (handled above)
                     # Check if it's a field that needs a default factory (shouldn't happen for optional unless
                     # explicitly defaulted in schema, which we are not handling yet)
                     df = None
-                    if py_type.startswith("List["):
+                    if py_type_str.startswith("List["):
                         df = "list"
-                    elif py_type.startswith("Dict["):
+                    elif py_type_str.startswith("Dict["):
                         df = "dict"
 
                     if (
                         df and prop_name not in required_props
                     ):  # Optional fields needing factory (less common, maybe default=[] in schema?)
-                        writer.write_line(f"{prop_name}: {py_type} = field(default_factory={df})")
+                        writer.write_line(f"{prop_name}: {py_type_str} = field(default_factory={df})")
                         needs_field_import = True
                     else:  # Standard optional field defaults to None
-                        writer.write_line(f"{prop_name}: {py_type} = None")
+                        writer.write_line(f"{prop_name}: {py_type_str} = None")
 
         writer.dedent()
         # Re-add field import if needed after processing all fields

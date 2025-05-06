@@ -127,6 +127,7 @@ class IRSchema:
     any_of: Optional[List["IRSchema"]] = None  # List of schemas for anyOf composition
     one_of: Optional[List["IRSchema"]] = None  # List of schemas for oneOf composition
     all_of: Optional[List["IRSchema"]] = None  # List of schemas for allOf composition (alternative to merging)
+    additional_properties: Optional[bool | "IRSchema"] = None  # True, False, or a sub-schema
     # -- End added fields --
 
     _from_unresolved_ref: bool = False  # Marker for unresolved $ref fallback

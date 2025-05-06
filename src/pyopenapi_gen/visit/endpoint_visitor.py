@@ -50,7 +50,40 @@ class EndpointVisitor(Visitor[IROperation, str]):
         self._write_docstring(writer, op, context)
         has_header_params = self._write_url_and_args(writer, op, context, ordered_params, body_type)
         self._write_request(writer, op, has_header_params)
-        self._write_response_parsing(writer, op, context)
+        # Change: Expect 2-tuple
+        return_type, needs_unwrap = get_return_type(op, context, self.schemas)
+
+        writer.write_line("# Parse response into correct return type")
+
+        # Change: Use improved regex to parse Union components
+        match = re.match(r"Union\[(.*?)\s*,\s*(.*)\]", return_type)
+        if match:
+            type1_str = match.group(1).strip()
+            type2_str = match.group(2).strip()
+
+            # Import the component types explicitly
+            context.add_typing_imports_for_type(type1_str)
+            context.add_typing_imports_for_type(type2_str)
+
+            writer.write_line("try:")
+            writer.indent()
+            # Change: Restore specific cast
+            writer.write_line(f"    return cast({type1_str}, response.json())")
+            writer.dedent()
+            writer.write_line("except Exception: # TODO: More specific exception handling")
+            writer.indent()
+            # Change: Restore specific cast
+            writer.write_line(f"    return cast({type2_str}, response.json())")
+            writer.dedent()
+        elif return_type == "None":
+            writer.write_line("return None")
+        else:
+            context.add_typing_imports_for_type(return_type)
+            extraction_code = self._get_extraction_code(return_type, context, op, needs_unwrap)
+            writer.write_line(f"return {extraction_code}")
+
+        # Dedent from method body
+        writer.dedent()
         return writer.get_code()
 
     def _prepare_parameters(self, op: IROperation, context: RenderContext) -> tuple[list[dict[str, Any]], str | None]:
@@ -112,7 +145,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
         for p in ordered_params:
             context.add_typing_imports_for_type(p["type"])
         # Pass self.schemas to get_return_type
-        return_type = get_return_type(op, context, self.schemas)
+        return_type, _ = get_return_type(op, context, self.schemas)
         context.add_typing_imports_for_type(return_type)
         # Ensure plain import for collections.abc if AsyncIterator is used
         # Pass self.schemas when calling get_param_type indirectly
@@ -158,7 +191,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
             if any("multipart/form-data" in mt for mt in op.request_body.content):
                 args.append(("files", "Dict[str, IO[Any]]", "Multipart form files (if required)."))
         # Pass self.schemas to get_return_type
-        return_type = get_return_type(op, context, self.schemas)
+        return_type, _ = get_return_type(op, context, self.schemas)
         # Find the best response description
         response_desc = None
         for code in ("200", "201", "202", "default"):
@@ -289,23 +322,6 @@ class EndpointVisitor(Visitor[IROperation, str]):
         writer.dedent()
         writer.write_line(")")
 
-    def _write_response_parsing(self, writer: CodeWriter, op: IROperation, context: RenderContext) -> None:
-        """
-        Write the response parsing and return statement for the endpoint method, based on the return type.
-
-        Args:
-            writer: The CodeWriter to emit code to.
-            op: The IROperation node.
-            context: The RenderContext for type resolution.
-        """
-        # Pass self.schemas to get_return_type
-        return_type = get_return_type(op, context, self.schemas)
-        extraction_code = self._get_extraction_code(return_type, context, op)
-        context.add_typing_imports_for_type(return_type)
-        writer.write_line("# Parse response into correct return type")
-        writer.write_line(f"return {extraction_code}")
-        writer.dedent()
-
     def emit_endpoint_client_class(
         self,
         tag: str,
@@ -368,7 +384,7 @@ class EndpointVisitor(Visitor[IROperation, str]):
                 context.add_import("typing", "Any")
                 context.add_import("typing", "IO")
         # Analyze return type
-        return_type = get_return_type(op, context, self.schemas)
+        return_type, _ = get_return_type(op, context, self.schemas)
         context.add_typing_imports_for_type(return_type)
         # Ensure plain import for collections.abc if AsyncIterator is used
         if ("AsyncIterator" in return_type) or any(
@@ -420,59 +436,59 @@ class EndpointVisitor(Visitor[IROperation, str]):
         has_header_params = self._write_url_and_args(writer, op, context, ordered_params, body_type)
         # Write request call
         self._write_request(writer, op, has_header_params)
-        # Get the return type
-        return_type = get_return_type(op, context, self.schemas)
+        # Get the return type, unwrapping flag, and component types
+        return_type, needs_unwrap = get_return_type(op, context, self.schemas)
 
-        # <<< Restore Original Return Logic >>>
+        writer.write_line("# Parse response into correct return type")
+
         if return_type.startswith("Union["):
             context.add_import("typing", "Union")
             context.add_import("typing", "cast")
             context.add_import("typing", "Dict")
             context.add_import("typing", "Any")
 
-            # Attempt to parse Type1 and Type2 from Union[Type1, Type2]
-            # This is a simplification and might need refinement for >2 types or complex nested types
-            match = re.match(r"Union\[(.*?),(.*?)\]", return_type)
+            # Change: Use improved regex to parse Union components
+            match = re.match(r"Union\[(.*?)\s*,\s*(.*)\]", return_type)
             if match:
                 type1_str = match.group(1).strip()
                 type2_str = match.group(2).strip()
 
-                # Import the component types of the Union
+                # Import the component types explicitly
                 context.add_typing_imports_for_type(type1_str)
                 context.add_typing_imports_for_type(type2_str)
 
                 writer.write_line("try:")
                 writer.indent()
-                # Attempt to parse as the first type (assuming it's the primary model)
-                # We need to ensure Type1 is imported if it's a model
+                # Change: Restore specific cast
                 writer.write_line(f"    return cast({type1_str}, response.json())")
                 writer.dedent()
                 writer.write_line("except Exception: # TODO: More specific exception handling")
                 writer.indent()
-                # Attempt to parse as the second type (fallback, e.g., Dict[str, Any])
+                # Change: Restore specific cast
                 writer.write_line(f"    return cast({type2_str}, response.json())")
                 writer.dedent()
             else:
-                # Fallback if regex fails - cast to the full Union type (may not work well)
-                # Ensure the full Union[...] type string itself doesn't trigger bad imports
-                context.add_typing_imports_for_type(return_type)  # Import components
-                writer.write_line(f"return cast({return_type}, response.json())")
+                # Fallback if regex fails - cast to Any to avoid syntax error
+                # Log a warning here?
+                logger.warning(
+                    f"Could not parse Union components with regex: {return_type}. Falling back to cast(Any, ...)"
+                )
+                writer.write_line(f"return cast(Any, response.json())")
 
         elif return_type == "None":
-            pass
+            writer.write_line("return None")
         else:
-            # Handle single return types (including primitives, models, lists, etc.)
-            # Ensure the type itself is imported if it's a model or complex type
             context.add_typing_imports_for_type(return_type)
-            extraction_code = self._get_extraction_code(return_type, context, op)
+            extraction_code = self._get_extraction_code(return_type, context, op, needs_unwrap)
             writer.write_line(f"return {extraction_code}")
-        # <<< End Restored Logic >>>
 
         # Dedent from method body
         writer.dedent()
         return writer.get_code()
 
-    def _get_extraction_code(self, return_type: str, context: RenderContext, op: IROperation) -> str:
+    def _get_extraction_code(
+        self, return_type: str, context: RenderContext, op: IROperation, needs_unwrap: bool
+    ) -> str:
         """Generate the Python code snippet to parse the httpx.Response into the target return_type."""
         # Restore original logic
         if return_type == "str":
@@ -486,10 +502,15 @@ class EndpointVisitor(Visitor[IROperation, str]):
             return "None"
         else:
             # Assumes it's a model, list, dict, or primitive parsable from JSON
-            # We need to cast to the specific type for type checkers
             context.add_import("typing", "cast")
             context.add_typing_imports_for_type(return_type)
-            return f"cast({return_type}, response.json())"
+            if needs_unwrap:
+                # Access the 'data' attribute after parsing the JSON
+                # Assuming response.json() returns a dict-like structure
+                return f"cast({return_type}, response.json().get('data'))"
+            else:
+                # Original logic for non-unwrapped types
+                return f"cast({return_type}, response.json())"
 
     def _get_response_schema(self, op: IROperation) -> Any:
         # Prefer 200, then first 2xx, then default, then any
