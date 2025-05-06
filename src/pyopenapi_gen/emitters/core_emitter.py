@@ -13,6 +13,10 @@ RUNTIME_FILES = [
     ("pyopenapi_gen.core.auth", "plugins.py", "core/auth/plugins.py"),
 ]
 
+# +++ Add template README location +++
+CORE_README_TEMPLATE_MODULE = "pyopenapi_gen.core_package_template"
+CORE_README_TEMPLATE_FILENAME = "README.md"
+
 CONFIG_TEMPLATE = """
 from dataclasses import dataclass
 from typing import Optional
@@ -38,10 +42,13 @@ class CoreEmitter:
             dst = os.path.join(output_dir, rel_dst.replace("core/", "", 1))
             self.file_manager.ensure_dir(os.path.dirname(dst))
             # Use importlib.resources to read the file from the package
-            with importlib.resources.files(module).joinpath(filename).open("r") as f:
-                content = f.read()
-            self.file_manager.write_file(dst, content)
-            generated_files.append(dst)
+            try:
+                with importlib.resources.files(module).joinpath(filename).open("r") as f:
+                    content = f.read()
+                self.file_manager.write_file(dst, content)
+                generated_files.append(dst)
+            except FileNotFoundError:
+                print(f"Warning: Could not find runtime file {filename} in module {module}. Skipping.")
         # Always create __init__.py files for core and subfolders
         core_init = os.path.join(output_dir, "__init__.py")
         self.file_manager.write_file(core_init, "")
@@ -50,4 +57,22 @@ class CoreEmitter:
         self.file_manager.ensure_dir(os.path.dirname(auth_init))
         self.file_manager.write_file(auth_init, "")
         generated_files.append(auth_init)
+
+        # +++ Copy the core README template +++
+        readme_dst = os.path.join(output_dir, "README.md")
+        try:
+            with (
+                importlib.resources.files(CORE_README_TEMPLATE_MODULE)
+                .joinpath(CORE_README_TEMPLATE_FILENAME)
+                .open("r") as f
+            ):
+                readme_content = f.read()
+            self.file_manager.write_file(readme_dst, readme_content)
+            generated_files.append(readme_dst)
+        except FileNotFoundError:
+            print(
+                f"Warning: Could not find core README template {CORE_README_TEMPLATE_FILENAME} in {CORE_README_TEMPLATE_MODULE}. Skipping."
+            )
+        # +++ End copy +++
+
         return generated_files

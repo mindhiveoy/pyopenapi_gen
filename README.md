@@ -147,19 +147,23 @@ The generated client is organized as a real Python package, with a clear and mod
 ```my_api_client/
 ├── __init__.py
 ├── client.py                # Main APIClient class, tag clients as attributes
-├── config.py                # ClientConfig: env/TOML/kwarg config layering
 ├── core/                    # All runtime dependencies (see below)
+│   ├── __init__.py          # Added __init__.py
+│   ├── config.py            # ClientConfig <-- MOVED HERE
 │   ├── http_transport.py
 │   ├── exceptions.py
 │   ├── streaming_helpers.py
 │   ├── pagination.py
-│   ├── utils.py
+│   ├── README.md            # Added core README
 │   └── auth/
+│       ├── __init__.py      # Added __init__.py
 │       ├── base.py
 │       └── plugins.py
 ├── models/
+│   ├── __init__.py          # Added __init__.py
 │   ├── <model>.py           # One file per schema, all as dataclasses
 ├── endpoints/
+│   ├── __init__.py          # Added __init__.py
 │   ├── <tag>.py             # One file per tag, with async methods per operation
 └── ...
 ```
@@ -174,6 +178,7 @@ The generator is packed with features that make the generated client powerful, f
 - **Pluggable Auth**: Built-in Bearer and custom header auth plugins; easy to add more.
 - **Pagination Helpers**: Async iterators for cursor/page/offset-based pagination, auto-detected from the spec.
 - **Error Handling**: Uniform exception hierarchy (`HTTPError`, `ClientError`, `ServerError`), with spec-specific aliases if defined.
+- **Response Unwrapping**: Automatically unwraps common response wrapper patterns (e.g., `{ "data": ... }`) for simpler return types.
 - **Lazy Loading**: Uses `__getattr__` for efficient imports and memory usage.
 - **Config Layering**: Configure via constructor, environment variables, or TOML config file.
 - **CLI Tooling**: One-line CLI (`pyopenapi-gen gen <spec> -o <path>`) with diff-check, force overwrite, and plugin flags.
@@ -315,48 +320,11 @@ Each plugin will be applied in sequence, so you can flexibly combine any number 
 
 See the `.core.auth.plugins` module in your generated client for details and extension points.
 
----
-
-## Advanced Features
-
-Beyond the basics, the generator and generated clients include advanced features for real-world API integration, error handling, and configuration.
-
-- **Pagination**: Built-in async paginator for APIs using `next` tokens, page numbers, or offset.
-- **Error Mapping**: Maps HTTP status codes to exception classes; generates spec-specific exceptions if defined.
-- **Config Layering**: Supports constructor kwargs, environment variables (`PYOPENAPI_*`), and TOML config at `~/.config/pyopenapi-gen.toml`.
-- **Telemetry**: Optional, opt-in anonymous usage stats (disabled by default).
-- **Docs Generation**: Emit Markdown docs and publish via MkDocs Material.
-
----
-
-## Independence from pyopenapi_gen
-
-The generated client code is **fully independent** and does not require `pyopenapi_gen` at runtime. All runtime dependencies (HTTP transport, authentication, exceptions, utilities) are included in the generated `core/` module (or your custom core name). You can use the generated client in any Python project without installing the generator package.
-
-### Output Structure Example
-
-```bash
-my_generated_client/
-    core/
-        http_transport.py
-        exceptions.py
-        streaming_helpers.py
-        pagination.py
-        utils.py
-        config.py
-        auth/
-            base.py
-            plugins.py
-    models/
-    endpoints/
-    __init__.py
-    py.typed
-    README.md
-```
-
 ### Shared Core
 
 If you generate multiple clients for the same system, you can configure the generator to use a shared core module. In this case, import paths will be relative to the shared core location. See the generator options for details.
+
+> **Note:** A `README.md` file is included in the generated `core/` directory explaining client independence and shared core usage.
 
 ---
 

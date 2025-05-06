@@ -53,6 +53,12 @@ class EndpointVisitor(Visitor[IROperation, str]):
         # Change: Expect 2-tuple
         return_type, needs_unwrap = get_return_type(op, context, self.schemas)
 
+        # # +++ Add logging for needs_unwrap in visit_IROperation +++
+        # logger.info(
+        #     f"visit_IROperation for op '{op.operation_id}': received needs_unwrap = {needs_unwrap}, return_type = {return_type}"
+        # )
+        # # +++ End logging +++
+
         writer.write_line("# Parse response into correct return type")
 
         # Change: Use improved regex to parse Union components

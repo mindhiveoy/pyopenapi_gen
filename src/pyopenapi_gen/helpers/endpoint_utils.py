@@ -3,6 +3,7 @@ Helpers for endpoint code generation: parameter/type analysis, code writing, etc
 Used by EndpointVisitor and related emitters.
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
@@ -94,6 +95,14 @@ def get_return_type(
     data_schema: Optional[IRSchema] = None
     wrapper_type_str: Optional[str] = None
 
+    # # +++ Add logging +++
+    # logger = logging.getLogger(__name__)
+    # if isinstance(schema, IRSchema) and hasattr(schema, "name") and schema.name:
+    #     logger.info(f"get_return_type: Processing schema: {schema.name}, type: {getattr(schema, 'type', None)}")
+    #     if hasattr(schema, "properties"):
+    #         logger.info(f"get_return_type: Schema {schema.name} properties: {list(schema.properties.keys()) if schema.properties else 'None'}")
+    # # +++ End logging +++
+
     if isinstance(schema, IRSchema) and getattr(schema, "type", None) == "object" and hasattr(schema, "properties"):
         properties = schema.properties
         if len(properties) == 1 and "data" in properties:
@@ -119,7 +128,16 @@ def get_return_type(
     final_schema = data_schema if should_unwrap and data_schema else schema
     is_streaming = resp.stream and not should_unwrap  # Don't unwrap streams for now
 
-    # Handle streaming response (if not unwrapped)
+    # # +++ Add logging before decision logic +++
+    # logger.info(f"get_return_type PRE-DECISION for schema '{getattr(schema, 'name', 'anonymous_inline')}':")
+    # logger.info(f"  Initial should_unwrap: {should_unwrap} (set if len(props)==1 and 'data' in props)")
+    # logger.info(f"  resp.stream value: {resp.stream}")
+    # logger.info(f"  is_streaming (evaluates to: resp.stream AND (NOT should_unwrap)): {is_streaming}")
+    # logger.info(f"  data_schema is None: {data_schema is None}")
+    # if data_schema:
+    #     logger.info(f"  data_schema name: {getattr(data_schema, 'name', 'anonymous_inline_data_schema')}, type: {getattr(data_schema, 'type', 'N/A')}")
+    # # +++ End logging +++
+
     if is_streaming:
         item_type = get_python_type_for_schema(final_schema, schemas, context, required=True)
         # Adjust import path if needed (relative model -> models.<module>)
@@ -127,18 +145,21 @@ def get_return_type(
             item_type = "models" + item_type
         context.add_import("typing", "AsyncIterator")
         context.add_plain_import("collections.abc")
+        # # +++ Add logging for streaming return +++
+        # logger.info(f"  >>> RETURNING STREAMING: type={streaming_type}, final should_unwrap=False") # LOGGING
+        # # +++ End logging +++
         return (f"AsyncIterator[{item_type}]", False)
-
-    # Handle regular response schema (or unwrapped schema)
-    py_type = get_python_type_for_schema(final_schema, schemas, context, required=True)
-
-    # Adjust model import path for endpoints (expecting models.<module>)
-    # This adjustment might be redundant if get_python_type_for_schema handles context correctly,
-    # but kept for safety.
-    if py_type.startswith(".") and not py_type.startswith(".."):
-        py_type = "models" + py_type
-
-    return (py_type, should_unwrap)
+    else:
+        py_type = get_python_type_for_schema(final_schema, schemas, context, required=True)
+        # Adjust model import path for endpoints (expecting models.<module>)
+        # This adjustment might be redundant if get_python_type_for_schema handles context correctly,
+        # but kept for safety.
+        if py_type.startswith(".") and not py_type.startswith(".."):
+            py_type = "models" + py_type
+        # # +++ Add logging for regular return +++
+        # logger.info(f"  >>> RETURNING REGULAR: type={py_type}, final should_unwrap={should_unwrap}") # LOGGING
+        # # +++ End logging +++
+        return (py_type, should_unwrap)
 
 
 def _get_primary_response(op: IROperation) -> Optional[IRResponse]:

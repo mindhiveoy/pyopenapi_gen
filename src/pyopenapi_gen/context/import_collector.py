@@ -1,9 +1,9 @@
 from collections import defaultdict
 from typing import Dict, List, Set  # Added Set
+import logging
 
-# Consider adding logging if debug prints are to be formalized
-# import logging
-# logger = logging.getLogger(__name__)
+# Get logger
+logger = logging.getLogger(__name__)
 
 
 class ImportCollector:
@@ -73,6 +73,12 @@ class ImportCollector:
     def get_import_statements(self, current_module_path: str | None = None) -> list[str]:
         """Generate import statements, potentially filtering relative imports."""
         import_lines = []
+
+        # # +++ Add logging +++
+        # logger.debug(f"get_import_statements CALLED. self.imports = {self.imports}")
+        # logger.debug(f"  self.plain_imports = {self.plain_imports}")
+        # logger.debug(f"  self.relative_imports = {self.relative_imports}")
+        # # +++ End logging +++
 
         # Standard imports (absolute)
         standard_import_lines = []

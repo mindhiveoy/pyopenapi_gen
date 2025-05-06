@@ -99,6 +99,10 @@ class RenderContext:
         Adds imports for all typing types present in a type string, e.g. Optional, List, Dict, Set, Tuple, Union, Any,
         AsyncIterator, etc. Uses regex to match both generic and non-generic usages, including Any inside generics.
         """
+        # # +++ Add logging +++
+        # logger.debug(f"add_typing_imports_for_type CALLED with type_str: '{type_str}'")
+        # # +++ End logging +++
+
         # Allowlist of typing types to import
         typing_types = {
             "List",
@@ -142,9 +146,17 @@ class RenderContext:
         }
         # Regex: match all capitalized identifiers from typing, optionally followed by [ or , or ]
         matches = re.findall(r"\b([A-Z][A-Za-z0-9_]*)\b", type_str)
+        # # +++ Add logging +++
+        # logger.debug(f"  Found matches: {set(matches)}")
+        # # +++ End logging +++
         for match in set(matches):
             if match in typing_types:
+                # # +++ Add logging +++
+                # logger.debug(f"    Match '{match}' IS in typing_types. Calling import_collector.add_typing_import('{match}')")
+                # # +++ End logging +++
                 self.import_collector.add_typing_import(match)
+            # else: # +++ Add logging for ignored matches +++
+            #     logger.debug(f"    Match '{match}' is NOT in typing_types. Ignoring.")
 
     def add_plain_import(self, module: str) -> None:
         """Add a plain import (import x) to the current file's import collector."""

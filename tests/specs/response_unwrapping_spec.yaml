@@ -1,0 +1,91 @@
+openapi: 3.0.0
+info:
+  title: Test API for Response Unwrapping
+  version: '1.0'
+paths:
+  /simple_unwrap:
+    get:
+      operationId: getSimpleUnwrappedData
+      summary: Returns a single item wrapped in 'data'
+      responses:
+        '200':
+          description: A single item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleDataWrapper'
+  /list_unwrap:
+    get:
+      operationId: getListUnwrappedData
+      summary: Returns a list of items wrapped in 'data'
+      responses:
+        '200':
+          description: A list of items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDataWrapper'
+  /no_unwrap_direct:
+    get:
+      operationId: getDirectData
+      summary: Returns data directly without a wrapper
+      responses:
+        '200':
+          description: Direct data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyDataItem'
+  /no_unwrap_extra_prop:
+    get:
+      operationId: getDataWithMeta
+      summary: Returns data with an extra property alongside 'data'
+      responses:
+        '200':
+          description: Data with metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataWithMetaWrapper'
+
+components:
+  schemas:
+    MyDataItem:
+      type: object
+      properties:
+        id:
+          type: string
+        value:
+          type: integer
+      required:
+        - id
+        - value
+    SimpleDataWrapper:
+      type: object
+      properties:
+        data: # Only 'data' property
+          $ref: '#/components/schemas/MyDataItem'
+      required:
+        - data
+    ListDataWrapper:
+      type: object
+      properties:
+        data: # Only 'data' property, which is an array
+          type: array
+          items:
+            $ref: '#/components/schemas/MyDataItem'
+      required:
+        - data
+    DataWithMetaWrapper:
+      type: object
+      properties:
+        data: # 'data' property
+          $ref: '#/components/schemas/MyDataItem'
+        meta: # Extra property
+          type: object
+          properties:
+            info:
+              type: string
+      required:
+        - data
+        - meta 
