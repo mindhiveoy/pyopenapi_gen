@@ -40,6 +40,24 @@ COMMON_STDLIB = {
     "textwrap",
 }
 
+# Stdlib modules that should prefer \'import module\' over \'from module import module\'
+# when add_import(module, module) is called.
+STDLIB_MODULES_PREFER_PLAIN_IMPORT_WHEN_NAME_MATCHES = {
+    "os",
+    "sys",
+    "re",
+    "json",
+    "contextlib",
+    "functools",
+    "itertools",
+    "logging",
+    "math",
+    "asyncio",
+    "tempfile",
+    "subprocess",
+    "textwrap",
+}
+
 
 def _is_stdlib(module_name: str) -> bool:
     """Check if a module is part of the standard library."""
@@ -141,9 +159,14 @@ class ImportCollector:
             module: The module to import from (e.g., "typing")
             name: The name to import (e.g., "List")
         """
-        if module not in self.imports:
-            self.imports[module] = set()
-        self.imports[module].add(name)
+        # If module and name are the same, and it's a stdlib module
+        # that typically uses plain import style (e.g., "import os").
+        if module == name and module in STDLIB_MODULES_PREFER_PLAIN_IMPORT_WHEN_NAME_MATCHES:
+            self.add_plain_import(module)
+        else:
+            if module not in self.imports:
+                self.imports[module] = set()
+            self.imports[module].add(name)
 
     def add_imports(self, module: str, names: List[str]) -> None:
         """
