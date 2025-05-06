@@ -208,11 +208,56 @@ class TypeHelper:
         if not py_type:
             py_type = TypeHelper._get_composition_type(schema, schemas, context)
 
-        # 2. Handle named schemas (models or enums) or primitive aliases if name exists
+        # 2. Handle named schemas (models or enums) or primitive aliases if schema.name exists
+        #    This is for when `schema` itself is a definition from the main `schemas` dict.
         if not py_type and schema.name:
             py_type = TypeHelper._get_named_or_enum_type(schema, schemas, context)
 
-        # 3. Handle primitive types if not already resolved by name (e.g. unnamed primitive schema)
+        # NEW STEP 2.5: Handle cases where schema.type is a string that refers to a named schema
+        # This is for properties whose IRSchema node has its `type` field set to a custom model name.
+        if (
+            not py_type
+            and isinstance(schema.type, str)
+            and schema.type
+            not in {
+                "string",
+                "integer",
+                "number",
+                "boolean",
+                "object",
+                "array",
+            }
+        ):
+            # schema.type is something like "MyCustomModelName".
+            referenced_schema_name_from_type_field = schema.type
+            class_name_candidate = NameSanitizer.sanitize_class_name(referenced_schema_name_from_type_field)
+
+            if class_name_candidate in schemas:  # Check if this type name exists as a defined schema
+                # It's a known model/enum defined elsewhere. Generate import for it.
+                # No need to re-parse schemas[class_name_candidate], just use the name.
+                module_name_part = NameSanitizer.sanitize_module_name(class_name_candidate)
+                # TODO: Determine if this model is in 'core' or local 'models' based on context or schema source.
+                # For now, assume local 'models' package.
+                model_module_path_within_package = f"models.{module_name_part}"
+                context.add_import(model_module_path_within_package, class_name_candidate)
+                py_type = class_name_candidate
+                logger.debug(
+                    f"[TypeHelper] Resolved type '{schema.type}' to known schema '{class_name_candidate}' from models."
+                )
+            else:
+                # It's a type name not found in known schemas (e.g. forward ref, external type, or just a name).
+                # Use the sanitized name as the type. TypeHelper/ModelVisitor expects imports to be handled.
+                py_type = class_name_candidate
+                # Attempt to add an import for it, assuming it's in the local 'models' package by convention.
+                # This might be speculative if it's an external type not handled by other rules.
+                module_name_part = NameSanitizer.sanitize_module_name(class_name_candidate)
+                model_module_path_within_package = f"models.{module_name_part}"
+                context.add_import(model_module_path_within_package, class_name_candidate)
+                logger.debug(
+                    f"[TypeHelper] Using type '{schema.type}' as unknown/external type '{py_type}'. Added speculative models import."
+                )
+
+        # 3. Handle primitive types (if schema.type is "string", "integer", etc., and not yet resolved)
         if not py_type:
             py_type = TypeHelper._get_primitive_type(schema, context)
 
