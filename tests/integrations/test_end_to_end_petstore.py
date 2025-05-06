@@ -3,8 +3,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from pyopenapi_gen.cli import app
-from typer.testing import CliRunner
+from pyopenapi_gen.generator.client_generator import ClientGenerator
 
 # Minimal Petstore-like spec for integration test
 MIN_SPEC = {
@@ -34,16 +33,28 @@ def test_petstore_integration_with_tag(tmp_path: Path) -> None:
     spec["paths"]["/pets"]["get"]["tags"] = ["pets"]
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(json.dumps(spec))
-    out_dir = tmp_path / "out"
-    runner = CliRunner()
+
+    project_root = tmp_path
+    output_package = "petstore_client"
+    out_dir = project_root / Path(*output_package.split("."))  # client files go here
+
+    generator = ClientGenerator()
+
     # Act
-    result = runner.invoke(
-        app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--no-postprocess"],
+    generator.generate(
+        spec_path=str(spec_file),
+        project_root=project_root,
+        output_package=output_package,
+        force=True,
+        no_postprocess=True,
     )
+
     # Assert
-    assert result.exit_code == 0, result.stdout
-    assert (out_dir / "config.py").exists(), "config.py not generated"
+    # Check core files (assuming default core location: <output_package>.core)
+    resolved_core_package_fqn = output_package + ".core"
+    core_dir = project_root / Path(*resolved_core_package_fqn.split("."))  # Corrected
+    assert (core_dir / "config.py").exists(), "config.py not generated in core"
+    # Check client package files
     assert (out_dir / "client.py").exists(), "client.py not generated"
     pets_file = out_dir / "endpoints" / "pets.py"
     assert pets_file.exists(), "pets.py endpoint not generated"
@@ -52,10 +63,15 @@ def test_petstore_integration_with_tag(tmp_path: Path) -> None:
 
     # Run mypy on the generated code to ensure type correctness
     env = os.environ.copy()
-    # Add both the generated output parent and the real src directory to PYTHONPATH
-    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-    env["PYTHONPATH"] = os.pathsep.join([str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")])
-    mypy_result = subprocess.run(["mypy", str(out_dir)], capture_output=True, text=True, env=env)
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))  # Adjusted path to src
+    # PYTHONPATH needs the *parent* of the output_package and core_package directories
+    # In this setup, project_root serves as this parent.
+    env["PYTHONPATH"] = os.pathsep.join([str(project_root.resolve()), src_dir, env.get("PYTHONPATH", "")])
+    # Tell mypy to check the main generated package. Mypy will find sub-packages (like .core) automatically.
+    packages_to_check = [output_package.split(".")[0]]
+    mypy_result = subprocess.run(
+        ["mypy"] + packages_to_check, capture_output=True, text=True, env=env, cwd=project_root
+    )
     assert mypy_result.returncode == 0, f"mypy errors:\n{mypy_result.stdout}\n{mypy_result.stderr}"
 
 
@@ -69,26 +85,47 @@ def test_petstore_integration_no_tag(tmp_path: Path) -> None:
     # Arrange
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(json.dumps(MIN_SPEC))
-    out_dir = tmp_path / "out"
-    runner = CliRunner()
+
+    project_root = tmp_path
+    output_package = "petstore_client"
+    out_dir = project_root / Path(*output_package.split("."))  # client files go here
+
+    generator = ClientGenerator()
+
     # Act
-    result = runner.invoke(
-        app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--no-postprocess"],
+    generator.generate(
+        spec_path=str(spec_file),
+        project_root=project_root,
+        output_package=output_package,
+        force=True,
+        no_postprocess=True,
     )
+
     # Assert
-    assert result.exit_code == 0, result.stdout
-    assert (out_dir / "config.py").exists(), "config.py not generated"
+    # Check core files (assuming default core location: <output_package>.core)
+    resolved_core_package_fqn = output_package + ".core"
+    core_dir = project_root / Path(*resolved_core_package_fqn.split("."))  # Corrected
+    assert (core_dir / "config.py").exists(), "config.py not generated in core"
+    # Check client package files
     assert (out_dir / "client.py").exists(), "client.py not generated"
     default_file = out_dir / "endpoints" / "default.py"
     assert default_file.exists(), "default.py endpoint not generated"
     content = default_file.read_text()
     assert "async def list_pets" in content, "list_pets method missing in generated code"
 
+    # +++ Print generated file content for debugging +++
+    print(f"\n--- Content of {default_file} ---\n")
+    print(content)
+    print("\n--- End Content ---\n")
+    # +++ End Print +++
+
     # Run mypy on the generated code to ensure type correctness
     env = os.environ.copy()
-    # Add both the generated output parent and the real src directory to PYTHONPATH
-    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-    env["PYTHONPATH"] = os.pathsep.join([str(out_dir.parent.resolve()), src_dir, env.get("PYTHONPATH", "")])
-    mypy_result = subprocess.run(["mypy", str(out_dir)], capture_output=True, text=True, env=env)
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))  # Adjusted path to src
+    env["PYTHONPATH"] = os.pathsep.join([str(project_root.resolve()), src_dir, env.get("PYTHONPATH", "")])
+    # Tell mypy to check the main generated package. Mypy will find sub-packages (like .core) automatically.
+    packages_to_check = [output_package.split(".")[0]]
+    mypy_result = subprocess.run(
+        ["mypy"] + packages_to_check, capture_output=True, text=True, env=env, cwd=project_root
+    )
     assert mypy_result.returncode == 0, f"mypy errors:\n{mypy_result.stdout}\n{mypy_result.stderr}"

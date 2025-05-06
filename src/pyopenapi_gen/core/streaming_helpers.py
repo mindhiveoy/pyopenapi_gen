@@ -72,3 +72,15 @@ def _parse_sse_event(lines: List[str]) -> SSEEvent:
                 except ValueError:
                     pass
     return SSEEvent(data="\n".join(data), event=event, id=id, retry=retry)
+
+
+async def iter_sse_events_text(response: httpx.Response) -> AsyncIterator[str]:
+    """
+    Parses a Server-Sent Events (SSE) stream and yields the `data` field content
+    as a string for each event.
+    This is specifically for cases where the event data is expected to be a
+    single text payload (e.g., a JSON string) per event.
+    """
+    async for sse_event in iter_sse(response):
+        if sse_event.data:  # Ensure data is not empty
+            yield sse_event.data

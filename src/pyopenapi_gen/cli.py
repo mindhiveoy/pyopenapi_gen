@@ -1,11 +1,9 @@
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import typer
 import yaml
 
-from .core.loader import load_ir_from_spec
-from .emitters.docs_emitter import DocsEmitter
 from .generator.client_generator import ClientGenerator, GenerationError
 
 app = typer.Typer(invoke_without_command=True)
@@ -57,7 +55,7 @@ def gen(
     generator = ClientGenerator()
     try:
         generator.generate(
-            spec_path=spec,
+            spec_path=str(Path(spec).resolve()),
             project_root=project_root,
             output_package=output_package,
             force=force,
@@ -68,20 +66,6 @@ def gen(
     except GenerationError as e:
         typer.echo(f"Generation failed: {e}", err=True)
         raise typer.Exit(code=1)
-
-
-@app.command()
-def docs(
-    spec: str = typer.Argument(..., help="Path or URL to OpenAPI spec"),
-    output: Path = typer.Option(..., "-o", "--output", help="Docs output dir"),
-) -> None:
-    """Generate documentation from an OpenAPI spec."""
-    # Load and convert spec
-    spec_dict = _load_spec(spec)
-    ir = load_ir_from_spec(spec_dict)
-    # Emit markdown docs
-    DocsEmitter().emit(ir, str(output))
-    typer.echo("Documentation generation complete.")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,9 @@
-import os
-import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
-from pyopenapi_gen.visit.model.model_visitor import ModelVisitor
+from pyopenapi_gen.visit.model_visitor import ModelVisitor
 from pyopenapi_gen.visit.visitor import Visitor
 
 from ..context.file_manager import FileManager
@@ -23,9 +21,16 @@ class ModelsEmitter:
     Handles creation of __init__.py and py.typed files.
     """
 
-    def __init__(self, visitor: Optional[Visitor[IRSchema, str]] = None) -> None:
+    def __init__(
+        self,
+        visitor: Optional[Visitor[IRSchema, str]] = None,
+        overall_project_root: Optional[str] = None,
+        core_package_name: str = "core",
+    ) -> None:
         self.visitor: Visitor[IRSchema, str] = visitor or ModelVisitor()
         self.formatter = Formatter()
+        self.overall_project_root = overall_project_root
+        self.core_package_name = core_package_name
 
     def emit(self, spec: IRSpec, output_dir_str: str) -> list[str]:
         """Render one model file per schema under <output_dir>/models using the visitor/context/registry pattern. Returns a list of generated file paths."""
@@ -36,9 +41,9 @@ class ModelsEmitter:
 
         context = RenderContext(
             file_manager=FileManager(),
-            core_package="core",
-            core_import_path=None,
-            package_root=str(output_dir_path),
+            core_package_name=self.core_package_name,
+            package_root_for_generated_code=str(output_dir_path),
+            overall_project_root=self.overall_project_root,
         )
 
         if isinstance(self.visitor, ModelVisitor):
@@ -71,8 +76,12 @@ class ModelsEmitter:
             model_code = self.visitor.visit(schema, context)
 
             if model_code.strip():
+                # Get imports collected FOR THIS FILE by the visitor
+                imports_code = context.render_imports()
+                full_content = f"{imports_code}\n\n{model_code}"
+
                 generated_files.append(str(file_path))
-                context.file_manager.write_file(str(file_path), model_code)
+                context.file_manager.write_file(str(file_path), full_content)  # Write imports + code
             else:
                 context.generated_modules.discard(str(file_path))
 

@@ -1,13 +1,14 @@
 import sys
 
+from pytest import MonkeyPatch
+
+from pyopenapi_gen.context.import_collector import ImportCollector
 from pyopenapi_gen.core.utils import (
     Formatter,
-    ImportCollector,
     KwargsBuilder,
     NameSanitizer,
     ParamSubstitutor,
 )
-from pytest import MonkeyPatch
 
 
 def test_sanitize_module_name() -> None:
@@ -24,8 +25,9 @@ def test_sanitize_class_name() -> None:
     assert NameSanitizer.sanitize_class_name("vector databases") == "VectorDatabases"
     assert NameSanitizer.sanitize_class_name("my-api_client") == "MyApiClient"
     # Leading digits and keywords
-    assert NameSanitizer.sanitize_class_name("123test") == "_123test"
+    assert NameSanitizer.sanitize_class_name("123test") == "_123Test"
     assert NameSanitizer.sanitize_class_name("class") == "Class_"
+    assert NameSanitizer.sanitize_class_name("1class") == "_1Class"
 
 
 def test_sanitize_filename() -> None:
@@ -141,6 +143,7 @@ def test_import_collector__import_as_module__produces_import_statement() -> None
     stmts = collector.get_import_statements()
     # Assert
     assert "import os" in stmts
+    assert not any(s == "from os import os" for s in stmts)
 
 
 def test_sanitize_class_name__keyword__appends_underscore() -> None:
@@ -172,7 +175,7 @@ def test_formatter__importerror_branch__returns_original_code(monkeypatch: Monke
         # Re-import Formatter to trigger ImportError
         import importlib
 
-        utils_mod = importlib.import_module("pyopenapi_gen.utils")
+        utils_mod = importlib.import_module("pyopenapi_gen.core.utils")
         FormatterReloaded = utils_mod.Formatter
         formatter = FormatterReloaded()
         code = "def foo():\n    return 1\n"

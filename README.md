@@ -238,12 +238,6 @@ pyopenapi-gen gen input/openapi.yaml \
 - `--force`: Overwrite output without diff check.
 - `--no-postprocess`: Skip post-processing (type checking, etc.)
 
-### Generate Markdown Documentation
-
-```bash
-pyopenapi-gen docs input/openapi.yaml --output docs/
-```
-
 ---
 
 ## Authentication Plugins

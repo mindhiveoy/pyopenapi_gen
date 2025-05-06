@@ -17,10 +17,10 @@ from ..visit.client_visitor import ClientVisitor
 class ClientEmitter:
     """Generates core client files (client.py) from IRSpec using visitor/context."""
 
-    def __init__(self, core_package: str = "core", core_import_path: Optional[str] = None) -> None:
+    def __init__(self, core_package: str = "core", overall_project_root: Optional[str] = None) -> None:
         self.visitor = ClientVisitor()
-        self.core_package = core_package
-        self.core_import_path = core_import_path
+        self.core_package = core_package  # This is core_package_name
+        self.overall_project_root = overall_project_root
 
     def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
         error_log = "/tmp/pyopenapi_gen_error.log"
@@ -31,7 +31,9 @@ class ClientEmitter:
             # Prepare context and mark generated client module
             client_path = os.path.join(output_dir, "client.py")
             context = RenderContext(
-                core_package=self.core_package, core_import_path=self.core_import_path, package_root=output_dir
+                core_package_name=self.core_package,
+                package_root_for_generated_code=output_dir,
+                overall_project_root=self.overall_project_root,
             )
             context.mark_generated_module(client_path)
             context.set_current_file(client_path)

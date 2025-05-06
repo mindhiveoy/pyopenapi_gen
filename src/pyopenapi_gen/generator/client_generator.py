@@ -4,8 +4,9 @@ ClientGenerator: Encapsulates the OpenAPI client generation logic for use by CLI
 
 import shutil
 import tempfile
+import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from pyopenapi_gen.core.loader import load_ir_from_spec
 from pyopenapi_gen.core.postprocess_manager import PostprocessManager
@@ -13,7 +14,9 @@ from pyopenapi_gen.core.warning_collector import WarningCollector
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
 from pyopenapi_gen.emitters.core_emitter import CONFIG_TEMPLATE, CoreEmitter
 from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
+from pyopenapi_gen.context.file_manager import FileManager
 
 
 class GenerationError(Exception):
@@ -40,8 +43,8 @@ class ClientGenerator:
         output_package: str,
         force: bool = False,
         no_postprocess: bool = False,
-        core_package: Optional[str] = "core",
-    ) -> None:
+        core_package: Optional[str] = None,
+    ) -> List[Path]:
         """
         Generate the client code from the OpenAPI spec.
 
@@ -78,89 +81,227 @@ class ClientGenerator:
         out_dir = pkg_to_path(output_package)
 
         # --- Robust Defaulting for core_package ---
-        if not core_package:  # Handles None or empty string
-            core_package = "core"
-        # Assert that core_package is now definitely a string
-        assert core_package is not None
+        if core_package is None:  # User did not specify, use default relative to output_package
+            resolved_core_package_fqn = output_package + ".core"
+        else:  # User specified something, use it as is
+            resolved_core_package_fqn = core_package
         # --- End Robust Defaulting ---
 
-        # Determine core_dir for correct subfolder logic
-        shared_core = core_package != "core"
-        if shared_core:
-            core_dir = pkg_to_path(core_package)
-            core_import_path_to_use = core_package
-        else:
-            core_package = "core"
-            core_dir = out_dir / "core"
-            core_import_path_to_use = None
+        # Determine core_dir (physical path for CoreEmitter)
+        core_dir = pkg_to_path(resolved_core_package_fqn)
+
+        # The actual_core_module_name_for_emitter_init becomes resolved_core_package_fqn
+        # The core_import_path_for_context also becomes resolved_core_package_fqn
 
         generated_files = []
 
         if not force and out_dir.exists():
+            # --- Refactored Diff Logic ---
             with tempfile.TemporaryDirectory() as tmpdir:
-                tmp_output = Path(tmpdir) / "out"
-                tmp_output.mkdir(parents=True, exist_ok=True)
-                root_init_path = tmp_output / "__init__.py"
-                if not root_init_path.exists():
-                    root_init_path.write_text("")
-                generated_files += [
+                tmp_project_root_for_diff = Path(tmpdir)
+
+                # Define temporary destination paths based on the temp project root
+                def tmp_pkg_to_path(pkg: str) -> Path:
+                    # Ensure the path is relative to the temp root, not the final project root
+                    return tmp_project_root_for_diff.joinpath(*pkg.split("."))
+
+                tmp_out_dir_for_diff = tmp_pkg_to_path(output_package)
+                tmp_core_dir_for_diff = tmp_pkg_to_path(resolved_core_package_fqn)
+
+                # Ensure temporary directories exist (FileManager used by emitters might handle this, but explicit is safer)
+                tmp_out_dir_for_diff.mkdir(parents=True, exist_ok=True)
+                # Ensure core temp dir exists *if* it's outside the main output package dir
+                if not str(tmp_core_dir_for_diff).startswith(str(tmp_out_dir_for_diff)):
+                    tmp_core_dir_for_diff.mkdir(parents=True, exist_ok=True)
+
+                # --- Generate files into the temporary structure ---
+                temp_generated_files = []  # Track files generated in temp dir
+
+                # 1. CoreEmitter (emits core files to tmp_core_dir_for_diff)
+                # Note: CoreEmitter copies files, RenderContext isn't strictly needed for it, but path must be correct.
+                relative_core_path_for_emitter_init_temp = os.path.relpath(tmp_core_dir_for_diff, tmp_out_dir_for_diff)
+                core_emitter = CoreEmitter(
+                    core_dir=str(relative_core_path_for_emitter_init_temp), core_package=resolved_core_package_fqn
+                )
+                temp_generated_files += [Path(p) for p in core_emitter.emit(str(tmp_out_dir_for_diff))]
+
+                # 2. ExceptionsEmitter (emits exception_aliases.py to tmp_core_dir_for_diff)
+                exceptions_emitter = ExceptionsEmitter(
+                    core_package_name=resolved_core_package_fqn,
+                    overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
+                )
+                temp_generated_files += [
                     Path(p)
-                    for p in CoreEmitter(
-                        core_dir="",
-                        core_package=core_package,
-                    ).emit(str(core_dir))
+                    for p in exceptions_emitter.emit(ir, str(tmp_core_dir_for_diff))  # Emit TO temp core dir
                 ]
-                # Write config.py to the core directory (not client root)
-                config_dst = core_dir / "config.py"
-                config_dst.write_text(CONFIG_TEMPLATE)
-                generated_files.append(config_dst)
-                generated_files += [Path(p) for p in ModelsEmitter().emit(ir, str(out_dir))]
-                generated_files += [
-                    Path(p) for p in EndpointsEmitter(core_import_path=core_import_path_to_use).emit(ir, str(out_dir))
-                ]
-                generated_files += [
+
+                # 3. config.py (write to tmp_core_dir_for_diff using FileManager) - REMOVED, CoreEmitter handles this
+                # fm = FileManager()
+                # config_dst_temp = tmp_core_dir_for_diff / "config.py"
+                # config_content = CONFIG_TEMPLATE
+                # fm.write_file(str(config_dst_temp), config_content)
+                # temp_generated_files.append(config_dst_temp)
+
+                # 4. ModelsEmitter (emits models to tmp_out_dir_for_diff/models)
+                models_emitter = ModelsEmitter(
+                    overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
+                    core_package_name=resolved_core_package_fqn,
+                )
+                temp_generated_files += [
                     Path(p)
-                    for p in ClientEmitter(core_package=core_package, core_import_path=core_import_path_to_use).emit(
-                        ir, str(out_dir)
-                    )
+                    for p in models_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
                 ]
+
+                # 5. EndpointsEmitter (emits endpoints to tmp_out_dir_for_diff/endpoints)
+                endpoints_emitter = EndpointsEmitter(
+                    core_package=resolved_core_package_fqn,
+                    overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root
+                )
+                temp_generated_files += [
+                    Path(p)
+                    for p in endpoints_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
+                ]
+
+                # 6. ClientEmitter (emits client.py to tmp_out_dir_for_diff)
+                client_emitter = ClientEmitter(
+                    core_package=resolved_core_package_fqn,
+                    overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root
+                )
+                temp_generated_files += [
+                    Path(p)
+                    for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
+                ]
+
+                # Post-processing should run on the temporary files if enabled
                 if not no_postprocess:
-                    PostprocessManager(str(project_root)).run([str(p) for p in generated_files])
-                has_diff = self._show_diffs(str(out_dir), str(tmp_output))
-                if has_diff:
+                    # Pass the temp project root to PostprocessManager
+                    PostprocessManager(str(tmp_project_root_for_diff)).run([str(p) for p in temp_generated_files])
+
+                # --- Compare final output dirs with the temp output dirs ---
+                # Compare client package dir
+                has_diff_client = self._show_diffs(str(out_dir), str(tmp_out_dir_for_diff))
+                # Compare core package dir IF it's different from the client dir
+                has_diff_core = False
+                if core_dir != out_dir:
+                    has_diff_core = self._show_diffs(str(core_dir), str(tmp_core_dir_for_diff))
+
+                if has_diff_client or has_diff_core:
                     raise GenerationError("Differences found between generated and existing output.")
-                shutil.rmtree(str(out_dir))
-                shutil.copytree(str(tmp_output), str(out_dir))
-        else:
+
+                # If no diffs, return the paths of the *existing* files (no changes made)
+                # We need to collect the actual existing file paths corresponding to temp_generated_files
+                # This is tricky because _show_diffs only returns bool.
+                # A simpler approach if no diff: do nothing, return empty list? Or paths of existing files?
+                # Let's return the existing paths for consistency with the `else` block.
+                # Need to map temp_generated_files back to original project_root based paths.
+                final_generated_files = []
+                for tmp_file in temp_generated_files:
+                    try:
+                        # Find relative path from temp root
+                        rel_path = tmp_file.relative_to(tmp_project_root_for_diff)
+                        # Construct path relative to final project root
+                        final_path = project_root / rel_path
+                        if final_path.exists():  # Should exist if no diff
+                            final_generated_files.append(final_path)
+                    except ValueError:
+                        # Should not happen if paths are constructed correctly
+                        print(f"Warning: Could not map temporary file {tmp_file} back to project root {project_root}")
+                generated_files = final_generated_files
+
+            # --- End Refactored Diff Logic ---
+        else:  # This is the force=True or first-run logic
             if out_dir.exists():
                 shutil.rmtree(str(out_dir))
-            out_dir.mkdir(parents=True, exist_ok=True)
-            root_init_path = out_dir / "__init__.py"
-            if not root_init_path.exists():
-                root_init_path.write_text("")
+            # Ensure parent dirs exist before creating final output dir
+            out_dir.parent.mkdir(parents=True, exist_ok=True)
+            out_dir.mkdir(parents=True, exist_ok=True)  # Create final output dir
+
+            # Ensure core dir exists if different from out_dir
+            if core_dir != out_dir:
+                core_dir.parent.mkdir(parents=True, exist_ok=True)
+                core_dir.mkdir(parents=True, exist_ok=True)  # Create final core dir
+
+            # Write root __init__.py if needed (handle nested packages like a.b.c)
+            current = out_dir
+            while current != project_root:
+                init_path = current / "__init__.py"
+                if not init_path.exists():
+                    init_path.write_text("")
+                if current.parent == current:  # Avoid infinite loop at root
+                    break
+                current = current.parent
+
+            # If core_dir is outside out_dir structure, ensure its __init__.py exist too
+            if not str(core_dir).startswith(str(out_dir)):
+                current = core_dir
+                while current != project_root:
+                    init_path = current / "__init__.py"
+                    if not init_path.exists():
+                        init_path.write_text("")
+                    if current.parent == current:
+                        break
+                    current = current.parent
+
+            # --- Generate directly into final destination paths ---
+            # 1. CoreEmitter
+            relative_core_path_for_emitter_init_final = os.path.relpath(core_dir, out_dir)
+            core_emitter = CoreEmitter(
+                core_dir=str(relative_core_path_for_emitter_init_final), core_package=resolved_core_package_fqn
+            )
+            generated_files += [Path(p) for p in core_emitter.emit(str(out_dir))]
+
+            # 2. ExceptionsEmitter
+            exceptions_emitter = ExceptionsEmitter(
+                core_package_name=resolved_core_package_fqn,
+                overall_project_root=str(project_root),  # Use final project root
+            )
             generated_files += [
                 Path(p)
-                for p in CoreEmitter(
-                    core_dir="",
-                    core_package=core_package,
-                ).emit(str(core_dir))
+                for p in exceptions_emitter.emit(ir, str(core_dir))  # Emit to final core dir
             ]
-            # Write config.py to the core directory (not client root)
-            config_dst = core_dir / "config.py"
-            config_dst.write_text(CONFIG_TEMPLATE)
-            generated_files.append(config_dst)
-            generated_files += [Path(p) for p in ModelsEmitter().emit(ir, str(out_dir))]
-            generated_files += [
-                Path(p) for p in EndpointsEmitter(core_import_path=core_import_path_to_use).emit(ir, str(out_dir))
-            ]
+
+            # 3. config.py (using FileManager) - REMOVED, CoreEmitter handles this
+            # fm = FileManager()
+            # config_dst = core_dir / "config.py"
+            # config_content = CONFIG_TEMPLATE
+            # fm.write_file(str(config_dst), config_content) # Use FileManager
+            # generated_files.append(config_dst)
+
+            # 4. ModelsEmitter
+            models_emitter = ModelsEmitter(
+                overall_project_root=str(project_root),  # Use final project root
+                core_package_name=resolved_core_package_fqn,
+            )
             generated_files += [
                 Path(p)
-                for p in ClientEmitter(core_package=core_package, core_import_path=core_import_path_to_use).emit(
-                    ir, str(out_dir)
-                )
+                for p in models_emitter.emit(ir, str(out_dir))  # Emit to final output dir
             ]
+
+            # 5. EndpointsEmitter
+            endpoints_emitter = EndpointsEmitter(
+                core_package=resolved_core_package_fqn,
+                overall_project_root=str(project_root),  # Use final project root
+            )
+            generated_files += [
+                Path(p)
+                for p in endpoints_emitter.emit(ir, str(out_dir))  # Emit to final output dir
+            ]
+
+            # 6. ClientEmitter
+            client_emitter = ClientEmitter(
+                core_package=resolved_core_package_fqn,
+                overall_project_root=str(project_root),  # Use final project root
+            )
+            generated_files += [
+                Path(p)
+                for p in client_emitter.emit(ir, str(out_dir))  # Emit to final output dir
+            ]
+
+            # Post-processing on the final generated files
             if not no_postprocess:
                 PostprocessManager(str(project_root)).run([str(p) for p in generated_files])
+
+        return generated_files
 
     def _load_spec(self, path_or_url: str) -> dict[str, Any]:
         """

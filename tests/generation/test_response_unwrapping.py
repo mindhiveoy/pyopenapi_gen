@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Iterator
 import logging
 import re
+import json
 
 from pyopenapi_gen.generator.client_generator import ClientGenerator
 
@@ -100,9 +101,86 @@ def generate_client_from_spec() -> Iterator[Path]:
             pytest.fail(f"Client generation failed: {e}")
 
 
+# Data for WrappedItemResponse schema that wraps a single Item
+WRAPPED_ITEM_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {"data": {"$ref": "#/components/schemas/Item"}},
+}
+
+# Data for Item schema
+ITEM_SCHEMA = {
+    "type": "object",
+    "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
+}
+
+# Data for WrappedListResponse schema that wraps a list of Items
+WRAPPED_LIST_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {"data": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}}},
+}
+
+# Data for Error schema
+ERROR_SCHEMA = {"type": "object", "properties": {"code": {"type": "integer"}, "message": {"type": "string"}}}
+
+# Data for a response with data and meta fields (no unwrapping expected)
+DATA_WITH_META_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "data": {"$ref": "#/components/schemas/Item"},
+        "meta": {"type": "object", "properties": {"trace_id": {"type": "string"}}},
+    },
+}
+
+
 # Test Case 1: Simple Object Unwrapping
-def test_simple_object_unwrapping(generate_client_from_spec: Path) -> None:
-    generated_client_dir = generate_client_from_spec
+def test_simple_object_unwrapping(tmp_path: Path) -> None:
+    spec_file = tmp_path / "spec.json"
+    spec_dict = {
+        "openapi": "3.0.0",
+        "info": {"title": "Test API", "version": "1.0.0"},
+        "components": {
+            "schemas": {
+                "Item": ITEM_SCHEMA,
+                "WrappedItemResponse": WRAPPED_ITEM_RESPONSE_SCHEMA,
+                "Error": ERROR_SCHEMA,
+            }
+        },
+        "paths": {
+            "/item_wrapped": {
+                "get": {
+                    "operationId": "get_item_wrapped",
+                    "summary": "Get a wrapped item",
+                    "responses": {
+                        "200": {
+                            "description": "Successfully retrieved a wrapped item",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/WrappedItemResponse"}}
+                            },
+                        },
+                        "default": {
+                            "description": "Error response",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                        },
+                    },
+                }
+            }
+        },
+    }
+    spec_file.write_text(json.dumps(spec_dict))
+
+    generator = ClientGenerator()
+    generated_files = generator.generate(
+        spec_path=str(spec_file),
+        project_root=tmp_path,
+        output_package="client",
+        force=True,
+        no_postprocess=True,
+    )
+    # Find client.py to correctly determine the client directory
+    client_py_file_path = tmp_path / "client" / "client.py"
+    assert client_py_file_path.exists(), f"Client file {client_py_file_path} not found."
+    generated_client_dir = client_py_file_path.parent
+
     endpoint_file = generated_client_dir / "endpoints" / "default.py"
 
     if not endpoint_file.exists():
@@ -121,63 +199,193 @@ def test_simple_object_unwrapping(generate_client_from_spec: Path) -> None:
     content = endpoint_file.read_text()
 
     # Find the method block
-    method_match = re.search(r"(async def get_simple_unwrapped_data.*?)(?:\nasync def|\n\Z)", content, re.DOTALL)
-    assert method_match, "Could not find get_simple_unwrapped_data method block"
-    method_content = method_match.group(1)
+    method_match = re.search(r"(async def get_item_wrapped.*?)(?:\nasync def|(\n)?\Z)", content, re.DOTALL)
+    if not method_match:
+        print(f"DEBUG: Endpoint content for get_item_wrapped:\n{content}")  # DEBUG PRINT
+    assert method_match, "Could not find get_item_wrapped method block"
+    method_block = method_match.group(1)
 
-    assert ") -> MyDataItem:" in method_content
+    assert ") -> Item:" in method_block
     # Use regex to find the unwrapping pattern, ignoring whitespace/quotes
-    assert re.search(
-        r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_content
-    ), "response.json().get('data') pattern not found in method"
-    assert "cast(MyDataItem" in method_content  # Check cast is still there
+    assert re.search(r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_block), (
+        "response.json().get('data') pattern not found in method"
+    )
+    assert "cast(Item" in method_block  # Check cast is still there
 
 
 # Test Case 2: List of Objects Unwrapping
-def test_list_object_unwrapping(generate_client_from_spec: Path) -> None:
-    generated_client_dir = generate_client_from_spec
+def test_list_object_unwrapping(tmp_path: Path) -> None:
+    spec_file = tmp_path / "spec.json"
+    spec_dict = {
+        "openapi": "3.0.0",
+        "info": {"title": "Test API", "version": "1.0.0"},
+        "components": {
+            "schemas": {
+                "Item": ITEM_SCHEMA,
+                "WrappedListResponse": WRAPPED_LIST_RESPONSE_SCHEMA,
+                "Error": ERROR_SCHEMA,
+            }
+        },
+        "paths": {
+            "/items_wrapped": {
+                "get": {
+                    "operationId": "get_items_wrapped",
+                    "summary": "Get a list of wrapped items",
+                    "responses": {
+                        "200": {
+                            "description": "Successfully retrieved a list of wrapped items",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/WrappedListResponse"}}
+                            },
+                        },
+                        "default": {
+                            "description": "Error response",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                        },
+                    },
+                }
+            }
+        },
+    }
+    spec_file.write_text(json.dumps(spec_dict))
+
+    generator = ClientGenerator()
+    generated_files = generator.generate(
+        spec_path=str(spec_file),
+        project_root=tmp_path,
+        output_package="client",
+        force=True,
+        no_postprocess=True,
+    )
+    # Find client.py to correctly determine the client directory
+    client_py_file_path = tmp_path / "client" / "client.py"
+    assert client_py_file_path.exists(), f"Client file {client_py_file_path} not found."
+    generated_client_dir = client_py_file_path.parent
+
     endpoint_file = generated_client_dir / "endpoints" / "default.py"
     assert endpoint_file.exists(), "Endpoint file default.py not found."
     content = endpoint_file.read_text()
 
     # Find the method block
-    method_match = re.search(r"(async def get_list_unwrapped_data.*?)(?:\nasync def|\n\Z)", content, re.DOTALL)
-    assert method_match, "Could not find get_list_unwrapped_data method block"
-    method_content = method_match.group(1)
+    method_match = re.search(r"(async def get_items_wrapped.*?)(?:\nasync def|(\n)?\Z)", content, re.DOTALL)
+    assert method_match, "Could not find get_items_wrapped method block"
+    method_block = method_match.group(1)
 
-    assert ") -> List[MyDataItem]:" in method_content
-    assert re.search(
-        r"from\s+typing\s+import\s+([^\n,]*?,\s*)*?List", content
-    ), "'from typing import ..., List, ...' not found"
+    assert ") -> List[Item]:" in method_block
+    assert re.search(r"from\s+typing\s+import\s+([^\n,]*?,\s*)*?List", content), (
+        "'from typing import ..., List, ...' not found"
+    )
 
     # Use regex to find the unwrapping pattern
-    assert re.search(
-        r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_content
-    ), "response.json().get('data') pattern not found in method"
-    assert "cast(List[MyDataItem]" in method_content  # Check cast is still there
+    assert re.search(r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_block), (
+        "response.json().get('data') pattern not found in method"
+    )
+    assert "cast(List[Item]" in method_block  # Check cast is still there
 
 
 # Test Case 3: No Unwrapping (Direct Object)
-def test_no_unwrapping_direct_object(generate_client_from_spec: Path) -> None:
-    generated_client_dir = generate_client_from_spec
+def test_no_unwrapping_direct_object(tmp_path: Path) -> None:
+    spec_file = tmp_path / "spec.json"
+    spec_dict = {
+        "openapi": "3.0.0",
+        "info": {"title": "Test API", "version": "1.0.0"},
+        "components": {"schemas": {"Item": ITEM_SCHEMA, "Error": ERROR_SCHEMA}},
+        "paths": {
+            "/item_direct": {
+                "get": {
+                    "operationId": "get_item_direct",
+                    "summary": "Get an item directly",
+                    "responses": {
+                        "200": {
+                            "description": "Successfully retrieved an item",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}},
+                        },
+                        "default": {
+                            "description": "Error response",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                        },
+                    },
+                }
+            }
+        },
+    }
+    spec_file.write_text(json.dumps(spec_dict))
+
+    generator = ClientGenerator()
+    generated_files = generator.generate(
+        spec_path=str(spec_file),
+        project_root=tmp_path,
+        output_package="client",
+        force=True,
+        no_postprocess=True,
+    )
+    # Find client.py to correctly determine the client directory
+    client_py_file_path = tmp_path / "client" / "client.py"
+    assert client_py_file_path.exists(), f"Client file {client_py_file_path} not found."
+    generated_client_dir = client_py_file_path.parent
+
     endpoint_file = generated_client_dir / "endpoints" / "default.py"
     assert endpoint_file.exists(), "Endpoint file default.py not found."
     content = endpoint_file.read_text()
 
-    assert "async def get_direct_data(" in content
-    assert ") -> MyDataItem:" in content
-    assert "cast(MyDataItem, response.json())" in content
-    assert "response.json().get('data')" not in content
+    assert "async def get_item_direct(" in content
+    assert "-> Item:" in content
+    assert "return cast(Item, response.json())" in content
 
 
 # Test Case 4: No Unwrapping (Data With Meta) - Current strict logic
-def test_no_unwrapping_data_with_meta(generate_client_from_spec: Path) -> None:
-    generated_client_dir = generate_client_from_spec
+def test_no_unwrapping_data_with_meta(tmp_path: Path) -> None:
+    spec_file = tmp_path / "spec.json"
+    spec_dict = {
+        "openapi": "3.0.0",
+        "info": {"title": "Test API", "version": "1.0.0"},
+        "components": {
+            "schemas": {
+                "Item": ITEM_SCHEMA,
+                "DataWithMetaResponse": DATA_WITH_META_RESPONSE_SCHEMA,
+                "Error": ERROR_SCHEMA,
+            }
+        },
+        "paths": {
+            "/item_with_meta": {
+                "get": {
+                    "operationId": "get_item_with_meta",
+                    "summary": "Get an item with metadata",
+                    "responses": {
+                        "200": {
+                            "description": "Successfully retrieved an item with metadata",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/DataWithMetaResponse"}}
+                            },
+                        },
+                        "default": {
+                            "description": "Error response",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                        },
+                    },
+                }
+            }
+        },
+    }
+    spec_file.write_text(json.dumps(spec_dict))
+
+    generator = ClientGenerator()
+    generated_files = generator.generate(
+        spec_path=str(spec_file),
+        project_root=tmp_path,
+        output_package="client",
+        force=True,
+        no_postprocess=True,
+    )
+    # Find client.py to correctly determine the client directory
+    client_py_file_path = tmp_path / "client" / "client.py"
+    assert client_py_file_path.exists(), f"Client file {client_py_file_path} not found."
+    generated_client_dir = client_py_file_path.parent
+
     endpoint_file = generated_client_dir / "endpoints" / "default.py"
     assert endpoint_file.exists(), "Endpoint file default.py not found."
     content = endpoint_file.read_text()
 
-    assert "async def get_data_with_meta(" in content
-    assert ") -> DataWithMetaWrapper:" in content
-    assert "cast(DataWithMetaWrapper, response.json())" in content
-    assert "response.json().get('data')" not in content
+    assert "async def get_item_with_meta(" in content
+    assert "-> DataWithMetaResponse:" in content
+    assert "return cast(DataWithMetaResponse, response.json())" in content

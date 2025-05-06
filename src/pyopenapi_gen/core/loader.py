@@ -77,15 +77,101 @@ def _parse_schema(
 
             _visited.add(ref_name)
             referenced = raw_schemas.get(ref_name)
+            resolved_schema_obj = None
+
+            # <<< Start Fallback Logic >>>
             if referenced is None:
-                warnings.warn(f"Could not resolve $ref: {ref}", UserWarning)
+                original_ref_name = ref_name  # Keep original name for warnings/return
+
+                # Special handling for ListResponse suffix
+                list_response_suffix = "ListResponse"
+                if ref_name.endswith(list_response_suffix):
+                    base_name = ref_name[: -len(list_response_suffix)]
+                    referenced = raw_schemas.get(base_name)
+                    if referenced:
+                        warnings.warn(
+                            f"Resolved $ref: {ref} by falling back to LIST of base name '{base_name}'.",
+                            UserWarning,
+                        )
+                        # Recursively parse the base item schema
+                        item_schema = _parse_schema(base_name, referenced, raw_schemas, schemas, _visited)
+                        if not item_schema._from_unresolved_ref:
+                            # Create a new IRSchema representing List[item_schema]
+                            # Use original_ref_name so ModelVisitor can generate 'UserListResponse = List[User]'
+                            resolved_schema_obj = IRSchema(name=original_ref_name, type="array", items=item_schema)
+                            schemas[original_ref_name] = resolved_schema_obj  # Cache the alias
+                        # ref_name remains original_ref_name for _visited removal
+                    # else: ListResponse fallback failed, continue to general suffix stripping
+
+                # General suffix stripping (if ListResponse didn't match or resolve)
+                if resolved_schema_obj is None:  # Check if ListResponse handling already succeeded
+                    stripped_name = ref_name
+                    for suffix in ["Response", "Create", "Update", "Request"]:  # Removed ListResponse here
+                        if stripped_name.endswith(suffix):
+                            stripped_name = stripped_name[: -len(suffix)]
+                            break
+
+                    if stripped_name != ref_name:
+                        referenced = raw_schemas.get(stripped_name)
+                        if referenced:
+                            warnings.warn(
+                                f"Resolved $ref: {ref} by falling back to stripped name '{stripped_name}'.",
+                                UserWarning,
+                            )
+                            # Recursively parse the base schema using the stripped name to get its structure
+                            base_schema_structure = _parse_schema(
+                                stripped_name, referenced, raw_schemas, schemas, _visited
+                            )
+
+                            if not base_schema_structure._from_unresolved_ref:
+                                # Create a new IRSchema for the original_ref_name,
+                                # copying structure but ensuring the correct name.
+                                resolved_schema_obj = copy.deepcopy(base_schema_structure)
+                                resolved_schema_obj.name = original_ref_name  # Set the name to the original
+                                # Cache this correctly named schema under its original name
+                                schemas[original_ref_name] = resolved_schema_obj
+                            else:
+                                # If the base structure itself was an unresolved placeholder, propagate that.
+                                # But still ensure it's associated with the original_ref_name if we're to return it.
+                                # However, the current _from_unresolved_ref structure might need refinement
+                                # if we directly return a placeholder here named original_ref_name.
+                                # For now, if base is unresolved, this path means fallback essentially failed to find a concrete structure.
+                                resolved_schema_obj = IRSchema(name=original_ref_name, _from_unresolved_ref=True)
+                                schemas[original_ref_name] = resolved_schema_obj  # Cache the placeholder
+
+                            # ref_name remains original_ref_name for _visited removal
+                        # else: Fallback failed, continue to original warning below
+
+            # <<< End Fallback Logic >>>
+
+            # If fallback resulted in a resolved schema object, return it
+            if resolved_schema_obj:
+                if original_ref_name in _visited:  # Use original name for visited tracking
+                    _visited.remove(original_ref_name)
+                return resolved_schema_obj
+
+            # If no reference found (even after fallback), issue warning and return placeholder
+            if referenced is None:
+                available_keys = list(raw_schemas.keys())
+                warnings.warn(
+                    f"Could not resolve $ref: {ref}. ref_name='{ref_name}' (after potential fallback). "
+                    f"Available keys in raw_schemas (first 10): {available_keys[:10]}...",
+                    UserWarning,
+                )
+                if ref_name in _visited:  # Use name before potential fallback for removal
+                    _visited.remove(ref_name)
                 return IRSchema(name=ref_name, _from_unresolved_ref=True)
 
-            schema_obj = _parse_schema(ref_name, referenced, raw_schemas, schemas, _visited)
+            # --- Original path: ref found directly ---
+            # Parse using the original ref_name and the directly found 'referenced' data
+            schema_obj = _parse_schema(ref_name, referenced, raw_schemas, schemas, _visited)  # Recursive call
+
             # Store the fully parsed schema only if it's not just a cycle placeholder
             if not schema_obj._from_unresolved_ref:
-                schemas[ref_name] = schema_obj
-            _visited.remove(ref_name)
+                schemas[ref_name] = schema_obj  # Cache under the direct ref name
+
+            if ref_name in _visited:
+                _visited.remove(ref_name)
             return schema_obj
         else:
             # Non-schema ref or invalid ref format
@@ -426,27 +512,37 @@ def _parse_operations(
                 # Assign names to inline response schemas for model generation
                 for resp in resps:
                     for mt, sch in resp.content.items():
-                        # Only assign a name if sch.name is None and not from unresolved $ref
                         if sch.name is None:
                             if getattr(sch, "_from_unresolved_ref", False):
-                                # Defensive: never assign a name to unresolved $ref schemas
                                 continue
                             is_streaming = getattr(resp, "stream", False)
-                            # PATCH: Only assign a name for streaming responses if schema is a global, named schema
                             if is_streaming:
-                                # If this schema is not a global component (i.e., not in schemas), skip naming
-                                # Inline objects (even with properties) should not get a name for streaming
                                 continue
-                            # Use the raw operation_id (not sanitized) + 'Response', then sanitize once
-                            generated_name = NameSanitizer.sanitize_class_name(
-                                node.get("operationId", operation_id) + "Response"
-                            )
-                            sch.name = generated_name
-                            schemas[generated_name] = sch
-                        else:
-                            # Ensure all referenced response schemas are in schemas dict
-                            if sch.name not in schemas:
-                                schemas[sch.name] = sch
+
+                            # <<< Start Change: Conditional Naming >>>
+                            # Only assign synthesized name if it's an inline OBJECT that needs a class.
+                            # Do not name inline primitives or arrays of existing refs/primitives.
+                            should_synthesize_name = False
+                            if sch.type == "object" and (sch.properties or sch.additional_properties):
+                                # It's an object with structure, likely needs a class name.
+                                should_synthesize_name = True
+                            # Consider other complex types? Maybe not for now.
+
+                            if should_synthesize_name:
+                                # Use the raw operation_id (not sanitized) + 'Response', then sanitize once
+                                generated_name = NameSanitizer.sanitize_class_name(
+                                    node.get("operationId", operation_id) + "Response"
+                                )
+                                sch.name = generated_name
+                                # Only add to global schemas if successfully named
+                                schemas[generated_name] = sch
+                            # <<< End Change >>>
+
+                        elif sch.name and sch.name not in schemas:
+                            # Ensure referenced schemas are captured if not already present
+                            # This handles cases where a response references a component schema directly
+                            schemas[sch.name] = sch  # Add existing schema if name was resolved from $ref
+
                 ops.append(op)
     return ops
 

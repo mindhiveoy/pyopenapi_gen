@@ -233,7 +233,7 @@ def test_merge_params_with_model_fields__endpoint_only__returns_endpoint_params(
     model_schema = IRSchema(name=None, type="object", properties={}, required=[])
     context = RenderContext()
     # Act
-    result = merge_params_with_model_fields(op, model_schema, context)
+    result = merge_params_with_model_fields(op, model_schema, context, schemas={})
     # Assert
     assert {p["name"] for p in result} == {"foo", "bar"}
 
@@ -269,7 +269,7 @@ def test_merge_params_with_model_fields__model_only__returns_model_fields() -> N
     )
     context = RenderContext()
     # Act
-    result = merge_params_with_model_fields(op, model_schema, context)
+    result = merge_params_with_model_fields(op, model_schema, context, schemas={})
     # Assert
     assert {p["name"] for p in result} == {"foo", "bar"}
     assert all(p["required"] for p in result)
@@ -308,7 +308,7 @@ def test_merge_params_with_model_fields__overlapping_names__endpoint_takes_prece
     )
     context = RenderContext()
     # Act
-    result = merge_params_with_model_fields(op, model_schema, context)
+    result = merge_params_with_model_fields(op, model_schema, context, schemas={})
     # Assert
     names = [p["name"] for p in result]
     assert names.count("foo") == 1
@@ -346,7 +346,7 @@ def test_merge_params_with_model_fields__optional_model_fields__only_required_me
     )
     context = RenderContext()
     # Act
-    result = merge_params_with_model_fields(op, model_schema, context)
+    result = merge_params_with_model_fields(op, model_schema, context, schemas={})
     # Assert
     names = [p["name"] for p in result]
     assert "foo" in names
@@ -376,6 +376,6 @@ def test_merge_params_with_model_fields__empty_everything__returns_empty() -> No
     model_schema = IRSchema(name=None, type="object", properties={}, required=[])
     context = RenderContext()
     # Act
-    result = merge_params_with_model_fields(op, model_schema, context)
+    result = merge_params_with_model_fields(op, model_schema, context, schemas={})
     # Assert
     assert result == []

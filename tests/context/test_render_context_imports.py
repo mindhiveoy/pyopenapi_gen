@@ -1,77 +1,37 @@
-import os
-
 import pytest
-from pyopenapi_gen.context.render_context import RenderContext
-
-
-@pytest.fixture
-def context() -> RenderContext:
-    ctx = RenderContext()
-    return ctx
-
-
-def set_file(ctx: RenderContext, rel_path: str) -> None:
-    # Simulate setting the current file being rendered
-    root = os.path.abspath("/fake/out")
-    ctx.set_current_file(os.path.join(root, rel_path))
+from pyopenapi_gen.context.import_collector import ImportCollector
 
 
 @pytest.mark.parametrize(
-    "current_file,module,symbol,expected",
+    "imports_to_add, expected_output_lines",
     [
-        # Endpoints importing from models
+        # Basic case
+        ([("typing", "List")], ["from typing import List"]),
+        # Multiple from same
+        ([("typing", "List"), ("typing", "Dict")], ["from typing import Dict, List"]),
+        # Multiple different
+        ([("typing", "List"), ("os", "path")], ["from os import path", "from typing import List"]),
+        # Plain import
+        ([("json", "")], ["import json"]),
+        # Relative import
+        ([(".models", "Foo")], ["from .models import Foo"]),
+        # Mix
         (
-            "endpoints/agent_datasources.py",
-            "models.foo",
-            "Bar",
-            "from ..models.foo import Bar",
-        ),
-        # Endpoints importing from another endpoint
-        (
-            "endpoints/agent_datasources.py",
-            "endpoints.pets",
-            "PetsClient",
-            "from .pets import PetsClient",
-        ),
-        # Models importing from models
-        ("models/foo.py", "models.bar", "Baz", "from .bar import Baz"),
-        # Client importing from endpoints
-        (
-            "client.py",
-            "endpoints.pets",
-            "PetsClient",
-            "from .endpoints.pets import PetsClient",
-        ),
-        # External import
-        (
-            "endpoints/agent_datasources.py",
-            "requests",
-            "Session",
-            "from requests import Session",
+            [("typing", "List"), (".models", "Foo"), ("json", "")],
+            ["import json", "from .models import Foo", "from typing import List"],
         ),
     ],
 )
-def test_add_import_logic(context: RenderContext, current_file: str, module: str, symbol: str, expected: str) -> None:
-    set_file(context, current_file)
-    context.add_import(module, symbol)
-    imports = context.render_imports("/fake/out")
-    # Remove whitespace and split lines for comparison
-    lines = [line.strip() for line in imports.splitlines() if line.strip()]
-    assert any(expected in line for line in lines), f"Expected '{expected}' in imports: {lines}"
+def test_import_collector_logic(imports_to_add: list[tuple[str, str]], expected_output_lines: list[str]) -> None:
+    """Tests basic import collection and formatting logic in ImportCollector."""
+    collector = ImportCollector()
+    for module, name in imports_to_add:
+        if name == "":  # Simulate plain import
+            collector.add_plain_import(module)
+        elif module.startswith("."):
+            collector.add_relative_import(module, name)
+        else:
+            collector.add_import(module, name)
 
-
-def test_render_imports__endpoint_to_models__double_dot() -> None:
-    """
-    Scenario:
-        - Simulate an endpoint file context and add a models import.
-        - Render imports for the file.
-    Expected Outcome:
-        - The rendered imports include 'from ..models.foo import Bar'.
-    """
-    ctx = RenderContext()
-    # Simulate being in an endpoint file
-    root = os.path.abspath("/fake/out")
-    ctx.set_current_file(os.path.join(root, "endpoints/agent_datasources.py"))
-    ctx.add_import("models.foo", "Bar")
-    imports = ctx.render_imports("/fake/out/endpoints")
-    assert "from ..models.foo import Bar" in imports
+    result_lines = collector.get_import_statements()  # No arguments
+    assert sorted(result_lines) == sorted(expected_output_lines)

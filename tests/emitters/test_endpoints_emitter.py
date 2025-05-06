@@ -497,9 +497,9 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     # __all__ should reference DataSourcesClient (PascalCase)
     assert '"DataSourcesClient"' in text, "__all__ should reference DataSourcesClient"
     # Only one import from data_sources module should exist, importing DataSourcesClient
-    assert (
-        text.count("from .data_sources import DataSourcesClient") == 1
-    ), "Only one import from data_sources module should exist"
+    assert text.count("from .data_sources import DataSourcesClient") == 1, (
+        "Only one import from data_sources module should exist"
+    )
 
 
 def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_path: Path) -> None:
@@ -777,10 +777,9 @@ def test_endpoints_emitter__post_with_body__only_body_param_and_path_query_args(
     content = search_file.read_text()
 
     # Assert: The method signature should have only tenant_id and body, not searchPhrase/instructions
-    # Accept multiline signature (indented)
+    assert "class SearchClient" in content
     assert "async def elaborate_search_phrase(" in content
     assert "tenant_id: str," in content
-    assert "body: ElaborateSearchPhraseRequest," in content
-    # Ensure body fields are NOT present as top-level args
+    assert "body: ElaborateSearchPhraseRequest" in content
     assert "searchPhrase:" not in content
     assert "instructions:" not in content

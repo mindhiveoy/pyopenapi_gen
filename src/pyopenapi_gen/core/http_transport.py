@@ -85,6 +85,7 @@ class HttpxTransport:
         _client (httpx.AsyncClient): Configured HTTPX async client for all requests.
         _auth (Optional[BaseAuth]): Optional authentication plugin for request signing (can be CompositeAuth).
         _bearer_token (Optional[str]): Optional bearer token for Authorization header.
+        _default_headers (Optional[Dict[str, str]]): Default headers to apply to all requests.
     """
 
     def __init__(
@@ -93,6 +94,7 @@ class HttpxTransport:
         timeout: Optional[float] = None,
         auth: Optional[BaseAuth] = None,
         bearer_token: Optional[str] = None,
+        default_headers: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Initializes the HttpxTransport.
@@ -102,6 +104,7 @@ class HttpxTransport:
             timeout (Optional[float]): The default timeout in seconds for requests. If None, httpx's default is used.
             auth (Optional[BaseAuth]): Optional authentication plugin for request signing (can be CompositeAuth).
             bearer_token (Optional[str]): Optional raw bearer token string for Authorization header.
+            default_headers (Optional[Dict[str, str]]): Default headers to apply to all requests.
 
         Note:
             If both auth and bearer_token are provided, auth takes precedence.
@@ -109,6 +112,49 @@ class HttpxTransport:
         self._client: httpx.AsyncClient = httpx.AsyncClient(base_url=base_url, timeout=timeout)
         self._auth: Optional[BaseAuth] = auth
         self._bearer_token: Optional[str] = bearer_token
+        self._default_headers: Optional[Dict[str, str]] = default_headers
+
+    async def _prepare_headers(
+        self,
+        current_request_kwargs: Dict[str, Any],
+    ) -> Dict[str, str]:
+        """
+        Prepares headers for an HTTP request, incorporating default headers,
+        request-specific headers, and authentication.
+        """
+        # Initialize headers for the current request
+        prepared_headers: Dict[str, str] = {}
+
+        # 1. Apply transport-level default headers
+        if self._default_headers:
+            prepared_headers.update(self._default_headers)
+
+        # 2. Merge headers passed specifically for this request (overriding transport defaults)
+        if "headers" in current_request_kwargs and isinstance(current_request_kwargs["headers"], dict):
+            prepared_headers.update(current_request_kwargs["headers"])
+
+        # 3. Apply authentication plugin or bearer token (which can further modify headers)
+        # We pass a temporary request_args dict containing only the headers to the auth plugin,
+        # as the auth plugin might expect other keys which are not relevant for header preparation.
+        # The auth plugin is expected to modify the 'headers' key in the passed dict.
+        temp_request_args_for_auth = {"headers": prepared_headers.copy()}
+
+        if self._auth is not None:
+            authenticated_args = await self._auth.authenticate_request(temp_request_args_for_auth)
+            # Ensure 'headers' key exists and is a dict after authentication
+            if "headers" in authenticated_args and isinstance(authenticated_args["headers"], dict):
+                prepared_headers = authenticated_args["headers"]
+            else:
+                # Handle cases where auth plugin might not return headers as expected
+                # This could be an error or a specific design of an auth plugin.
+                # For now, we assume it should always return a 'headers' dict.
+                # If not, we retain the headers we had before calling the auth plugin.
+                pass  # Or raise an error, or log a warning.
+        elif self._bearer_token is not None:
+            # If no auth plugin, but bearer token is present, add/overwrite Authorization header.
+            prepared_headers["Authorization"] = f"Bearer {self._bearer_token}"
+
+        return prepared_headers
 
     async def request(
         self,
@@ -133,18 +179,13 @@ class HttpxTransport:
             httpx.HTTPError: For network errors or invalid responses.
             HTTPError: For non-2xx HTTP responses.
         """
-        # Prepare request arguments
-        request_args: Dict[str, Any] = dict(kwargs)
-        headers = request_args.get("headers", {})
-        # Apply authentication
-        if self._auth is not None:
-            # Use the provided BaseAuth instance (can be CompositeAuth)
-            request_args = await self._auth.authenticate_request(request_args)
-        elif self._bearer_token is not None:
-            # Add Bearer token header
-            headers = dict(headers)  # copy to avoid mutating input
-            headers["Authorization"] = f"Bearer {self._bearer_token}"
-            request_args["headers"] = headers
+        # Prepare request arguments, excluding headers initially
+        request_args: Dict[str, Any] = {k: v for k, v in kwargs.items() if k != "headers"}
+
+        # This method handles default headers, request-specific headers, and authentication
+        prepared_headers = await self._prepare_headers(kwargs)
+        request_args["headers"] = prepared_headers
+
         response = await self._client.request(method, url, **request_args)
         if response.status_code < 200 or response.status_code >= 300:
             raise HTTPError(response.status_code, response.text)

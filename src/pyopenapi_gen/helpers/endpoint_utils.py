@@ -3,14 +3,13 @@ Helpers for endpoint code generation: parameter/type analysis, code writing, etc
 Used by EndpointVisitor and related emitters.
 """
 
-import logging
 from typing import Any, Dict, List, Optional
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 
 from ..core.utils import NameSanitizer
-from .type_helper import get_python_type_for_schema
+from .type_helper import TypeHelper
 
 
 def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSchema]) -> List[Dict[str, Any]]:
@@ -33,7 +32,7 @@ def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSch
 
 def get_param_type(param: IRParameter, context: RenderContext, schemas: Dict[str, IRSchema]) -> str:
     """Returns the Python type hint for a parameter, resolving references using the schemas dict."""
-    py_type = get_python_type_for_schema(param.schema, schemas, context, required=param.required)
+    py_type = TypeHelper.get_python_type_for_schema(param.schema, schemas, context, required=param.required)
 
     # Adjust model import path for endpoints (expecting models.<module>)
     if py_type.startswith(".") and not py_type.startswith(".."):  # Simple relative import
@@ -56,9 +55,15 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: 
     # Prefer application/json schema if available
     json_schema = body.content.get("application/json")
     if json_schema:
-        py_type = get_python_type_for_schema(json_schema, schemas, context, required=body.required)
+        py_type = TypeHelper.get_python_type_for_schema(json_schema, schemas, context, required=body.required)
         if py_type.startswith(".") and not py_type.startswith(".."):
             py_type = "models" + py_type
+
+        # If the resolved type is 'Any' for a JSON body, default to Dict[str, Any]
+        if py_type == "Any":
+            context.add_import("typing", "Dict")
+            # context.add_import("typing", "Any") # Already added by the fallback or TypeHelper
+            return "Dict[str, Any]"
         return py_type
     # Fallback for other content types (e.g., octet-stream)
     # TODO: Handle other types more specifically if needed
@@ -109,7 +114,7 @@ def get_return_type(
             should_unwrap = True
             data_schema = properties["data"]
             # Get the original wrapper type string BEFORE potentially unwrapping
-            wrapper_type_str = get_python_type_for_schema(schema, schemas, context, required=True)
+            wrapper_type_str = TypeHelper.get_python_type_for_schema(schema, schemas, context, required=True)
             if wrapper_type_str and wrapper_type_str != "Any" and "." in wrapper_type_str:
                 # Ensure the wrapper type is imported even if we return the inner type
                 # We might need it temporarily during parsing before accessing .data
@@ -139,7 +144,7 @@ def get_return_type(
     # # +++ End logging +++
 
     if is_streaming:
-        item_type = get_python_type_for_schema(final_schema, schemas, context, required=True)
+        item_type = TypeHelper.get_python_type_for_schema(final_schema, schemas, context, required=True)
         # Adjust import path if needed (relative model -> models.<module>)
         if item_type.startswith(".") and not item_type.startswith(".."):
             item_type = "models" + item_type
@@ -150,7 +155,7 @@ def get_return_type(
         # # +++ End logging +++
         return (f"AsyncIterator[{item_type}]", False)
     else:
-        py_type = get_python_type_for_schema(final_schema, schemas, context, required=True)
+        py_type = TypeHelper.get_python_type_for_schema(final_schema, schemas, context, required=True)
         # Adjust model import path for endpoints (expecting models.<module>)
         # This adjustment might be redundant if get_python_type_for_schema handles context correctly,
         # but kept for safety.
@@ -290,7 +295,7 @@ def merge_params_with_model_fields(
                 continue  # Already present as endpoint param
 
             # Use the helper function to get the type
-            py_type = get_python_type_for_schema(pschema, schemas, context, required=True)
+            py_type = TypeHelper.get_python_type_for_schema(pschema, schemas, context, required=True)
             if py_type.startswith(".") and not py_type.startswith(".."):
                 py_type = "models" + py_type
 

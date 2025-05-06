@@ -1,12 +1,13 @@
 import json
 from pathlib import Path
 
-from pyopenapi_gen.cli import app
-from typer.testing import CliRunner
+import pytest
+
+from pyopenapi_gen.generator.client_generator import ClientGenerator, GenerationError
 
 
 def test_backup_diff_exits_non_zero_on_changes(tmp_path: Path) -> None:
-    """Running gen twice without --force and modifying output should trigger diff and exit non-zero."""
+    """Running gen twice without --force and modifying output should trigger diff and raise GenerationError."""
     # Prepare minimal spec
     spec = {
         "openapi": "3.1.0",
@@ -22,26 +23,38 @@ def test_backup_diff_exits_non_zero_on_changes(tmp_path: Path) -> None:
     }
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(json.dumps(spec))
-    out_dir = tmp_path / "out"
-    runner = CliRunner()
+    # Define output package and determine directory
+    output_package = "my_client.api"
+    project_root = tmp_path
 
+    generator = ClientGenerator()
     # First run with force to create baseline
-    result1 = runner.invoke(
-        app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--force", "--no-postprocess"],
+    generator.generate(
+        spec_path=str(spec_file),
+        project_root=project_root,
+        output_package=output_package,
+        core_package=None,  # Let it default to output_package + ".core"
+        force=True,
+        no_postprocess=True,
     )
-    assert result1.exit_code == 0, result1.stdout
 
     # Modify a generated file to simulate change
-    client_py = out_dir / "client.py"
-    original = client_py.read_text()
-    client_py.write_text(original + "\n# changed by test")
+    resolved_core_package_fqn = output_package + ".core"  # Generator's default logic
+    core_dir = project_root / Path(*resolved_core_package_fqn.split("."))  # Corrected
+    config_py = core_dir / "config.py"
+    assert config_py.exists(), f"Config file {config_py} was not generated in the expected location."
+    original = config_py.read_text()
+    config_py.write_text(original + "\n# changed by test")
 
-    # Second run without force should detect diff and exit 1
-    result2 = runner.invoke(
-        app,
-        ["gen", str(spec_file), "-o", str(out_dir), "--no-postprocess"],
-    )
-    assert result2.exit_code == 1
-    # Diff output should include our change marker
-    assert "# changed by test" in result2.stdout
+    # Second run without force should detect diff and raise GenerationError
+    with pytest.raises(GenerationError) as excinfo:
+        generator.generate(
+            spec_path=str(spec_file),
+            project_root=project_root,
+            output_package=output_package,
+            core_package=None,  # Let it default to output_package + ".core"
+            force=False,  # Important: force=False triggers diff check
+            no_postprocess=True,
+        )
+    # Assert that the error message indicates differences were found
+    assert "Differences found" in str(excinfo.value)

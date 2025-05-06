@@ -12,9 +12,9 @@ class ExceptionVisitor:
 
     def visit(self, spec: IRSpec, context: RenderContext) -> str:
         # Register base exception imports
-        context.add_import(f"{context.core_package}.exceptions", "HTTPError")
-        context.add_import(f"{context.core_package}.exceptions", "ClientError")
-        context.add_import(f"{context.core_package}.exceptions", "ServerError")
+        context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
+        context.add_import(f"{context.core_package_name}.exceptions", "ClientError")
+        context.add_import(f"{context.core_package_name}.exceptions", "ServerError")
 
         # Collect unique numeric status codes
         codes = sorted({

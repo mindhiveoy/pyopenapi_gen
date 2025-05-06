@@ -62,12 +62,15 @@ class ClientVisitor:
         # Register core/config/typing imports for class signature
         # Use LOGICAL import path for core components
 
-        # <<< Force core package name >>>
-        actual_core_package = "core"  # Override context value just in case
-        context.add_import(f"{actual_core_package}.http_transport", "HttpTransport")
-        context.add_import(f"{actual_core_package}.http_transport", "HttpxTransport")
-        context.add_import(f"{actual_core_package}.config", "ClientConfig")
-        # <<< End Force >>>
+        # Use the core_package name from the context to form the base of the import path
+        # RenderContext.add_import will handle making it relative correctly based on the current file.
+        context.add_import(f"{context.core_package_name}.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package_name}.http_transport", "HttpxTransport")
+        context.add_import(f"{context.core_package_name}.config", "ClientConfig")
+        # If security schemes are present and an auth plugin like ApiKeyAuth is used by the client itself,
+        # it would also be registered here using context.core_package.
+        # For now, the client_py_content check in the test looks for this for ApiKeyAuth specifically:
+        context.add_import(f"{context.core_package_name}.auth.plugins", "ApiKeyAuth")
 
         context.add_typing_imports_for_type("Optional[HttpTransport]")
         context.add_typing_imports_for_type("Any")

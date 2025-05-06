@@ -1,7 +1,10 @@
 import os
+from typing import Optional
+
 from pyopenapi_gen import IRSpec
-from ..visit.exception_visitor import ExceptionVisitor
 from pyopenapi_gen.context.render_context import RenderContext
+
+from ..visit.exception_visitor import ExceptionVisitor
 
 # Template for spec-specific exception aliases
 EXCEPTIONS_ALIASES_TEMPLATE = '''
@@ -19,18 +22,25 @@ class Error{{ code }}({% if code < 500 %}ClientError{% else %}ServerError{% endi
 class ExceptionsEmitter:
     """Generates spec-specific exception aliases in exceptions.py using visitor/context."""
 
-    def __init__(self) -> None:
+    def __init__(self, core_package_name: str = "core", overall_project_root: Optional[str] = None) -> None:
         self.visitor = ExceptionVisitor()
+        self.core_package_name = core_package_name
+        self.overall_project_root = overall_project_root
 
     def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
-        file_path = os.path.join(output_dir, "exceptions.py")
-        context = RenderContext()
-        context.mark_generated_module(file_path)
+        file_path = os.path.join(output_dir, "exception_aliases.py")
+
+        context = RenderContext(
+            package_root_for_generated_code=output_dir,
+            core_package_name=self.core_package_name,
+            overall_project_root=self.overall_project_root,
+        )
         context.set_current_file(file_path)
-        # Render exception code using the visitor
-        exception_code = self.visitor.visit(spec, context)
-        # Render imports for this file
-        imports_code = context.render_imports()
-        file_content = imports_code + "\n\n" + exception_code
-        context.file_manager.write_file(file_path, file_content)
+
+        content = self.visitor.visit(spec, context)
+        generated_imports = context.render_imports()
+
+        full_content = f"{generated_imports}\n\n{content}"
+        with open(file_path, "w") as f:
+            f.write(full_content)
         return [file_path]

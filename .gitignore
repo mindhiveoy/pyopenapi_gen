@@ -185,3 +185,4 @@ tests/out
 output
 output_*
 **/.claude/settings.local.json
+out

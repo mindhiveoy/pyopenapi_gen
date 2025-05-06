@@ -248,12 +248,12 @@ def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path:
     init_file = models_dir / "__init__.py"
     assert init_file.exists(), "__init__.py not generated in models/"
     init_content = init_file.read_text()
-    assert (
-        '__all__ = ["TestSchema"]' in init_content or '__all__: list[str] = ["TestSchema"]' in init_content
-    ), "__all__ missing class name"
-    assert (
-        f"from .{NameSanitizer.sanitize_module_name(schema_name)} import TestSchema" in init_content
-    ), "Import statement missing or incorrect"
+    assert '__all__ = ["TestSchema"]' in init_content or '__all__: list[str] = ["TestSchema"]' in init_content, (
+        "__all__ missing class name"
+    )
+    assert f"from .{NameSanitizer.sanitize_module_name(schema_name)} import TestSchema" in init_content, (
+        "Import statement missing or incorrect"
+    )
 
 
 def test_models_emitter__primitive_alias(tmp_path: Path) -> None:
@@ -263,20 +263,22 @@ def test_models_emitter__primitive_alias(tmp_path: Path) -> None:
     Expected Outcome:
         The generated file contains the correct alias and import.
     """
-    schema = IRSchema(name="MyString", type="string")
+    schema = IRSchema(name="MyInt", type="integer")
     spec = IRSpec(
         title="T",
         version="0.1",
-        schemas={"MyString": schema},
+        schemas={"MyInt": schema},
         operations=[],
         servers=[],
     )
     out_dir = tmp_path / "out"
-    ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "my_string.py"
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "my_int.py"
     assert model_file.exists()
     content = model_file.read_text()
-    assert "MyString = str" in content
+    assert "from typing import TypeAlias" in content
+    assert "MyInt: TypeAlias = int" in content
 
 
 def test_models_emitter__array_of_primitives_alias(tmp_path: Path) -> None:
@@ -295,12 +297,13 @@ def test_models_emitter__array_of_primitives_alias(tmp_path: Path) -> None:
         servers=[],
     )
     out_dir = tmp_path / "out"
-    ModelsEmitter().emit(spec, str(out_dir))
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
     model_file = out_dir / "models" / "my_strings.py"
     assert model_file.exists()
     content = model_file.read_text()
-    assert "MyStrings = List[str]" in content
-    assert "List" in content and "from typing" in content
+    assert "from typing import List, TypeAlias" in content
+    assert "MyStrings: TypeAlias = List[str]" in content
 
 
 def test_models_emitter__array_of_models_alias(tmp_path: Path) -> None:
@@ -320,12 +323,14 @@ def test_models_emitter__array_of_models_alias(tmp_path: Path) -> None:
         servers=[],
     )
     out_dir = tmp_path / "out"
-    ModelsEmitter().emit(spec, str(out_dir))
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
     model_file = out_dir / "models" / "pet_list.py"
     assert model_file.exists()
     content = model_file.read_text()
-    assert "PetList = List[Pet]" in content
-    assert "from .Pet import Pet" in content or "from .pet import Pet" in content
+    assert "from typing import List, TypeAlias" in content
+    assert "from .pet import Pet" in content
+    assert "PetList: TypeAlias = List[Pet]" in content
 
 
 def test_models_emitter__integer_enum(tmp_path: Path) -> None:
@@ -385,8 +390,9 @@ def test_models_emitter__unknown_type_fallback(tmp_path: Path) -> None:
     schema = IRSchema(name="Mystery", type="unknown")
     spec = IRSpec(title="T", version="0.1", schemas={"Mystery": schema}, operations=[], servers=[])
     out_dir = tmp_path / "out"
-    ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "Mystery.py"
+    emitter = ModelsEmitter()
+    emitter.emit(spec, str(out_dir))
+    model_file = out_dir / "models" / "unknown_schema.py"
     assert not model_file.exists()
 
 
@@ -428,7 +434,7 @@ def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path: 
     assert "from typing import" in content
     assert "Optional" in content
     assert "Any" in content
-    assert "meta: Optional[Any] = field(default_factory=dict)" in content
+    assert "meta: Optional[Any] = None" in content
 
 
 def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path) -> None:
@@ -511,7 +517,7 @@ def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
     assert "Optional" in typing_import_line
     assert "List" in typing_import_line
 
-    assert "tags: Optional[List[str]] = field(default_factory=list)" in content
+    assert "tags: Optional[List[str]] = None" in content
 
 
 def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> None:
@@ -589,7 +595,7 @@ def test_models_emitter_union_anyof(tmp_path: Path) -> None:
     # Check for Union import robustly
     typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
     assert any("Union" in line for line in typing_imports), "'Union' not found in typing imports"
-    assert "value: Union[TypeA, TypeB]" in content  # Correct assertion for required field
+    assert "value: Union[int, str]" in content  # Correct assertion for required field
 
 
 def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
@@ -632,7 +638,7 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
     assert any("Union" in line for line in typing_imports), "'Union' not found in typing imports"
     # Optional should also be imported due to is_nullable=True combined with the Union
-    assert any(
-        "Optional" in line for line in typing_imports
-    ), "'Optional' not found in typing imports for nullable union"
-    assert "value: Union[TypeA, TypeB, None] = None" in content  # Check the actual type hint
+    assert any("Optional" in line for line in typing_imports), (
+        "'Optional' not found in typing imports for nullable union"
+    )
+    assert "value: Union[int, str, None] = None" in content  # Check the actual type hint

@@ -6,9 +6,11 @@ This module contains utility classes and functions used across the code generati
 import keyword
 import logging
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Type, TypeVar, cast
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class NameSanitizer:
@@ -41,12 +43,19 @@ class NameSanitizer:
     @staticmethod
     def sanitize_class_name(name: str) -> str:
         """Convert a raw name into a valid Python class name in PascalCase."""
-        # Split on non-word characters and underscores
-        parts = re.split(r"[\W_]+", name)
-        # Capitalize first letter of each part
-        cls_name = "".join(p[:1].upper() + p[1:] for p in parts if p)
+        # Use regex that can split PascalCase, camelCase, and common separators for words
+        words = re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+", name)
+        if not words:  # Fallback if findall is empty (e.g. if name was all symbols)
+            # Basic split on non-alphanumeric as a last resort if findall yields nothing
+            words = [part for part in re.split(r"[^a-zA-Z0-9]+", name) if part]
+
+        cls_name = "".join(word.capitalize() for word in words if word)
+
+        if not cls_name:  # If name was e.g. "-" or "_"
+            cls_name = "UnnamedClass"  # Or some other default
+
         # If it starts with a digit, prefix with underscore
-        if cls_name and cls_name[0].isdigit():
+        if cls_name[0].isdigit():  # Check after ensuring cls_name is not empty
             cls_name = "_" + cls_name
         # Avoid Python keywords (case-insensitive)
         if keyword.iskeyword(cls_name.lower()):
@@ -155,3 +164,16 @@ class Formatter:
                 # On any Black formatting error, return original code
                 return code
         return code
+
+
+# --- Casting Helper ---
+
+
+def safe_cast(expected_type: Type[T], data: Any) -> T:
+    """
+    Performs a cast for the type checker using object cast.
+    (Validation temporarily removed).
+    """
+    # No validation for now
+    # Cast to object first, then to expected_type
+    return cast(expected_type, cast(object, data))  # type: ignore[valid-type]

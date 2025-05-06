@@ -18,12 +18,12 @@ from .documentation_writer import DocumentationBlock, DocumentationWriter
 class PythonConstructRenderer:
     """
     Generates Python code for common constructs like dataclasses, enums, and type aliases.
-    
+
     This class provides methods to render different Python language constructs with
     proper formatting, documentation, and import handling. It uses CodeWriter and
-    DocumentationWriter internally to ensure consistent output and automatically 
+    DocumentationWriter internally to ensure consistent output and automatically
     registers necessary imports into the provided RenderContext.
-    
+
     The renderer handles:
     - Type aliases (e.g., UserId = str)
     - Enums (with str or int values)
@@ -40,27 +40,37 @@ class PythonConstructRenderer:
     ) -> str:
         """
         Render a type alias assignment as Python code.
-        
+
         Args:
             alias_name: The name for the type alias
             target_type: The target type expression
             description: Optional description for the docstring
-            context: The rendering context (not used for aliases)
-            
+            context: The rendering context for import registration
+
         Returns:
             Formatted Python code for the type alias
-        
+
         Example:
             ```python
-            UserId = str
-            """Alias for a user identifier"""
+            # Assuming: from typing import TypeAlias
+            UserId: TypeAlias = str
+            '''Alias for a user identifier'''
             ```
         """
         writer = CodeWriter()
-        writer.write_line(f"{alias_name} = {target_type}")
+        # Add TypeAlias import
+        context.add_import("typing", "TypeAlias")
+        # Register imports needed by the target type itself
+        context.add_typing_imports_for_type(target_type)
+
+        # Add __all__ export
+        writer.write_line(f'__all__ = ["{alias_name}"]')
+        writer.write_line("")  # Add a blank line for separation
+
+        writer.write_line(f"{alias_name}: TypeAlias = {target_type}")
         if description:
             # Simple docstring for alias
-            writer.write_line(f'"""Alias for {description}"""')
+            writer.write_line(f"'''Alias for {description}'''")
         return writer.get_code()
 
     def render_enum(
@@ -73,17 +83,17 @@ class PythonConstructRenderer:
     ) -> str:
         """
         Render an Enum class as Python code.
-        
+
         Args:
             enum_name: The name of the enum class
             base_type: The base type, either 'str' or 'int'
             values: List of (member_name, value) pairs
             description: Optional description for the docstring
             context: The rendering context for import registration
-            
+
         Returns:
             Formatted Python code for the enum class
-            
+
         Example:
             ```python
             @unique
@@ -137,16 +147,16 @@ class PythonConstructRenderer:
     ) -> str:
         """
         Render a dataclass as Python code.
-        
+
         Args:
             class_name: The name of the dataclass
             fields: List of (name, type_hint, default_expr, description) tuples for each field
             description: Optional description for the class docstring
             context: The rendering context for import registration
-            
+
         Returns:
             Formatted Python code for the dataclass
-            
+
         Example:
             ```python
             @dataclass
@@ -160,6 +170,10 @@ class PythonConstructRenderer:
         """
         writer = CodeWriter()
         context.add_import("dataclasses", "dataclass")
+
+        # Add __all__ export
+        writer.write_line(f'__all__ = ["{class_name}"]')
+        writer.write_line("")  # Add a blank line for separation
 
         writer.write_line("@dataclass")
         writer.write_line(f"class {class_name}:")
@@ -190,7 +204,8 @@ class PythonConstructRenderer:
             for name, type_hint, _, field_desc in required_fields:
                 line = f"{name}: {type_hint}"
                 if field_desc:
-                    line += f"  # {field_desc.replace('\n', ' ')}"
+                    comment_text = field_desc.replace("\n", " ")
+                    line += f"  # {comment_text}"
                 writer.write_line(line)
 
             # Optional fields
@@ -199,7 +214,8 @@ class PythonConstructRenderer:
                     context.add_import("dataclasses", "field")  # Ensure field is imported
                 line = f"{name}: {type_hint} = {default_expr}"
                 if field_desc:
-                    line += f"  # {field_desc.replace('\n', ' ')}"
+                    comment_text = field_desc.replace("\n", " ")
+                    line += f"  # {comment_text}"
                 writer.write_line(line)
 
         writer.dedent()
@@ -215,17 +231,17 @@ class PythonConstructRenderer:
     ) -> str:
         """
         Render a generic class definition as Python code.
-        
+
         Args:
             class_name: The name of the class
             base_classes: Optional list of base class names (for inheritance)
             docstring: Optional class docstring content
             body_lines: Optional list of code lines for the class body
             context: The rendering context (not used for generic classes)
-            
+
         Returns:
             Formatted Python code for the class
-            
+
         Example:
             ```python
             class CustomError(Exception):
