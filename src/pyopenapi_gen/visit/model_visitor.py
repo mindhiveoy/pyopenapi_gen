@@ -45,6 +45,20 @@ class ModelVisitor(Visitor[IRSchema, str]):
         self.schemas = schemas or {}
         self.renderer = PythonConstructRenderer()
 
+    def clean_field_type(self, py_type: str) -> str:
+        """
+        Post-process type hints to fix common issues with complex types.
+        
+        Args:
+            py_type: The Python type hint to clean
+            
+        Returns:
+            A cleaned type hint
+        """
+        # Import before using to avoid circular import issues
+        from ..helpers.type_helper import TypeHelper
+        return TypeHelper._clean_type_parameters(py_type)
+
     def visit_IRSchema(self, schema: IRSchema, context: RenderContext) -> str:
         """
         Visit an IRSchema node and generate Python code for it.
@@ -56,20 +70,18 @@ class ModelVisitor(Visitor[IRSchema, str]):
         Returns:
             Formatted Python code for the model as a string
         """
-        # ---- Type Alias Detection ----
-        is_primitive_alias = (
-            schema.name
-            and not schema.properties
-            and not schema.enum  # Exclude enums from being primitive aliases
-            and schema.type in ("string", "integer", "number", "boolean")
-        )
-        is_array_alias = schema.name and not schema.properties and schema.type == "array" and schema.items is not None
-        is_type_alias = is_primitive_alias or is_array_alias
+        # Revised Alias, Enum, Dataclass Detection Logic
 
-        # --- Enum Detection ---
-        is_enum = schema.enum and schema.type in ("string", "integer") and not is_type_alias
+        # --- Enum Detection first ---
+        # An enum must have a name and enum values, and be string/integer type.
+        is_enum = bool(schema.name and schema.enum and schema.type in ("string", "integer"))
+
+        # --- Type Alias Detection ---
+        # A type alias must have a name, NOT have properties, NOT be an enum, AND NOT be of type "object".
+        is_type_alias = bool(schema.name and not schema.properties and not is_enum and schema.type != "object")
 
         # --- Dataclass Detection ---
+        # If it's not an enum and not a type alias, it's treated as a dataclass.
         is_dataclass = not is_enum and not is_type_alias
 
         # --- Basic Validation & Skipping ---
@@ -98,6 +110,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
             # Prepare data for alias renderer
             alias_name = NameSanitizer.sanitize_class_name(base_name_for_construct)
             target_type = TypeHelper.get_python_type_for_schema(schema, self.schemas, context, required=True)
+            target_type = self.clean_field_type(target_type)
             rendered_code = self.renderer.render_alias(
                 alias_name=alias_name,
                 target_type=target_type,
@@ -146,7 +159,8 @@ class ModelVisitor(Visitor[IRSchema, str]):
                         if not sanitized_member_name:
                             sanitized_member_name = f"MEMBER_UNKNOWN_{str(val).replace('[^a-zA-Z0-9]', '_')}"
                         elif sanitized_member_name[0].isdigit():
-                            sanitized_member_name = f"MEMBER_{sanitized_member_name}"
+                            # Prefix with VALUE_ if starts with digit for integer enums
+                            sanitized_member_name = f"VALUE_{sanitized_member_name}"
                         if keyword.iskeyword(sanitized_member_name):
                             sanitized_member_name += "_"
                         member_name = sanitized_member_name
@@ -170,11 +184,13 @@ class ModelVisitor(Visitor[IRSchema, str]):
                 # Process required fields
                 for prop, ps in required_props.items():
                     py_type = TypeHelper.get_python_type_for_schema(ps, self.schemas, context, required=True)
+                    py_type = self.clean_field_type(py_type)
                     fields_data.append((prop, py_type, None, ps.description))
 
                 # Process optional fields
                 for prop, ps in optional_props.items():
                     py_type = TypeHelper.get_python_type_for_schema(ps, self.schemas, context, required=False)
+                    py_type = self.clean_field_type(py_type)
                     default_expr: Optional[str] = self._get_field_default(ps, context)
                     fields_data.append((prop, py_type, default_expr, ps.description))
 
@@ -199,21 +215,18 @@ class ModelVisitor(Visitor[IRSchema, str]):
         Returns:
             A string representing the Python default value expression
         """
-        # Simplified to always return None for optional fields to match current test expectations.
-        # Previously used field(default_factory=dict) for anonymous objects.
-        # Revisit if default_factory behaviour is desired later.
-        # (Need to ensure dataclasses.field is imported if default_factory is used)
-        # if ps.type == "array":
-        #     # For optional array fields, tests expect 'None' as the default.
-        #     return "None"
-        # elif ps.type == "object" and ps.name is None and not ps.any_of and not ps.one_of and not ps.all_of:
-        #     # Default factory only for anonymous, non-composed objects
-        #     context.add_import("dataclasses", "field")
-        #     return "field(default_factory=dict)"
-        # else:
-        #     # Primitives, enums, named objects, unions default to None when optional
-        #     return "None"
-        return "None"
+        # Restore logic for default_factory for list and dict
+        if ps.type == "array":
+            context.add_import("dataclasses", "field")
+            return "field(default_factory=list)"
+        elif ps.type == "object" and ps.name is None and not ps.any_of and not ps.one_of and not ps.all_of:
+            # This condition aims for anonymous objects that are not part of a union/composition.
+            # These should get default_factory=dict if they are optional fields.
+            context.add_import("dataclasses", "field")
+            return "field(default_factory=dict)"
+        else:
+            # Primitives, enums, named objects, unions default to None when optional
+            return "None"
 
     def _analyze_and_register_imports(self, schema: IRSchema, context: RenderContext) -> None:
         """

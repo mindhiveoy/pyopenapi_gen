@@ -31,7 +31,7 @@ def test_ir_smoke() -> None:
         parameters=[
             IRParameter(
                 name="limit",
-                in_="query",
+                param_in="query",
                 required=False,
                 schema=IRSchema(name=None, type="integer", format="int32"),
                 description="How many pets to return",
@@ -96,7 +96,7 @@ def test_ir_query_param_from_spec() -> None:
     assert op.parameters
     param = op.parameters[0]
     assert param.name == "q"
-    assert param.in_ == "query"
+    assert param.param_in == "query"
     assert param.schema.type == "string"
 
 
@@ -148,6 +148,6 @@ def test_ir_path_param_from_spec__single_path_param__correct_irparameter() -> No
     assert op.parameters
     param = op.parameters[0]
     assert param.name == "item_id"
-    assert param.in_ == "path"
+    assert param.param_in == "path"
     assert param.required is True
     assert param.schema.type == "string"

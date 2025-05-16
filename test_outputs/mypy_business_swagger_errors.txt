@@ -1,0 +1,32 @@
+Mypy STDOUT:
+out/models/vector_index_status_enum.py:5: error: Name "VectorIndexStatusEnum" is not defined  [name-defined]
+out/models/type.py:8: error: Name "Type" already defined (possibly by an import)  [no-redef]
+out/models/success_success_enum.py:5: error: Name "SuccessSuccessEnum" is not defined  [name-defined]
+out/models/message_response_data_content_type_enum.py:5: error: Name "MessageResponseDataContentTypeEnum" is not defined  [name-defined]
+out/models/message_list_response_data_item_content_type_enum.py:5: error: Name "MessageListResponseDataItemContentTypeEnum" is not defined  [name-defined]
+out/models/message_list_response_data_item_content_type_enum.py:6: error: Name "MessageListResponseDataItemContentTypeEnum" is not defined  [name-defined]
+out/models/message_content_type_enum.py:5: error: Name "MessageContentTypeEnum" is not defined  [name-defined]
+out/models/message_batch_response_data_item_content_type_enum.py:5: error: Name "MessageBatchResponseDataItemContentTypeEnum" is not defined  [name-defined]
+out/models/message_batch_response_data_item_content_type_enum.py:6: error: Name "MessageBatchResponseDataItemContentTypeEnum" is not defined  [name-defined]
+out/models/data_source_update_type_enum.py:5: error: Name "DataSourceUpdateTypeEnum" is not defined  [name-defined]
+out/models/data_source_update_interval_type_enum.py:5: error: Name "DataSourceUpdateIntervalTypeEnum" is not defined  [name-defined]
+out/models/data_source_response_data_type_enum.py:5: error: Name "DataSourceResponseDataTypeEnum" is not defined  [name-defined]
+out/models/data_source_response_data_interval_type_enum.py:5: error: Name "DataSourceResponseDataIntervalTypeEnum" is not defined  [name-defined]
+out/models/data_source_response_data_interval_type_enum.py:6: error: Name "DataSourceResponseDataIntervalTypeEnum" is not defined  [name-defined]
+out/models/data_source_list_response_data_item_type_enum.py:5: error: Name "DataSourceListResponseDataItemTypeEnum" is not defined  [name-defined]
+out/models/data_source_list_response_data_item_type_enum.py:6: error: Name "DataSourceListResponseDataItemTypeEnum" is not defined  [name-defined]
+out/models/data_source_list_response_data_item_interval_type_enum.py:5: error: Name "DataSourceListResponseDataItemIntervalTypeEnum" is not defined  [name-defined]
+out/models/data_source_list_response_data_item_interval_type_enum.py:6: error: Name "DataSourceListResponseDataItemIntervalTypeEnum" is not defined  [name-defined]
+out/models/data_source_create_type_enum.py:5: error: Name "DataSourceCreateTypeEnum" is not defined  [name-defined]
+out/models/data_source_create_interval_type_enum.py:5: error: Name "DataSourceCreateIntervalTypeEnum" is not defined  [name-defined]
+out/models/job_list_response.py:4: error: Cannot find implementation or library stub for module named "out.models.job_list_response_meta"  [import-not-found]
+out/models/index_document_request.py:4: error: Cannot find implementation or library stub for module named "out.models.document"  [import-not-found]
+out/models/document_list_response.py:4: error: Cannot find implementation or library stub for module named "out.models.document_list_response_meta"  [import-not-found]
+out/models/document_list_response.py:4: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+out/models/foundation_model_response_data.py:49: error: Missing type parameters for generic type "Type"  [type-arg]
+out/models/foundation_model_list_response_data_item.py:49: error: Missing type parameters for generic type "Type"  [type-arg]
+Found 25 errors in 20 files (checked 1069 source files)
+
+
+Mypy STDERR:
+(empty stderr)

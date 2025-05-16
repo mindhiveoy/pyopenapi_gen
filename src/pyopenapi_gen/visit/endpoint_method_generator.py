@@ -75,7 +75,7 @@ class EndpointMethodGenerator:
                 "type": get_param_type(param, context, self.schemas),
                 "required": param.required,
                 "default": getattr(param, "default", None),
-                "in": getattr(param, "in_", "unknown"),
+                "param_in": param.param_in,
                 "original_name": param.name,
             }
             ordered_params.append(param_info)
@@ -101,7 +101,7 @@ class EndpointMethodGenerator:
                     "type": resolved_body_type,
                     "required": op.request_body.required,
                     "default": None,
-                    "in": "body",
+                    "param_in": "body",
                     "original_name": body_param_name,
                 }
             elif "application/json" in content_types:
@@ -113,7 +113,7 @@ class EndpointMethodGenerator:
                     "type": resolved_body_type,
                     "required": op.request_body.required,
                     "default": None,
-                    "in": "body",
+                    "param_in": "body",
                     "original_name": body_param_name,
                 }
             elif "application/x-www-form-urlencoded" in content_types:
@@ -126,7 +126,7 @@ class EndpointMethodGenerator:
                     "type": resolved_body_type,
                     "required": op.request_body.required,
                     "default": None,
-                    "in": "body",
+                    "param_in": "body",
                     "original_name": body_param_name,
                 }
             elif content_types:
@@ -138,7 +138,7 @@ class EndpointMethodGenerator:
                     "type": resolved_body_type,
                     "required": op.request_body.required,
                     "default": None,
-                    "in": "body",
+                    "param_in": "body",
                     "original_name": body_param_name,
                 }
 
@@ -264,7 +264,7 @@ class EndpointMethodGenerator:
         url_expr = self._build_url_with_path_vars(op.path)
         writer.write_line(f"url = {url_expr}")
 
-        has_spec_query_params = any(p.in_ == "query" for p in op.parameters)
+        has_spec_query_params = any(p.param_in == "query" for p in op.parameters)
         if has_spec_query_params:
             context.add_import("typing", "Any")
             writer.write_line("params: dict[str, Any] = {")
@@ -273,7 +273,7 @@ class EndpointMethodGenerator:
             writer.dedent()
             writer.write_line("}")
 
-        has_header_params = any(p.in_ == "header" for p in op.parameters)
+        has_header_params = any(p.param_in == "header" for p in op.parameters)
         if has_header_params:
             context.add_import("typing", "Any")
             writer.write_line("headers: dict[str, Any] = {")
@@ -319,7 +319,7 @@ class EndpointMethodGenerator:
         return has_header_params
 
     def _write_query_params(self, writer: CodeWriter, op: IROperation, ordered_params: list[dict[str, Any]]) -> None:
-        query_params_to_write = [p for p in ordered_params if p["in"] == "query"]
+        query_params_to_write = [p for p in ordered_params if p["param_in"] == "query"]
         if not query_params_to_write:
             return
         for i, p in enumerate(query_params_to_write):
@@ -337,7 +337,7 @@ class EndpointMethodGenerator:
         for p in ordered_params:
             if hasattr(op, "parameters"):
                 for param in op.parameters:
-                    if param.name == p["name"] and getattr(param, "in_", None) == "header":
+                    if param.name == p["name"] and getattr(param, "param_in", None) == "header":
                         writer.write_line(f'"{param.name}": {p["name"]},')
 
     def _write_request(
@@ -349,7 +349,7 @@ class EndpointMethodGenerator:
         resolved_body_type: str | None,
     ) -> None:
         args_list = []
-        if any(p.in_ == "query" for p in op.parameters):
+        if any(p.param_in == "query" for p in op.parameters):
             args_list.append("params=params")
         else:
             args_list.append("params=None")
@@ -395,6 +395,10 @@ class EndpointMethodGenerator:
     def _write_response_handling(self, writer: CodeWriter, op: IROperation, context: RenderContext) -> None:
         return_type, needs_unwrap = get_return_type(op, context, self.schemas)
         writer.write_line("# Parse response into correct return type")
+        
+        # Special handling for operations with inferred return types
+        is_op_with_inferred_type = (return_type != "None" and 
+                                    not any(r.content for r in op.responses if r.status_code.startswith("2")))
 
         if return_type.startswith("Union["):
             context.add_import("typing", "Union")
@@ -422,6 +426,12 @@ class EndpointMethodGenerator:
                 writer.write_line(f"return cast(Any, response.json())")
         elif return_type == "None":
             writer.write_line("return None")
+        elif is_op_with_inferred_type:
+            # For operations where we inferred the return type 
+            # (either from request body for PUT or path for GET)
+            context.add_typing_imports_for_type(return_type)
+            context.add_import("typing", "cast")
+            writer.write_line(f"return cast({return_type}, response.json())")
         else:
             context.add_typing_imports_for_type(return_type)
             extraction_code = self._get_extraction_code(return_type, context, op, needs_unwrap)

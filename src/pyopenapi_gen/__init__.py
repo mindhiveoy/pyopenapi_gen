@@ -8,9 +8,27 @@ code‑generation pipeline can rely on.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum, unique
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+# Removed dataclasses, field, Enum, unique from here, they are in ir.py and http_types.py
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    List,
+    Optional,
+)  # Kept Any, List, Optional, TYPE_CHECKING for __getattr__ and __dir__
+
+# Import IR classes from their canonical location
+from .ir import (
+    IRParameter,
+    IRResponse,
+    IROperation,
+    IRSchema,
+    IRSpec,
+    IRRequestBody,
+)
+
+# Import HTTPMethod from its canonical location
+from .http_types import HTTPMethod
+
 
 __all__ = [
     "HTTPMethod",
@@ -20,6 +38,9 @@ __all__ = [
     "IRSchema",
     "IRSpec",
     "IRRequestBody",
+    # Keep existing __all__ entries for lazy loaded items
+    "load_ir_from_spec",
+    "WarningCollector",
 ]
 
 # Semantic version of the generator core – bumped manually for now.
@@ -27,136 +48,45 @@ __version__: str = "0.1.0"
 
 
 # ---------------------------------------------------------------------------
-# HTTP Method Enum
+# HTTP Method Enum - REMOVED FROM HERE
 # ---------------------------------------------------------------------------
 
-
-@unique
-class HTTPMethod(str, Enum):
-    """Canonical HTTP method names supported by OpenAPI.
-
-    Implemented as `str` subclass to allow seamless usage anywhere a plain
-    string is expected (e.g., httpx, logging), while still providing strict
-    enumeration benefits.
-    """
-
-    GET = "GET"
-    POST = "POST"
-    PUT = "PUT"
-    PATCH = "PATCH"
-    DELETE = "DELETE"
-    OPTIONS = "OPTIONS"
-    HEAD = "HEAD"
-    TRACE = "TRACE"
+# @unique
+# class HTTPMethod(str, Enum):
+#     ...
 
 
 # ---------------------------------------------------------------------------
-# IR Dataclasses
+# IR Dataclasses - REMOVED FROM HERE
 # ---------------------------------------------------------------------------
 
+# @dataclass(slots=True)
+# class IRParameter:
+#     ...
 
-@dataclass(slots=True)
-class IRParameter:
-    """Represents an operation parameter (path/query/header/cookie)."""
+# @dataclass(slots=True)
+# class IRResponse:
+#     ...
 
-    name: str
-    in_: str  # one of: "query", "path", "header", "cookie"
-    required: bool
-    schema: "IRSchema"
-    description: Optional[str] = None
+# @dataclass(slots=True)
+# class IRRequestBody:
+#     ...
 
+# @dataclass(slots=True)
+# class IROperation:
+#     ...
 
-@dataclass(slots=True)
-class IRResponse:
-    """Represents a single response entry for an operation.
+# @dataclass(slots=True)
+# class IRSchema:
+#     ...
 
-    stream_format: Optional string indicating the type of stream (e.g., 'octet-stream', 'event-stream', 'ndjson').
-    """
-
-    status_code: str  # can be "default" or specific status like "200"
-    description: Optional[str]
-    content: Dict[str, "IRSchema"]  # media‑type → schema mapping
-    stream: bool = False  # Indicates a binary or streaming response
-    stream_format: Optional[str] = None  # Indicates the stream type (e.g., 'octet-stream', 'event-stream', etc.)
-
-
-@dataclass(slots=True)
-class IRRequestBody:
-    """Represents an operation request body with multiple media types."""
-
-    required: bool
-    content: Dict[str, "IRSchema"]  # media‑type → schema mapping
-    description: Optional[str] = None
-
-
-@dataclass(slots=True)
-class IROperation:
-    """Represents a single OpenAPI operation (method + path)."""
-
-    operation_id: str
-    method: HTTPMethod  # Enforced via enum for consistency
-    path: str  # e.g. "/pets/{petId}"
-    summary: Optional[str]
-    description: Optional[str]
-    parameters: List[IRParameter] = field(default_factory=list)
-    request_body: Optional[IRRequestBody] = None
-    responses: List[IRResponse] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class IRSchema:
-    """Represents a schema node.
-
-    This model intentionally captures only the common subset required for code
-    generation in the early slices.  More fields will be added as new features
-    (e.g., oneOf/anyOf/allOf, discriminators) are implemented.
-    """
-
-    name: Optional[str]  # Name when part of the global components/schemas
-    type: Optional[str] = None  # "object", "array", "string", ...
-    format: Optional[str] = None
-    required: List[str] = field(default_factory=list)
-    properties: Dict[str, "IRSchema"] = field(default_factory=dict)
-    items: Optional["IRSchema"] = None  # for array types
-    enum: Optional[List[Any]] = None
-    description: Optional[str] = None
-
-    # -- Added fields for richer type representation --
-    is_nullable: bool = False  # True if the type explicitly allows null (e.g., type: [string, "null"])
-    any_of: Optional[List["IRSchema"]] = None  # List of schemas for anyOf composition
-    one_of: Optional[List["IRSchema"]] = None  # List of schemas for oneOf composition
-    all_of: Optional[List["IRSchema"]] = None  # List of schemas for allOf composition (alternative to merging)
-    additional_properties: Optional[bool | "IRSchema"] = None  # True, False, or a sub-schema
-    # -- End added fields --
-
-    _from_unresolved_ref: bool = False  # Marker for unresolved $ref fallback
-    is_data_wrapper: bool = False  # True if this schema is a wrapper with a 'data' property
-
-
-@dataclass(slots=True)
-class IRSpec:
-    """Top‑level container for all IR nodes extracted from the spec.
-
-    Attributes:
-        title: The API title from the OpenAPI info block.
-        version: The API version from the OpenAPI info block.
-        description: The API description from the OpenAPI info block, if present.
-        schemas: All parsed schemas.
-        operations: All parsed operations.
-        servers: List of server URLs.
-    """
-
-    title: str
-    version: str
-    description: Optional[str] = None
-    schemas: Dict[str, IRSchema] = field(default_factory=dict)
-    operations: List[IROperation] = field(default_factory=list)
-    servers: List[str] = field(default_factory=list)
+# @dataclass(slots=True)
+# class IRSpec:
+#     ...
 
 
 # ---------------------------------------------------------------------------
-# Lazy-loading and autocompletion support
+# Lazy-loading and autocompletion support (This part remains)
 # ---------------------------------------------------------------------------
 if TYPE_CHECKING:
     # Imports for static analysis
@@ -164,7 +94,7 @@ if TYPE_CHECKING:
     from .core.warning_collector import WarningCollector  # noqa: F401
 
 # Expose loader and collector at package level
-__all__.extend(["load_ir_from_spec", "WarningCollector"])
+# __all__ is already updated above
 
 
 def __getattr__(name: str) -> Any:

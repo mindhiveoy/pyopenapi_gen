@@ -111,8 +111,9 @@ def test_parse_parameters_and_request_body_and_streaming_response() -> None:
     assert len(op.parameters) == 1
     param = op.parameters[0]
     assert param.name == "fileId"
-    assert param.in_ == "path"
+    assert param.param_in == "path"
     assert param.required is True
+    assert param.schema.type == "string"
     # Request body parsing
     rb = op.request_body
     assert rb is not None

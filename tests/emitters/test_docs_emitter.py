@@ -39,7 +39,14 @@ def test_docs_emitter__emit_index_and_tag_files(tmp_path: Path) -> None:
         path="/items",
         summary="List items",
         description="",
-        parameters=[],
+        parameters=[
+            IRParameter(
+                name="common_param",
+                param_in="query",
+                required=False,
+                schema=create_simple_param_schema(),
+            )
+        ],
         request_body=None,
         responses=[
             IRResponse(
@@ -60,7 +67,7 @@ def test_docs_emitter__emit_index_and_tag_files(tmp_path: Path) -> None:
         parameters=[
             IRParameter(
                 name="id",
-                in_="path",
+                param_in="path",
                 required=True,
                 schema=create_simple_param_schema(),
             )

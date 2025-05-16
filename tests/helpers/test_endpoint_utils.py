@@ -223,8 +223,8 @@ def test_merge_params_with_model_fields__endpoint_only__returns_endpoint_params(
         summary=None,
         description=None,
         parameters=[
-            IRParameter(name="foo", in_="query", required=True, schema=IRSchema(name=None, type="string")),
-            IRParameter(name="bar", in_="query", required=False, schema=IRSchema(name=None, type="integer")),
+            IRParameter(name="foo", param_in="query", required=True, schema=IRSchema(name=None, type="string")),
+            IRParameter(name="bar", param_in="query", required=False, schema=IRSchema(name=None, type="integer")),
         ],
         request_body=None,
         responses=[],
@@ -291,7 +291,7 @@ def test_merge_params_with_model_fields__overlapping_names__endpoint_takes_prece
         summary=None,
         description=None,
         parameters=[
-            IRParameter(name="foo", in_="query", required=True, schema=IRSchema(name=None, type="string")),
+            IRParameter(name="foo", param_in="query", required=True, schema=IRSchema(name=None, type="string")),
         ],
         request_body=None,
         responses=[],

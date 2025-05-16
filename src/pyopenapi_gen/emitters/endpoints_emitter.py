@@ -1,8 +1,11 @@
 import os
-from typing import Dict, List, Optional, Tuple, Any
+import logging
+from typing import Dict, List, Optional, Tuple, Any, Set
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
+
+logger = logging.getLogger(__name__)
 
 from ..core.utils import Formatter, NameSanitizer
 from ..visit.endpoint_visitor import EndpointVisitor
@@ -47,7 +50,7 @@ def schema_to_type(schema: IRParameter) -> str:
         s_type = types[0] if types else None
     # Array handling
     if s_type == "array" and s.items:
-        item_type = schema_to_type(IRParameter(name="", in_="", required=False, schema=s.items))
+        item_type = schema_to_type(IRParameter(name="", param_in="", required=False, schema=s.items))
         py_type = f"List[{item_type}]"
     # Default mapping
     elif s_type in PARAM_TYPE_MAPPING:
@@ -64,7 +67,7 @@ def _get_request_body_type(body: IRRequestBody) -> str:
     """Determine the Python type for a request body schema."""
     for mt, sch in body.content.items():
         if "json" in mt.lower():
-            return schema_to_type(IRParameter(name="body", in_="body", required=body.required, schema=sch))
+            return schema_to_type(IRParameter(name="body", param_in="body", required=body.required, schema=sch))
     # Fallback to generic dict
     return "Dict[str, Any]"
 
@@ -89,15 +92,47 @@ class EndpointsEmitter:
 
     def __init__(
         self,
-        schemas: dict[str, Any] | None = None,
         core_package: str = "core",
         overall_project_root: Optional[str] = None,
     ) -> None:
         self.formatter = Formatter()
         self.visitor: EndpointVisitor = None  # type: ignore
-        self._schemas = schemas
         self.core_package = core_package
         self.overall_project_root = overall_project_root
+        
+    def _deduplicate_operation_ids(self, operations: List[IROperation]) -> None:
+        """
+        Ensures all operations have unique method names within a tag.
+        
+        Args:
+            operations: List of operations for a single tag.
+        """
+        # Track sanitized method names
+        seen_methods: Dict[str, int] = {}
+        
+        for op in operations:
+            # Get the sanitized method name
+            method_name = NameSanitizer.sanitize_method_name(op.operation_id)
+            
+            # If this method name already exists
+            if method_name in seen_methods:
+                # Increment the counter for this name
+                seen_methods[method_name] += 1
+                
+                # Create a new unique operation ID with suffix
+                new_op_id = f"{op.operation_id}_{seen_methods[method_name]}"
+                
+                # Log a warning about the duplicate
+                logger.warning(
+                    f"Duplicate operation ID detected: '{op.operation_id}' (sanitized to '{method_name}'). "
+                    f"Renaming to '{new_op_id}'"
+                )
+                
+                # Update the operation ID
+                op.operation_id = new_op_id
+            else:
+                # First time seeing this method name
+                seen_methods[method_name] = 1
 
     def emit(self, spec: IRSpec, output_dir: str) -> List[str]:
         """Render endpoint client files per tag under <output_dir>/endpoints using the visitor/context/registry
@@ -168,6 +203,10 @@ class EndpointsEmitter:
             class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
             file_path = os.path.join(endpoints_dir, f"{module_name}.py")
             context.set_current_file(file_path)
+            
+            # Ensure operations have unique method names
+            self._deduplicate_operation_ids(ops)
+            
             # Render all methods for this tag
             methods = [self.visitor.visit(op, context) for op in ops]
             # Compose class content

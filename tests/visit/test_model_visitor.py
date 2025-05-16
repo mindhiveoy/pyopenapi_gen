@@ -16,6 +16,85 @@ from pyopenapi_gen.visit.model_visitor import ModelVisitor
 
 
 class TestModelVisitor:
+    def test_clean_field_type(self):
+        """
+        Scenario:
+            - Test the clean_field_type method of ModelVisitor
+            - Provide various type strings with invalid None parameters
+            
+        Expected Outcome:
+            - The method should correctly clean the type strings
+            - It should handle different patterns of invalid None parameters
+        """
+        # Arrange
+        model_visitor = ModelVisitor()
+        
+        # Test cases
+        test_cases = [
+            # Input type string, Expected output
+            ("Dict[str, Any, None]", "Dict[str, Any]"),
+            ("List[str, None]", "List[str]"),
+            ("Optional[int, None]", "Optional[int]"),
+            ("Union[str, int, None]", "Union[str, int, None]"),  # This is valid, should be unchanged
+            ("Dict[str, List[str, None]]", "Dict[str, List[str]]"),
+            ("List[Dict[str, Any, None]]", "List[Dict[str, Any]]"),
+            ("Optional[Dict[str, Any, None]]", "Optional[Dict[str, Any]]"),
+        ]
+        
+        # Act & Assert
+        for input_type, expected_output in test_cases:
+            result = model_visitor.clean_field_type(input_type)
+            assert result == expected_output, f"Failed to clean '{input_type}' correctly"
+
+    def test_model_visitor_handles_openapi_31_nullable_types(self):
+        """
+        Scenario:
+            - Create a schema with a property that uses OpenAPI 3.1 style nullable types
+            - Generate a model using the ModelVisitor
+            
+        Expected Outcome:
+            - The ModelVisitor should generate the model with proper Optional types
+            - Invalid None parameters should be cleaned from the type annotations
+        """
+        # Arrange
+        # Create a schema with a property using a Dict with an extra None parameter
+        schema = IRSchema(
+            name="TestModel",
+            type="object",
+            description="A test model for OpenAPI 3.1 nullable types",
+            properties={
+                "config": IRSchema(
+                    name="config",
+                    type="object",
+                    description="Configuration settings",
+                    is_nullable=True,  # This should be rendered as Optional[Dict[str, Any]]
+                )
+            }
+        )
+        
+        context = RenderContext(
+            overall_project_root="/tmp",
+            package_root_for_generated_code="/tmp/pkg",
+            core_package_name="core",
+        )
+        
+        visitor = ModelVisitor()
+        
+        # Mock the TypeHelper to return a type with invalid None parameter
+        # (normally this would come from the schema parser)
+        from unittest.mock import patch
+        
+        with patch('pyopenapi_gen.helpers.type_helper.TypeHelper.get_python_type_for_schema', 
+                  return_value="Dict[str, Any, None]"):  # Return invalid type
+            # Act
+            result = visitor.visit_IRSchema(schema, context)
+            
+            # Assert
+            assert "config: Optional[Dict[str, Any]]" in result, \
+                "Failed to clean type with invalid None parameter"
+            assert "Dict[str, Any, None]" not in result, \
+                "Invalid type with None parameter was not cleaned"
+
     def test_visit_IRSchema_for_AgentDataSource_with_properties_generates_correct_fields(self) -> None:
         """
         Scenario:

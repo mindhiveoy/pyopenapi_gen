@@ -16,9 +16,10 @@ supported **only** for ``#/components/schemas/<Name>`` references for now.
 from __future__ import annotations
 
 import copy
+import os
 import sys
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, cast
+from typing import Any, Dict, List, Mapping, Optional, cast, Set
 
 try:
     # Use the newer validate() API if available to avoid deprecation warnings
@@ -40,8 +41,51 @@ from pyopenapi_gen import (
     IRSpec,
 )
 from pyopenapi_gen.core.utils import NameSanitizer
+import logging
+
+# Import ParsingContext from its new location
+from .parsing.context import ParsingContext
+
+# Import helpers
+from .parsing.type_parser import extract_primary_type_and_nullability
+from .parsing.schema_parser import _parse_schema
 
 __all__ = ["load_ir_from_spec"]
+
+logger = logging.getLogger(__name__)
+
+# Check for cycle detection debug flags in environment
+DEBUG_CYCLES = os.environ.get('PYOPENAPI_DEBUG_CYCLES', '0').lower() in ('1', 'true', 'yes')
+MAX_CYCLES = int(os.environ.get('PYOPENAPI_MAX_CYCLES', '0'))
+
+if DEBUG_CYCLES:
+    logger.info(f"Cycle detection debugging enabled (MAX_CYCLES={MAX_CYCLES})")
+    # Increase logging level for cycle detection
+    logging.getLogger('pyopenapi_gen.core.parsing.context').setLevel(logging.DEBUG)
+    logging.getLogger('pyopenapi_gen.core.parsing.schema_parser').setLevel(logging.DEBUG)
+    logging.getLogger('pyopenapi_gen.core.parsing.ref_resolver').setLevel(logging.DEBUG)
+
+
+# Helper function to resolve a parameter node if it's a reference
+def _resolve_parameter_node_if_ref(param_node_data: Mapping[str, Any], context: ParsingContext) -> Mapping[str, Any]:
+    if "$ref" in param_node_data and isinstance(param_node_data.get("$ref"), str):
+        ref_path = param_node_data["$ref"]
+        if ref_path.startswith("#/components/parameters/"):
+            param_name = ref_path.split("/")[-1]
+            # Access raw_spec_components from the context
+            resolved_node = context.raw_spec_components.get("parameters", {}).get(param_name)
+            if resolved_node:
+                logger.debug(f"Resolved parameter $ref '{ref_path}' to '{param_name}'")
+                # Important: Merge the original $ref into the resolved node
+                # so that _parse_parameter can know it came from a ref if needed,
+                # and to ensure the 'name' is from the resolved component if not on the ref itself.
+                # However, the $ref node itself doesn't have 'name', 'in', etc.
+                # The resolved node *is* the full definition.
+                return cast(Mapping[str, Any], resolved_node)
+            else:
+                logger.warning(f"Could not resolve parameter $ref '{ref_path}'")
+                return param_node_data  # Return original ref node if resolution fails
+    return param_node_data  # Not a ref or not a component parameter ref
 
 
 # ---------------------------------------------------------------------------
@@ -49,278 +93,27 @@ __all__ = ["load_ir_from_spec"]
 # ---------------------------------------------------------------------------
 
 
-def _parse_schema(
-    name: Optional[str],
-    node: Optional[Mapping[str, Any]],
-    raw_schemas: Mapping[str, Any],
-    schemas: Dict[str, IRSchema],
-    _visited: Optional[set[str]] = None,
-) -> IRSchema:
-    """Recursively parse a schema node, resolving refs and composition keywords."""
-    if _visited is None:
-        _visited = set()
-    if node is None:
-        # Handle cases where a schema node might be null (e.g., invalid spec)
-        return IRSchema(name=name)
-
-    # --- Handle $ref --- (Prioritize over other keywords)
-    if "$ref" in node:
-        ref = node["$ref"]
-        if ref.startswith("#/components/schemas/"):
-            ref_name = ref.rsplit("/", 1)[-1]
-            if ref_name in schemas:
-                # Already parsed or being parsed (cycle)
-                return schemas[ref_name]
-            if ref_name in _visited:
-                # Cycle detected, return placeholder to break recursion
-                return IRSchema(name=ref_name)  # Mark as placeholder?
-
-            _visited.add(ref_name)
-            referenced = raw_schemas.get(ref_name)
-            resolved_schema_obj = None
-
-            # <<< Start Fallback Logic >>>
-            if referenced is None:
-                original_ref_name = ref_name  # Keep original name for warnings/return
-
-                # Special handling for ListResponse suffix
-                list_response_suffix = "ListResponse"
-                if ref_name.endswith(list_response_suffix):
-                    base_name = ref_name[: -len(list_response_suffix)]
-                    referenced = raw_schemas.get(base_name)
-                    if referenced:
-                        warnings.warn(
-                            f"Resolved $ref: {ref} by falling back to LIST of base name '{base_name}'.",
-                            UserWarning,
-                        )
-                        # Recursively parse the base item schema
-                        item_schema = _parse_schema(base_name, referenced, raw_schemas, schemas, _visited)
-                        if not item_schema._from_unresolved_ref:
-                            # Create a new IRSchema representing List[item_schema]
-                            # Use original_ref_name so ModelVisitor can generate 'UserListResponse = List[User]'
-                            resolved_schema_obj = IRSchema(name=original_ref_name, type="array", items=item_schema)
-                            schemas[original_ref_name] = resolved_schema_obj  # Cache the alias
-                        # ref_name remains original_ref_name for _visited removal
-                    # else: ListResponse fallback failed, continue to general suffix stripping
-
-                # General suffix stripping (if ListResponse didn't match or resolve)
-                if resolved_schema_obj is None:  # Check if ListResponse handling already succeeded
-                    stripped_name = ref_name
-                    for suffix in ["Response", "Create", "Update", "Request"]:  # Removed ListResponse here
-                        if stripped_name.endswith(suffix):
-                            stripped_name = stripped_name[: -len(suffix)]
-                            break
-
-                    if stripped_name != ref_name:
-                        referenced = raw_schemas.get(stripped_name)
-                        if referenced:
-                            warnings.warn(
-                                f"Resolved $ref: {ref} by falling back to stripped name '{stripped_name}'.",
-                                UserWarning,
-                            )
-                            # Recursively parse the base schema using the stripped name to get its structure
-                            base_schema_structure = _parse_schema(
-                                stripped_name, referenced, raw_schemas, schemas, _visited
-                            )
-
-                            if not base_schema_structure._from_unresolved_ref:
-                                # Create a new IRSchema for the original_ref_name,
-                                # copying structure but ensuring the correct name.
-                                resolved_schema_obj = copy.deepcopy(base_schema_structure)
-                                resolved_schema_obj.name = original_ref_name  # Set the name to the original
-                                # Cache this correctly named schema under its original name
-                                schemas[original_ref_name] = resolved_schema_obj
-                            else:
-                                # If the base structure itself was an unresolved placeholder, propagate that.
-                                # But still ensure it's associated with the original_ref_name if we're to return it.
-                                # However, the current _from_unresolved_ref structure might need refinement
-                                # if we directly return a placeholder here named original_ref_name.
-                                # For now, if base is unresolved, this path means fallback essentially failed to find a concrete structure.
-                                resolved_schema_obj = IRSchema(name=original_ref_name, _from_unresolved_ref=True)
-                                schemas[original_ref_name] = resolved_schema_obj  # Cache the placeholder
-
-                            # ref_name remains original_ref_name for _visited removal
-                        # else: Fallback failed, continue to original warning below
-
-            # <<< End Fallback Logic >>>
-
-            # If fallback resulted in a resolved schema object, return it
-            if resolved_schema_obj:
-                if original_ref_name in _visited:  # Use original name for visited tracking
-                    _visited.remove(original_ref_name)
-                return resolved_schema_obj
-
-            # If no reference found (even after fallback), issue warning and return placeholder
-            if referenced is None:
-                available_keys = list(raw_schemas.keys())
-                warnings.warn(
-                    f"Could not resolve $ref: {ref}. ref_name='{ref_name}' (after potential fallback). "
-                    f"Available keys in raw_schemas (first 10): {available_keys[:10]}...",
-                    UserWarning,
-                )
-                if ref_name in _visited:  # Use name before potential fallback for removal
-                    _visited.remove(ref_name)
-                return IRSchema(name=ref_name, _from_unresolved_ref=True)
-
-            # --- Original path: ref found directly ---
-            # Parse using the original ref_name and the directly found 'referenced' data
-            schema_obj = _parse_schema(ref_name, referenced, raw_schemas, schemas, _visited)  # Recursive call
-
-            # Store the fully parsed schema only if it's not just a cycle placeholder
-            if not schema_obj._from_unresolved_ref:
-                schemas[ref_name] = schema_obj  # Cache under the direct ref name
-
-            if ref_name in _visited:
-                _visited.remove(ref_name)
-            return schema_obj
-        else:
-            # Non-schema ref or invalid ref format
-            warnings.warn(f"Unsupported or invalid $ref format: {ref}", UserWarning)
-            return IRSchema(name=None, _from_unresolved_ref=True)
-
-    # --- Initialize IRSchema fields --- (Defaults)
-    schema_type: Optional[str] = None
-    is_nullable: bool = False
-    any_of_schemas: Optional[List[IRSchema]] = None
-    one_of_schemas: Optional[List[IRSchema]] = None
-    all_of_schemas: Optional[List[IRSchema]] = None
-
-    # --- Handle Composition Keywords (anyOf, oneOf, allOf) ---
-    if "anyOf" in node:
-        any_of_schemas = [_parse_schema(None, sub, raw_schemas, schemas, _visited) for sub in node["anyOf"]]
-        # Check for nullability within anyOf
-        # Explicitly check the raw sub-schema for {type: "null"}
-        if any(isinstance(sub, dict) and sub.get("type") == "null" for sub in node["anyOf"]):
-            is_nullable = True
-            # Filter out the null type schema from the parsed list
-            # Note: This assumes the parsed null schema will have schema.type == None or similar
-            # We might need a more robust way to identify the parsed null schema if type becomes Any
-            any_of_schemas = [
-                s
-                for s in any_of_schemas
-                if not (
-                    s.type is None
-                    and not s.properties
-                    and not s.items
-                    and not s.enum
-                    and not s.any_of
-                    and not s.one_of
-                    and not s.all_of
-                )
-            ]  # Heuristic to find the parsed null
-
-            # If only null was present, it's just a nullable type, not a Union
-            if not any_of_schemas:
-                # What should the base type be? Use 'Any' or try to infer?
-                # For now, let's just mark nullable and maybe visitor uses 'Any'
-                schema_type = None  # Or 'Any'?
-                any_of_schemas = None  # Reset as it's not a Union anymore
-
-    if "oneOf" in node:
-        one_of_schemas = [_parse_schema(None, sub, raw_schemas, schemas, _visited) for sub in node["oneOf"]]
-        # Nullability check for oneOf might be less common but possible
-        if any(s.type == "null" for s in one_of_schemas):
-            is_nullable = True
-            one_of_schemas = [s for s in one_of_schemas if s.type != "null"]
-            if not one_of_schemas:
-                schema_type = None
-                one_of_schemas = None
-
-    if "allOf" in node:
-        # Store sub-schemas, delegate merging/interpretation to visitor
-        all_of_schemas = [_parse_schema(None, sub, raw_schemas, schemas, _visited) for sub in node["allOf"]]
-
-    # --- Determine Primary Type and Nullability --- (if not set by composition)
-    raw_type = node.get("type")
-    if schema_type is None and not any_of_schemas and not one_of_schemas:
-        if isinstance(raw_type, list):
-            # Handles `type: ["string", "null"]`
-            if "null" in raw_type:
-                is_nullable = True
-            # Find the first non-null type as the primary type
-            primary_types = [t for t in raw_type if t != "null"]
-            if primary_types:
-                schema_type = primary_types[0]
-                if len(primary_types) > 1:
-                    warnings.warn(
-                        f"Schema '{name or 'anonymous'}' has multiple non-null types ({primary_types}) "
-                        f"in 'type' array. Using first type '{schema_type}'.",
-                        UserWarning,
-                    )
-            else:
-                # Only "null" was present
-                schema_type = None  # Represent as nullable Any
-        elif isinstance(raw_type, str):
-            if raw_type == "null":
-                is_nullable = True
-                schema_type = None  # Represent as nullable Any
-            else:
-                schema_type = raw_type
-
-    # --- Parse other standard keywords ---
-    raw_required = node.get("required")
-    required_fields = cast(List[str], raw_required) if isinstance(raw_required, list) else []
-    properties = {
-        key: _parse_schema(None, val, raw_schemas, schemas, _visited) for key, val in node.get("properties", {}).items()
-    }
-    items = node.get("items")
-    items_schema = _parse_schema(None, items, raw_schemas, schemas, _visited) if items is not None else None
-    enum_values = node.get("enum")
-
-    # <<< Start: Parse additionalProperties >>>
-    raw_add_props = node.get("additionalProperties")
-    add_props_value: Optional[bool | IRSchema] = None
-    if isinstance(raw_add_props, bool):
-        add_props_value = raw_add_props
-    elif isinstance(raw_add_props, dict):
-        add_props_value = _parse_schema(None, raw_add_props, raw_schemas, schemas, _visited)
-    # <<< End: Parse additionalProperties >>>
-
-    # --- Data wrapper detection --- (Keep existing logic)
-    is_data_wrapper = schema_type == "object" and "data" in properties and "data" in required_fields
-
-    # --- Construct final IRSchema --- (using potentially updated fields)
-    return IRSchema(
-        name=name,
-        type=schema_type,
-        format=node.get("format"),
-        required=required_fields,
-        properties=properties,
-        items=items_schema,
-        enum=enum_values,
-        description=node.get("description"),
-        # New fields
-        is_nullable=is_nullable,
-        any_of=any_of_schemas,
-        one_of=one_of_schemas,
-        all_of=all_of_schemas,
-        additional_properties=add_props_value,
-        # Other flags
-        is_data_wrapper=is_data_wrapper,
-    )
-
-
-def _build_schemas(raw_schemas: Mapping[str, Any]) -> Dict[str, IRSchema]:
-    """Build all named schemas up front for $ref resolution."""
-    schemas: Dict[str, IRSchema] = {}
+def _build_schemas(raw_schemas: Mapping[str, Any], raw_components: Mapping[str, Any]) -> ParsingContext:
+    """Build all named schemas up front, populating a ParsingContext."""
+    context = ParsingContext(raw_spec_schemas=raw_schemas, raw_spec_components=raw_components)
     for n, nd in raw_schemas.items():
-        schemas[n] = _parse_schema(n, nd, raw_schemas, schemas)
-    return schemas
+        if n not in context.parsed_schemas:
+            _parse_schema(n, nd, context)
+    return context
 
 
 def _parse_parameter(
     node: Mapping[str, Any],
-    raw_schemas: Mapping[str, Any],
-    schemas: Dict[str, IRSchema],
+    context: ParsingContext,
 ) -> IRParameter:
     """Convert an OpenAPI parameter node into IRParameter."""
     sch = node.get("schema")
-    schema = _parse_schema(None, sch, raw_schemas, schemas) if sch else IRSchema(name=None)
+    schema_ir = _parse_schema(None, sch, context) if sch else IRSchema(name=None)
     return IRParameter(
         name=node["name"],
-        in_=node.get("in", "query"),
+        param_in=node.get("in", "query"),
         required=bool(node.get("required", False)),
-        schema=schema,
+        schema=schema_ir,
         description=node.get("description"),
     )
 
@@ -328,8 +121,7 @@ def _parse_parameter(
 def _parse_response(
     code: str,
     node: Mapping[str, Any],
-    raw_schemas: Mapping[str, Any],
-    schemas: Dict[str, IRSchema],
+    context: ParsingContext,
 ) -> IRResponse:
     """Convert an OpenAPI response node into IRResponse."""
     content: Dict[str, IRSchema] = {}
@@ -343,26 +135,21 @@ def _parse_response(
     stream_flag = False
     stream_format = None
     for mt, mn in node.get("content", {}).items():
-        # Handle $ref directly in the content object (not just in the schema)
         if isinstance(mn, Mapping) and "$ref" in mn:
-            # If the $ref cannot be resolved, treat as unresolved
             ref = mn["$ref"]
-            # Only handle unresolved $ref (not #/components/schemas/)
             if not ref.startswith("#/components/schemas/"):
                 content[mt] = IRSchema(name=None, _from_unresolved_ref=True)
             else:
-                # If it's a schema ref, parse as schema
-                content[mt] = _parse_schema(None, {"$ref": ref}, raw_schemas, schemas)
+                content[mt] = _parse_schema(None, {"$ref": ref}, context)
         else:
-            content[mt] = _parse_schema(None, mn.get("schema"), raw_schemas, schemas)
+            content[mt] = _parse_schema(None, mn.get("schema"), context)
         fmt = STREAM_FORMATS.get(mt.lower())
         if fmt:
             stream_flag = True
             stream_format = fmt
-    # Also support OpenAPI 'format: binary' for legacy compatibility
     if not stream_flag:
-        for mt, schema in content.items():
-            if getattr(schema, "format", None) == "binary":
+        for mt_val, schema_val in content.items():
+            if getattr(schema_val, "format", None) == "binary":
                 stream_flag = True
                 stream_format = "octet-stream"
     return IRResponse(
@@ -376,11 +163,10 @@ def _parse_response(
 
 def _parse_operations(
     paths: Mapping[str, Any],
-    raw_schemas: Mapping[str, Any],
     raw_parameters: Mapping[str, Any],
     raw_responses: Mapping[str, Any],
     raw_request_bodies: Mapping[str, Any],
-    schemas: Dict[str, IRSchema],
+    context: ParsingContext,
 ) -> List[IROperation]:
     """Iterate paths to build IROperation list."""
     ops: List[IROperation] = []
@@ -389,23 +175,11 @@ def _parse_operations(
             continue
         entry = cast(Mapping[str, Any], item)
         base_params: List[IRParameter] = []
-        for p in cast(List[Mapping[str, Any]], entry.get("parameters", [])):
-            # Resolve parameter $ref if present (skip if unresolved)
-            if "$ref" in p and isinstance(p.get("$ref"), str) and p["$ref"].startswith("#/components/parameters/"):
-                ref_name = p["$ref"].split("/")[-1]
-                if ref_name in raw_parameters:
-                    p_node = raw_parameters[ref_name]
-                else:
-                    warnings.warn(
-                        f"Unable to resolve parameter reference {p['$ref']}, skipping",
-                        UserWarning,
-                    )
-                    continue
-            else:
-                p_node = p
-            base_params.append(_parse_parameter(p_node, raw_schemas, schemas))
+        for p_node_data_raw in cast(List[Mapping[str, Any]], entry.get("parameters", [])):
+            # Resolve $ref before parsing
+            resolved_p_node_data = _resolve_parameter_node_if_ref(p_node_data_raw, context)
+            base_params.append(_parse_parameter(resolved_p_node_data, context))
         for method, on in entry.items():
-            # Attempt to parse operation; on error, emit warning and skip
             try:
                 if method in {
                     "parameters",
@@ -418,32 +192,15 @@ def _parse_operations(
                 mu = method.upper()
                 if mu not in HTTPMethod.__members__:
                     continue
-                node = cast(Mapping[str, Any], on)
-                # Build parameters list
+                node_op = cast(Mapping[str, Any], on)
                 params: List[IRParameter] = list(base_params)
-                for p in cast(List[Mapping[str, Any]], node.get("parameters", [])):
-                    # Resolve parameter $ref if present (skip if unresolved)
-                    if (
-                        "$ref" in p
-                        and isinstance(p.get("$ref"), str)
-                        and p["$ref"].startswith("#/components/parameters/")
-                    ):
-                        ref_name = p["$ref"].split("/")[-1]
-                        if ref_name in raw_parameters:
-                            p_node = raw_parameters[ref_name]
-                        else:
-                            warnings.warn(
-                                f"Unable to resolve parameter reference {p['$ref']}, skipping",
-                                UserWarning,
-                            )
-                            continue
-                    else:
-                        p_node = p
-                    params.append(_parse_parameter(p_node, raw_schemas, schemas))
-                # Build request body
+                for p_param_node_raw in cast(List[Mapping[str, Any]], node_op.get("parameters", [])):
+                    # Resolve $ref before parsing
+                    resolved_p_param_node = _resolve_parameter_node_if_ref(p_param_node_raw, context)
+                    params.append(_parse_parameter(resolved_p_param_node, context))
                 rb: Optional[IRRequestBody] = None
-                if "requestBody" in node:
-                    rb_node = cast(Mapping[str, Any], node["requestBody"])
+                if "requestBody" in node_op:
+                    rb_node = cast(Mapping[str, Any], node_op["requestBody"])
                     if (
                         "$ref" in rb_node
                         and isinstance(rb_node.get("$ref"), str)
@@ -455,37 +212,35 @@ def _parse_operations(
                     desc = rb_node.get("description")
                     content_map: Dict[str, IRSchema] = {}
                     for mt, media in rb_node.get("content", {}).items():
-                        content_map[mt] = _parse_schema(None, media.get("schema"), raw_schemas, schemas)
+                        content_map[mt] = _parse_schema(None, media.get("schema"), context)
                     rb = IRRequestBody(required=required_flag, content=content_map, description=desc)
-                # Build responses
                 resps: List[IRResponse] = []
-                for sc, rn in cast(Mapping[str, Any], node.get("responses", {})).items():
+                for sc, rn_node in cast(Mapping[str, Any], node_op.get("responses", {})).items():
                     if (
-                        isinstance(rn, Mapping)
-                        and "$ref" in rn
-                        and isinstance(rn.get("$ref"), str)
-                        and rn["$ref"].startswith("#/components/responses/")
+                        isinstance(rn_node, Mapping)
+                        and "$ref" in rn_node
+                        and isinstance(rn_node.get("$ref"), str)
+                        and rn_node["$ref"].startswith("#/components/responses/")
                     ):
-                        ref_name = rn["$ref"].split("/")[-1]
-                        resp_node = raw_responses.get(ref_name, {}) or rn
+                        ref_name = rn_node["$ref"].split("/")[-1]
+                        resp_node = raw_responses.get(ref_name, {}) or rn_node
                     else:
-                        resp_node = rn
-                    resps.append(_parse_response(sc, resp_node, raw_schemas, schemas))
-                # Create operation object and append
-                if "operationId" in node:
-                    operation_id = node["operationId"]
+                        resp_node = rn_node
+                    resps.append(_parse_response(sc, resp_node, context))
+                if "operationId" in node_op:
+                    operation_id = node_op["operationId"]
                 else:
                     operation_id = NameSanitizer.sanitize_method_name(f"{mu}_{path}".strip("/"))
                 op = IROperation(
                     operation_id=operation_id,
                     method=HTTPMethod[mu],
                     path=path,
-                    summary=node.get("summary"),
-                    description=node.get("description"),
+                    summary=node_op.get("summary"),
+                    description=node_op.get("description"),
                     parameters=params,
                     request_body=rb,
                     responses=resps,
-                    tags=list(node.get("tags", [])),
+                    tags=list(node_op.get("tags", [])),
                 )
             except Exception as e:
                 warnings.warn(
@@ -494,54 +249,41 @@ def _parse_operations(
                 )
                 continue
             else:
-                # Assign names to inline request body schemas for model generation
                 if rb:
-                    for mt, sch in rb.content.items():
-                        if not sch.name:
-                            # Use the raw operation_id (not sanitized) + 'Request', then sanitize once
+                    for _, sch_val in rb.content.items():
+                        if not sch_val.name:
                             generated_rb_name = NameSanitizer.sanitize_class_name(
-                                node.get("operationId", operation_id) + "Request"
+                                node_op.get("operationId", operation_id) + "Request"
                             )
-                            sch.name = generated_rb_name
-                            schemas[generated_rb_name] = sch
-                        else:
-                            # Ensure all referenced request body schemas are in schemas dict
-                            if sch.name not in schemas:
-                                schemas[sch.name] = sch
+                            sch_val.name = generated_rb_name
+                            context.parsed_schemas[generated_rb_name] = sch_val
+                        elif sch_val.name not in context.parsed_schemas:
+                            context.parsed_schemas[sch_val.name] = sch_val
 
-                # Assign names to inline response schemas for model generation
-                for resp in resps:
-                    for mt, sch in resp.content.items():
-                        if sch.name is None:
-                            if getattr(sch, "_from_unresolved_ref", False):
+                for resp_val in resps:
+                    for _, sch_resp_val in resp_val.content.items():
+                        if sch_resp_val.name is None:
+                            if getattr(sch_resp_val, "_from_unresolved_ref", False):
                                 continue
-                            is_streaming = getattr(resp, "stream", False)
+                            is_streaming = getattr(resp_val, "stream", False)
                             if is_streaming:
                                 continue
 
-                            # <<< Start Change: Conditional Naming >>>
-                            # Only assign synthesized name if it's an inline OBJECT that needs a class.
-                            # Do not name inline primitives or arrays of existing refs/primitives.
                             should_synthesize_name = False
-                            if sch.type == "object" and (sch.properties or sch.additional_properties):
-                                # It's an object with structure, likely needs a class name.
+                            if sch_resp_val.type == "object" and (
+                                sch_resp_val.properties or sch_resp_val.additional_properties
+                            ):
                                 should_synthesize_name = True
-                            # Consider other complex types? Maybe not for now.
 
                             if should_synthesize_name:
-                                # Use the raw operation_id (not sanitized) + 'Response', then sanitize once
                                 generated_name = NameSanitizer.sanitize_class_name(
-                                    node.get("operationId", operation_id) + "Response"
+                                    node_op.get("operationId", operation_id) + "Response"
                                 )
-                                sch.name = generated_name
-                                # Only add to global schemas if successfully named
-                                schemas[generated_name] = sch
-                            # <<< End Change >>>
+                                sch_resp_val.name = generated_name
+                                context.parsed_schemas[generated_name] = sch_resp_val
 
-                        elif sch.name and sch.name not in schemas:
-                            # Ensure referenced schemas are captured if not already present
-                            # This handles cases where a response references a component schema directly
-                            schemas[sch.name] = sch  # Add existing schema if name was resolved from $ref
+                        elif sch_resp_val.name and sch_resp_val.name not in context.parsed_schemas:
+                            context.parsed_schemas[sch_resp_val.name] = sch_resp_val
 
                 ops.append(op)
     return ops
@@ -553,16 +295,13 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     for schema_name, schema in list(schemas.items()):
         for prop_name, prop_schema in list(schema.properties.items()):
             if prop_schema.enum and not prop_schema.name:
-                # Generate a unique name
                 enum_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Enum"
-                # Avoid collision
                 base_enum_name = enum_name
                 i = 1
                 while enum_name in schemas or enum_name in new_enums:
                     enum_name = f"{base_enum_name}{i}"
                     i += 1
 
-                # Create a new IRSchema for the enum
                 enum_schema = IRSchema(
                     name=enum_name,
                     type=prop_schema.type,
@@ -570,7 +309,6 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
                     description=prop_schema.description or f"Enum for {schema_name}.{prop_name}",
                 )
                 new_enums[enum_name] = enum_schema
-                # Update the property to reference the new enum
                 prop_schema.name = enum_name
     schemas.update(new_enums)
     return schemas
@@ -594,27 +332,39 @@ def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
     title = info.get("title", "API Client")
     version = info.get("version", "0.0.0")
     description = info.get("description")
-    raw_schemas = spec.get("components", {}).get("schemas", {})
-    raw_parameters = spec.get("components", {}).get("parameters", {})
-    raw_responses = spec.get("components", {}).get("responses", {})
-    raw_request_bodies = spec.get("components", {}).get("requestBodies", {})
-    schemas = _build_schemas(raw_schemas)
-    schemas = extract_inline_enums(schemas)
+    raw_components = spec.get("components", {})
+    raw_schemas = raw_components.get("schemas", {})
+    raw_parameters = raw_components.get("parameters", {})
+    raw_responses = raw_components.get("responses", {})
+    raw_request_bodies = raw_components.get("requestBodies", {})
+
+    # Pass raw_components when building schemas / creating context
+    context = _build_schemas(raw_schemas, raw_components)
+
+    # Extract schemas dict from the context for further processing
+    schemas_dict = context.parsed_schemas
+    schemas_dict = extract_inline_enums(schemas_dict)
+
     paths = spec["paths"]
+    # Pass the populated context to _parse_operations
     operations = _parse_operations(
         paths,
-        raw_schemas,
         raw_parameters,
         raw_responses,
         raw_request_bodies,
-        schemas,
+        context,
     )
     servers = [s.get("url") for s in spec.get("servers", []) if "url" in s]
+
+    # Emit collected warnings after all parsing is done
+    for warning_msg in context.collected_warnings:
+        warnings.warn(warning_msg, UserWarning)
+
     return IRSpec(
         title=title,
         version=version,
         description=description,
-        schemas=schemas,
+        schemas=schemas_dict,
         operations=operations,
         servers=servers,
     )

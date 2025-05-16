@@ -226,8 +226,8 @@ def test_endpoints_emitter_imports(tmp_path: Path) -> None:
         summary="Combined operation",
         description=None,
         parameters=[
-            IRParameter(name="item_id", in_="path", required=True, schema=schema),
-            IRParameter(name="q", in_="query", required=False, schema=schema),
+            IRParameter(name="item_id", param_in="path", required=True, schema=schema),
+            IRParameter(name="q", param_in="query", required=False, schema=schema),
         ],
         request_body=rb,
         responses=[resp],
@@ -281,13 +281,13 @@ def test_endpoints_emitter__sanitize_tag_name__creates_sanitized_module_and_clas
     op = IROperation(
         operation_id="get_item",
         method=HTTPMethod.GET,
-        path="/items/{itemId}",
+        path="/items/{item_id}",
         summary="Get item",
         description=None,
         parameters=[
             IRParameter(
-                name="itemId",
-                in_="path",
+                name="item_id",
+                param_in="path",
                 required=True,
                 schema=create_simple_param_schema(),
             )
@@ -351,13 +351,13 @@ def test_endpoints_emitter__multiple_operations_same_tag__includes_all_methods(
     op2 = IROperation(
         operation_id="get_item",
         method=HTTPMethod.GET,
-        path="/items/{itemId}",
+        path="/items/{item_id}",
         summary="Get item",
         description=None,
         parameters=[
             IRParameter(
-                name="itemId",
-                in_="path",
+                name="item_id",
+                param_in="path",
                 required=True,
                 schema=create_simple_param_schema(),
             )
@@ -551,7 +551,7 @@ def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_pat
         parameters=[
             IRParameter(
                 name="filters",
-                in_="query",
+                param_in="query",
                 required=True,
                 schema=IRSchema(name=None, type="object"),
                 description="JSON object defining filters for the events",
@@ -681,19 +681,19 @@ def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path: Path)
         parameters=[
             IRParameter(
                 name="tenant_id",
-                in_="path",
+                param_in="path",
                 required=True,
                 schema=IRSchema(name=None, type="string"),
             ),
             IRParameter(
                 name="start_date",
-                in_="query",
+                param_in="query",
                 required=False,
                 schema=IRSchema(name=None, type="string"),
             ),
             IRParameter(
                 name="end_date",
-                in_="query",
+                param_in="query",
                 required=False,
                 schema=IRSchema(name=None, type="string"),
             ),
@@ -713,7 +713,7 @@ def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path: Path)
     )
     spec = IRSpec(title="Test API", version="1.0.0", operations=[op], schemas={})
     out_dir = tmp_path / "out"
-    emitter = EndpointsEmitter(spec.schemas)
+    emitter = EndpointsEmitter()
     emitter.emit(spec, str(out_dir))
     # Read the generated code
     with open(os.path.join(out_dir, "endpoints", "tenants.py")) as f:
@@ -738,7 +738,9 @@ def test_endpoints_emitter__post_with_body__only_body_param_and_path_query_args(
     # Arrange: Create IR for a POST endpoint with path params and a JSON body
     from pyopenapi_gen import HTTPMethod, IROperation, IRParameter, IRRequestBody, IRSchema, IRSpec
 
-    path_param = IRParameter(name="tenant_id", in_="path", required=True, schema=IRSchema(name=None, type="string"))
+    path_param = IRParameter(
+        name="tenant_id", param_in="path", required=True, schema=IRSchema(name=None, type="string")
+    )
     body_schema = IRSchema(
         name="ElaborateSearchPhraseRequest",
         type="object",

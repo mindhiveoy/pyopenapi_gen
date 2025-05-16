@@ -11,6 +11,7 @@ from pyopenapi_gen.emitters.client_emitter import ClientEmitter
 from pyopenapi_gen.emitters.core_emitter import CONFIG_TEMPLATE, CoreEmitter
 from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
+from pyopenapi_gen.context.render_context import RenderContext
 
 
 def test_business_swagger_generation(tmp_path: Path) -> None:
@@ -50,9 +51,16 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     out_dir.mkdir(exist_ok=True)
     core_dir.mkdir(exist_ok=True)
 
+    # Create RenderContext for ModelsEmitter
+    render_context = RenderContext(
+        core_package_name=core_package_name,
+        package_root_for_generated_code=str(out_dir),
+        overall_project_root=str(project_root),
+    )
+
     # Instantiate emitters with correct core package name where needed
     core_emitter = CoreEmitter(core_package=core_package_name)
-    models_emitter = ModelsEmitter()
+    models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
     endpoints_emitter = EndpointsEmitter(core_package=core_package_name, overall_project_root=str(project_root))
     client_emitter = ClientEmitter(core_package=core_package_name, overall_project_root=str(project_root))
 
@@ -96,22 +104,59 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     # Check the defined top-level package name
     packages_to_check = [output_package.split(".")[0]]
 
+    # Define a fixed path for the mypy output log in the project root
+    project_root_dir = Path(__file__).parent.parent.parent  # This should be the project root
+    test_outputs_dir = project_root_dir / "test_outputs"
+    test_outputs_dir.mkdir(parents=True, exist_ok=True)
+    mypy_output_filename = test_outputs_dir / "mypy_business_swagger_errors.txt"
+
+    mypy_command = ["mypy", "--strict"] + packages_to_check
+    print(f"DEBUG: Running mypy command: {' '.join(mypy_command)} from cwd: {out_dir.parent}")
+    print(f"DEBUG: PYTHONPATH for mypy: {env.get('PYTHONPATH')}")
+
+    # Run mypy capturing output to stdout/stderr attributes of the result object
     mypy_result = subprocess.run(
-        ["mypy", "--strict"] + packages_to_check, capture_output=True, text=True, env=env, cwd=out_dir.parent
+        mypy_command,
+        capture_output=True,
+        text=False,
+        env=env,
+        cwd=out_dir.parent,  # text=False to handle bytes manually
     )
 
-    if mypy_result.returncode != 0:
-        # Ensure the specific file causing issues is printed for diagnosis
-        agent_datasources_file = out_dir / "endpoints" / "agent_datasources.py"
-        if agent_datasources_file.exists():
-            print(f"\n--- Content of {agent_datasources_file} ---\n")
-            print(agent_datasources_file.read_text())
-            print("\n--- End Content ---\n")
-        # Print stdout and stderr for more context on mypy failure
-        print(f"Mypy stdout:\n{mypy_result.stdout}")
-        print(f"Mypy stderr:\n{mypy_result.stderr}")
+    # Initialize with placeholder for mypy_output_content
+    mypy_output_content = "Mypy did not run or produce output."
 
-    assert mypy_result.returncode == 0, f"mypy errors:\n{mypy_result.stdout}\n{mypy_result.stderr}"
+    if mypy_result.returncode != 0:
+        print(f"DEBUG: mypy_result object: {mypy_result}")
+
+        # Decode stdout and stderr, then combine for full output
+        mypy_stdout_decoded = (
+            mypy_result.stdout.decode("utf-8", errors="replace") if mypy_result.stdout else "(empty stdout)"
+        )
+        mypy_stderr_decoded = (
+            mypy_result.stderr.decode("utf-8", errors="replace") if mypy_result.stderr else "(empty stderr)"
+        )
+
+        combined_output = f"Mypy STDOUT:\n{mypy_stdout_decoded}\n\nMypy STDERR:\n{mypy_stderr_decoded}"
+        print("--- Mypy Full Captured Output ---")
+        print(combined_output)
+        print("--- End Mypy Full Captured Output ---")
+
+        # Write to the debug file as well
+        Path(mypy_output_filename).write_text(combined_output, encoding="utf-8")
+        mypy_output_content = combined_output  # For the assertion message
+    else:
+        # If successful, still good to log that it passed and where, but less verbose
+        mypy_output_content = "Mypy checks passed."
+        Path(mypy_output_filename).write_text(
+            mypy_output_content
+            + f"\nSTDOUT:\n{mypy_result.stdout.decode('utf-8', errors='replace') if mypy_result.stdout else ''}\nSTDERR:\n{mypy_result.stderr.decode('utf-8', errors='replace') if mypy_result.stderr else ''}",
+            encoding="utf-8",
+        )
+
+    assert mypy_result.returncode == 0, (
+        f"mypy errors (see full output in logs or {mypy_output_filename.relative_to(project_root_dir)}):\n{mypy_output_content}"
+    )
 
 
 def test_generated_agent_datasources_imports_are_valid(tmp_path: Path) -> None:
@@ -144,9 +189,16 @@ def test_generated_agent_datasources_imports_are_valid(tmp_path: Path) -> None:
     out_dir.mkdir(exist_ok=True)
     core_dir.mkdir(exist_ok=True)
 
+    # Create RenderContext for ModelsEmitter
+    render_context = RenderContext(
+        core_package_name=core_package_name,
+        package_root_for_generated_code=str(out_dir),
+        overall_project_root=str(project_root),
+    )
+
     # Instantiate emitters with correct core package name where needed
     core_emitter = CoreEmitter(core_package=core_package_name)
-    models_emitter = ModelsEmitter()
+    models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
     endpoints_emitter = EndpointsEmitter(core_package=core_package_name, overall_project_root=str(project_root))
     client_emitter = ClientEmitter(core_package=core_package_name, overall_project_root=str(project_root))
 

@@ -1,16 +1,98 @@
-# PyOpenAPI Generator Architecture
+# CLAUDE.md
 
-This document provides an overview of the PyOpenAPI Generator's core architecture, design patterns, and testing approach to help Claude understand and interact with the codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# PyOpenAPI Generator
+
+PyOpenAPI Generator is a tool for generating Python client code from OpenAPI specifications. It creates modern, async-first, and strongly-typed Python clients.
+
+## Development Environment
+
+### Setup and Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/pyopenapi-gen.git
+cd pyopenapi-gen
+
+# Install dependencies with Poetry
+poetry install
+
+# Alternatively, install in development mode with pip
+pip install -e '.[dev]'
+```
+
+### Common Commands
+
+```bash
+# Run all tests
+pytest
+
+# Run specific tests
+pytest tests/core/test_loader.py
+pytest tests/visit/test_model_visitor.py
+
+# Run tests with parallel execution (faster for large test suites)
+pytest -xvs
+
+# Run a specific test function
+pytest tests/core/test_pagination.py::test_paginate_by_next__iterates_through_multiple_pages
+
+# Run tests with coverage
+pytest --cov=src --cov-report=html
+# Open coverage report
+open htmlcov/index.html
+
+# Check types
+mypy src/
+
+# Lint code
+ruff check src/
+
+# Format code
+black src/
+
+# Build the package
+python -m build
+```
+
+### CLI Usage
+
+```bash
+# Generate client from OpenAPI spec
+pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client
+
+# With shared core package
+pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --core-package pyapis.core
+
+# Skip post-processing (faster but without type checking)
+pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --no-postprocess
+
+# Force overwrite existing files without diff check
+pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --force
+```
 
 ## Core Architecture Overview
 
-PyOpenAPI Generator is a tool for generating Python client code from OpenAPI specifications. It follows a multi-stage pipeline architecture:
+PyOpenAPI Generator follows a multi-stage pipeline architecture:
 
 1. **Loading** - Parse OpenAPI spec into intermediate representation (IR)
 2. **Visiting** - Transform IR into code using visitor pattern
 3. **Emitting** - Output generated code to files
 
 The codebase is organized around these stages with clear separation of concerns.
+
+## Generation Flow
+
+The process of generating a client follows these sequential steps:
+
+1. **Load Spec**: `ClientGenerator` loads the OpenAPI spec file (YAML/JSON) into a Python dictionary.
+2. **Parse to IR**: `load_ir_from_spec` processes the dictionary, resolves references (where possible), validates structure, and builds the `IRSpec` object containing all IR nodes.
+3. **Emit Code**: `ClientGenerator` invokes the various `Emitters` (`CoreEmitter`, `ModelsEmitter`, `EndpointsEmitter`, `ClientEmitter`, etc.).
+4. **Visit & Render**: Each `Emitter` uses its corresponding `Visitor` to traverse the relevant parts of the `IRSpec`.
+5. **Generate Code**: `Visitors` use `Helpers` (like `CodeWriter`) to render Python code strings for classes, methods, etc.
+6. **Write Files**: `Emitters` write the generated code strings to the appropriate `.py` files in the specified output directory structure.
+7. **Post-process**: Optional steps like running code formatters (e.g., Ruff, Black) or type checkers (`mypy`) on the generated code.
 
 ## Key Components
 
@@ -19,12 +101,22 @@ The codebase is organized around these stages with clear separation of concerns.
 - `core/loader.py` - Transforms OpenAPI spec into internal IR dataclasses
 - Creates `IRSpec`, `IRSchema`, `IROperation`, etc. from raw OpenAPI JSON/YAML
 - Handles references, types, and schema relationships
+- Recently being refactored to use separate modules in `core/parsing/`:
+  - `ref_resolver.py` - Handles resolution of `$ref` references
+  - `all_of_merger.py` - Processes `allOf` schema combinations
+  - `inline_enum_extractor.py` - Extracts inline enums into standalone schemas
+  - `inline_object_promoter.py` - Promotes inline objects to top-level schemas
+  - `schema_parser.py` - Core schema parsing logic
+  - `type_parser.py` - Handles type resolution and formatting
 
 ### 2. Visitors (Code Generation)
 
 - `visit/model_visitor.py` - Converts IR schemas to Python dataclasses/enums
 - `visit/endpoint_visitor.py` - Converts IR operations to Python async methods
 - `visit/client_visitor.py` - Generates the main API client class
+- `visit/endpoint_method_generator.py` - Helper for generating endpoint methods
+- `visit/exception_visitor.py` - Generates exception classes/aliases
+- `visit/docs_visitor.py` - Generates Markdown documentation
 
 ### 3. Emitters (File Generation)
 
@@ -32,6 +124,8 @@ The codebase is organized around these stages with clear separation of concerns.
 - `emitters/endpoints_emitter.py` - Emits endpoint client files under endpoints/
 - `emitters/core_emitter.py` - Copies runtime files into core/
 - `emitters/client_emitter.py` - Emits the main client.py file
+- `emitters/exceptions_emitter.py` - Emits exception classes
+- `emitters/docs_emitter.py` - Emits documentation files
 
 ### 4. Context and Utilities
 
@@ -39,7 +133,9 @@ The codebase is organized around these stages with clear separation of concerns.
 - `context/import_collector.py` - Handles import management
 - `context/file_manager.py` - Manages file writing
 - `core/writers/code_writer.py` - Utility for writing Python code with proper indentation
-- `helpers/*` - Utilities for type helpers, URL handling, etc.
+- `core/writers/line_writer.py` - Low-level utility for writing lines with indentation
+- `core/writers/documentation_writer.py` - Utility for writing documentation
+- `helpers/` - Utilities for type helpers, URL handling, etc.
 
 ### 5. Generator (Orchestration)
 
@@ -53,64 +149,34 @@ The codebase is organized around these stages with clear separation of concerns.
 3. **Intermediate Representation (IR)** - Clean separation between schema parsing and code generation.
 4. **Emitter Pattern** - Responsible for determining what files to emit and orchestrating visitors.
 
-## Code Generation Flow
+## Current Development Focus
 
-1. Parse OpenAPI spec → IR using `load_ir_from_spec`
-2. Create emitters for models, endpoints, core, client
-3. Each emitter:
-   - Creates appropriate visitors
-   - Visits IR objects using the visitors
-   - Writes the resulting code to files
-4. Apply post-processing (formatting, type checking)
+The project is currently undergoing a significant refactoring of the schema parsing logic in `loader.py`, breaking it down into smaller, more focused components:
 
-## Testing Approach
+1. The refactoring follows a Test-Driven Development (TDD) approach, with unit tests written before or concurrently with implementation.
+2. The goal is to improve readability, maintainability, testability, and extensibility of the codebase.
+3. The refactoring involves extracting different aspects of schema parsing into specialized modules like `ref_resolver.py`, `all_of_merger.py`, and `inline_object_promoter.py`.
+4. A `ParsingContext` has been introduced to manage shared state during parsing.
 
-Tests are organized under the `tests/` directory and follow these patterns:
+When working on the codebase, be aware of this ongoing refactoring and ensure that any changes to the parsing logic align with this modular approach.
 
-1. **Unit Tests** - Test individual components
-   - `tests/core/test_loader.py` - Test IR loading
-   - `tests/core/test_http_transport.py` - Test HTTP client
-   - `tests/core/writers/test_code_writer.py` - Test code writing utilities
+## Project Standards
 
-2. **Emitter Tests** - Test code generation
-   - `tests/emitters/test_models_emitter.py`
-   - `tests/emitters/test_endpoints_emitter.py`
+1. **Code Style**:
+   - Black for formatting with 120 character line length
+   - Ruff for linting
+   - 100% mypy type coverage with strict mode enabled
+   - Python 3.10-3.12 compatibility
 
-3. **Integration Tests** - End-to-end tests
-   - `tests/integrations/test_end_to_end_petstore.py`
+2. **Testing**:
+   - All code changes should have tests
+   - Maintain high test coverage, especially for core components
+   - Use pytest fixtures and mocks appropriately
 
-4. **Test Utilities**
-   - Temporary directories for file output
-   - Sample schemas for testing
-   - Mock HTTP responses
-
-## Running Tests
-
-Tests use pytest with these common patterns:
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-
-# Run specific tests
-pytest tests/core/test_loader.py
-
-# Run tests with parallel execution
-pytest -xvs
-```
-
-## Key CLI Commands
-
-```bash
-# Generate client from OpenAPI spec
-pyopenapi-gen gen spec.yaml --project-root /path/to/project --output-package my_package.client
-
-# Generate docs from OpenAPI spec
-pyopenapi-gen docs spec.yaml --output /path/to/docs
-```
+3. **Version Control**:
+   - Meaningful commit messages
+   - Feature branches with descriptive names
+   - Pull requests with clear descriptions
 
 ## Extension Points
 
@@ -119,3 +185,5 @@ The codebase is designed for extensibility in several areas:
 1. **Custom Visitors** - Extend base visitors to customize code generation
 2. **Post-Processors** - Add custom post-processing steps
 3. **Core Functionality** - Extend/replace core runtime files
+4. **Authentication Plugins** - Implement the `BaseAuth` protocol for custom authentication methods
+5. **Pagination Plugins** - Create custom pagination strategies for different API patterns

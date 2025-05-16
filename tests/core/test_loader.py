@@ -1,8 +1,11 @@
 import re
 from pathlib import Path
+from typing import Any, Dict
 
 from pyopenapi_gen import HTTPMethod
 from pyopenapi_gen.core.loader import load_ir_from_spec
+from pyopenapi_gen.core.parsing.context import ParsingContext
+from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
 
 MIN_SPEC = {
     "openapi": "3.1.0",
@@ -106,7 +109,7 @@ def test_load_ir_query_params() -> None:
     }
     ir = load_ir_from_spec(spec)
     op = ir.operations[0]
-    query_params = [p for p in op.parameters if p.in_ == "query"]
+    query_params = [p for p in op.parameters if p.param_in == "query"]
     assert len(query_params) == 2
     names = {p.name for p in query_params}
     assert names == {"start_date", "end_date"}
@@ -166,16 +169,17 @@ def test_codegen_analytics_query_params(tmp_path: Path) -> None:
     analytics_file = out_dir / "endpoints" / "analytics.py"
     assert analytics_file.exists(), "analytics.py not generated"
     content = analytics_file.read_text()
-    # Extract the params dict assignment block (multi-line)
-    match = re.search(r"params: dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
-    assert match, "params dict assignment not found in generated code"
+    # Extract the query_params dict assignment block (multi-line)
+    match = re.search(r"query_params: dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
+    assert match, "query_params dict assignment not found in generated code"
     params_block = match.group(1)
-    # Assert that all query params are included in the params dict
-    assert "start_date" in params_block, f"start_date not in params dict: {params_block}"
-    assert "end_date" in params_block, f"end_date not in params dict: {params_block}"
-    assert "tenant_id" not in params_block, f"tenant_id should not be in params dict: {params_block}"
-    # Ensure params dict is not empty
-    assert params_block.strip(), "params dict is empty, should include query params"
+    # Assert that all query params are included in the query_params dict
+    assert "start_date" in params_block, f"start_date not in query_params dict: {params_block}"
+    assert "end_date" in params_block, f"end_date not in query_params dict: {params_block}"
+    # tenant_id is a path param, should not be in query_params
+    assert "tenant_id" not in params_block, f"tenant_id should not be in query_params dict: {params_block}"
+    # Ensure query_params dict is not empty
+    assert params_block.strip(), "query_params dict is empty, should include query params"
 
 
 def test_parse_schema_nullable_type_array() -> None:
@@ -299,7 +303,8 @@ def test_parse_schema_allof_storage() -> None:
         - A schema uses `allOf` with two different references.
     Expected Outcome:
         - The resulting IRSchema should have `all_of` populated with IRSchemas for both types.
-        - Other fields like `properties` should not be merged from the components.
+        - Its `type` should be 'object' because properties are merged.
+        - Its `properties` attribute should contain the merged properties from the components.
     """
     # Arrange
     spec = {
@@ -308,11 +313,16 @@ def test_parse_schema_allof_storage() -> None:
         "paths": {},
         "components": {
             "schemas": {
-                "Base": {"type": "object", "properties": {"base_prop": {"type": "string"}}},
-                "Mixin": {"type": "object", "properties": {"mixin_prop": {"type": "integer"}}},
+                "Base": {"type": "object", "properties": {"base_prop": {"type": "string"}}, "required": ["base_prop"]},
+                "Mixin": {
+                    "type": "object",
+                    "properties": {"mixin_prop": {"type": "integer"}},
+                    "required": ["mixin_prop"],
+                },
                 "TestSchema": {
                     "allOf": [{"$ref": "#/components/schemas/Base"}, {"$ref": "#/components/schemas/Mixin"}],
                     "description": "Combines Base and Mixin",
+                    "type": "object",
                 },
             }
         },
@@ -328,6 +338,179 @@ def test_parse_schema_allof_storage() -> None:
     assert test_schema.is_nullable is False
     assert test_schema.all_of is not None
     assert len(test_schema.all_of) == 2
-    assert {s.name for s in test_schema.all_of} == {"Base", "Mixin"}
-    assert test_schema.type is None  # Type is not directly set for allOf wrapper
-    assert not test_schema.properties  # Properties are not merged in the loader anymore
+    all_of_names = {s.name for s in test_schema.all_of if s.name}
+    assert "Base" in all_of_names
+    assert "Mixin" in all_of_names
+
+    assert test_schema.type == "object"  # Type should be object due to merged properties
+
+    assert test_schema.properties is not None
+    assert "base_prop" in test_schema.properties
+    assert test_schema.properties["base_prop"].type == "string"
+    assert "mixin_prop" in test_schema.properties
+    assert test_schema.properties["mixin_prop"].type == "integer"
+    assert len(test_schema.properties) == 2
+
+    # Check required fields from allOf are merged
+    assert test_schema.required is not None
+    assert sorted(test_schema.required) == sorted(["base_prop", "mixin_prop"])
+
+
+class TestParseSchemaAllOfMerging:
+    def test_parse_schema_with_allOf_merges_properties_and_required(self) -> None:
+        """
+        Scenario:
+            - A schema 'ComposedSchema' uses 'allOf' to combine two base schemas and add its own properties.
+            - Base schemas have their own properties and required fields.
+            - ComposedSchema also has its own direct properties and required fields.
+        Expected Outcome:
+            - _parse_schema should produce an IRSchema for 'ComposedSchema' where:
+                - 'properties' attribute contains a merged dictionary of all properties from itself and all allOf parts.
+                - 'required' attribute contains a merged list of all required fields from itself and all allOf parts.
+                - 'all_of' attribute still contains the IRSchema representations of the schemas in the allOf list.
+        """
+        # Arrange
+        raw_schemas_dict: Dict[str, Any] = {
+            "BaseSchema": {
+                "type": "object",
+                "properties": {
+                    "base_prop1": {"type": "string"},
+                    "common_prop": {"type": "integer", "description": "From BaseSchema"},
+                },
+                "required": ["base_prop1"],
+            },
+            "MixinSchema": {
+                "type": "object",
+                "properties": {
+                    "mixin_prop1": {"type": "boolean"},
+                    "common_prop": {
+                        "type": "number",
+                        "description": "From MixinSchema - should be overridden by Base or Composed",
+                    },
+                },
+                "required": ["mixin_prop1"],
+            },
+            "ComposedSchema": {
+                "type": "object",
+                "allOf": [
+                    {"$ref": "#/components/schemas/BaseSchema"},
+                    {"$ref": "#/components/schemas/MixinSchema"},
+                ],
+                "properties": {
+                    "composed_prop1": {"type": "string"},
+                    "common_prop": {"type": "string", "description": "From ComposedSchema - should take precedence"},
+                },
+                "required": ["composed_prop1", "common_prop"],
+            },
+        }
+        context = ParsingContext(raw_spec_schemas=raw_schemas_dict)
+
+        # Act
+        _parse_schema("BaseSchema", raw_schemas_dict["BaseSchema"], context)
+        _parse_schema("MixinSchema", raw_schemas_dict["MixinSchema"], context)
+        composed_ir_schema = _parse_schema("ComposedSchema", raw_schemas_dict["ComposedSchema"], context)
+
+        # Assert
+        assert composed_ir_schema is not None
+        assert composed_ir_schema.name == "ComposedSchema"
+        assert composed_ir_schema.type == "object"
+
+        # Check properties merging
+        assert "base_prop1" in composed_ir_schema.properties
+        assert composed_ir_schema.properties["base_prop1"].type == "string"
+
+        assert "mixin_prop1" in composed_ir_schema.properties
+        assert composed_ir_schema.properties["mixin_prop1"].type == "boolean"
+
+        assert "composed_prop1" in composed_ir_schema.properties
+        assert composed_ir_schema.properties["composed_prop1"].type == "string"
+
+        # Test property override: ComposedSchema's version of common_prop should win
+        assert "common_prop" in composed_ir_schema.properties
+        assert composed_ir_schema.properties["common_prop"].type == "string"
+        assert (
+            composed_ir_schema.properties["common_prop"].description == "From ComposedSchema - should take precedence"
+        )
+
+        assert len(composed_ir_schema.properties) == 4  # base_prop1, mixin_prop1, composed_prop1, common_prop
+
+        # Check required fields merging
+        assert composed_ir_schema.required is not None
+        assert sorted(composed_ir_schema.required) == sorted([
+            "base_prop1",
+            "mixin_prop1",
+            "composed_prop1",
+            "common_prop",
+        ])
+
+        # Check that all_of list is still populated for potential inheritance
+        assert composed_ir_schema.all_of is not None
+        assert len(composed_ir_schema.all_of) == 2
+        all_of_names = {s.name for s in composed_ir_schema.all_of if s.name}
+        assert "BaseSchema" in all_of_names
+        assert "MixinSchema" in all_of_names
+
+    def test_parse_schema_with_allOf_and_no_direct_properties_on_composed(self) -> None:
+        """
+        Scenario:
+            - A schema 'ComposedOnlyAllOf' uses 'allOf' but has no direct properties/required itself.
+        Expected Outcome:
+            - Properties and required fields should solely come from the 'allOf' components.
+        """
+        # Arrange
+        raw_schemas_dict: Dict[str, Any] = {
+            "BaseSchema": {
+                "type": "object",
+                "properties": {"base_prop": {"type": "string"}},
+                "required": ["base_prop"],
+            },
+            "ComposedOnlyAllOf": {"type": "object", "allOf": [{"$ref": "#/components/schemas/BaseSchema"}]},
+        }
+        context = ParsingContext(raw_spec_schemas=raw_schemas_dict)
+
+        _parse_schema("BaseSchema", raw_schemas_dict["BaseSchema"], context)
+
+        # Act
+        composed_ir_schema = _parse_schema("ComposedOnlyAllOf", raw_schemas_dict["ComposedOnlyAllOf"], context)
+
+        # Assert
+        assert composed_ir_schema.name == "ComposedOnlyAllOf"
+        assert composed_ir_schema.type == "object"
+        assert "base_prop" in composed_ir_schema.properties
+        assert composed_ir_schema.properties["base_prop"].type == "string"
+        assert len(composed_ir_schema.properties) == 1
+        assert composed_ir_schema.required is not None
+        assert sorted(composed_ir_schema.required) == ["base_prop"]
+
+        assert composed_ir_schema.all_of is not None  # Ensure all_of is not None before accessing
+        assert len(composed_ir_schema.all_of) == 1
+        assert composed_ir_schema.all_of[0].name == "BaseSchema"
+
+    def test_parse_schema_direct_properties_no_allOf(self) -> None:
+        """
+        Scenario:
+            - A schema 'DirectOnly' has direct properties but no 'allOf'.
+        Expected Outcome:
+            - Properties and required fields should come directly from the schema itself.
+        """
+        # Arrange
+        raw_schemas_dict: Dict[str, Any] = {
+            "DirectOnly": {
+                "type": "object",
+                "properties": {"direct_prop": {"type": "integer"}},
+                "required": ["direct_prop"],
+            }
+        }
+        context = ParsingContext(raw_spec_schemas=raw_schemas_dict)
+
+        # Act
+        direct_ir_schema = _parse_schema("DirectOnly", raw_schemas_dict["DirectOnly"], context)
+
+        # Assert
+        assert direct_ir_schema.name == "DirectOnly"
+        assert direct_ir_schema.type == "object"
+        assert "direct_prop" in direct_ir_schema.properties
+        assert direct_ir_schema.properties["direct_prop"].type == "integer"
+        assert len(direct_ir_schema.properties) == 1
+        assert sorted(direct_ir_schema.required) == ["direct_prop"]
+        assert direct_ir_schema.all_of is None

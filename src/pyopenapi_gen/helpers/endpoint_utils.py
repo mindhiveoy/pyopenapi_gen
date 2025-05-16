@@ -3,10 +3,14 @@ Helpers for endpoint code generation: parameter/type analysis, code writing, etc
 Used by EndpointVisitor and related emitters.
 """
 
-from typing import Any, Dict, List, Optional
+import logging
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
+
+logger = logging.getLogger(__name__)
 
 from ..core.utils import NameSanitizer
 from .type_helper import TypeHelper
@@ -80,13 +84,65 @@ def get_return_type(
     Determines the primary return type hint for an operation.
     Detects and handles response unwrapping if the success schema is an object
     with a single 'data' property.
-
+    
+    For PUT operations without a defined response schema:
+    - Attempts to infer the return type from the request body schema
+    - If the request body exists and has a schema, we assume the response will 
+      be the same type as the updated resource
+    
     Returns:
         A tuple: (Python type hint string, boolean indicating if unwrapping occurred).
     """
     # Find the best success response (200, 201, etc.)
     resp = _get_primary_response(op)
 
+    # Special handling for operations without a defined response schema
+    if not resp or not resp.content or resp.status_code == "204":
+        # Special handling based on HTTP method
+        if op.method.upper() == "PUT":
+            # For PUT: Try to infer return type from request body
+            if op.request_body and op.request_body.content and "application/json" in op.request_body.content:
+                request_schema = op.request_body.content.get("application/json")
+                if request_schema:
+                    # The return type should match the resource being updated
+                    # If the request body is a "partial update" schema (like TenantUpdate),
+                    # try to infer the actual resource type (like Tenant)
+                    original_name = getattr(request_schema, "name", None)
+                    
+                    # Try to find the corresponding resource schema
+                    resource_schema = None
+                    if original_name:
+                        resource_schema = _find_resource_schema(original_name, schemas)
+                    
+                    # Determine the schema to use for type generation
+                    schema_for_type = resource_schema if resource_schema else request_schema
+                    
+                    # Generate Python type for the schema
+                    py_type = TypeHelper.get_python_type_for_schema(schema_for_type, schemas, context, required=True)
+                    
+                    # Adjust model import path for endpoints (expecting models.<module>)
+                    if py_type.startswith(".") and not py_type.startswith(".."):
+                        py_type = "models" + py_type
+                    
+                    return (py_type, False)
+                    
+        elif op.method.upper() == "GET":
+            # For GET: Try to infer return type from path
+            inferred_schema = _infer_type_from_path(op.path, schemas)
+            if inferred_schema:
+                # Generate Python type for the inferred schema
+                py_type = TypeHelper.get_python_type_for_schema(inferred_schema, schemas, context, required=True)
+                
+                # Adjust model import path for endpoints (expecting models.<module>)
+                if py_type.startswith(".") and not py_type.startswith(".."):
+                    py_type = "models" + py_type
+                
+                # Log that we inferred a return type
+                logger.info(f"Inferred return type '{py_type}' for GET operation '{op.operation_id}' at path '{op.path}'")
+                
+                return (py_type, False)
+    
+    # Default behavior for non-PUT operations or when inferring the return type fails
     if not resp or not resp.content or resp.status_code == "204":
         return ("None", False)
 
@@ -208,6 +264,108 @@ def _get_response_schema_and_content_type(resp: IRResponse) -> tuple[Optional[IR
         return None, None
 
     return resp.content.get(mt), mt
+
+
+def _find_resource_schema(update_schema_name: str, schemas: Dict[str, IRSchema]) -> Optional[IRSchema]:
+    """
+    Given an update schema name (e.g. 'TenantUpdate'), try to find the corresponding 
+    resource schema (e.g. 'Tenant') in the schemas dictionary.
+    
+    Args:
+        update_schema_name: Name of the update schema (typically ends with 'Update')
+        schemas: Dictionary of all available schemas
+        
+    Returns:
+        Resource schema if found, None otherwise
+    """
+    if not update_schema_name or not update_schema_name.endswith("Update"):
+        return None
+        
+    # Extract base resource name (e.g., "TenantUpdate" -> "Tenant")
+    base_name = update_schema_name[:-6]  # Remove "Update" suffix
+    
+    # Look for a matching resource schema in the schemas dictionary
+    for schema_name, schema in schemas.items():
+        if schema_name == base_name or getattr(schema, "name", "") == base_name:
+            return schema
+            
+    return None
+
+
+def _infer_type_from_path(path: str, schemas: Dict[str, IRSchema]) -> Optional[IRSchema]:
+    """
+    Infers a response type from a path. This is used when a response schema is not specified.
+    
+    Example: 
+    - '/tenants/{tenant_id}/feedback' might infer a 'Feedback' or 'FeedbackResponse' type
+    - '/users/{user_id}/settings' might infer a 'Settings' or 'SettingsResponse' type
+    
+    Args:
+        path: The endpoint path
+        schemas: Dictionary of all available schemas
+        
+    Returns:
+        A schema that might be appropriate for the response, or None if no match found
+    """
+    # Extract resource name from the end of the path
+    path_parts = path.rstrip('/').split('/')
+    resource_name = path_parts[-1]  # Get the last part of the path
+    
+    # Check if the last part is an ID parameter (like {id} or {user_id})
+    if resource_name.startswith('{') and resource_name.endswith('}'):
+        # If the path ends with an ID, use the second-to-last part
+        if len(path_parts) >= 2:
+            resource_name = path_parts[-2]
+    
+    # Clean up and singularize the resource name
+    # Remove any special characters and convert to camel case
+    clean_name = ''.join(word.title() for word in re.findall(r'[a-zA-Z0-9]+', resource_name))
+    
+    # If the resource name is plural (most common API convention), make it singular
+    if clean_name.endswith('s') and len(clean_name) > 2:
+        singular_name = clean_name[:-1]
+    else:
+        singular_name = clean_name
+    
+    # Common suffix patterns for response types
+    candidates = [
+        f"{singular_name}",
+        f"{singular_name}Response",
+        f"{singular_name}ListResponse" if path.endswith('/') or not resource_name.startswith('{') else None,
+        f"{singular_name}Item",
+        f"{singular_name}Data",
+        f"{clean_name}",
+        f"{clean_name}Response",
+        f"{clean_name}ListResponse" if path.endswith('/') or not resource_name.startswith('{') else None,
+        f"{clean_name}Item",
+        f"{clean_name}Data",
+    ]
+    
+    # Filter out None values
+    candidates = [c for c in candidates if c]
+    
+    # Look for matching schemas
+    for candidate in candidates:
+        for schema_name, schema in schemas.items():
+            if schema_name == candidate or getattr(schema, "name", "") == candidate:
+                logger.info(f"Inferred response type '{candidate}' from path '{path}'")
+                return schema
+    
+    # Try a more generic approach if no specific match found
+    for schema_name, schema in schemas.items():
+        schema_name_lower = schema_name.lower()
+        resource_name_lower = resource_name.lower()
+        
+        if resource_name_lower in schema_name_lower and (
+            'response' in schema_name_lower or 
+            'result' in schema_name_lower or 
+            'dto' in schema_name_lower
+        ):
+            logger.info(f"Inferred response type '{schema_name}' from path '{path}'")
+            return schema
+    
+    logger.debug(f"Could not infer response type from path '{path}'")
+    return None
 
 
 def format_method_args(params: list[dict[str, Any]]) -> str:

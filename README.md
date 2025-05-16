@@ -334,10 +334,56 @@ We welcome contributions from the community! Whether you're fixing bugs, adding 
 ### Running Tests and Linting Locally
 
 ```bash
+# Run all tests
 pytest
+
+# Run a specific test file
+pytest tests/core/test_pagination.py
+
+# Run a specific test function
+pytest tests/core/test_pagination.py::test_paginate_by_next__iterates_through_multiple_pages
+
+# Run tests with coverage report
+pytest --cov=src --cov-report=html
+open htmlcov/index.html
+
+# Run tests with parallel execution (faster for large test suites)
+pytest -xvs
+
+# Check types with mypy
 mypy src/
+
+# Lint code with ruff
 ruff check src/
+
+# Format code with black
+black src/
 ```
+
+### Test Structure
+
+The test suite is organized to mirror the package structure:
+
+```
+tests/
+├── auth/              # Authentication tests
+├── cli/               # CLI command tests
+├── context/           # Rendering context tests
+├── core/              # Core functionality tests
+│   ├── parsing/       # Schema parsing tests
+│   └── writers/       # Code writer tests
+├── emitters/          # Emitter tests
+├── generation/        # End-to-end generator tests
+├── helpers/           # Utility function tests
+├── integrations/      # Integration tests with real specs
+└── visit/             # Visitor pattern tests
+```
+
+Each module in the codebase should have corresponding test coverage. When adding new features, please ensure your tests cover:
+
+1. **Happy path** - Normal operation scenarios
+2. **Edge cases** - Unusual but valid inputs
+3. **Error cases** - How the code handles invalid inputs
 
 ---
 

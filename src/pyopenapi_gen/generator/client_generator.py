@@ -2,11 +2,14 @@
 ClientGenerator: Encapsulates the OpenAPI client generation logic for use by CLI or other frontends.
 """
 
+import logging
 import shutil
 import tempfile
 import os
+import time
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, List
+from typing import Any, Dict, Optional, List, Union
 
 from pyopenapi_gen.core.loader import load_ir_from_spec
 from pyopenapi_gen.core.postprocess_manager import PostprocessManager
@@ -17,6 +20,9 @@ from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 from pyopenapi_gen.context.file_manager import FileManager
+from pyopenapi_gen.context.render_context import RenderContext
+
+logger = logging.getLogger(__name__)
 
 
 class GenerationError(Exception):
@@ -33,8 +39,48 @@ class ClientGenerator:
     It is independent of any CLI or UI framework and can be used programmatically.
     """
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, verbose: bool = True) -> None:
+        """
+        Initialize the client generator.
+
+        Args:
+            verbose: Whether to output detailed progress information.
+        """
+        self.verbose = verbose
+        self.start_time = time.time()
+        self.timings: Dict[str, float] = {}
+
+    def _log_progress(self, message: str, stage: Optional[str] = None) -> None:
+        """
+        Log a progress message with timestamp.
+
+        Args:
+            message: The progress message to log.
+            stage: Optional name of the current stage for timing information.
+        """
+        if not self.verbose:
+            return
+
+        elapsed = time.time() - self.start_time
+        timestamp = datetime.now().strftime("%H:%M:%S")
+
+        if stage:
+            # Mark stage start
+            if stage not in self.timings:
+                self.timings[stage] = time.time()
+                stage_msg = f"[STARTING {stage}]"
+            else:
+                # Mark stage end
+                stage_time = time.time() - self.timings[stage]
+                stage_msg = f"[COMPLETED {stage} in {stage_time:.2f}s]"
+
+            log_msg = f"{timestamp} ({elapsed:.2f}s) {stage_msg} {message}"
+        else:
+            log_msg = f"{timestamp} ({elapsed:.2f}s) {message}"
+
+        logger.info(log_msg)
+        # Also print to stdout for CLI users
+        print(log_msg)
 
     def generate(
         self,
@@ -63,13 +109,35 @@ class ClientGenerator:
         Raises:
             GenerationError: If generation fails or diffs are found (when not forcing overwrite).
         """
+        self._log_progress(f"Starting code generation for specification: {spec_path}", "GENERATION")
         project_root = Path(project_root).resolve()
+
+        # Stage 1: Load Spec
+        self._log_progress(f"Loading specification from {spec_path}", "LOAD_SPEC")
         spec_dict = self._load_spec(spec_path)
+        self._log_progress(f"Loaded specification with {len(spec_dict)} top-level keys", "LOAD_SPEC")
+
+        # Stage 2: Parse to IR
+        self._log_progress(f"Parsing specification into intermediate representation", "PARSE_IR")
         ir = load_ir_from_spec(spec_dict)
+
+        # Log stats about the IR
+        schema_count = len(ir.schemas) if ir.schemas else 0
+        operation_count = len(ir.operations) if ir.operations else 0
+        self._log_progress(
+            f"Parsed IR with {schema_count} schemas and {operation_count} operations",
+            "PARSE_IR"
+        )
+
+        # Stage 3: Collect warnings
+        self._log_progress("Collecting warnings", "WARNINGS")
         collector = WarningCollector()
         reports = collector.collect(ir)
         for report in reports:
-            print(f"WARNING [{report.code}]: {report.message} (Hint: {report.hint})")
+            warning_msg = f"WARNING [{report.code}]: {report.message} (Hint: {report.hint})"
+            print(warning_msg)
+            logger.warning(warning_msg)
+        self._log_progress(f"Found {len(reports)} warnings", "WARNINGS")
 
         # Resolve output and core directories from package paths
         def pkg_to_path(pkg: str) -> Path:
@@ -93,9 +161,22 @@ class ClientGenerator:
         # The actual_core_module_name_for_emitter_init becomes resolved_core_package_fqn
         # The core_import_path_for_context also becomes resolved_core_package_fqn
 
+        self._log_progress(f"Output directory: {out_dir}", "CONFIG")
+        self._log_progress(f"Core package: {resolved_core_package_fqn}", "CONFIG")
+
         generated_files = []
 
+        # Create RenderContext once and populate its parsed_schemas for the force=True path
+        # It will be used if not doing a diff, or after a successful diff.
+        self._log_progress("Creating render context", "INIT")
+        main_render_context = RenderContext(
+            core_package_name=resolved_core_package_fqn,
+            package_root_for_generated_code=str(out_dir),
+            overall_project_root=str(project_root),
+        )
+
         if not force and out_dir.exists():
+            self._log_progress("Checking for differences with existing output", "DIFF_CHECK")
             # --- Refactored Diff Logic ---
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_project_root_for_diff = Path(tmpdir)
@@ -118,22 +199,28 @@ class ClientGenerator:
                 temp_generated_files = []  # Track files generated in temp dir
 
                 # 1. CoreEmitter (emits core files to tmp_core_dir_for_diff)
+                self._log_progress("Generating core files (temp)", "EMIT_CORE_TEMP")
                 # Note: CoreEmitter copies files, RenderContext isn't strictly needed for it, but path must be correct.
                 relative_core_path_for_emitter_init_temp = os.path.relpath(tmp_core_dir_for_diff, tmp_out_dir_for_diff)
                 core_emitter = CoreEmitter(
                     core_dir=str(relative_core_path_for_emitter_init_temp), core_package=resolved_core_package_fqn
                 )
-                temp_generated_files += [Path(p) for p in core_emitter.emit(str(tmp_out_dir_for_diff))]
+                core_files = [Path(p) for p in core_emitter.emit(str(tmp_out_dir_for_diff))]
+                temp_generated_files += core_files
+                self._log_progress(f"Generated {len(core_files)} core files (temp)", "EMIT_CORE_TEMP")
 
                 # 2. ExceptionsEmitter (emits exception_aliases.py to tmp_core_dir_for_diff)
+                self._log_progress("Generating exception files (temp)", "EMIT_EXCEPTIONS_TEMP")
                 exceptions_emitter = ExceptionsEmitter(
                     core_package_name=resolved_core_package_fqn,
                     overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
                 )
-                temp_generated_files += [
+                exception_files = [
                     Path(p)
                     for p in exceptions_emitter.emit(ir, str(tmp_core_dir_for_diff))  # Emit TO temp core dir
                 ]
+                temp_generated_files += exception_files
+                self._log_progress(f"Generated {len(exception_files)} exception files (temp)", "EMIT_EXCEPTIONS_TEMP")
 
                 # 3. config.py (write to tmp_core_dir_for_diff using FileManager) - REMOVED, CoreEmitter handles this
                 # fm = FileManager()
@@ -143,51 +230,73 @@ class ClientGenerator:
                 # temp_generated_files.append(config_dst_temp)
 
                 # 4. ModelsEmitter (emits models to tmp_out_dir_for_diff/models)
-                models_emitter = ModelsEmitter(
-                    overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
+                self._log_progress("Generating model files (temp)", "EMIT_MODELS_TEMP")
+                # Create a temporary RenderContext for the diff path
+                tmp_render_context_for_diff = RenderContext(
                     core_package_name=resolved_core_package_fqn,
+                    package_root_for_generated_code=str(tmp_out_dir_for_diff),
+                    overall_project_root=str(tmp_project_root_for_diff),
                 )
-                temp_generated_files += [
+                models_emitter = ModelsEmitter(context=tmp_render_context_for_diff, parsed_schemas=ir.schemas)
+                model_files = [
                     Path(p)
                     for p in models_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
                 ]
+                temp_generated_files += model_files
+                schema_count = len(ir.schemas) if ir.schemas else 0
+                self._log_progress(f"Generated {len(model_files)} model files for {schema_count} schemas (temp)", "EMIT_MODELS_TEMP")
 
                 # 5. EndpointsEmitter (emits endpoints to tmp_out_dir_for_diff/endpoints)
+                self._log_progress("Generating endpoint files (temp)", "EMIT_ENDPOINTS_TEMP")
                 endpoints_emitter = EndpointsEmitter(
                     core_package=resolved_core_package_fqn,
                     overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root
                 )
-                temp_generated_files += [
+                endpoint_files = [
                     Path(p)
                     for p in endpoints_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
                 ]
+                temp_generated_files += endpoint_files
+                operation_count = len(ir.operations) if ir.operations else 0
+                self._log_progress(f"Generated {len(endpoint_files)} endpoint files for {operation_count} operations (temp)", "EMIT_ENDPOINTS_TEMP")
 
                 # 6. ClientEmitter (emits client.py to tmp_out_dir_for_diff)
+                self._log_progress("Generating client file (temp)", "EMIT_CLIENT_TEMP")
                 client_emitter = ClientEmitter(
                     core_package=resolved_core_package_fqn,
                     overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root
                 )
-                temp_generated_files += [
+                client_files = [
                     Path(p)
                     for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
                 ]
+                temp_generated_files += client_files
+                self._log_progress(f"Generated {len(client_files)} client files (temp)", "EMIT_CLIENT_TEMP")
 
                 # Post-processing should run on the temporary files if enabled
                 if not no_postprocess:
+                    self._log_progress("Running post-processing on temporary files", "POSTPROCESS_TEMP")
                     # Pass the temp project root to PostprocessManager
                     PostprocessManager(str(tmp_project_root_for_diff)).run([str(p) for p in temp_generated_files])
+                    self._log_progress(f"Post-processed {len(temp_generated_files)} files", "POSTPROCESS_TEMP")
 
                 # --- Compare final output dirs with the temp output dirs ---
+                self._log_progress("Comparing generated files with existing files", "DIFF")
                 # Compare client package dir
+                self._log_progress(f"Checking client package differences", "DIFF_CLIENT")
                 has_diff_client = self._show_diffs(str(out_dir), str(tmp_out_dir_for_diff))
+
                 # Compare core package dir IF it's different from the client dir
                 has_diff_core = False
                 if core_dir != out_dir:
+                    self._log_progress(f"Checking core package differences", "DIFF_CORE")
                     has_diff_core = self._show_diffs(str(core_dir), str(tmp_core_dir_for_diff))
 
                 if has_diff_client or has_diff_core:
+                    self._log_progress("Differences found, not updating existing output", "DIFF_RESULT")
                     raise GenerationError("Differences found between generated and existing output.")
 
+                self._log_progress("No differences found, using existing files", "DIFF_RESULT")
                 # If no diffs, return the paths of the *existing* files (no changes made)
                 # We need to collect the actual existing file paths corresponding to temp_generated_files
                 # This is tricky because _show_diffs only returns bool.
@@ -207,12 +316,16 @@ class ClientGenerator:
                         # Should not happen if paths are constructed correctly
                         print(f"Warning: Could not map temporary file {tmp_file} back to project root {project_root}")
                 generated_files = final_generated_files
+                self._log_progress(f"Mapped {len(generated_files)} existing files", "DIFF_COMPLETE")
 
             # --- End Refactored Diff Logic ---
         else:  # This is the force=True or first-run logic
+            self._log_progress("Direct generation (force=True or first run)", "DIRECT_GEN")
             if out_dir.exists():
+                self._log_progress(f"Removing existing directory: {out_dir}", "CLEANUP")
                 shutil.rmtree(str(out_dir))
             # Ensure parent dirs exist before creating final output dir
+            self._log_progress(f"Creating directory structure", "SETUP_DIRS")
             out_dir.parent.mkdir(parents=True, exist_ok=True)
             out_dir.mkdir(parents=True, exist_ok=True)  # Create final output dir
 
@@ -222,11 +335,14 @@ class ClientGenerator:
                 core_dir.mkdir(parents=True, exist_ok=True)  # Create final core dir
 
             # Write root __init__.py if needed (handle nested packages like a.b.c)
+            self._log_progress("Creating __init__.py files for package structure", "INIT_FILES")
+            init_files_created = 0
             current = out_dir
             while current != project_root:
                 init_path = current / "__init__.py"
                 if not init_path.exists():
                     init_path.write_text("")
+                    init_files_created += 1
                 if current.parent == current:  # Avoid infinite loop at root
                     break
                 current = current.parent
@@ -238,27 +354,38 @@ class ClientGenerator:
                     init_path = current / "__init__.py"
                     if not init_path.exists():
                         init_path.write_text("")
+                        init_files_created += 1
                     if current.parent == current:
                         break
                     current = current.parent
 
+            self._log_progress(f"Created {init_files_created} __init__.py files", "INIT_FILES")
+
             # --- Generate directly into final destination paths ---
+            self._log_progress("Starting direct file generation", "DIRECT_GEN_FILES")
+
             # 1. CoreEmitter
+            self._log_progress("Generating core files", "EMIT_CORE")
             relative_core_path_for_emitter_init_final = os.path.relpath(core_dir, out_dir)
             core_emitter = CoreEmitter(
                 core_dir=str(relative_core_path_for_emitter_init_final), core_package=resolved_core_package_fqn
             )
-            generated_files += [Path(p) for p in core_emitter.emit(str(out_dir))]
+            core_files = [Path(p) for p in core_emitter.emit(str(out_dir))]
+            generated_files += core_files
+            self._log_progress(f"Generated {len(core_files)} core files", "EMIT_CORE")
 
             # 2. ExceptionsEmitter
+            self._log_progress("Generating exception files", "EMIT_EXCEPTIONS")
             exceptions_emitter = ExceptionsEmitter(
                 core_package_name=resolved_core_package_fqn,
                 overall_project_root=str(project_root),  # Use final project root
             )
-            generated_files += [
+            exception_files = [
                 Path(p)
                 for p in exceptions_emitter.emit(ir, str(core_dir))  # Emit to final core dir
             ]
+            generated_files += exception_files
+            self._log_progress(f"Generated {len(exception_files)} exception files", "EMIT_EXCEPTIONS")
 
             # 3. config.py (using FileManager) - REMOVED, CoreEmitter handles this
             # fm = FileManager()
@@ -268,38 +395,60 @@ class ClientGenerator:
             # generated_files.append(config_dst)
 
             # 4. ModelsEmitter
-            models_emitter = ModelsEmitter(
-                overall_project_root=str(project_root),  # Use final project root
-                core_package_name=resolved_core_package_fqn,
-            )
-            generated_files += [
-                Path(p)
-                for p in models_emitter.emit(ir, str(out_dir))  # Emit to final output dir
-            ]
+            self._log_progress("Generating model files", "EMIT_MODELS")
+            # For the force=True / first-run path, use the main_render_context
+            models_emitter = ModelsEmitter(context=main_render_context, parsed_schemas=ir.schemas)
+            model_files = [Path(p) for p in models_emitter.emit(ir, str(out_dir))]
+            generated_files += model_files
+            self._log_progress(f"Generated {len(model_files)} model files for {schema_count} schemas", "EMIT_MODELS")
 
             # 5. EndpointsEmitter
+            self._log_progress("Generating endpoint files", "EMIT_ENDPOINTS")
             endpoints_emitter = EndpointsEmitter(
                 core_package=resolved_core_package_fqn,
                 overall_project_root=str(project_root),  # Use final project root
             )
-            generated_files += [
+            endpoint_files = [
                 Path(p)
                 for p in endpoints_emitter.emit(ir, str(out_dir))  # Emit to final output dir
             ]
+            generated_files += endpoint_files
+            self._log_progress(f"Generated {len(endpoint_files)} endpoint files for {operation_count} operations", "EMIT_ENDPOINTS")
 
             # 6. ClientEmitter
+            self._log_progress("Generating client file", "EMIT_CLIENT")
             client_emitter = ClientEmitter(
                 core_package=resolved_core_package_fqn,
                 overall_project_root=str(project_root),  # Use final project root
             )
-            generated_files += [
+            client_files = [
                 Path(p)
                 for p in client_emitter.emit(ir, str(out_dir))  # Emit to final output dir
             ]
+            generated_files += client_files
+            self._log_progress(f"Generated {len(client_files)} client files", "EMIT_CLIENT")
 
             # Post-processing on the final generated files
             if not no_postprocess:
+                self._log_progress("Running post-processing on generated files", "POSTPROCESS")
                 PostprocessManager(str(project_root)).run([str(p) for p in generated_files])
+                self._log_progress(f"Post-processed {len(generated_files)} files", "POSTPROCESS")
+
+        total_time = time.time() - self.start_time
+        self._log_progress(
+            f"Code generation completed successfully in {total_time:.2f}s, generated {len(generated_files)} files",
+            "GENERATION"
+        )
+
+        # Print timing summary if verbose
+        if self.verbose:
+            self._log_progress("=== Generation Summary ===", None)
+            for stage, start_time in sorted(self.timings.items()):
+                # Only include stages that have both start and end times
+                if f"{stage}_COMPLETE" in self.timings or stage in self.timings:
+                    end_time = self.timings.get(f"{stage}_COMPLETE", time.time())
+                    duration = end_time - start_time
+                    self._log_progress(f"{stage}: {duration:.2f}s", None)
 
         return generated_files
 

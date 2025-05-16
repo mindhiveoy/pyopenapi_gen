@@ -105,6 +105,17 @@ class NameSanitizer:
             name += "_"
         return name
 
+    @staticmethod
+    def is_valid_python_identifier(name: str) -> bool:
+        """Check if a string is a valid Python identifier."""
+        if not isinstance(name, str) or not name:
+            return False
+        # Check if it's a keyword
+        if keyword.iskeyword(name):
+            return False
+        # Check pattern: starts with letter/underscore, then letter/digit/underscore
+        return re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name) is not None
+
 
 class ParamSubstitutor:
     """Helper for rendering path templates with path parameters."""

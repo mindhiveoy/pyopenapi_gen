@@ -6,6 +6,7 @@ from typing import Dict, List
 from .. import IRSchema
 from ..context.render_context import RenderContext
 from ..core.utils import NameSanitizer
+from .type_cleaner import TypeCleaner
 
 # Get logger
 logger = logging.getLogger(__name__)
@@ -76,56 +77,65 @@ class TypeHelper:
     @staticmethod
     def _get_named_or_enum_type(schema: IRSchema, schemas: Dict[str, IRSchema], context: RenderContext) -> str | None:
         """Handles named schema references (models, enums) or inline enums if named."""
+        logger.debug(
+            f"[_get_named_or_enum_type ID:{id(schema)}] Entry: schema.name='{schema.name}', type='{schema.type}', schema.name in schemas: {schema.name in schemas if schema.name else False}"
+        )
+
         if schema.name and schema.name in schemas:  # Named schema reference found in registry
             ref_schema = schemas[schema.name]
+            logger.debug(
+                f"[_get_named_or_enum_type] Found '{ref_schema.name}' (type: {ref_schema.type}, any_of: {bool(ref_schema.any_of)}) in schemas dict for input schema '{schema.name}'."
+            )
 
-            # Check if the referenced schema is actually an alias for array/primitive
-            is_complex_override = ref_schema.properties or ref_schema.enum
-            if ref_schema.type in ("array", "string", "integer", "number", "boolean") and not is_complex_override:
-                # It's a simple alias (e.g. MyStrings = List[str]).
+            is_simple_alias_target_type = ref_schema.type in ("array", "string", "integer", "number", "boolean")
+            is_just_an_alias_structure = (
+                not ref_schema.properties
+                and not ref_schema.enum
+                and not ref_schema.any_of
+                and not ref_schema.one_of
+                and not ref_schema.all_of
+            )
+            logger.debug(
+                f"[_get_named_or_enum_type] '{ref_schema.name}': is_simple_alias_target_type={is_simple_alias_target_type}, is_just_an_alias_structure={is_just_an_alias_structure}"
+            )
+
+            if is_simple_alias_target_type and is_just_an_alias_structure:
+                # It's a simple alias (e.g. MyStrings = List[str] or UserID = str).
                 # Return None here so that _get_array_type or _get_primitive_type handles it
                 # in the main get_python_type_for_schema function to get the underlying type.
                 # The ModelVisitor will handle the TypeAlias generation based on the schema name.
+                logger.debug(
+                    f"[TypeHelper._get_named_or_enum_type] Schema '{ref_schema.name}' is a simple alias to '{ref_schema.type}'. Returning None for further processing."
+                )
                 return None
 
-            # If it wasn't identified as a simple alias above, treat it as a reference
-            # to a complex object model or a named enum.
-            # This path should primarily catch object types or enums.
-            if ref_schema.type == "object" or ref_schema.enum:
-                if not ref_schema.name:  # Should not happen if schema.name was present
-                    return None
+            # Otherwise, it's a named model (object), enum, or a named composite type alias (like a Union from anyOf)
+            # that will have its own .py file. So, we need to import it.
+            assert ref_schema.name is not None  # Assure linter that ref_schema.name is str
+            class_name_to_import = NameSanitizer.sanitize_class_name(ref_schema.name)
+            module_name_to_import_from = NameSanitizer.sanitize_module_name(ref_schema.name)
 
-                ref_schema_module_name = NameSanitizer.sanitize_module_name(ref_schema.name)
+            # Correct module path construction relative to `models` directory
+            model_module_path_within_package = f"models.{module_name_to_import_from}"
 
-                # This is the module path relative to the root of the generated package (context.package_root_for_generated_code).
-                # e.g., if package_root_for_generated_code is "client/", and model is "MyModel" (in "my_model.py"),
-                # this will be "models.my_model".
-                # RenderContext.add_import will then try to convert this to e.g., "..models.my_model"
-                # if the current file is in "client/endpoints/".
-                model_module_path_within_package = f"models.{ref_schema_module_name}"
-
-                logger.debug(
-                    f"[TypeHelper] Adding model import: module_within_package='{model_module_path_within_package}', "
-                    f"name='{ref_schema.name}' for schema {schema.name} referencing {ref_schema.name}. "
-                    f"Context details: current_file={context.current_file}, "
-                    f"pkg_root_for_gen_code={context.package_root_for_generated_code}, "
-                    f"overall_proj_root={context.overall_project_root}, "
-                    f"core_pkg_name={context.core_package_name}"
-                )
-                context.add_import(model_module_path_within_package, ref_schema.name)
-                return f"{ref_schema.name}"  # Correctly returns just the class name
-            # If schema.name was in schemas but wasn't alias or object/enum, what is it?
-            # Log a warning and fall through (will likely become Any)
             logger.warning(
-                f"Named schema '{schema.name}' found but type '{ref_schema.type}' wasn't object/enum or simple alias."
+                f"[_get_named_or_enum_type ID:{id(ref_schema)}] REF: '{ref_schema.name}'. Adding import: "
+                f"module='{model_module_path_within_package}', name='{class_name_to_import}' (from schema '{schema.name}')"
             )
+            context.add_import(model_module_path_within_package, class_name_to_import)
+            logger.debug(
+                f"[_get_named_or_enum_type ID:{id(ref_schema)}] RETURNING '{class_name_to_import}' for '{ref_schema.name}'"
+            )
+            return class_name_to_import  # Return the sanitized class name for the type hint
 
         # Handle case where schema has a name and enum but might not be in schemas dict
-        # (e.g., inline enum definition with a name hint?)
+        # (e.g., inline enum definition with a name hint by the parser?)
+        # This primarily covers enums that might be defined inline but have a name.
         if schema.enum and schema.name:  # Named inline enum
+            assert schema.name is not None  # Assure linter that schema.name is str
             class_name = NameSanitizer.sanitize_class_name(schema.name)
+            # Assume it will be in its own file under models if it's a named enum
             model_module = f"models.{NameSanitizer.sanitize_module_name(schema.name)}"
-            # Add import defensively, might be duplicate if handled above but collector handles that
             context.add_import(model_module, class_name)
             return class_name
 
@@ -181,19 +191,47 @@ class TypeHelper:
         """Wraps the type with Optional if needed."""
         is_optional = not required or schema.is_nullable
         if is_optional:
-            # Always add Optional import if the type is optional, even if rendered as Union[..., None]
+            # Always add Optional import if the type is optional
             context.add_import("typing", "Optional")
+            
+            # Handle different cases
             if py_type == "Any":
-                # context.add_import("typing", "Optional") # Already added above
                 return "Optional[Any]"
-            if py_type.startswith("Union["):
-                if "None" not in py_type and not py_type.startswith("Optional[Union["):
-                    # Still render as Union[..., None] for clarity, but ensure Optional is imported.
-                    return py_type.replace("]", ", None]")
+            elif py_type.startswith("Union["):
+                # If it's not already an Optional, wrap it
+                if not py_type.startswith("Optional["):
+                    # Don't add None to Union if it already has None
+                    if ", None]" in py_type:
+                        return py_type
+                    # If the schema itself is nullable, prefer Optional[Union[...]] form
+                    if schema.is_nullable:
+                        return f"Optional[{py_type}]"
+                    # Otherwise add None to the Union
+                    else:
+                        return py_type.replace("]", ", None]")
             elif not py_type.startswith("Optional["):
-                # context.add_import("typing", "Optional") # Already added above
                 return f"Optional[{py_type}]"
+        
         return py_type
+
+    @staticmethod
+    def _clean_type_parameters(type_str: str) -> str:
+        """
+        Clean type parameters by removing incorrect None parameters from Dict, List, and Optional.
+        For example:
+        - Dict[str, Any, None] -> Dict[str, Any]
+        - List[JsonValue, None] -> List[JsonValue]
+        - Optional[Any, None] -> Optional[Any]
+        - Complex nested types are handled recursively
+        
+        Args:
+            type_str: The type string to clean
+            
+        Returns:
+            A cleaned type string
+        """
+        # Delegate to the specialized TypeCleaner class
+        return TypeCleaner.clean_type_parameters(type_str)
 
     @staticmethod
     def get_python_type_for_schema(
@@ -202,6 +240,10 @@ class TypeHelper:
         context: RenderContext,
         required: bool = True,
     ) -> str:
+        logger.debug(
+            f"[get_python_type_for_schema ID:{id(schema)}] Entry: schema.name='{schema.name}', type='{schema.type}', any_of_present={bool(schema.any_of)}, required={required}"
+        )
+
         py_type: str | None = None
 
         # 1. Handle composition types first
@@ -232,30 +274,19 @@ class TypeHelper:
             referenced_schema_name_from_type_field = schema.type
             class_name_candidate = NameSanitizer.sanitize_class_name(referenced_schema_name_from_type_field)
 
+            # MODIFIED: Only treat as a reference if the candidate name is a key in the `schemas` dict
             if class_name_candidate in schemas:  # Check if this type name exists as a defined schema
                 # It's a known model/enum defined elsewhere. Generate import for it.
-                # No need to re-parse schemas[class_name_candidate], just use the name.
                 module_name_part = NameSanitizer.sanitize_module_name(class_name_candidate)
-                # TODO: Determine if this model is in 'core' or local 'models' based on context or schema source.
-                # For now, assume local 'models' package.
                 model_module_path_within_package = f"models.{module_name_part}"
                 context.add_import(model_module_path_within_package, class_name_candidate)
-                py_type = class_name_candidate
+                py_type = class_name_candidate  # Assign py_type only if it's a known schema
                 logger.debug(
                     f"[TypeHelper] Resolved type '{schema.type}' to known schema '{class_name_candidate}' from models."
                 )
-            else:
-                # It's a type name not found in known schemas (e.g. forward ref, external type, or just a name).
-                # Use the sanitized name as the type. TypeHelper/ModelVisitor expects imports to be handled.
-                py_type = class_name_candidate
-                # Attempt to add an import for it, assuming it's in the local 'models' package by convention.
-                # This might be speculative if it's an external type not handled by other rules.
-                module_name_part = NameSanitizer.sanitize_module_name(class_name_candidate)
-                model_module_path_within_package = f"models.{module_name_part}"
-                context.add_import(model_module_path_within_package, class_name_candidate)
-                logger.debug(
-                    f"[TypeHelper] Using type '{schema.type}' as unknown/external type '{py_type}'. Added speculative models import."
-                )
+            # If class_name_candidate is NOT in schemas, do nothing here.
+            # py_type remains None, and it will fall through to primitive/array/object checks or to Any.
+            # Removed the 'else' block that previously added a speculative import.
 
         # 3. Handle primitive types (if schema.type is "string", "integer", etc., and not yet resolved)
         if not py_type:
@@ -274,6 +305,10 @@ class TypeHelper:
             logger.warning(f"Type could not be determined for schema: {schema}. Defaulting to Any.")
             py_type = "Any"
             context.add_import("typing", "Any")
+
+        # 6.5 Clean any incorrect type parameters (Dict[key, val, None], List[item, None])
+        if py_type:
+            py_type = TypeHelper._clean_type_parameters(py_type)
 
         # 7. Apply Optional wrapping
         final_py_type = TypeHelper._finalize_type_with_optional(py_type, schema, required, context)

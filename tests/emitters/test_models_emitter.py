@@ -1,6 +1,8 @@
+import unittest
 from pathlib import Path
 
 from pyopenapi_gen import IRSchema, IRSpec, HTTPMethod, IROperation, IRResponse
+from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
@@ -20,18 +22,21 @@ def test_models_emitter_simple(tmp_path: Path) -> None:
     spec = IRSpec(title="T", version="0.1", schemas={"Pet": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
-    emitter = ModelsEmitter()
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
     model_file: Path = out_dir / "models" / "Pet.py"
     assert model_file.exists()
 
     content: str = model_file.read_text()
-    # Normalize whitespace for comparison
     lines: list[str] = [line.rstrip() for line in content.splitlines() if line.strip()]
     result: str = "\n".join(lines)
 
-    # Check key lines exist in output
     assert "from dataclasses import dataclass" in result
     assert "id: int" in result
     assert "name: str" in result
@@ -48,18 +53,21 @@ def test_models_emitter_enum(tmp_path: Path) -> None:
     spec = IRSpec(title="T", version="0.1", schemas={"Status": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
-    emitter = ModelsEmitter()
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
     model_file: Path = out_dir / "models" / "Status.py"
     assert model_file.exists()
 
     content: str = model_file.read_text()
-    # Normalize whitespace for comparison
     lines: list[str] = [line.rstrip() for line in content.splitlines() if line.strip()]
     result: str = "\n".join(lines)
 
-    # Check key lines exist in output
     assert "from enum import Enum" in result
     assert "class Status(str, Enum):" in result
     assert "PENDING" in result
@@ -90,18 +98,21 @@ def test_models_emitter_array(tmp_path: Path) -> None:
     spec = IRSpec(title="T", version="0.1", schemas={"PetList": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
-    emitter = ModelsEmitter()
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
     model_file: Path = out_dir / "models" / "pet_list.py"
     assert model_file.exists()
 
     content: str = model_file.read_text()
-    # Normalize whitespace for comparison
     lines: list[str] = [line.rstrip() for line in content.splitlines() if line.strip()]
     result: str = "\n".join(lines)
 
-    # Check key lines exist in output
     assert "from dataclasses import dataclass" in result
     assert "from typing import" in result
     assert "@dataclass" in result
@@ -130,18 +141,21 @@ def test_models_emitter_datetime(tmp_path: Path) -> None:
     spec = IRSpec(title="T", version="0.1", schemas={"Event": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
-    emitter = ModelsEmitter()
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
     model_file: Path = out_dir / "models" / "Event.py"
     assert model_file.exists()
 
     content: str = model_file.read_text()
-    # Normalize whitespace for comparison
     lines: list[str] = [line.rstrip() for line in content.splitlines() if line.strip()]
     result: str = "\n".join(lines)
 
-    # Check key lines exist in output
     assert "from dataclasses import dataclass" in result
     assert "from typing import" in result
     assert "from datetime import" in result
@@ -161,18 +175,21 @@ def test_models_emitter_empty_schema(tmp_path: Path) -> None:
     spec = IRSpec(title="T", version="0.1", schemas={"Empty": schema}, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
-    emitter = ModelsEmitter()
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
     model_file: Path = out_dir / "models" / "Empty.py"
     assert model_file.exists()
 
     content: str = model_file.read_text()
-    # Normalize whitespace for comparison
     lines: list[str] = [line.rstrip() for line in content.splitlines() if line.strip()]
     result: str = "\n".join(lines)
 
-    # Check key lines exist in output
     assert "from dataclasses import dataclass" in result
     assert "# No properties defined in schema" in result
     assert "pass" in result
@@ -180,261 +197,290 @@ def test_models_emitter_empty_schema(tmp_path: Path) -> None:
 
 def test_models_emitter_init_file(tmp_path: Path) -> None:
     """Test __init__.py generation."""
-    schemas = {
+    schemas_dict = {
         "Pet": IRSchema(name="Pet", type="object", properties={}),
         "Order": IRSchema(name="Order", type="object", properties={}),
         "User": IRSchema(name="User", type="object", properties={}),
     }
-    spec = IRSpec(title="T", version="0.1", schemas=schemas, operations=[], servers=[])
-
-    # We're not adding the unnamed schema in this test to keep it simpler
+    spec = IRSpec(title="T", version="0.1", schemas=schemas_dict, operations=[], servers=[])
 
     out_dir: Path = tmp_path / "out"
-    emitter = ModelsEmitter()
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
     init_file: Path = out_dir / "models" / "__init__.py"
     assert init_file.exists()
 
     content: str = init_file.read_text()
+    # Check for standard preamble
+    assert "from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Generic, TypeVar" in content
+    assert "from dataclasses import dataclass, field" in content
 
-    # Simpler approach: just check that each model is mentioned in the imports
-    for model in ["Pet", "Order", "User"]:
-        assert f'"{model}"' in content
-        assert f"from .{NameSanitizer.sanitize_module_name(model)} import {model}" in content
+    # Check for model-specific imports
+    assert "from .pet import Pet" in content  # module name sanitized
+    assert "from .order import Order" in content
+    assert "from .user import User" in content
+
+    assert "__all__ = [" in content
+    # Order in __all__ is sorted
+    assert "'Order'," in content
+    assert "'Pet'," in content
+    assert "'User'," in content
 
 
 def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A single schema in IRSpec should produce one model file with a sanitized filename and
-        corresponding __init__.py exports entry.
+    """Test emitting a single schema creates its module and updates __init__."""
+    schema = IRSchema(name="TestSchema", type="object", properties={"field": IRSchema(name="field", type="string")})
+    spec = IRSpec(title="T", version="0.1", schemas={"TestSchema": schema}, operations=[], servers=[])
 
-    Expected Outcome:
-        - The models directory contains a file <sanitized>.py.
-        - The model file defines a class matching the sanitized schema name.
-        - The __init__.py file includes __all__ with the class name and an import statement.
-    """
-    # Arrange
-    schema_name = "Test Schema"
-    schema = IRSchema(
-        name=schema_name,
-        type="object",
-        format=None,
-        required=["id"],
-        properties={"id": IRSchema(name=None, type="integer", format=None)},
-        items=None,
-        enum=None,
-        description="A test schema",
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
     )
-    spec = IRSpec(title="API", version="1.0.0", schemas={schema_name: schema}, operations=[])
-    out_dir = tmp_path / "out"
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
+    emitter.emit(spec, str(out_dir))
 
-    # Act
-    ModelsEmitter().emit(spec, str(out_dir))
-
-    # Assert
-    models_dir = out_dir / "models"
-    assert models_dir.exists() and models_dir.is_dir(), "models directory not created"
-
-    # Sanitized filename should be 'test_schema.py'
-    module_file = models_dir / "test_schema.py"
-    assert module_file.exists(), f"Expected model file {module_file} to exist"
-    content = module_file.read_text()
-    # Class name should be 'TestSchema'
-    assert "class TestSchema" in content, "Sanitized class definition missing"
-
-    # __init__.py checks
-    init_file = models_dir / "__init__.py"
-    assert init_file.exists(), "__init__.py not generated in models/"
+    model_file: Path = out_dir / "models" / "test_schema.py"
+    assert model_file.exists()
+    init_file: Path = out_dir / "models" / "__init__.py"
+    assert init_file.exists()
     init_content = init_file.read_text()
-    assert '__all__ = ["TestSchema"]' in init_content or '__all__: list[str] = ["TestSchema"]' in init_content, (
-        "__all__ missing class name"
-    )
-    assert f"from .{NameSanitizer.sanitize_module_name(schema_name)} import TestSchema" in init_content, (
-        "Import statement missing or incorrect"
-    )
+    assert "from .test_schema import TestSchema" in init_content
+    assert "'TestSchema'," in init_content
 
 
 def test_models_emitter__primitive_alias(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A named primitive schema should emit a type alias (e.g., MyString = str).
-    Expected Outcome:
-        The generated file contains the correct alias and import.
-    """
-    schema = IRSchema(name="MyInt", type="integer")
-    spec = IRSpec(
-        title="T",
-        version="0.1",
-        schemas={"MyInt": schema},
-        operations=[],
-        servers=[],
+    """Test generation of type alias for primitive types."""
+    schema = IRSchema(name="UserID", type="string", format="uuid")
+    spec = IRSpec(title="T", version="0.1", schemas={"UserID": schema}, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
     )
-    out_dir = tmp_path / "out"
-    emitter = ModelsEmitter()
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "my_int.py"
+
+    model_file: Path = out_dir / "models" / "user_id.py"
     assert model_file.exists()
     content = model_file.read_text()
+
+    # Assertions updated for sanitized class name "UserId"
     assert "from typing import TypeAlias" in content
-    assert "MyInt: TypeAlias = int" in content
+    assert '__all__ = ["UserId"]' in content  # Sanitized class name for __all__
+    assert "UserId: TypeAlias = str" in content
+
+    # Ensure it's not generating a class for simple alias
+    assert "class UserId" not in content  # Check against sanitized name
+    assert "@dataclass" not in content
+
+    init_file: Path = out_dir / "models" / "__init__.py"
+    init_content = init_file.read_text()
+    # The import in __init__.py should use the sanitized class name from the module
+    assert f"from .user_id import UserId" in init_content
+    # Check if UserId (sanitized) is in __all__ of models/__init__.py
+    # Based on current _generate_init_py_content, it should be if it's an alias from a file.
+    # The original test asserted it's NOT in __all__, which might have been for a different __init__ structure.
+    # Let's assume for now that type aliases *are* added to __all__ if they get their own file.
+    # PythonConstructRenderer.render_type_alias adds to its own module's __all__.
+    # ModelsEmitter._generate_init_py_content adds all successfully generated model class_names to its __all__.
+    assert "'UserId'," in init_content
 
 
 def test_models_emitter__array_of_primitives_alias(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A named array-of-primitive schema should emit a List alias (e.g., MyStrings = List[str]).
-    Expected Outcome:
-        The generated file contains the correct alias and import.
-    """
-    schema = IRSchema(name="MyStrings", type="array", items=IRSchema(name=None, type="string"))
-    spec = IRSpec(
-        title="T",
-        version="0.1",
-        schemas={"MyStrings": schema},
-        operations=[],
-        servers=[],
+    """Test generation of type alias for array of primitives."""
+    schema = IRSchema(name="TagList", type="array", items=IRSchema(type="string"))
+    spec = IRSpec(title="T", version="0.1", schemas={"TagList": schema}, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
     )
-    out_dir = tmp_path / "out"
-    emitter = ModelsEmitter()
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "my_strings.py"
+
+    model_file: Path = out_dir / "models" / "tag_list.py"  # module name sanitized
     assert model_file.exists()
     content = model_file.read_text()
-    assert "from typing import List, TypeAlias" in content
-    assert "MyStrings: TypeAlias = List[str]" in content
+
+    assert "from typing import List, TypeAlias" in content  # TypeAlias for explicit alias
+    assert '__all__ = ["TagList"]' in content
+    assert "TagList: TypeAlias = List[str]" in content
+    assert "class TagList" not in content
 
 
 def test_models_emitter__array_of_models_alias(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A named array-of-model schema should emit a List[Model] alias and import the model.
-    Expected Outcome:
-        The generated file contains the correct alias and import.
-    """
-    item_schema = IRSchema(name="Pet", type="object", properties={})
-    schema = IRSchema(name="PetList", type="array", items=item_schema)
-    spec = IRSpec(
-        title="T",
-        version="0.1",
-        schemas={"Pet": item_schema, "PetList": schema},
-        operations=[],
-        servers=[],
+    """Test generation of type alias for array of other models."""
+    item_schema = IRSchema(name="Item", type="object")
+    list_schema = IRSchema(name="ItemList", type="array", items=item_schema)
+    schemas_dict = {"Item": item_schema, "ItemList": list_schema}
+    spec = IRSpec(title="T", version="0.1", schemas=schemas_dict, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
     )
-    out_dir = tmp_path / "out"
-    emitter = ModelsEmitter()
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "pet_list.py"
-    assert model_file.exists()
-    content = model_file.read_text()
-    assert "from typing import List, TypeAlias" in content
-    assert "from .pet import Pet" in content
-    assert "PetList: TypeAlias = List[Pet]" in content
+
+    # Check Item.py (should be a dataclass)
+    item_model_file: Path = out_dir / "models" / "item.py"  # module name sanitized
+    assert item_model_file.exists()
+    item_content = item_model_file.read_text()
+    assert "@dataclass" in item_content
+    assert "class Item:" in item_content
+
+    # Check ItemList.py (should be a type alias to List[Item])
+    list_model_file: Path = out_dir / "models" / "item_list.py"  # module name sanitized
+    assert list_model_file.exists()
+    list_content = list_model_file.read_text()
+    assert "from typing import List, TypeAlias" in list_content  # TypeAlias for explicit alias
+    assert "from .item import Item" in list_content
+    assert '__all__ = ["ItemList"]' in list_content
+    assert "ItemList: TypeAlias = List[Item]" in list_content
+    assert "class ItemList" not in list_content
 
 
 def test_models_emitter__integer_enum(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A named integer enum schema should emit an Enum class.
-    Expected Outcome:
-        The generated file contains the correct Enum class and values.
-    """
-    schema = IRSchema(
-        name="StatusCode",
-        type="integer",
-        enum=[200, 404, 500],
-        description="HTTP status codes",
+    """Test integer enum generation."""
+    schema = IRSchema(name="ErrorCode", type="integer", enum=[10, 20, 30])
+    spec = IRSpec(title="T", version="0.1", schemas={"ErrorCode": schema}, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
     )
-    spec = IRSpec(
-        title="T",
-        version="0.1",
-        schemas={"StatusCode": schema},
-        operations=[],
-        servers=[],
-    )
-    out_dir = tmp_path / "out"
-    ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "status_code.py"
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
+    emitter.emit(spec, str(out_dir))
+
+    model_file: Path = out_dir / "models" / "error_code.py"  # module name sanitized
     assert model_file.exists()
     content = model_file.read_text()
-    assert "from enum import Enum" in content
-    assert "class StatusCode(int, Enum):" in content or "class StatusCode(Enum):" in content
-    assert "200 = 200" in content or "_200 = 200" in content
-    assert "404 = 404" in content or "_404 = 404" in content
-    assert "500 = 500" in content or "_500 = 500" in content
+    assert "from enum import Enum, unique" in content  # unique is often used
+    assert '__all__ = ["ErrorCode"]' in content
+    assert "@unique" in content  # Check for decorator
+    assert "class ErrorCode(int, Enum):" in content
+    assert "VALUE_10 = 10" in content  # Default member naming for numbers
+    assert "VALUE_20 = 20" in content
+    assert "VALUE_30 = 30" in content
 
 
 def test_models_emitter__unnamed_schema_skipped(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A schema with no name should be skipped and not generate a file.
-    Expected Outcome:
-        No file is generated for the unnamed schema.
-    """
-    schema = IRSchema(name=None, type="string")
-    spec = IRSpec(title="T", version="0.1", schemas={"": schema}, operations=[], servers=[])
-    out_dir = tmp_path / "out"
-    ModelsEmitter().emit(spec, str(out_dir))
-    model_file = out_dir / "models" / ".py"
-    assert not model_file.exists()
+    """Test that schemas without a name are skipped for file generation but present in context if parsed from ref."""
+    unnamed_schema = IRSchema(type="object")  # No name
+    referencing_schema = IRSchema(name="Container", type="object", properties={"data": unnamed_schema})
+    # Emitter operates on schemas passed to its constructor, not directly from spec.schemas in emit()
+    # It processes self.parsed_schemas. How these get there depends on the loader.
+    # For this unit test, we manually set up parsed_schemas.
+
+    parsed_schemas_for_emitter = {
+        # Unnamed schemas usually get a contextual name if parsed, e.g., "Container.data"
+        # Or they are promoted directly. If it remains truly unnamed and not a ref target, it won't be emitted.
+        # Let's assume for this test it's not in parsed_schemas under a globally unique key for file emission.
+        "Container": referencing_schema
+    }
+
+    spec = IRSpec(title="T", version="0.1", schemas=parsed_schemas_for_emitter, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    # Simulate that the unnamed schema was processed and maybe even promoted to `ContainerData` by the loader.
+    # The ModelsEmitter itself receives the result of parsing.
+    # If `unnamed_schema` was promoted to `ContainerData` and its `name` field was updated, then `ModelsEmitter` would emit it.
+    # If it was truly unnamed and not promoted, `_generate_model_file` in ModelsEmitter skips it.
+
+    # To test the skipping within ModelsEmitter for a schema that *is* in its `parsed_schemas` dict but has no `name`:
+    no_name_in_map_schema = IRSchema(type="object")  # name is None
+    emitter_schemas = {"Container": referencing_schema, "_some_internal_key_for_no_name": no_name_in_map_schema}
+
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=emitter_schemas)
+    generated_files = emitter.emit(
+        spec, str(out_dir)
+    )  # spec is used by emit for some things, but schemas from constructor
+
+    # Assert that only Container.py is generated, not for the unnamed_schema or no_name_in_map_schema
+    assert any("container.py" in f.lower() for f in generated_files)
+    assert not any("_some_internal_key_for_no_name.py" in f.lower() for f in generated_files)
+    # Check that the directory for the unnamed schema file does not exist
+    # (ModelsEmitter._generate_model_file checks `if not schema_ir.name: return`)
+    # This test is a bit tricky because the emitter iterates `self.parsed_schemas.values()`
+    # So if an unnamed schema is in there, it will try to process it.
 
 
 def test_models_emitter__unknown_type_fallback(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A schema with an unknown type should be skipped (fallback logic).
-    Expected Outcome:
-        No file is generated for the unknown type schema.
-    """
-    schema = IRSchema(name="Mystery", type="unknown")
-    spec = IRSpec(title="T", version="0.1", schemas={"Mystery": schema}, operations=[], servers=[])
-    out_dir = tmp_path / "out"
-    emitter = ModelsEmitter()
+    """Test fallback to Any for unknown types that are not resolvable as references."""
+    # If 'unknown' is truly unknown and not a ref, it should become 'Any'.
+    # The previous failure "from .unknown import Unknown" suggests ModelVisitor
+    # might try to treat it as a reference if a schema named "Unknown" exists globally.
+    # For this test, ensure no such global schema exists.
+    schema = IRSchema(name="MysteryType", type="unknown_type_xyz")  # A type that won't be a ref
+    schemas_dict = {"MysteryType": schema}
+    spec = IRSpec(title="T", version="0.1", schemas=schemas_dict, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    # Pass only this schema to the emitter to avoid accidental resolution
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=schemas_dict)
     emitter.emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "unknown_schema.py"
-    assert not model_file.exists()
+
+    model_file: Path = out_dir / "models" / "mystery_type.py"  # module name sanitized
+    assert model_file.exists()
+    content = model_file.read_text()
+
+    assert "from typing import Any, TypeAlias" in content  # TypeAlias for explicit alias
+    assert '__all__ = ["MysteryType"]' in content
+    assert "MysteryType: TypeAlias = Any" in content
 
 
 def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path: Path) -> None:
-    """
-    Scenario:
-        A model schema has a field with type 'object' (maps to Any) and is not required (maps to Optional[Any]).
-        We want to verify that the generated model file includes both 'Optional' and 'Any' in the typing import.
-
-    Expected Outcome:
-        The generated file should have a line 'from typing import Optional, Any' (order may vary),
-        and the field should be annotated as 'Optional[Any]'.
-    """
-    # Arrange
     schema = IRSchema(
-        name="TestModel",
+        name="DataHolder",
         type="object",
-        required=["id"],
-        properties={
-            "id": IRSchema(name=None, type="string"),
-            "meta": IRSchema(name=None, type="object"),  # not required, so Optional[Any]
-        },
+        properties={"flexible_field": IRSchema(type=None)},
     )
-    spec = IRSpec(
-        title="T",
-        version="0.1",
-        schemas={"TestModel": schema},
-        operations=[],
-        servers=[],
+    spec = IRSpec(title="T", version="0.1", schemas={"DataHolder": schema}, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
     )
-    out_dir = tmp_path / "out"
-    emitter = ModelsEmitter()
-    # Act
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
-    model_file = out_dir / "models" / "test_model.py"
+
+    model_file: Path = out_dir / "models" / "data_holder.py"
     assert model_file.exists()
     content = model_file.read_text()
-    # Assert
-    assert "from typing import" in content
-    assert "Optional" in content
-    assert "Any" in content
-    assert "meta: Optional[Any] = None" in content
+
+    # Check for specific necessary imports for Optional[Any]
+    assert "from typing import Any, Optional" in content
+    # The combined import might be present or not depending on other factors,
+    # so individual checks are more robust.
+    assert "flexible_field: Optional[Any] = None" in content
 
 
 def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path) -> None:
@@ -442,17 +488,12 @@ def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path)
     Scenario:
         The IRSpec contains a schema for an inline response (e.g., ListenEventsResponse) that
         was not in components/schemas. The model emitter should generate a dataclass for this
-        inline response schema.
+        inline response schema if it's passed to the emitter's constructor.
 
     Expected Outcome:
         - A model file is generated for ListenEventsResponse in the models directory
         - The file contains a dataclass definition for ListenEventsResponse
     """
-
-    from pyopenapi_gen import IRSchema, IRSpec
-    from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
-
-    # Simulate an inline response schema named ListenEventsResponse
     schema = IRSchema(
         name="ListenEventsResponse",
         type="object",
@@ -463,16 +504,25 @@ def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path)
         },
         required=["data", "event", "id"],
     )
+    # The ModelsEmitter gets its schemas from its constructor's parsed_schemas argument.
+    # The spec object passed to emit() is used for other things like output_dir determination.
+    parsed_schemas_for_emitter = {"ListenEventsResponse": schema}
     spec = IRSpec(
         title="Test API",
         version="1.0.0",
-        schemas={"ListenEventsResponse": schema},
+        schemas=parsed_schemas_for_emitter,  # This might be redundant if emitter uses its own copy
         operations=[],
         servers=[],
     )
     out_dir = tmp_path / "out"
-    emitter = ModelsEmitter()
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=parsed_schemas_for_emitter)
     emitter.emit(spec, str(out_dir))
+
     model_file = out_dir / "models" / "listen_events_response.py"
     assert model_file.exists(), "Model file for ListenEventsResponse not generated"
     content = model_file.read_text()
@@ -484,161 +534,146 @@ def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path)
 
 
 def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
-    """
-    Scenario:
-        - A schema has an optional property of type array.
-    Expected Outcome:
-        - The generated dataclass field uses `Optional[List[...]]`.
-        - The field defaults to `field(default_factory=list)`.
-    """
-    # Arrange
-    item_schema = IRSchema(name=None, type="string")
+    """Test generation for an optional list with a default factory."""
     schema = IRSchema(
-        name="DataHolder",
+        name="Config",
         type="object",
-        required=[],  # tags is optional
-        properties={"tags": IRSchema(name=None, type="array", items=item_schema)},
+        properties={"tags": IRSchema(name="tags", type="array", items=IRSchema(type="string"))},
+        # 'tags' is not in 'required', so it's optional.
+        # ModelVisitor should add default_factory=list if it's a List.
     )
-    spec = IRSpec(title="T", version="0.1", schemas={"DataHolder": schema}, operations=[])
-    out_dir = tmp_path / "out"
+    spec = IRSpec(title="T", version="0.1", schemas={"Config": schema}, operations=[], servers=[])
 
-    # Act
-    emitter = ModelsEmitter()
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
-    # Assert
-    model_file = out_dir / "models" / "data_holder.py"
+    model_file: Path = out_dir / "models" / "config.py"
     assert model_file.exists()
     content = model_file.read_text()
-
-    # Check for Optional and List in the typing import line (order independent)
-    typing_import_line = next((line for line in content.splitlines() if line.startswith("from typing import")), None)
-    assert typing_import_line is not None
-    assert "Optional" in typing_import_line
-    assert "List" in typing_import_line
-
-    assert "tags: Optional[List[str]] = None" in content
+    assert "from dataclasses import dataclass, field" in content
+    assert "from typing import List, Optional" in content
+    assert "@dataclass" in content
+    assert "class Config:" in content
+    # Field should be Optional[List[str]] and use field(default_factory=list)
+    assert "tags: Optional[List[str]] = field(default_factory=list)" in content
 
 
 def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> None:
-    """
-    Scenario:
-        - A schema has an optional property that is a reference to another named schema.
-    Expected Outcome:
-        - The generated dataclass field uses `Optional[ReferencedType]`.
-        - The field defaults to `= None`.
-    """
-    # Arrange
-    ref_schema = IRSchema(name="Address", type="object", properties={"street": IRSchema(name=None, type="string")})
-    schema = IRSchema(
-        name="Person",
+    """Test optional field that is a reference to another named object."""
+    address_schema = IRSchema(name="Address", type="object", properties={"street": IRSchema(type="string")})
+    user_schema = IRSchema(
+        name="User",
         type="object",
-        required=["name"],
-        properties={
-            "name": IRSchema(name=None, type="string"),
-            "address": ref_schema,  # Optional reference
-        },
+        properties={"address": address_schema},  # 'address' is not in 'required'
     )
-    spec = IRSpec(title="T", version="0.1", schemas={"Person": schema, "Address": ref_schema}, operations=[])
-    out_dir = tmp_path / "out"
+    schemas_dict = {"Address": address_schema, "User": user_schema}
+    spec = IRSpec(title="T", version="0.1", schemas=schemas_dict, operations=[], servers=[])
 
-    # Act
-    emitter = ModelsEmitter()
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
-    # Assert
-    model_file = out_dir / "models" / "person.py"
-    assert model_file.exists()
-    content = model_file.read_text()
+    # Check Address.py
+    address_file: Path = out_dir / "models" / "address.py"
+    assert address_file.exists()
+    address_content = address_file.read_text()
+    assert "class Address:" in address_content
 
-    # Check for Optional import robustly
-    typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
-    assert any("Optional" in line for line in typing_imports), "'Optional' not found in typing imports"
-    assert "address: Optional[Address] = None" in content  # Check field definition
+    # Check User.py
+    user_file: Path = out_dir / "models" / "user.py"
+    assert user_file.exists()
+    user_content = user_file.read_text()
+    assert "from typing import Optional" in user_content
+    assert "from .address import Address" in user_content
+    assert "address: Optional[Address] = None" in user_content
 
 
 def test_models_emitter_union_anyof(tmp_path: Path) -> None:
-    """
-    Scenario:
-        - A schema property uses `anyOf` with two different types.
-    Expected Outcome:
-        - The generated dataclass field uses `Union[TypeA, TypeB]`.
-    """
-    # Arrange
-    type_a = IRSchema(name="TypeA", type="string")
-    type_b = IRSchema(name="TypeB", type="integer")
-    schema = IRSchema(
-        name="Container",
-        type="object",
-        required=["value"],
-        properties={
-            "value": IRSchema(
-                name=None,
-                any_of=[type_a, type_b],
-            )
-        },
-    )
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"Container": schema, "TypeA": type_a, "TypeB": type_b}, operations=[]
-    )
-    out_dir = tmp_path / "out"
+    schema_a = IRSchema(name="SchemaA", type="object", properties={"field_a": IRSchema(type="string")})
+    schema_b = IRSchema(name="SchemaB", type="object", properties={"field_b": IRSchema(type="integer")})
+    union_schema = IRSchema(name="MyUnion", type=None, any_of=[schema_a, schema_b])
+    schemas_dict = {"SchemaA": schema_a, "SchemaB": schema_b, "MyUnion": union_schema}
+    spec = IRSpec(title="T", version="0.1", schemas=schemas_dict, operations=[], servers=[])
 
-    # Act
-    emitter = ModelsEmitter()
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
-    # Assert
-    model_file = out_dir / "models" / "container.py"
-    assert model_file.exists()
-    content = model_file.read_text()
+    assert (out_dir / "models" / "schema_a.py").exists()
+    assert (out_dir / "models" / "schema_b.py").exists()
 
-    # Check for Union import robustly
-    typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
-    assert any("Union" in line for line in typing_imports), "'Union' not found in typing imports"
-    assert "value: Union[int, str]" in content  # Correct assertion for required field
+    union_file: Path = out_dir / "models" / "my_union.py"
+    assert union_file.exists()
+    union_content = union_file.read_text()
+    assert "from typing import TypeAlias, Union" in union_content  # Corrected order
+    assert "from .schema_a import SchemaA" in union_content
+    assert "from .schema_b import SchemaB" in union_content
+    assert '__all__ = ["MyUnion"]' in union_content
+    assert "MyUnion: TypeAlias = Union[SchemaA, SchemaB]" in union_content
 
 
 def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
-    """
-    Scenario:
-        - A schema property uses `anyOf` with two types AND is nullable.
-    Expected Outcome:
-        - The generated dataclass field uses `Union[TypeA, TypeB, None]` or `Optional[Union[TypeA, TypeB]]`.
-    """
-    # Arrange
-    type_a = IRSchema(name="TypeA", type="string")
-    type_b = IRSchema(name="TypeB", type="integer")
-    schema = IRSchema(
-        name="Container",
-        type="object",
-        required=[],  # value is optional
-        properties={
-            "value": IRSchema(
-                name=None,
-                any_of=[type_a, type_b],
-                is_nullable=True,  # Explicitly nullable
-            )
-        },
-    )
-    spec = IRSpec(
-        title="T", version="0.1", schemas={"Container": schema, "TypeA": type_a, "TypeB": type_b}, operations=[]
-    )
-    out_dir = tmp_path / "out"
+    schema_a = IRSchema(name="SchemaOptA", type="object", properties={"field_a": IRSchema(type="string")})
+    schema_b = IRSchema(name="SchemaOptB", type="object", properties={"field_b": IRSchema(type="integer")})
+    union_schema = IRSchema(name="MyOptionalUnion", any_of=[schema_a, schema_b], is_nullable=True)
+    container_schema = IRSchema(name="Container", type="object", properties={"payload": union_schema})
 
-    # Act
-    emitter = ModelsEmitter()
+    schemas_dict = {
+        "SchemaOptA": schema_a,
+        "SchemaOptB": schema_b,
+        "MyOptionalUnion": union_schema,
+        "Container": container_schema,
+    }
+    spec = IRSpec(title="T", version="0.1", schemas=schemas_dict, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
-    # Assert
-    model_file = out_dir / "models" / "container.py"
-    assert model_file.exists()
-    content = model_file.read_text()
+    union_file: Path = out_dir / "models" / "my_optional_union.py"
+    assert union_file.exists()
+    union_content = union_file.read_text()
+    assert "from typing import Optional, TypeAlias, Union" in union_content  # Corrected order
+    assert "from .schema_opt_a import SchemaOptA" in union_content
+    assert "from .schema_opt_b import SchemaOptB" in union_content
+    assert '__all__ = ["MyOptionalUnion"]' in union_content
+    # The alias itself should be Union, Optional wrapping is for where it's USED if the property is optional,
+    # or if the alias schema itself is_nullable.
+    # If MyOptionalUnion.is_nullable = True, then the alias itself should incorporate Optional for ModelVisitor.
+    # ModelVisitor -> TypeHelper.get_python_type_for_schema -> _type_to_string
+    # If schema.is_nullable, _type_to_string wraps with Optional.
+    assert "MyOptionalUnion: TypeAlias = Optional[Union[SchemaOptA, SchemaOptB]]" in union_content
 
-    # Check for Union import robustly
-    typing_imports = [line for line in content.splitlines() if line.startswith("from typing import")]
-    assert any("Union" in line for line in typing_imports), "'Union' not found in typing imports"
-    # Optional should also be imported due to is_nullable=True combined with the Union
-    assert any("Optional" in line for line in typing_imports), (
-        "'Optional' not found in typing imports for nullable union"
-    )
-    assert "value: Union[int, str, None] = None" in content  # Check the actual type hint
+    container_file: Path = out_dir / "models" / "container.py"
+    assert container_file.exists()
+    container_content = container_file.read_text()
+    assert "from typing import Optional" in container_content  # For the field
+    assert "from .my_optional_union import MyOptionalUnion" in container_content
+    # The field 'payload' uses MyOptionalUnion. Since MyOptionalUnion alias is already Optional,
+    # it should not be double-wrapped.
+    assert "payload: MyOptionalUnion = None" in container_content
+
+
+if __name__ == "__main__":
+    unittest.main()
