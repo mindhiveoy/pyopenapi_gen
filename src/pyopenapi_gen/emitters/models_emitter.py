@@ -6,7 +6,7 @@ from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
-from pyopenapi_gen.visit.model_visitor import ModelVisitor
+from pyopenapi_gen.visit.model.model_visitor import ModelVisitor
 
 # Removed OPENAPI_TO_PYTHON_TYPES, FORMAT_TYPE_MAPPING, and MODEL_TEMPLATE constants
 
@@ -61,8 +61,8 @@ class ModelsEmitter:
         """Generates the content for models/__init__.py."""
         init_writer = CodeWriter()
 
-        init_writer.write_line("from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Generic, TypeVar")
-        init_writer.write_line("from dataclasses import dataclass, field")
+        # Only import List, which is needed for __all__
+        init_writer.write_line("from typing import List")
         init_writer.write_line("")
 
         all_class_names: Set[str] = set()
@@ -98,7 +98,7 @@ class ModelsEmitter:
             all_class_names.add(class_name)
 
         init_writer.write_line("")
-        init_writer.write_line("__all__ = [")
+        init_writer.write_line("__all__: List[str] = [")
         for name_to_export in sorted(list(all_class_names)):
             init_writer.write_line(f"    '{name_to_export}',")
         init_writer.write_line("]")

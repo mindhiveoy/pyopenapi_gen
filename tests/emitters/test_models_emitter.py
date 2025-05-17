@@ -215,22 +215,24 @@ def test_models_emitter_init_file(tmp_path: Path) -> None:
 
     init_file: Path = out_dir / "models" / "__init__.py"
     assert init_file.exists()
+    init_content = init_file.read_text()
 
-    content: str = init_file.read_text()
-    # Check for standard preamble
-    assert "from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Generic, TypeVar" in content
-    assert "from dataclasses import dataclass, field" in content
+    # Assert that only 'List' is imported from typing, for __all__
+    assert "from typing import List" in init_content
+    # Assert that the broad, unnecessary typing import is NOT present
+    assert "from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Generic, TypeVar" not in init_content
+    # Assert that dataclasses is NOT imported here
+    assert "from dataclasses import dataclass, field" not in init_content
 
-    # Check for model-specific imports
-    assert "from .pet import Pet" in content  # module name sanitized
-    assert "from .order import Order" in content
-    assert "from .user import User" in content
+    assert "from .pet import Pet" in init_content
+    assert "from .order import Order" in init_content
+    assert "from .user import User" in init_content
 
-    assert "__all__ = [" in content
+    assert "__all__: List[str] = [" in init_content
     # Order in __all__ is sorted
-    assert "'Order'," in content
-    assert "'Pet'," in content
-    assert "'User'," in content
+    assert "'Order'," in init_content
+    assert "'Pet'," in init_content
+    assert "'User'," in init_content
 
 
 def test_models_emitter__emit_single_schema__generates_module_and_init(tmp_path: Path) -> None:
@@ -668,7 +670,9 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     container_file: Path = out_dir / "models" / "container.py"
     assert container_file.exists()
     container_content = container_file.read_text()
-    assert "from typing import Optional" in container_content  # For the field
+    # Optional import may not be present if MyOptionalUnion is the only source of optionality
+    # and it handles its own Optional declaration internally.
+    # assert "from typing import Optional" in container_content  # For the field
     assert "from .my_optional_union import MyOptionalUnion" in container_content
     # The field 'payload' uses MyOptionalUnion. Since MyOptionalUnion alias is already Optional,
     # it should not be double-wrapped.

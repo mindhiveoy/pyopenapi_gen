@@ -1,5 +1,6 @@
 import importlib.resources
 import os
+from typing import List, Optional
 
 from pyopenapi_gen.context.file_manager import FileManager
 
@@ -32,12 +33,15 @@ class ClientConfig:
 class CoreEmitter:
     """Copies all required runtime files into the generated core module."""
 
-    def __init__(self, core_dir: str = "core", core_package: str = "core"):
+    def __init__(
+        self, core_dir: str = "core", core_package: str = "core", exception_alias_names: Optional[List[str]] = None
+    ):
         # core_dir is the relative path WITHIN the output package, e.g., "core" or "shared/core"
         # core_package is the Python import name, e.g., "core" or "shared.core"
         self.core_dir_name = os.path.basename(core_dir)  # e.g., "core"
         self.core_dir_relative = core_dir  # e.g., "core" or "shared/core"
         self.core_package = core_package
+        self.exception_alias_names = exception_alias_names if exception_alias_names is not None else []
         self.file_manager = FileManager()
 
     def emit(self, package_output_dir: str) -> list[str]:
@@ -75,9 +79,52 @@ class CoreEmitter:
                 print(f"Warning: Could not find runtime file {filename} in module {module}. Skipping.")
 
         # Always create __init__.py files for core and subfolders within the actual core dir
-        core_init = os.path.join(actual_core_dir, "__init__.py")
-        self.file_manager.write_file(core_init, "")
-        generated_files.append(core_init)
+        core_init_path = os.path.join(actual_core_dir, "__init__.py")
+        core_init_content = [
+            "# Re-export core exceptions and generated aliases",
+            "from .exceptions import HTTPError, ClientError, ServerError",
+            "from .exception_aliases import *  # noqa: F403",
+            "",
+            "# Re-export other commonly used core components",
+            "from .http_transport import HttpTransport, HttpxTransport",
+            "from .config import ClientConfig",
+            "from .schemas import BaseSchema",
+            "from .auth.base import BaseAuth",
+            "from .auth.plugins import ApiKeyAuth, BearerAuth, OAuth2Auth",
+            "",
+            "__all__ = [",
+            "    # Base exceptions",
+            '    "HTTPError",',
+            '    "ClientError",',
+            '    "ServerError",',
+            "    # All ErrorXXX from exception_aliases are implicitly in __all__ due to star import",
+            "",
+            "    # Transport layer",
+            '    "HttpTransport",',
+            '    "HttpxTransport",',
+            "",
+            "    # Configuration",
+            '    "ClientConfig",',
+            "",
+            "    # Schemas",
+            '    "BaseSchema",',
+            "",
+            "    # Authentication",
+            '    "BaseAuth",',
+            '    "ApiKeyAuth",',
+            '    "BearerAuth",',
+            '    "OAuth2Auth",',
+        ]
+        # Add discovered exception alias names to __all__
+        if self.exception_alias_names:
+            core_init_content.append("    # Generated exception aliases")
+            for alias_name in sorted(list(set(self.exception_alias_names))):  # Sort and unique
+                core_init_content.append(f'    "{alias_name}",')
+
+        core_init_content.append("]")
+
+        self.file_manager.write_file(core_init_path, "\n".join(core_init_content))
+        generated_files.append(core_init_path)
 
         auth_dir = os.path.join(actual_core_dir, "auth")
         if os.path.exists(auth_dir):  # Only create auth/__init__.py if auth files were copied

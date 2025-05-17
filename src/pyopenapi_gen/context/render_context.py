@@ -12,7 +12,6 @@ import os
 import re
 import sys
 from typing import Optional, Set
-from pathlib import Path
 
 from .file_manager import FileManager
 from .import_collector import ImportCollector
@@ -83,6 +82,9 @@ class RenderContext:
         Args:
             abs_path: The absolute path of the file to set as current
         """
+        logger.debug(
+            f"[RenderContext.set_current_file] Setting current file to: {abs_path}. Resetting ImportCollector."
+        )
         self.current_file = abs_path
         # Reset the import collector for each new file to ensure isolation
         self.import_collector = ImportCollector()
@@ -99,6 +101,10 @@ class RenderContext:
             logical_module: The logical module path to import from (e.g., "typing", "shared_core.http_transport", "generated_client.models.mymodel")
             name: The name to import from the module
         """
+        logger.debug(
+            f"[RenderContext.add_import] Attempting for current_file='{self.current_file}': logical_module='{logical_module}', name='{name}'"
+        )
+
         if not logical_module:
             logger.error(f"Attempted to add import with empty module for name: {name}")
             return
@@ -147,6 +153,13 @@ class RenderContext:
             or top_level_module in COMMON_STDLIB
         ):
             logger.debug(f"[add_import] StdLib/Builtin import: from {logical_module} import {name}")
+            self.import_collector.add_import(module=logical_module, name=name)
+            return
+
+        # 2.5. Is it a known third-party library that should always be absolute?
+        KNOWN_THIRD_PARTY = {"httpx", "pydantic"}  # Add others as identified
+        if logical_module in KNOWN_THIRD_PARTY or top_level_module in KNOWN_THIRD_PARTY:
+            logger.debug(f"[add_import] Known third-party library import: from {logical_module} import {name}")
             self.import_collector.add_import(module=logical_module, name=name)
             return
 
@@ -455,3 +468,14 @@ class RenderContext:
         except Exception as e:
             logger.error(f"Error generating module dot path for {self.current_file}: {e}")
             return None
+
+    def _add_typing_import_if_known(self, name: str, original_type_str: str) -> None:
+        # original_type_str is for debugging context if needed
+        # logger.debug(f"_add_typing_import_if_known: name='{name}', original_type_str='{original_type_str}', KNOWN_TYPING_IMPORTS: {name in KNOWN_TYPING_IMPORTS}")
+        # if name in KNOWN_TYPING_IMPORTS:
+        #     if name == "Any": # CRITICAL DEBUG
+        #         logger.critical(f"[RenderContextCRITICAL_KNOWN_TYPING_ANY] ADDING 'typing.Any' for type string '{original_type_str}'. Current file: {self.current_file}")
+        #     self.add_import("typing", name)
+        # The above was incorrect as KNOWN_TYPING_IMPORTS is not in scope here.
+        # The actual logic for this method is in add_typing_imports_for_type. This method is not used.
+        pass  # This method seems to be unused and its previous logic was flawed.

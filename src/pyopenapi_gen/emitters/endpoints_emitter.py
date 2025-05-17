@@ -8,7 +8,7 @@ from pyopenapi_gen.context.render_context import RenderContext
 logger = logging.getLogger(__name__)
 
 from ..core.utils import Formatter, NameSanitizer
-from ..visit.endpoint_visitor import EndpointVisitor
+from pyopenapi_gen.visit.endpoint.endpoint_visitor import EndpointVisitor
 
 # Basic OpenAPI schema to Python type mapping for parameters
 PARAM_TYPE_MAPPING = {
@@ -37,29 +37,42 @@ DEFAULT_TAG = "default"
 
 def schema_to_type(schema: IRParameter) -> str:
     """Convert an IRParameter's schema to a Python type string."""
-    s = schema.schema
-    # Format-specific override
-    if s.format in PARAM_FORMAT_MAPPING:
-        return PARAM_FORMAT_MAPPING[s.format]
-    # Handle case where s.type is a list (nullable types)
-    s_type = s.type
-    is_nullable = False
-    if isinstance(s_type, list):
-        types = [t for t in s_type if t != "null"]
-        is_nullable = "null" in s_type
-        s_type = types[0] if types else None
+    s = schema.schema  # s is an IRSchema instance
+    py_type: str = "Any"  # Default base type
+
+    # 1. Determine base type (without Optional wrapper yet)
+    # Format-specific override has highest precedence for base type determination
+    if s.format and s.format in PARAM_FORMAT_MAPPING:
+        py_type = PARAM_FORMAT_MAPPING[s.format]
     # Array handling
-    if s_type == "array" and s.items:
-        item_type = schema_to_type(IRParameter(name="", param_in="", required=False, schema=s.items))
-        py_type = f"List[{item_type}]"
-    # Default mapping
-    elif s_type in PARAM_TYPE_MAPPING:
-        py_type = PARAM_TYPE_MAPPING[s_type]
-    else:
+    elif s.type == "array" and s.items:
+        # For array items, we recursively call schema_to_type.
+        # The nullability of the item_type itself (e.g. List[Optional[int]])
+        # will be handled by the recursive call based on s.items.is_nullable.
+        item_schema_as_param = IRParameter(name="_item", param_in="_internal", required=False, schema=s.items)
+        item_type_str = schema_to_type(item_schema_as_param)
+        py_type = f"List[{item_type_str}]"
+    # Default mapping based on s.type (primary type)
+    elif s.type and s.type in PARAM_TYPE_MAPPING:
+        py_type = PARAM_TYPE_MAPPING[s.type]
+    # Fallback if type is None or not in mappings (and not format override/array)
+    # If s.type is None and there was no format override, it defaults to "Any".
+    # If s.type is something not recognized, it also defaults to "Any".
+    elif not s.type and not s.format:  # Type is None, no format override
         py_type = "Any"
-    # If nullable, wrap with Optional
-    if is_nullable:
+    elif s.type:  # Type is some string not in PARAM_TYPE_MAPPING and not an array handled above
+        # This could be a reference to a model. For now, schema_to_type is simple and returns Any.
+        # A more sophisticated version would return the schema name for model visitor to handle.
+        # However, based on existing PARAM_TYPE_MAPPING, unknown types become "Any".
+        py_type = "Any"
+    # If py_type is still "Any" here, it means none of the above conditions strongly set a type.
+
+    # 2. Apply nullability based on IRSchema's is_nullable field
+    # This s.is_nullable should be the source of truth from the IR after parsing.
+    if s.is_nullable:
+        # Ensure "Any" also gets wrapped, e.g. Optional[Any]
         py_type = f"Optional[{py_type}]"
+
     return py_type
 
 
@@ -99,35 +112,35 @@ class EndpointsEmitter:
         self.visitor: EndpointVisitor = None  # type: ignore
         self.core_package = core_package
         self.overall_project_root = overall_project_root
-        
+
     def _deduplicate_operation_ids(self, operations: List[IROperation]) -> None:
         """
         Ensures all operations have unique method names within a tag.
-        
+
         Args:
             operations: List of operations for a single tag.
         """
         # Track sanitized method names
         seen_methods: Dict[str, int] = {}
-        
+
         for op in operations:
             # Get the sanitized method name
             method_name = NameSanitizer.sanitize_method_name(op.operation_id)
-            
+
             # If this method name already exists
             if method_name in seen_methods:
                 # Increment the counter for this name
                 seen_methods[method_name] += 1
-                
+
                 # Create a new unique operation ID with suffix
                 new_op_id = f"{op.operation_id}_{seen_methods[method_name]}"
-                
+
                 # Log a warning about the duplicate
                 logger.warning(
                     f"Duplicate operation ID detected: '{op.operation_id}' (sanitized to '{method_name}'). "
                     f"Renaming to '{new_op_id}'"
                 )
-                
+
                 # Update the operation ID
                 op.operation_id = new_op_id
             else:
@@ -203,10 +216,10 @@ class EndpointsEmitter:
             class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
             file_path = os.path.join(endpoints_dir, f"{module_name}.py")
             context.set_current_file(file_path)
-            
+
             # Ensure operations have unique method names
             self._deduplicate_operation_ids(ops)
-            
+
             # Render all methods for this tag
             methods = [self.visitor.visit(op, context) for op in ops]
             # Compose class content

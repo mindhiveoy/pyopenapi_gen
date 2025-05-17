@@ -43,12 +43,13 @@ class NameSanitizer:
     @staticmethod
     def sanitize_class_name(name: str) -> str:
         """Convert a raw name into a valid Python class name in PascalCase."""
-        # Use regex that can split PascalCase, camelCase, and common separators for words
+        # Split on non-alphanumeric and camel case boundaries
         words = re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+", name)
         if not words:  # Fallback if findall is empty (e.g. if name was all symbols)
             # Basic split on non-alphanumeric as a last resort if findall yields nothing
             words = [part for part in re.split(r"[^a-zA-Z0-9]+", name) if part]
 
+        # Capitalize each word and join
         cls_name = "".join(word.capitalize() for word in words if word)
 
         if not cls_name:  # If name was e.g. "-" or "_"

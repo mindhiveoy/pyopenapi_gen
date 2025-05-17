@@ -7,7 +7,7 @@ from typing import Any, List, Optional
 import pytest
 
 # Import the function to be tested
-from pyopenapi_gen.core.parsing.type_parser import extract_primary_type_and_nullability
+from pyopenapi_gen.core.parsing.common.type_parser import extract_primary_type_and_nullability
 
 
 class TestExtractPrimaryTypeAndNullability:
@@ -59,7 +59,15 @@ class TestExtractPrimaryTypeAndNullability:
                 0,
                 None,
             ),
-            ("list_single_null", ["null"], None, None, True, 0, None),
+            (
+                "list_single_null",
+                ["null"],
+                None,
+                None,
+                True,
+                1,
+                "Only 'null' type in array",
+            ),
             (
                 "list_multiple_non_null",
                 ["string", "integer", "null"],
@@ -67,7 +75,7 @@ class TestExtractPrimaryTypeAndNullability:
                 "string",
                 True,
                 1,
-                "has multiple types",
+                "Multiple types in array",
             ),
             (
                 "list_multiple_non_null_order",
@@ -76,9 +84,17 @@ class TestExtractPrimaryTypeAndNullability:
                 "integer",
                 False,
                 1,
-                "has multiple types",
+                "Multiple types in array",
             ),
-            ("empty_list", [], None, None, False, 0, None),
+            (
+                "empty_list",
+                [],
+                None,
+                None,
+                False,
+                1,
+                "Empty type array",
+            ),
             ("none_input", None, None, None, False, 0, None),
             (
                 "dict_input_ignored",
@@ -87,7 +103,7 @@ class TestExtractPrimaryTypeAndNullability:
                 None,
                 False,
                 1,  # Now expecting a warning with our enhanced validation
-                "unexpected 'type' field",
+                "Invalid type value",
             ),
             # New OpenAPI 3.1 test cases
             (
@@ -96,8 +112,8 @@ class TestExtractPrimaryTypeAndNullability:
                 "NullOnlySchema",
                 None,
                 True,
-                0,
-                None,
+                1,
+                "Only 'null' type in array",
             ),
             (
                 "openapi_3_1_null_with_primitive",
@@ -124,7 +140,7 @@ class TestExtractPrimaryTypeAndNullability:
                 "string",
                 True,
                 1,
-                "has multiple types",
+                "Multiple types in array",
             ),
             # Edge cases
             (
@@ -133,8 +149,8 @@ class TestExtractPrimaryTypeAndNullability:
                 "EmptyTypeSchema",
                 None,
                 False,
-                0,
-                None,
+                1,
+                "Empty type array",
             ),
             (
                 "boolean_type_value",
@@ -143,7 +159,7 @@ class TestExtractPrimaryTypeAndNullability:
                 None,
                 False,
                 1,
-                "unexpected 'type' field",
+                "Invalid type value",
             ),
             (
                 "number_type_value",
@@ -152,7 +168,7 @@ class TestExtractPrimaryTypeAndNullability:
                 None,
                 False,
                 1,
-                "unexpected 'type' field",
+                "Invalid type value",
             ),
         ],
     )

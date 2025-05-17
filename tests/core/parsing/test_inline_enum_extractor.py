@@ -1,15 +1,17 @@
-import unittest
 import logging  # Added for logger
-from typing import Any, Dict, Optional, cast
+import unittest
+from typing import Any, Dict, cast
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
 
 # Import the actual function to be tested
-from pyopenapi_gen.core.parsing.inline_enum_extractor import (
+from pyopenapi_gen.core.parsing.transformers.inline_enum_extractor import (
     _extract_enum_from_property_node,
     _process_standalone_inline_enum,
 )
+from pyopenapi_gen.core.utils import NameSanitizer
+
 # from pyopenapi_gen.core.utils import NameSanitizer - Not directly needed if logic is in func
 
 # Create a logger for tests, can be a mock or a real one configured for testing
@@ -51,7 +53,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Assert for the returned property IRSchema
         self.assertIsNotNone(actual_prop_ir)
         actual_prop_ir = cast(IRSchema, actual_prop_ir)  # for type checker
-        self.assertEqual(actual_prop_ir.name, property_key)
+        self.assertEqual(actual_prop_ir.name, NameSanitizer.sanitize_class_name(property_key))
         self.assertEqual(actual_prop_ir.type, expected_enum_name)
         self.assertEqual(actual_prop_ir.description, "The status of the object")
         self.assertIsNone(actual_prop_ir.enum)  # Property itself should not have enum values now
@@ -98,7 +100,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         self.assertIsNotNone(actual_prop_ir)
         actual_prop_ir = cast(IRSchema, actual_prop_ir)
         self.assertEqual(actual_prop_ir.type, expected_unique_enum_name)
-        self.assertEqual(actual_prop_ir.name, property_key)
+        self.assertEqual(actual_prop_ir.name, NameSanitizer.sanitize_class_name(property_key))
 
         self.assertIn(expected_unique_enum_name, self.context.parsed_schemas)
         global_enum_schema = self.context.parsed_schemas[expected_unique_enum_name]
@@ -230,7 +232,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Assert for the returned property IRSchema
         self.assertIsNotNone(actual_prop_ir)
         actual_prop_ir = cast(IRSchema, actual_prop_ir)
-        self.assertEqual(actual_prop_ir.name, property_key)
+        self.assertEqual(actual_prop_ir.name, NameSanitizer.sanitize_class_name(property_key))
         self.assertEqual(actual_prop_ir.type, expected_enum_name)
         self.assertTrue(actual_prop_ir.is_nullable)
 
@@ -266,7 +268,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Assert for the returned property IRSchema
         self.assertIsNotNone(actual_prop_ir)
         actual_prop_ir = cast(IRSchema, actual_prop_ir)
-        self.assertEqual(actual_prop_ir.name, property_key)
+        self.assertEqual(actual_prop_ir.name, NameSanitizer.sanitize_class_name(property_key))
         self.assertEqual(actual_prop_ir.type, expected_enum_name)
         self.assertTrue(actual_prop_ir.is_nullable)
 
@@ -338,7 +340,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
         self.assertIsNotNone(processed_schema_obj.name)
         # Cast to str after assertIsNotNone to satisfy linter for startswith
         processed_name = cast(str, processed_schema_obj.name)
-        self.assertTrue(processed_name.startswith("UnnamedEnum"))
+        self.assertTrue(processed_name.startswith("ResourceTypeEnum"))
         self.assertEqual(processed_schema_obj.enum, [1, 2, 3])
         self.assertEqual(processed_schema_obj.type, "integer")
         self.assertIn(processed_schema_obj.name, self.context.parsed_schemas)

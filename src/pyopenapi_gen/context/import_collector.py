@@ -6,11 +6,10 @@ import statements for Python modules. It supports various import styles, includi
 direct, relative, and plain imports, with methods to add and query import statements.
 """
 
-import sys
-import os
-from collections import defaultdict
-from typing import Dict, List, Set, Optional
 import logging
+import sys
+from collections import defaultdict
+from typing import Dict, List, Optional, Set
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
@@ -159,6 +158,7 @@ class ImportCollector:
             module: The module to import from (e.g., "typing")
             name: The name to import (e.g., "List")
         """
+        logger.debug(f"[ImportCollector.add_import] Attempting to add: module='{module}', name='{name}'")
         # If module and name are the same, and it's a stdlib module
         # that typically uses plain import style (e.g., "import os").
         if module == name and module in STDLIB_MODULES_PREFER_PLAIN_IMPORT_WHEN_NAME_MATCHES:
@@ -237,7 +237,6 @@ class ImportCollector:
         logger.debug(
             f"[ImportCollector] get_import_statements called. Current module: {current_module_dot_path}, Package root: {package_root}, Core pkg for abs: {core_package_name_for_absolute_treatment}"
         )
-        logger.debug(f"[ImportCollector] Raw self.imports: {self.imports}")
         standard_import_lines: List[str] = []
 
         for module_name, names_set in sorted(self.imports.items()):

@@ -204,7 +204,7 @@ from my_api_client.config import ClientConfig
 from my_api_client.client import APIClient
 
 async def main():
-    config = ClientConfig(base_url="https://api.example.com", timeout=5.0)
+    config = ClientConfig(base_url="https.example.com", timeout=5.0)
     # Option 1: Async context manager (recommended)
     async with APIClient(config) as client:
         users = await client.users.listUsers(page=1)
@@ -218,6 +218,31 @@ async def main():
 
 asyncio.run(main())
 ```
+
+---
+
+## Current Limitations and Unsupported OpenAPI Features
+
+While `pyopenapi-gen` aims to provide robust support for OpenAPI 3.0 and 3.1 specifications, there are some advanced features and nuances that are not yet fully implemented or are handled with simplified conventions. Users should be aware of these areas:
+
+*   **Advanced Parameter Serialization (`style`, `explode`)**:
+    *   For query (`in: "query"`) and header (`in: "header"`) parameters, the generator currently relies on the default serialization behavior of the underlying HTTP client library (e.g., `httpx`) for array and object values.
+    *   Specific OpenAPI `style` values (e.g., `form`, `simple`, `spaceDelimited`, `pipeDelimited`) and the `explode` keyword, which control the exact serialization format, are not explicitly implemented by the generator's parameter processing logic. For example, generating a comma-separated list for `style: simple, explode: false` for an array in a header is not directly handled; the list would be passed as-is to the HTTP library.
+*   **Query Parameter Nuances**:
+    *   `allowEmptyValue`: The behavior of sending a query parameter with an empty value (e.g., `param=`) if its value is an empty string is not explicitly supported. Optional parameters with `None` value are correctly omitted.
+    *   `allowReserved`: This keyword, affecting the percent-encoding of reserved characters in query parameters, is not currently processed. Standard percent-encoding applies.
+*   **Complex `multipart/form-data` Request Bodies**:
+    *   The generator handles `multipart/form-data` primarily by looking for a parameter conventionally named `files` (expected to be `Dict[str, IO[Any]]` or similar) for file uploads.
+    *   OpenAPI allows `multipart/form-data` bodies to define multiple, distinctly typed parts, not just files. Full support for arbitrarily complex multipart schemas with mixed part types and specific per-part `Content-Type` headers is not yet implemented.
+*   **Request Body Content Type Handling**:
+    *   The generator has explicit logic for preparing body variables for common types like `application/json`, `multipart/form-data`, `application/x-www-form-urlencoded`, and binary types (via `resolved_body_type: "bytes"`).
+    *   For other specific content types (e.g., `application/xml`, `text/plain` that don't resolve to raw `bytes`), if they don't fall into the existing handled categories, the setup of a specifically named local variable for the body content might not occur unless a generic `body` parameter is used.
+*   **Parameter `default` Values**:
+    *   The OpenAPI `schema.default` keyword for parameters is not currently used by the generator to automatically supply a default value if an optional parameter is not provided by the caller. The generated method signatures may include Python default arguments if processed by `EndpointMethodSignatureGenerator`, but the core URL/argument setup doesn't inject spec-defined defaults.
+*   **Response Headers**:
+    *   Currently, the generated client methods return the deserialized response *body*. Headers from the HTTP response are not explicitly parsed or returned as part of the client method's result.
+
+We are continuously working to enhance OpenAPI specification coverage. Contributions and feedback in these areas are welcome!
 
 ---
 

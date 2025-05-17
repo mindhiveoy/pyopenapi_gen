@@ -138,9 +138,9 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         )
 
         combined_output = f"Mypy STDOUT:\n{mypy_stdout_decoded}\n\nMypy STDERR:\n{mypy_stderr_decoded}"
-        print("--- Mypy Full Captured Output ---")
-        print(combined_output)
-        print("--- End Mypy Full Captured Output ---")
+        # print("--- Mypy Full Captured Output ---")
+        # print(combined_output)
+        # print("--- End Mypy Full Captured Output ---")
 
         # Write to the debug file as well
         Path(mypy_output_filename).write_text(combined_output, encoding="utf-8")

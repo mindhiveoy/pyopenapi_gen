@@ -23,12 +23,14 @@ This document outlines the specific tasks required to refactor the `_parse_schem
 
 ## Phase 2: Refactor `_parse_schema` in `loader.py` (Now `schema_parser.py`)
 
-**Goal:** Break down the monolithic `_parse_schema` function into smaller, testable, and more maintainable helper functions, each responsible for a specific part of schema parsing. This will improve clarity, reduce complexity, and make future extensions (like advanced `allOf` or `oneOf` handling) easier.
+**Goal:** Break down the monolithic `_parse_schema` function into smaller, testable, and more maintainable helper functions, each responsible for a specific part of schema parsing. This process explicitly includes organizing these extracted components into distinct, logically-cohesive modules within a clear folder structure for the parsing domain (e.g., `core/parsing/keywords/`, `core/parsing/transformers/`, `core/parsing/common/`). This will improve clarity, reduce complexity, enhance separation of concerns, and make future extensions (like advanced `allOf` or `oneOf` handling) easier to implement and manage.
 
 **Approach:**
 *   AI-Assisted: Use AI for boilerplate, test generation, and refactoring suggestions.
-*   TDD-Lite: Write tests for each extracted block *before* or *during* extraction.
+*   TDD-Lite: Write tests for each extracted block *before* or *during* extraction. Code coverage will be monitored, aiming for high branch coverage on all new and refactored logic.
 *   Incremental: Extract one logical block at a time, ensure tests pass, then commit/move to the next.
+*   Modularity: As logical blocks are extracted, they will be placed into appropriate new or existing modules within a well-defined subdirectory structure under `src/pyopenapi_gen/core/parsing/` to ensure good separation of concerns and a clean architectural layout.
+*   Validation: All new and refactored code must adhere to `coding-conventions.mdc`. The parsing logic must correctly interpret commonly used features of OpenAPI 3.0 and 3.1 specifications.
 *   No strict time estimates per block, focus on correctness.
 
 ---
@@ -44,78 +46,111 @@ This document outlines the specific tasks required to refactor the `_parse_schem
 **B. `$ref` Resolution Block**
 *   **[DONE] Task B1: Define Test Cases & Write Unit Tests for `_resolve_schema_ref` helper.**
 *   **[DONE] Task B2: Extract Logic to `_resolve_schema_ref` helper.**
-    *   (Moved to `src/pyopenapi_gen/core/parsing/ref_resolver.py`)
+    *   (Moved to `src/pyopenapi_gen/core/parsing/common/ref_resolution/resolve_schema_ref.py`)
 *   **[DONE] Task B3: Integrate and Verify `_resolve_schema_ref` helper.**
 
 **C. `allOf` Merging Block**
 *   **[DONE] Task C1: Define Test Cases & Write Unit Tests for `_process_all_of` helper.**
-    *   (Helper in `src/pyopenapi_gen/core/parsing/all_of_merger.py`)
+    *   (Moved to `src/pyopenapi_gen/core/parsing/keywords/all_of_parser.py`)
 *   **[DONE] Task C2: Extract Logic to `_process_all_of` helper.**
 *   **[DONE] Task C3: Integrate and Verify `_process_all_of` helper.**
 
-**D. Zod-specific Structure Handling (`_def`, `~standard`)** (Initial thoughts: may be complex, might need its own sub-parser)
-*   **Task D1: Define Test Cases & Write Unit Tests for Zod structure parsing.**
-*   **Task D2: Extract Logic to a dedicated Zod parsing helper.**
-*   **Task D3: Integrate and Verify Zod parsing helper.**
+**D. Composition Keywords (`anyOf`, `oneOf`)**
+*   **[DONE] Task D1: Define Test Cases & Write Unit Tests for `anyOf` and `oneOf` parsing.**
+*   **[DONE] Task D2: Extract Logic to dedicated helpers.**
+    *   (Moved to `src/pyopenapi_gen/core/parsing/keywords/any_of_parser.py` and `one_of_parser.py`)
+*   **[DONE] Task D3: Integrate and Verify composition keyword helpers.**
 
 **E. Array Type Parsing (including `items`)**
-*   **Task E1: Define Test Cases & Write Unit Tests for array/items parsing.**
-*   **Task E2: Extract Logic to `_parse_array_items` helper.**
-*   **Task E3: Integrate and Verify `_parse_array_items` helper.**
+*   **[DONE] Task E1: Define Test Cases & Write Unit Tests for array/items parsing.**
+*   **[DONE] Task E2: Extract Logic to `_parse_array_items` helper.**
+    *   (Moved to `src/pyopenapi_gen/core/parsing/keywords/array_items_parser.py`)
+*   **[DONE] Task E3: Integrate and Verify `_parse_array_items` helper.**
 
 **F. Object Property Parsing (iterating `properties` and recursive calls)**
-*   **Task F1: Define Test Cases & Write Unit Tests for object property iteration and parsing.**
-*   **Task F2: Extract Logic for iterating/parsing properties to a helper.** (This might primarily involve orchestrating calls to `_parse_schema` for each property and then to inline promotion helpers).
-*   **Task F3: Integrate and Verify object property parsing helper.**
+*   **[DONE] Task F1: Define Test Cases & Write Unit Tests for object property iteration and parsing.**
+*   **[DONE] Task F2: Extract Logic for iterating/parsing properties to a helper.**
+    *   (Moved to `src/pyopenapi_gen/core/parsing/keywords/properties_parser.py`)
+*   **[DONE] Task F3: Integrate and Verify object property parsing helper.**
 
-**G. Inline Enum Extraction** (Depends on object property parsing helper - F)
+**G. Inline Enum Extraction**
 *   **[DONE] Task G1: Define Test Cases & Write Unit Tests for inline enum extraction helper(s).**
-*   **[DONE] Task G2: Refine/Extract inline enum extraction to helper function(s) in `inline_enum_extractor.py`.**
-    *   Helper 1: `_extract_enum_from_property_node` (for enums within property definitions)
-    *   Helper 2: `_process_standalone_inline_enum` (for enums that are direct schema definitions)
+*   **[DONE] Task G2: Refine/Extract inline enum extraction to helper function(s).**
+    *   (Moved to `src/pyopenapi_gen/core/parsing/transformers/inline_enum_extractor.py`)
 *   **[DONE] Task G3: Integrate and Verify inline enum extraction helper(s).**
 
-**[NEXT] H. Inline Object (non-enum) Promotion** (Depends on object property parsing helper - F)
+**H. Inline Object (non-enum) Promotion**
 *   **[DONE] Task H1: Define Test Cases & Write Unit Tests for inline object promotion helper.**
-    *   (Helper: `_attempt_promote_inline_object` in `src/pyopenapi_gen/core/parsing/inline_object_promoter.py`)
-*   **[DONE] Task H2: Extract/Refine inline object promotion to `_attempt_promote_inline_object` helper.**
-*   **Task H3: Integrate and Verify inline object promotion helper.** (Current focus due to `mypy` errors. Parameter `$ref` KeyError is fixed. `test_codegen_analytics_query_params` is fixed.)
+*   **[DONE] Task H2: Extract/Refine inline object promotion to helper.**
+    *   (Moved to `src/pyopenapi_gen/core/parsing/transformers/inline_object_promoter.py`)
+*   **[DONE] Task H3: Integrate and Verify inline object promotion helper.**
 
 **I. Primitive Type Parsing (string, number, integer, boolean)**
-*   **Task I1: Define Test Cases & Write Unit Tests for basic primitive types.**
-*   **Task I2: Ensure `extract_primary_type_and_nullability` (already in `type_parser.py`) and `_parse_schema` correctly handle these.** (May not need new extraction if current logic is sufficient).
-*   **Task I3: Verify primitive type handling.**
+*   **[DONE] Task I1: Define Test Cases & Write Unit Tests for basic primitive types.**
+*   **[DONE] Task I2: Ensure `extract_primary_type_and_nullability` correctly handles these.**
+    *   (Moved to `src/pyopenapi_gen/core/parsing/common/type_parser.py`)
+*   **[DONE] Task I3: Verify primitive type handling.**
 
-**J. Composition (`anyOf`, `oneOf`)**
-*   **Task J1: Define Test Cases & Write Unit Tests for `anyOf` and `oneOf`.**
-*   **Task J2: Extract/Refine logic for `anyOf` / `oneOf` to dedicated helpers.**
-*   **Task J3: Integrate and Verify `anyOf` / `oneOf` helpers.**
-
-**K. Default and Example Value Handling**
-*   **Task K1: Define Test Cases & Write Unit Tests for `default` and `example` keywords.**
-*   **Task K2: Ensure these are correctly captured in `IRSchema` by `_parse_schema`.**
-*   **Task K3: Verify handling.**
-
----
-**Post-Refactoring Goal for `_parse_schema`:**
-The `_parse_schema` function in `schema_parser.py` should become a higher-level orchestrator. It will:
-1.  Handle initial checks (e.g., if node is None, already visited).
-2.  Call `_resolve_schema_ref` if it's a `$ref`.
-3.  Call `extract_primary_type_and_nullability`.
-4.  Delegate to specialized helpers for `allOf`, `anyOf`, `oneOf`, arrays, objects (which in turn handle properties and their inline promotions), and standalone enums.
-5.  Populate the `IRSchema` object with results from these helpers.
-6.  Add the fully parsed schema to `context.parsed_schemas`.
+**J. Schema Finalization**
+*   **[DONE] Task J1: Define Test Cases & Write Unit Tests for schema finalization.**
+*   **[DONE] Task J2: Extract finalization logic to dedicated module.**
+    *   (Moved to `src/pyopenapi_gen/core/parsing/schema_finalizer.py`)
+*   **[DONE] Task J3: Integrate and Verify schema finalization.**
 
 ## Phase 3: Finalization and Cleanup
 
-7.  **Review and Refine `_parse_schema` Orchestrator**:
-    *   Ensure the main `_parse_schema` function is clean, readable, and effectively orchestrates calls to the helpers.
-8.  **Comprehensive Review of `loader.py`**:
-    *   Check for clarity, consistency, and adherence to coding conventions.
-    *   Ensure all new functions/methods have clear docstrings.
-9.  **Final Integration Test Run**:
-    *   Run all tests, including the full integration test suite, to confirm all `mypy` errors are resolved and functionality is preserved.
-10. **Documentation Update**:
-    *   Update any relevant internal documentation or comments if the refactoring changes how the loader is used or understood.
+1.  **[DONE] Review and Refine `_parse_schema` Orchestrator**:
+    *   Extracted helper functions for better organization
+    *   Improved error handling and type safety
+    *   Enhanced logging and documentation
+    *   Fixed all linter errors
 
-This plan is iterative. Tasks within Phase 2 can be reordered or parallelized where appropriate. The key is to make small, testable changes. 
+2.  **[IN PROGRESS] Comprehensive Review of Parsing Modules**:
+    *   **[DONE] Review of Core Modules**:
+        *   `schema_parser.py`: Improved organization and error handling
+        *   `schema_finalizer.py`: Verified proper schema finalization
+        *   `context.py`: Confirmed proper state management
+    *   **[DONE] Review of Keyword Parsers**:
+        *   `all_of_parser.py`: Verified proper composition handling
+        *   `array_items_parser.py`: Confirmed array type handling
+        *   `properties_parser.py`: Checked property iteration
+        *   `any_of_parser.py`: Verified union type handling
+        *   `one_of_parser.py`: Confirmed choice type handling
+    *   **[DONE] Review of Transformers**:
+        *   `inline_object_promoter.py`: Verified object promotion logic
+        *   `inline_enum_extractor.py`: Confirmed enum extraction
+    *   **[DONE] Review of Common Utilities**:
+        *   `type_parser.py`: Verified type determination
+        *   `ref_resolution/`: Confirmed reference handling
+    *   **[NEXT] Standardize Error Handling**:
+        *   Add consistent error messages across all modules
+        *   Ensure all error cases are properly logged
+        *   Add appropriate assertions for pre/post conditions
+    *   **[NEXT] Enhance Documentation**:
+        *   Add module-level docstrings explaining purpose and usage
+        *   Ensure all functions have complete Contracts sections
+        *   Add examples in docstrings where helpful
+    *   **[NEXT] Improve Type Safety**:
+        *   Add missing type hints
+        *   Fix any remaining mypy errors
+        *   Add runtime type checks where needed
+
+3.  **[NEXT] Final Integration Test Run**:
+    *   Run all tests, including the full integration test suite
+    *   Verify all `mypy` errors are resolved
+    *   Confirm functionality is preserved across all test cases
+    *   Check for any performance regressions
+
+4.  **[NEXT] Documentation Update**:
+    *   Update internal documentation to reflect the new module structure
+    *   Add or update docstrings for all new modules and functions
+    *   Document the parsing pipeline and how different components interact
+    *   Add examples of common use cases
+
+5.  **[NEXT] Verify Generated Client Characteristics**:
+    *   Confirm the generated client still provides good documentation
+    *   Ensure strict types for inputs and outputs are maintained
+    *   Verify that API error states (non-2xx responses) are raised as exceptions
+    *   Confirm only successful responses are returned normally by the client
+
+This plan is iterative. Tasks within Phase 2 have been completed, and we are now moving into Phase 3 for finalization and cleanup. The focus is on ensuring the refactored code is robust, well-documented, and maintains all required functionality. 

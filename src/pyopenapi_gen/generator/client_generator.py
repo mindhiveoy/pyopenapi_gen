@@ -124,10 +124,7 @@ class ClientGenerator:
         # Log stats about the IR
         schema_count = len(ir.schemas) if ir.schemas else 0
         operation_count = len(ir.operations) if ir.operations else 0
-        self._log_progress(
-            f"Parsed IR with {schema_count} schemas and {operation_count} operations",
-            "PARSE_IR"
-        )
+        self._log_progress(f"Parsed IR with {schema_count} schemas and {operation_count} operations", "PARSE_IR")
 
         # Stage 3: Collect warnings
         self._log_progress("Collecting warnings", "WARNINGS")
@@ -191,36 +188,36 @@ class ClientGenerator:
 
                 # Ensure temporary directories exist (FileManager used by emitters might handle this, but explicit is safer)
                 tmp_out_dir_for_diff.mkdir(parents=True, exist_ok=True)
-                # Ensure core temp dir exists *if* it's outside the main output package dir
-                if not str(tmp_core_dir_for_diff).startswith(str(tmp_out_dir_for_diff)):
-                    tmp_core_dir_for_diff.mkdir(parents=True, exist_ok=True)
+                tmp_core_dir_for_diff.mkdir(parents=True, exist_ok=True)  # Ensure core temp dir always exists
 
                 # --- Generate files into the temporary structure ---
                 temp_generated_files = []  # Track files generated in temp dir
 
-                # 1. CoreEmitter (emits core files to tmp_core_dir_for_diff)
-                self._log_progress("Generating core files (temp)", "EMIT_CORE_TEMP")
-                # Note: CoreEmitter copies files, RenderContext isn't strictly needed for it, but path must be correct.
-                relative_core_path_for_emitter_init_temp = os.path.relpath(tmp_core_dir_for_diff, tmp_out_dir_for_diff)
-                core_emitter = CoreEmitter(
-                    core_dir=str(relative_core_path_for_emitter_init_temp), core_package=resolved_core_package_fqn
-                )
-                core_files = [Path(p) for p in core_emitter.emit(str(tmp_out_dir_for_diff))]
-                temp_generated_files += core_files
-                self._log_progress(f"Generated {len(core_files)} core files (temp)", "EMIT_CORE_TEMP")
-
-                # 2. ExceptionsEmitter (emits exception_aliases.py to tmp_core_dir_for_diff)
+                # 1. ExceptionsEmitter (emits exception_aliases.py to tmp_core_dir_for_diff)
                 self._log_progress("Generating exception files (temp)", "EMIT_EXCEPTIONS_TEMP")
                 exceptions_emitter = ExceptionsEmitter(
                     core_package_name=resolved_core_package_fqn,
                     overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
                 )
-                exception_files = [
-                    Path(p)
-                    for p in exceptions_emitter.emit(ir, str(tmp_core_dir_for_diff))  # Emit TO temp core dir
-                ]
+                exception_files_list, exception_alias_names = exceptions_emitter.emit(
+                    ir, str(tmp_core_dir_for_diff)
+                )  # Emit TO temp core dir
+                exception_files = [Path(p) for p in exception_files_list]
                 temp_generated_files += exception_files
                 self._log_progress(f"Generated {len(exception_files)} exception files (temp)", "EMIT_EXCEPTIONS_TEMP")
+
+                # 2. CoreEmitter (emits core files to tmp_core_dir_for_diff)
+                self._log_progress("Generating core files (temp)", "EMIT_CORE_TEMP")
+                # Note: CoreEmitter copies files, RenderContext isn't strictly needed for it, but path must be correct.
+                relative_core_path_for_emitter_init_temp = os.path.relpath(tmp_core_dir_for_diff, tmp_out_dir_for_diff)
+                core_emitter = CoreEmitter(
+                    core_dir=str(relative_core_path_for_emitter_init_temp),
+                    core_package=resolved_core_package_fqn,
+                    exception_alias_names=exception_alias_names,
+                )
+                core_files = [Path(p) for p in core_emitter.emit(str(tmp_out_dir_for_diff))]
+                temp_generated_files += core_files
+                self._log_progress(f"Generated {len(core_files)} core files (temp)", "EMIT_CORE_TEMP")
 
                 # 3. config.py (write to tmp_core_dir_for_diff using FileManager) - REMOVED, CoreEmitter handles this
                 # fm = FileManager()
@@ -244,7 +241,9 @@ class ClientGenerator:
                 ]
                 temp_generated_files += model_files
                 schema_count = len(ir.schemas) if ir.schemas else 0
-                self._log_progress(f"Generated {len(model_files)} model files for {schema_count} schemas (temp)", "EMIT_MODELS_TEMP")
+                self._log_progress(
+                    f"Generated {len(model_files)} model files for {schema_count} schemas (temp)", "EMIT_MODELS_TEMP"
+                )
 
                 # 5. EndpointsEmitter (emits endpoints to tmp_out_dir_for_diff/endpoints)
                 self._log_progress("Generating endpoint files (temp)", "EMIT_ENDPOINTS_TEMP")
@@ -258,7 +257,10 @@ class ClientGenerator:
                 ]
                 temp_generated_files += endpoint_files
                 operation_count = len(ir.operations) if ir.operations else 0
-                self._log_progress(f"Generated {len(endpoint_files)} endpoint files for {operation_count} operations (temp)", "EMIT_ENDPOINTS_TEMP")
+                self._log_progress(
+                    f"Generated {len(endpoint_files)} endpoint files for {operation_count} operations (temp)",
+                    "EMIT_ENDPOINTS_TEMP",
+                )
 
                 # 6. ClientEmitter (emits client.py to tmp_out_dir_for_diff)
                 self._log_progress("Generating client file (temp)", "EMIT_CLIENT_TEMP")
@@ -364,28 +366,30 @@ class ClientGenerator:
             # --- Generate directly into final destination paths ---
             self._log_progress("Starting direct file generation", "DIRECT_GEN_FILES")
 
-            # 1. CoreEmitter
-            self._log_progress("Generating core files", "EMIT_CORE")
-            relative_core_path_for_emitter_init_final = os.path.relpath(core_dir, out_dir)
-            core_emitter = CoreEmitter(
-                core_dir=str(relative_core_path_for_emitter_init_final), core_package=resolved_core_package_fqn
-            )
-            core_files = [Path(p) for p in core_emitter.emit(str(out_dir))]
-            generated_files += core_files
-            self._log_progress(f"Generated {len(core_files)} core files", "EMIT_CORE")
-
-            # 2. ExceptionsEmitter
+            # 1. ExceptionsEmitter
             self._log_progress("Generating exception files", "EMIT_EXCEPTIONS")
             exceptions_emitter = ExceptionsEmitter(
                 core_package_name=resolved_core_package_fqn,
                 overall_project_root=str(project_root),  # Use final project root
             )
-            exception_files = [
-                Path(p)
-                for p in exceptions_emitter.emit(ir, str(core_dir))  # Emit to final core dir
-            ]
+            exception_files_list, exception_alias_names = exceptions_emitter.emit(
+                ir, str(core_dir)
+            )  # Emit to final core dir
+            exception_files = [Path(p) for p in exception_files_list]
             generated_files += exception_files
             self._log_progress(f"Generated {len(exception_files)} exception files", "EMIT_EXCEPTIONS")
+
+            # 2. CoreEmitter
+            self._log_progress("Generating core files", "EMIT_CORE")
+            relative_core_path_for_emitter_init_final = os.path.relpath(core_dir, out_dir)
+            core_emitter = CoreEmitter(
+                core_dir=str(relative_core_path_for_emitter_init_final),
+                core_package=resolved_core_package_fqn,
+                exception_alias_names=exception_alias_names,
+            )
+            core_files = [Path(p) for p in core_emitter.emit(str(out_dir))]
+            generated_files += core_files
+            self._log_progress(f"Generated {len(core_files)} core files", "EMIT_CORE")
 
             # 3. config.py (using FileManager) - REMOVED, CoreEmitter handles this
             # fm = FileManager()
@@ -413,7 +417,9 @@ class ClientGenerator:
                 for p in endpoints_emitter.emit(ir, str(out_dir))  # Emit to final output dir
             ]
             generated_files += endpoint_files
-            self._log_progress(f"Generated {len(endpoint_files)} endpoint files for {operation_count} operations", "EMIT_ENDPOINTS")
+            self._log_progress(
+                f"Generated {len(endpoint_files)} endpoint files for {operation_count} operations", "EMIT_ENDPOINTS"
+            )
 
             # 6. ClientEmitter
             self._log_progress("Generating client file", "EMIT_CLIENT")
@@ -437,7 +443,7 @@ class ClientGenerator:
         total_time = time.time() - self.start_time
         self._log_progress(
             f"Code generation completed successfully in {total_time:.2f}s, generated {len(generated_files)} files",
-            "GENERATION"
+            "GENERATION",
         )
 
         # Print timing summary if verbose

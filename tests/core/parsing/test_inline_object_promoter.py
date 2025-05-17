@@ -4,7 +4,8 @@ from typing import cast
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
-from pyopenapi_gen.core.parsing.inline_object_promoter import _attempt_promote_inline_object
+from pyopenapi_gen.core.parsing.transformers.inline_object_promoter import _attempt_promote_inline_object
+from pyopenapi_gen.core.utils import NameSanitizer
 
 logger = logging.getLogger("test_inline_object_promoter")
 logger.setLevel(logging.DEBUG)
@@ -32,7 +33,7 @@ class TestAttemptPromoteInlineObject(unittest.TestCase):
             is_nullable=False,
         )
 
-        expected_promoted_name = "Config"
+        expected_promoted_name = "ParentObjectConfig"
         # Simulate NameSanitizer.sanitize_class_name("config") -> "Config"
         # The actual promoter will use NameSanitizer
 
@@ -46,7 +47,7 @@ class TestAttemptPromoteInlineObject(unittest.TestCase):
 
         self.assertIsNotNone(promoted_property_ref_ir)
         promoted_property_ref_ir = cast(IRSchema, promoted_property_ref_ir)
-        self.assertEqual(promoted_property_ref_ir.name, property_key)
+        self.assertEqual(promoted_property_ref_ir.name, NameSanitizer.sanitize_class_name(property_key))
         self.assertEqual(promoted_property_ref_ir.type, expected_promoted_name)
         self.assertEqual(promoted_property_ref_ir.description, "Inline configuration object")
         self.assertEqual(promoted_property_ref_ir.is_nullable, False)
@@ -144,7 +145,7 @@ class TestAttemptPromoteInlineObject(unittest.TestCase):
 
         self.assertIsNotNone(promoted_property_ref_ir)  # Expect promotion
         promoted_property_ref_ir = cast(IRSchema, promoted_property_ref_ir)
-        self.assertEqual(promoted_property_ref_ir.name, property_key)
+        self.assertEqual(promoted_property_ref_ir.name, NameSanitizer.sanitize_class_name(property_key))
         self.assertEqual(promoted_property_ref_ir.type, expected_promoted_name)
         self.assertIs(promoted_property_ref_ir._refers_to_schema, inline_object_schema)
 

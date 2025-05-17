@@ -41,21 +41,66 @@ class IRSchema:
     )
     _is_circular_ref: bool = False  # True if this schema was detected as part of a circular reference
     _circular_ref_path: Optional[str] = None  # Contains the path of the circular reference if detected
+    _is_name_derived: bool = field(
+        default=False, repr=False
+    )  # True if the name was derived (e.g. for promoted inline objects)
+    _inline_name_resolution_path: Optional[str] = field(
+        default=None, repr=False
+    )  # Path used for resolving inline names
 
     def __post_init__(self) -> None:
+        # >>> DIAGNOSTIC PRINT (REMOVED) <<<
+        # if self.name == "PropA":
+        #     print(f"IRSCHEMA_POST_INIT_ENTRY for PropA: self.type='{self.type}', raw_node={getattr(self, '_raw_schema_node', 'N/A')}, id={id(self)}")
+
+        # Ensure name is always a valid Python identifier if set
+        # This must happen BEFORE type inference that might use the name (though current logic doesn't)
+        if self.name:
+            # Store original name if needed for specific logic before sanitization, though not currently used here.
+            # original_name = self.name
+            self.name = NameSanitizer.sanitize_class_name(self.name)
+
         # Ensure that if type is a reference (string not matching basic types),
         # other structural fields like properties/items/enum are usually None or empty.
-        # This is a soft check, actual validation might be stricter based on usage.
         basic_types = ["object", "array", "string", "integer", "number", "boolean", "null"]
         if self.type and self.type not in basic_types:
             # This schema acts as a reference by name to another schema.
             # It shouldn't typically define its own structure beyond description/nullability.
             pass
 
-        if self.name and not NameSanitizer.is_valid_python_identifier(self.name):  # type: ignore[attr-defined]
-            # This can happen if a name is derived from a $ref that has invalid chars
-            # The ModelVisitor or other generators should sanitize this before file/class creation
+        # The check for is_valid_python_identifier is somewhat redundant if sanitize_class_name works correctly,
+        # but can be kept as a safeguard or for logging if a raw name was problematic *before* sanitization.
+        if self.name and not NameSanitizer.is_valid_python_identifier(self.name):
             pass  # logger.warning or handle as needed elsewhere
+
+        # Ensure nested schemas are IRSchema instances
+        if isinstance(self.items, dict):
+            self.items = IRSchema(**self.items)
+
+        if isinstance(self.properties, dict):
+            new_props = {}
+            for k, v in self.properties.items():
+                if isinstance(v, dict):
+                    new_props[k] = IRSchema(**v)
+                elif isinstance(v, IRSchema):  # Already an IRSchema instance
+                    new_props[k] = v
+                # else: it might be some other unexpected type, raise error or log
+            self.properties = new_props
+
+        if isinstance(self.additional_properties, dict):
+            self.additional_properties = IRSchema(**self.additional_properties)
+
+        for comp_list_attr in ["any_of", "one_of", "all_of"]:
+            comp_list = getattr(self, comp_list_attr)
+            if isinstance(comp_list, list):
+                new_comp_list = []
+                for item in comp_list:
+                    if isinstance(item, dict):
+                        new_comp_list.append(IRSchema(**item))
+                    elif isinstance(item, IRSchema):
+                        new_comp_list.append(item)
+                    # else: item is some other type, could skip or raise
+                setattr(self, comp_list_attr, new_comp_list)
 
 
 # NameSanitizer is now imported at the top

@@ -191,7 +191,10 @@ def test_generate_client__external_core_at_project_root__correct_paths_and_impor
         print("\n--- endpoints/default.py content ---")
         print(default_endpoint_content)
         assert re.search(r"from\s+custom_core\.http_transport\s+import\s+HttpTransport", default_endpoint_content)
-        assert re.search(r"from\s+custom_core\.exceptions\s+import\s+HTTPError", default_endpoint_content)
+        assert re.search(
+            r"from\s+custom_core\.exceptions\s+import\s+([a-zA-Z0-9_,\s]*\bHTTPError\b[a-zA-Z0-9_,\s]*)",
+            default_endpoint_content,
+        )
         assert re.search(r"from\s+\.\.models\.item\s+import\s+Item", default_endpoint_content)
 
         # 4. Run mypy on the generated project

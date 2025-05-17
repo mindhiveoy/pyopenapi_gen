@@ -1,47 +1,200 @@
 ---
 description: 
-globs: 
-alwaysApply: true
+globs: *.py
+alwaysApply: false
 ---
-# CODING CONVENTIONS
+---
 
-To ensure code quality, maintainability, and developer productivity, all code must adhere to the following conventions:
+description: >-
+Mindhive Python Coding Conventions — enforce Design-by-Contract without
+external libraries, ensure Separation of Concerns, Test-Driven
+Development, high coverage & first-class documentation. Applied to
+every `*.py` file.
+globs:
 
-1. 📦 Class Organization
-- Each class must be defined in its own module (file). This ensures clarity, discoverability, and single responsibility per file.
+* "\*\*/\*.py"
+  alwaysApply: true
 
-2. 🏷️ Naming
-- Use intuitive, descriptive, and consistent names for all modules, classes, functions, variables, and folders.
-- Avoid abbreviations unless they are universally understood.
+---
 
-3. 🧩 Design Principles
-- Maintain a clear separation of concerns: each module, class, and function should have a single, well-defined responsibility.
-- Strive to write code that reads like clear English text, making logic and intent obvious to readers.
-- Avoid long methods; break code into logical, focused parts that can be their own methods or functions.
-- Emphasize encapsulation: expose only what is necessary via clear, minimal module and class APIs, hiding internal details.
+# Mindhive Python Coding Conventions
 
-4. 📜 Design by Contract & Documentation
-- All public methods and functions must explicitly declare their contract: preconditions, postconditions, and invariants.
-- Use Python docstrings to document:
-  - Purpose and behavior
-  - Input parameter types and constraints
-  - Return type and guarantees
-  - Exceptions raised and error conditions
-- Documentation must be comprehensive and clear, enabling users to understand and use the API correctly without reading the implementation.
+> **Purpose**
+> Guarantee that every line of Python in this repository is **clear,
+> maintainable, testable and rigorously specified by contract & tests**.
 
-5. 🛡️ Strong Typing
-- All functions, methods, and class attributes must use Python type annotations.
-- Favor explicit types over Any or loose typing.
-- Use dataclasses, TypedDict, or pydantic models for structured data where appropriate.
+---
 
-6. 🗂️ Folder & File Structure
-- Organize code into an intuitive folder structure, grouping related modules together.
-- Place related code (e.g., models, services, utilities) close to each other to minimize navigation overhead.
-- Avoid large, monolithic modules or folders; prefer smaller, focused groupings.
+## 1. Core Principles
 
-7. 🔄 Refactoring
-- When adding new classes, always create a new module for them.
-- When refactoring, split multi-class modules into single-class modules.
+1. **Design by Contract (DbC)** — every public function/method *must*
+   declare and enforce **pre-conditions**, **post-conditions** &
+   **invariants**.
+2. **Separation of Concerns** — single responsibility per module, class
+   and function; avoid God classes & long functions.
+3. **Clarity & Readability** — code is read far more than written;
+   prefer explicitness over cleverness.
+4. **Maintainability & Extensibility** — design for change; prefer
+   composition to inheritance; follow SOLID (esp. SRP, OCP, LSP, DIP).
+5. **Test-Driven Development** — write the failing test first; tests are
+   executable specifications; aim for ≥ 90 % **branch** coverage.
+6. **Comprehensive Documentation** — docstrings & type hints are
+   mandatory; docs express the contract.
 
-These conventions are mandatory for all code contributions and AI-generated code. They ensure a codebase that is easy to navigate, robust, and a pleasure to work with.
+---
 
+## 2. Design by Contract Without External Libraries
+
+### 2.1 Contract Enforcement
+
+* Use **plain `assert` statements** to guard pre-conditions at the top
+  of the function and post-conditions at the end. Use
+  `__post_init__` (dataclasses) or property setters to maintain
+  invariants.
+* Never disable contract `assert`s in production; they are part of
+  behaviour. Configure the runtime to **never run with `-O`/`PYTHONOPTIMIZE`**.
+* Assertions must be **side-effect-free** and cheap.
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Account:
+    total: int
+
+    def __post_init__(self) -> None:
+        # Class invariant
+        assert self.total >= 0, "total must be non-negative"
+
+    def deposit(self, amount: int) -> None:
+        """Deposit money.
+
+        Contracts:
+            Pre-conditions:
+                - ``amount`` > 0
+            Post-conditions:
+                - ``self.total`` increased by exactly ``amount``
+        """
+        # Pre-condition
+        assert amount > 0, "amount must be positive"
+
+        old_total = self.total
+        self.total += amount
+
+        # Post-condition
+        assert self.total == old_total + amount, "balance unchanged"
+```
+
+### 2.2 Contract Documentation
+
+Extend docstrings with a **Contracts** section using the following
+markers (Google style or reST is accepted):
+
+```
+Contracts:
+    Preconditions:
+        - <condition>
+    Postconditions:
+        - <condition>
+    Invariants:
+        - <condition>
+```
+
+Write conditions in **business vocabulary**, not implementation detail.
+
+### 2.3 Contract Testing
+
+* Unit tests **duplicate the contract** so failures show friendly
+  messages rather than bare AssertionErrors.
+* When a contract fails, the test should describe the violated
+  assumption in its name.
+
+---
+
+## 3. Separation of Concerns & Structure
+
+* **Modules**: logically cohesive; avoid mixed concerns.
+* **Functions**: ≤ 40 logical lines; prefer pure functions.
+* **Classes**: ≤ 400 logical lines & ≤ 7 public methods.
+* **Layers**: domain → application/service → infrastructure. Enforce via
+  package structure: `domain/*`, `services/*`, `infra/*`.
+* **Dependency Direction**: higher layers must not import lower layers.
+
+---
+
+## 4. Code Style & Readability
+
+| Aspect         | Rule                                                   |
+| -------------- | ------------------------------------------------------ |
+| **Formatting** | `black` (line length 100) + `isort`                    |
+| **Linting**    | `flake8` with `flake8-bugbear` & `pylint` ≥ 9.5        |
+| **Typing**     | `mypy --strict` is CI-blocking                         |
+| **Naming**     | PEP 8: classes `PascalCase`, funcs `snake_case`        |
+| **Patterns**   | Prefer **dataclasses** & **enums** over raw tuples/str |
+| **Globals**    | No mutable module-level state                          |
+
+---
+
+## 5. Testing Conventions
+
+* Use **pytest** with `pytest-cov` & **hypothesis** for property tests.
+* Directory: mirror package structure under `tests/`.
+* Every bug fix requires a *regression test*.
+* **Coverage gate**: branches ≥ 90 % enforced by CI.
+* Tests are *specifications* — structure names as
+  **Given\_When\_Then**.
+* Keep tests **fast & deterministic** (< 200 ms each).
+
+```python
+def test_deposit_increases_balance():
+    # Given
+    acc = Account(total=0)
+    # When
+    acc.deposit(50)
+    # Then
+    assert acc.total == 50
+```
+
+---
+
+## 6. Documentation Standards
+
+* **Docstrings**: PEP 257; include **Contracts** block where relevant.
+* Use **reST** or **Google style**, but be consistent project-wide.
+* Provide runnable examples (`doctest`).
+* Generate API docs with **Sphinx + autodoc**; CI fails on warnings.
+
+---
+
+## 7. Tooling & Continuous Integration
+
+1. **Pre-commit hooks**: `black`, `isort`, `flake8`, `mypy`.
+2. **CI stages** (GitHub Actions):
+
+   1. *Static Analysis* – format, lint, type checks.
+   2. *Unit Tests* – `pytest -q --cov`.
+   3. *Docs* – `sphinx-build -n -W . ./_build`.
+3. **Fail-fast** – pipeline stops on first violation.
+
+---
+
+## 8. Prohibited / Discouraged Patterns
+
+* Catching broad `Exception` or using bare `except`.
+* Hidden side-effects or implicit I/O in domain logic.
+* Monolithic script files; always package code.
+* Circular imports — resolve with adapter modules.
+* Premature optimisation; measure before optimising.
+
+---
+
+## 9. AI / Agent Instructions
+
+* Generated code **must include asserts and Contracts docstrings**.
+* When editing legacy code lacking contracts/tests, suggest refactor +
+  tests.
+* Prefer clear names & explicit types over brevity.
+
+---
+
+### End of Rule

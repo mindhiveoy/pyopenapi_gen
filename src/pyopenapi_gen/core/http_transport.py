@@ -188,7 +188,7 @@ class HttpxTransport:
 
         response = await self._client.request(method, url, **request_args)
         if response.status_code < 200 or response.status_code >= 300:
-            raise HTTPError(response.status_code, response.text)
+            raise HTTPError(status_code=response.status_code, message=response.text, response=response)
         return response
 
     async def close(self) -> None:

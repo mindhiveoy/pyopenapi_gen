@@ -27,7 +27,7 @@ class ExceptionsEmitter:
         self.core_package_name = core_package_name
         self.overall_project_root = overall_project_root
 
-    def emit(self, spec: IRSpec, output_dir: str) -> list[str]:
+    def emit(self, spec: IRSpec, output_dir: str) -> tuple[list[str], list[str]]:
         file_path = os.path.join(output_dir, "exception_aliases.py")
 
         context = RenderContext(
@@ -37,10 +37,16 @@ class ExceptionsEmitter:
         )
         context.set_current_file(file_path)
 
-        content = self.visitor.visit(spec, context)
+        generated_code, alias_names = self.visitor.visit(spec, context)
         generated_imports = context.render_imports()
 
-        full_content = f"{generated_imports}\n\n{content}"
+        # Add __all__ list
+        if alias_names:
+            all_list_str = ", ".join([f'"{name}"' for name in alias_names])
+            all_assignment = f"\n\n__all__ = [{all_list_str}]\n"
+            generated_code += all_assignment
+
+        full_content = f"{generated_imports}\n\n{generated_code}"
         with open(file_path, "w") as f:
             f.write(full_content)
-        return [file_path]
+        return [file_path], alias_names

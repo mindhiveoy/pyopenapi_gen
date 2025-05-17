@@ -31,6 +31,8 @@ except ImportError:
         validate_spec = None  # type: ignore[assignment]
 # Disable strict spec validation by default to allow lenient parsing
 
+import logging
+
 from pyopenapi_gen import (
     HTTPMethod,
     IROperation,
@@ -41,13 +43,12 @@ from pyopenapi_gen import (
     IRSpec,
 )
 from pyopenapi_gen.core.utils import NameSanitizer
-import logging
+
+# Import helpers
+from .parsing.common.type_parser import extract_primary_type_and_nullability
 
 # Import ParsingContext from its new location
 from .parsing.context import ParsingContext
-
-# Import helpers
-from .parsing.type_parser import extract_primary_type_and_nullability
 from .parsing.schema_parser import _parse_schema
 
 __all__ = ["load_ir_from_spec"]
@@ -55,15 +56,15 @@ __all__ = ["load_ir_from_spec"]
 logger = logging.getLogger(__name__)
 
 # Check for cycle detection debug flags in environment
-DEBUG_CYCLES = os.environ.get('PYOPENAPI_DEBUG_CYCLES', '0').lower() in ('1', 'true', 'yes')
-MAX_CYCLES = int(os.environ.get('PYOPENAPI_MAX_CYCLES', '0'))
+DEBUG_CYCLES = os.environ.get("PYOPENAPI_DEBUG_CYCLES", "0").lower() in ("1", "true", "yes")
+MAX_CYCLES = int(os.environ.get("PYOPENAPI_MAX_CYCLES", "0"))
 
 if DEBUG_CYCLES:
     logger.info(f"Cycle detection debugging enabled (MAX_CYCLES={MAX_CYCLES})")
     # Increase logging level for cycle detection
-    logging.getLogger('pyopenapi_gen.core.parsing.context').setLevel(logging.DEBUG)
-    logging.getLogger('pyopenapi_gen.core.parsing.schema_parser').setLevel(logging.DEBUG)
-    logging.getLogger('pyopenapi_gen.core.parsing.ref_resolver').setLevel(logging.DEBUG)
+    logging.getLogger("pyopenapi_gen.core.parsing.context").setLevel(logging.DEBUG)
+    logging.getLogger("pyopenapi_gen.core.parsing.schema_parser").setLevel(logging.DEBUG)
+    logging.getLogger("pyopenapi_gen.core.parsing.ref_resolver").setLevel(logging.DEBUG)
 
 
 # Helper function to resolve a parameter node if it's a reference
