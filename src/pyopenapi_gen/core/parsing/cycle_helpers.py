@@ -22,9 +22,6 @@ def _handle_cycle_detection(original_name: str, cycle_path: str, context: Parsin
             - The schema is registered in context.parsed_schemas using original_name as key
             - Both _is_circular_ref and _from_unresolved_ref flags are set
     """
-    logger.warning(
-        f"Cycle detected via enter_schema for '{original_name}'. Path: {cycle_path}. Returning placeholder for root '{original_name}'."
-    )
 
     schema_ir_name_attr = NameSanitizer.sanitize_class_name(original_name)
     if original_name not in context.parsed_schemas:

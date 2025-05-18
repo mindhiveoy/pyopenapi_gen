@@ -86,9 +86,6 @@ class RenderContext:
         Args:
             abs_path: The absolute path of the file to set as current
         """
-        # logger.debug(
-        #     f"[RenderContext.set_current_file] Setting current file to: {abs_path}. Resetting ImportCollector."
-        # )
         self.current_file = abs_path
         # Reset the import collector for each new file to ensure isolation
         self.import_collector.reset()
@@ -110,16 +107,7 @@ class RenderContext:
             name:           The name to import from the module
             is_typing_import: Whether the import is a typing import
         """
-        # ==== VECTOR_DATABASE TARGETED LOGGING START ====
-        # if name and name.lower() == "vectordatabase":
-        #     logger.error(
-        #         f"[RC_VD_TRACE] add_import called for VectorDatabase. Context file: {self.current_file}. "
-        #         f"Details: logical_module='{logical_module}', name='{name}', is_typing_import={is_typing_import}"
-        #     )
-        # ==== VECTOR_DATABASE TARGETED LOGGING END ====
-
         if not logical_module:
-            # logger.error(f"Attempted to add import with empty module for name: {name}")
             return
 
         # 1. Special handling for typing imports if is_typing_import is True
@@ -132,7 +120,6 @@ class RenderContext:
             self.core_package_name + "."
         )
         if is_target_in_core_pkg_namespace:
-            # logger.debug(f"[add_import] Core package import: from {logical_module} import {name}")
             if name:
                 self.import_collector.add_import(module=logical_module, name=name)
             else:
@@ -169,7 +156,6 @@ class RenderContext:
             or logical_module in COMMON_STDLIB
             or top_level_module in COMMON_STDLIB
         ):
-            # logger.debug(f"[add_import] StdLib/Builtin import: from {logical_module} import {name}")
             if name:
                 self.import_collector.add_import(module=logical_module, name=name)
             else:
@@ -179,7 +165,6 @@ class RenderContext:
         # 4. Known third-party?
         KNOWN_THIRD_PARTY = {"httpx", "pydantic"}
         if logical_module in KNOWN_THIRD_PARTY or top_level_module in KNOWN_THIRD_PARTY:
-            # logger.debug(f"[add_import] Known third-party library import: from {logical_module} import {name}")
             if name:
                 self.import_collector.add_import(module=logical_module, name=name)
             else:
@@ -201,7 +186,6 @@ class RenderContext:
             # First, check if it's a direct self-import of the full logical path.
             current_full_module_path = self.get_current_module_dot_path()
             if current_full_module_path == logical_module:
-                # logger.debug(f"[add_import] Direct self-import skipped: {logical_module}.{name if name else ''}")
                 return  # Skip if it's a direct self-import
 
             # Determine module path relative to current generated package root
@@ -230,7 +214,6 @@ class RenderContext:
                 return
 
         # 6. Default: External library, add as absolute.
-        # logger.debug(f"[add_import] External library import: from {logical_module} import {name}")
         if name:
             self.import_collector.add_import(module=logical_module, name=name)
         else:
@@ -285,34 +268,19 @@ class RenderContext:
         Args:
             type_str: The type string to parse for typing imports
         """
-        logger.debug(f"[RenderContext.add_typing_imports_for_type] START - Processing type_str: '{type_str}'")
-
         # Handle datetime.date and datetime.datetime explicitly
         # Regex to find "datetime.date" or "datetime.datetime" as whole words
         datetime_specific_matches = re.findall(r"\b(datetime\.(?:date|datetime))\b", type_str)
-        logger.debug(
-            f"[RenderContext.add_typing_imports_for_type] Value of datetime_specific_matches: {datetime_specific_matches} for type_str: '{type_str}'"
-        )
         for dt_match in datetime_specific_matches:
             module_name, class_name = dt_match.split(".")
-            logger.debug(
-                f"[RenderContext.add_typing_imports_for_type] Found datetime specific match: module='{module_name}', class='{class_name}'. Adding import."
-            )
             self.add_import(module_name, class_name, is_typing_import=False)
 
         # Remove datetime.xxx parts to avoid matching 'date' or 'datetime' as typing members
         type_str_for_typing_search = re.sub(r"\bdatetime\.(?:date|datetime)\b", "", type_str)
-        logger.debug(
-            f"[RenderContext.add_typing_imports_for_type] type_str_for_typing_search: '{type_str_for_typing_search}'"
-        )
 
         # General regex for other potential typing names (words)
         all_words_in_type_str = re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)\b", type_str_for_typing_search)
-        logger.debug(f"[RenderContext.add_typing_imports_for_type] Raw words found by regex: {all_words_in_type_str}")
         potential_typing_names = set(all_words_in_type_str)
-        logger.debug(
-            f"[RenderContext.add_typing_imports_for_type] Potential typing names (after set conversion): {potential_typing_names}"
-        )
 
         known_typing_constructs = {
             "List",
@@ -359,9 +327,6 @@ class RenderContext:
         actually_added_typing = set()
         for name in potential_typing_names:
             if name in known_typing_constructs:
-                logger.debug(
-                    f"[RenderContext.add_typing_imports_for_type] Found known typing construct: '{name}'. Adding import 'typing.{name}'."
-                )
                 self.add_import("typing", name, is_typing_import=True)
                 actually_added_typing.add(name)
             elif (
@@ -383,11 +348,7 @@ class RenderContext:
                 # If `datetime_specific_matches` was `['datetime.date', 'datetime.datetime']`, then `name` ("datetime") is not in it.
                 # This means the condition would be true for a standalone "datetime" word.
                 # This seems to be the intended logic: if "datetime" is found alone, and it wasn't part of the specific patterns, log it.
-                logger.debug(
-                    f"[RenderContext.add_typing_imports_for_type] Found standalone 'datetime' (word: '{name}'), not in known_typing_constructs and was not part of specific datetime.X match patterns ({datetime_specific_matches}). Skipping."
-                )
-
-        logger.debug(f"[RenderContext.add_typing_imports_for_type] END - Finished processing type_str: '{type_str}'")
+                pass  # Was a logger.debug, now removed
 
     def add_plain_import(self, module: str) -> None:
         """Add a plain import statement (e.g., `import os`)."""
@@ -415,20 +376,14 @@ class RenderContext:
             The relative import string (e.g., ".sibling", "..models.user"), or None if a relative path
             cannot be determined (e.g., context not fully set, or target is current file).
         """
-        # logger.debug(
-        #     f"[CalculateRelativePath_vOldLogic] Current: {self.current_file}, PkgRoot: {self.package_root_for_generated_code}, TargetRelToPkg: {target_logical_module_relative_to_gen_pkg_root}"
-        # )
-
         if not self.current_file or not self.package_root_for_generated_code:
-            # logger.debug("[CalculateRelativePath_vOldLogic] Context not fully set.")
             return None
 
         try:
             current_file_abs = os.path.abspath(self.current_file)
             package_root_abs = os.path.abspath(self.package_root_for_generated_code)
             current_dir_abs = os.path.dirname(current_file_abs)
-        except Exception as e:
-            # logger.error(f"[CalculateRelativePath_vOldLogic] Error making paths absolute: {e}")
+        except Exception:  # Was error logging here
             return None
 
         target_parts = target_logical_module_relative_to_gen_pkg_root.split(".")
@@ -443,36 +398,21 @@ class RenderContext:
         if os.path.isdir(target_as_dir_abs):
             target_abs_path = target_as_dir_abs
             is_target_package = True
-            # logger.debug(
-            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' is a directory."
-            # )
         elif os.path.isfile(target_as_file_abs):
             target_abs_path = target_as_file_abs
             is_target_package = False
-            # logger.debug(
-            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' is a file."
-            # )
         else:
             # Target does not exist. Assume it WILL be a .py module for path calculation.
-            # logger.debug(
-            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' does not exist. Assuming it will be a .py module for path calculation."
-            # )
             target_abs_path = target_as_file_abs
             is_target_package = False  # Assume it's a module if it doesn't exist
 
         # Self-import check: if the resolved target_abs_path is the same as the current_file_abs.
         if current_file_abs == target_abs_path:
-            # logger.debug(
-            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' resolved to current file. Skipping relative import (self-import)."
-            # )
             return None
 
         try:
             relative_file_path = os.path.relpath(target_abs_path, start=current_dir_abs)
-        except ValueError:
-            # logger.warning(
-            #     f"[CalculateRelativePath_vOldLogic] Could not determine relpath between '{current_dir_abs}' and '{target_abs_path}'. Defaulting to no relative path."
-            # )
+        except ValueError:  # Was warning logging here
             return None
 
         # If the target is a module file (not a package/directory), and the relative path ends with .py, remove it.
@@ -528,10 +468,6 @@ class RenderContext:
             # or `from . import bar`
             final_relative_path = leading_dots_str
 
-        # logger.debug(
-        #     f"[CalculateRelativePath_vOldLogic] CurrentDir: {current_dir_abs}, TargetAbs: {target_abs_path}, RelFilePath: {relative_file_path}, Level: {level}, Suffix: '{module_name_suffix}', FinalRelPath: '{final_relative_path}'"
-        # )
-
         return final_relative_path
 
     def get_current_package_name_for_generated_code(self) -> str | None:
@@ -571,8 +507,4 @@ class RenderContext:
             return ".".join(module_parts)
 
         except ValueError:  # If current_file is not under overall_project_root
-            logger.error(
-                f"[get_current_module_dot_path] Could not determine module path. "
-                f"current_file '{self.current_file}' may not be under overall_project_root '{self.overall_project_root}'."
-            )
             return None

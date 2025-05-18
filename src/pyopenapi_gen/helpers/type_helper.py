@@ -3,6 +3,7 @@
 import logging
 import os
 from typing import Dict, Optional, Set
+from collections import defaultdict
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -135,10 +136,6 @@ class TypeHelper:
                 if parent_schema_name in circular_refs and schema_ref_name in circular_refs:
                     # This is a circular reference!
                     is_circular = True
-                    logger.debug(
-                        f"Circular reference detected! Parent schema: {parent_schema_name}, "
-                        f"Referenced schema: {schema_ref_name}"
-                    )
 
             # Process the reference according to whether it's circular or not
             target_schema_name_for_import = schema.type
@@ -168,18 +165,17 @@ class TypeHelper:
             is_self_import = current_module_dot_path == model_module_path
 
             if is_self_import:
-                logger.debug(
-                    f"[TypeHelper] Skipping import for '{class_name_to_import}' from '{model_module_path}' "
-                    f"as it is the current file/module being generated."
-                )
+                pass  # Explicitly do nothing, was a log statement
             else:  # Not a self-import
                 if is_circular:
-                    logger.debug(
-                        f"[TypeHelper] Adding conditional import for circular reference: "
-                        f"'{class_name_to_import}' from '{model_module_path}'"
-                    )
                     context.add_import("typing", "TYPE_CHECKING")  # Ensure TYPE_CHECKING is imported
-                    context.add_conditional_import("TYPE_CHECKING", model_module_path, class_name_to_import)
+                    # Properly add to the conditional_imports dictionary
+                    if "TYPE_CHECKING" not in context.conditional_imports:
+                        context.conditional_imports["TYPE_CHECKING"] = defaultdict(set)
+                    # Ensure the module key exists for the condition
+                    if model_module_path not in context.conditional_imports["TYPE_CHECKING"]:
+                        context.conditional_imports["TYPE_CHECKING"][model_module_path] = set()
+                    context.conditional_imports["TYPE_CHECKING"][model_module_path].add(class_name_to_import)
                 else:
                     # Add a normal import if it's not circular and not a self-import
                     context.add_import(model_module_path, class_name_to_import)

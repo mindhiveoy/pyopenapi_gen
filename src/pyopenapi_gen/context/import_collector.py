@@ -158,10 +158,6 @@ class ImportCollector:
 
     def reset(self) -> None:
         """Reset the collector to its initial empty state."""
-        # Use ERROR level for reset to make it highly visible in logs if it's unexpected
-        logger.error(
-            f"[ImportCollector.reset] RESETTING ImportCollector. Current imports: {self.imports}, relative_imports: {self.relative_imports}, plain_imports: {self.plain_imports}"
-        )
         self.imports.clear()
         self.relative_imports.clear()
         self.plain_imports.clear()
@@ -188,26 +184,14 @@ class ImportCollector:
             module: The module to import from (e.g., "typing")
             name: The name to import (e.g., "List")
         """
-        logger.debug(
-            f"[ImportCollector.add_import] Called with: module='{module}', name='{name}'. Current self.imports: {self.imports}"
-        )
         # If module and name are the same, and it's a stdlib module
         # that typically uses plain import style (e.g., "import os").
         if module == name and module in STDLIB_MODULES_PREFER_PLAIN_IMPORT_WHEN_NAME_MATCHES:
-            logger.debug(
-                f"[ImportCollector.add_import] Treating '{module}' as plain import due to matching name and stdlib rule."
-            )
             self.add_plain_import(module)
         else:
             if module not in self.imports:
-                logger.debug(
-                    f"[ImportCollector.add_import] Module '{module}' not in self.imports. Initializing new set for it."
-                )
                 self.imports[module] = set()
             self.imports[module].add(name)
-            logger.debug(
-                f"[ImportCollector.add_import] Added '{name}' to self.imports['{module}']. New set for module: {self.imports[module]}. All self.imports: {self.imports}"
-            )
 
     def add_imports(self, module: str, names: List[str]) -> None:
         """
