@@ -70,7 +70,11 @@ testpaths = ["tests"]
 pythonpath = "src"
 python_files = ["test_*.py"]
 python_functions = ["test_"]
-
+# For details on registering custom marks, see:
+# https://docs.pytest.org/en/stable/how-to/mark.html
+markers = [
+    "timeout: specify a timeout for a test function (integration with pytest-timeout).",
+]
 
 [tool.poetry.group.dev.dependencies]
 pytest-xdist = "^3.6.1"

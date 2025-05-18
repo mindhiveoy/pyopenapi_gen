@@ -236,3 +236,87 @@ def test_generate_client__shared_core_client_in_subdir__correct_paths_and_import
     assert (core_package_dir / "exception_aliases.py").exists(), "Core exception_aliases.py missing"
 
     run_mypy_on_generated_project(project_root, [client_package_str, core_package_str])
+
+
+@pytest.mark.timeout(TEST_TIMEOUT_SEC)
+def test_generate_client__core_in_custom_project_subdir__correct_imports(tmp_path: Path, dummy_spec_path: Path) -> None:
+    """Scenario: Core and Client are in custom subdirectories of a common project root.
+    Client imports core using the core's full custom package path.
+    e.g. project_root/api_sdks/my_core and project_root/generated_clients/my_client
+    Client should import from api_sdks.my_core
+    """
+    project_root = tmp_path
+
+    # Define package paths as strings (what the generator will use for Python package names)
+    core_package_full_python_path = "api_sdks.my_company_standard_core"
+    client_package_full_python_path = "generated_clients.acme_service_client"
+
+    # Determine actual disk paths from these Python paths relative to project_root
+    # core_package_disk_path = project_root / Path(*core_package_full_python_path.split('.'))
+    # client_package_disk_path = project_root / Path(*client_package_full_python_path.split('.'))
+
+    # The ClientGenerator expects output_package and core_package to be interpretable
+    # as either direct directory names or dot-separated paths that it will create
+    # under project_root. So, the actual paths will be based on these.
+    core_package_actual_dir = project_root / core_package_full_python_path.replace(".", "/")
+    client_package_actual_dir = project_root / client_package_full_python_path.replace(".", "/")
+
+    # 1. Emit Core Package using CoreEmitter
+    # core_package for CoreEmitter is the Python import name of the package it's creating.
+    core_emitter_instance = CoreEmitter(core_dir=".", core_package=core_package_full_python_path)
+    # package_output_dir is the directory *where* this core package will be placed.
+    core_emitter_instance.emit(package_output_dir=str(core_package_actual_dir))
+
+    # 2. Emit Client Package using ClientGenerator
+    client_generator = ClientGenerator()
+    client_generator.generate(
+        spec_path=str(dummy_spec_path),
+        project_root=project_root,  # The common root
+        output_package=client_package_full_python_path,  # e.g. generated_clients.acme_service_client
+        core_package=core_package_full_python_path,  # e.g. api_sdks.my_company_standard_core
+        force=True,
+        no_postprocess=True,
+    )
+
+    # Assertions
+    assert core_package_actual_dir.is_dir(), f"Core package directory {core_package_actual_dir} not found."
+    assert (core_package_actual_dir / "py.typed").exists(), "Core py.typed missing"
+    assert (core_package_actual_dir / "__init__.py").exists(), "Core __init__.py missing"
+    assert (core_package_actual_dir / "http_transport.py").exists(), "Core http_transport.py missing"
+
+    assert client_package_actual_dir.is_dir(), f"Client package directory {client_package_actual_dir} not found."
+    assert (client_package_actual_dir / "py.typed").exists(), "Client py.typed missing"
+    assert (client_package_actual_dir / "__init__.py").exists(), "Client __init__.py missing"
+    assert (client_package_actual_dir / "client.py").exists(), "Client client.py missing"
+
+    # Check imports in client's __init__.py
+    client_init_content = (client_package_actual_dir / "__init__.py").read_text()
+    expected_auth_import = f"from {core_package_full_python_path}.auth import BaseAuth"
+    expected_config_import = f"from {core_package_full_python_path}.config import ClientConfig"
+    assert expected_auth_import in client_init_content, f"Client __init__.py missing import: {expected_auth_import}"
+    assert expected_config_import in client_init_content, f"Client __init__.py missing import: {expected_config_import}"
+
+    # Check imports in client's client.py
+    main_client_content = (client_package_actual_dir / "client.py").read_text()
+    expected_http_import = f"from {core_package_full_python_path}.http_transport import HttpTransport"
+    assert expected_http_import in main_client_content, f"Client client.py missing import: {expected_http_import}"
+    # Client's own relative import for its endpoints
+    # The endpoint module name depends on the client package name structure.
+    # If client_package_full_python_path is 'generated_clients.acme_service_client',
+    # then endpoint imports are like 'from .endpoints.default import DefaultClient'
+    assert "from .endpoints.default import DefaultClient" in main_client_content, (
+        "Client client.py missing relative endpoint import."
+    )
+
+    # Run Mypy
+    # The packages_to_check for Mypy should be the top-level directories created in project_root
+    # that act as Python packages. In this case, 'api_sdks' and 'generated_clients'.
+    # Mypy will then find the submodules like my_company_standard_core and acme_service_client.
+    mypy_packages_to_check = [
+        core_package_full_python_path.split(".")[0],  # e.g., 'api_sdks'
+        client_package_full_python_path.split(".")[0],  # e.g., 'generated_clients'
+    ]
+    # Remove duplicates if top-level paths are the same (not in this specific test case)
+    mypy_packages_to_check = sorted(list(set(mypy_packages_to_check)))
+
+    run_mypy_on_generated_project(project_root, mypy_packages_to_check)

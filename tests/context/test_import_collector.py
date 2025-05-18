@@ -709,8 +709,14 @@ class TestImportCollector:
         collector.add_relative_import(".sibling_module", "SiblingClass")
         collector.add_relative_import("..parent_package_module", "ParentClass")
 
+        # Set context before calling get_import_statements
+        collector.set_current_file_context_for_rendering(
+            current_module_dot_path=current_module,
+            package_root=None,  # Not strictly needed for this test focusing on explicit relatives
+            core_package_name_for_absolute_treatment=None,  # Not strictly needed
+        )
         # Act
-        statements = collector.get_import_statements(current_module_dot_path=current_module)
+        statements = collector.get_import_statements()
 
         # Assert
         # Explicit relative imports are added after standard imports and sorted.

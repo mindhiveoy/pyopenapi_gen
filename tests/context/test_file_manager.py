@@ -22,14 +22,14 @@ def test_ensure_dir__creates_directory_when_missing() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a non-existent directory path
         new_dir = os.path.join(temp_dir, "new_dir")
-        
+
         # Ensure the directory doesn't exist yet
         assert not os.path.exists(new_dir)
-        
+
         # Call ensure_dir
         manager = FileManager()
         manager.ensure_dir(new_dir)
-        
+
         # Verify directory was created
         assert os.path.exists(new_dir)
         assert os.path.isdir(new_dir)
@@ -45,11 +45,11 @@ def test_ensure_dir__succeeds_with_existing_directory() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         # Directory already exists
         assert os.path.exists(temp_dir)
-        
+
         # Call ensure_dir
         manager = FileManager()
         manager.ensure_dir(temp_dir)
-        
+
         # Verify directory still exists
         assert os.path.exists(temp_dir)
         assert os.path.isdir(temp_dir)
@@ -65,14 +65,14 @@ def test_ensure_dir__creates_nested_directories() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a nested directory path
         nested_dir = os.path.join(temp_dir, "level1", "level2", "level3")
-        
+
         # Ensure the directories don't exist yet
         assert not os.path.exists(os.path.join(temp_dir, "level1"))
-        
+
         # Call ensure_dir
         manager = FileManager()
         manager.ensure_dir(nested_dir)
-        
+
         # Verify all nested directories were created
         assert os.path.exists(nested_dir)
         assert os.path.isdir(nested_dir)
@@ -98,7 +98,7 @@ def test_write_file__creates_file_with_content() -> None:
         # Mock only the debug log write to /tmp
         original_open = open
 
-        def side_effect(filename, mode='r', *args, **kwargs):
+        def side_effect(filename, mode="r", *args, **kwargs):
             if filename == "/tmp/pyopenapi_gen_file_write_debug.log":
                 return mock_open()(filename, mode, *args, **kwargs)
             return original_open(filename, mode, *args, **kwargs)
@@ -107,7 +107,7 @@ def test_write_file__creates_file_with_content() -> None:
             manager.write_file(file_path, content)
 
             # Verify file was created with expected content
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 assert f.read() == content
 
 
@@ -138,7 +138,7 @@ def test_write_file__overwrites_existing_file() -> None:
         # Mock only the debug log write to /tmp
         original_open = open
 
-        def side_effect(filename, mode='r', *args, **kwargs):
+        def side_effect(filename, mode="r", *args, **kwargs):
             if filename == "/tmp/pyopenapi_gen_file_write_debug.log":
                 return mock_open()(filename, mode, *args, **kwargs)
             return original_open(filename, mode, *args, **kwargs)
@@ -147,7 +147,7 @@ def test_write_file__overwrites_existing_file() -> None:
             manager.write_file(file_path, new_content)
 
             # Verify file was overwritten with new content
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 assert f.read() == new_content
 
 
@@ -162,19 +162,19 @@ def test_write_file__creates_parent_directories() -> None:
         # Create a file path with non-existent parent directories
         nested_file_path = os.path.join(temp_dir, "nested", "dirs", "test_file.txt")
         content = "Test content"
-        
+
         # Ensure parent directories don't exist yet
         parent_dir = os.path.dirname(nested_file_path)
         assert not os.path.exists(parent_dir)
-        
+
         # Mock directory creation to verify it's called
-        with patch.object(FileManager, 'ensure_dir') as mock_ensure_dir:
+        with patch.object(FileManager, "ensure_dir") as mock_ensure_dir:
             manager = FileManager()
-            
+
             # Also mock file writing to avoid actual IO
             with patch("builtins.open", mock_open()):
                 manager.write_file(nested_file_path, content)
-                
+
                 # Verify ensure_dir was called with parent directory path
                 mock_ensure_dir.assert_called_once_with(parent_dir)
 

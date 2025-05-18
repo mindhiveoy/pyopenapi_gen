@@ -2,7 +2,6 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-import shutil
 
 import yaml
 
@@ -25,7 +24,7 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     """
     # Configure logging to capture DEBUG from specific modules
     logging.basicConfig(level=logging.WARNING)  # Default for others
-    logging.getLogger("pyopenapi_gen").setLevel(logging.DEBUG)  # Capture all logs from the package
+    logging.getLogger("pyopenapi_gen").setLevel(logging.WARNING)  # Changed from DEBUG to WARNING
 
     # Arrange
     # Correctly locate spec_source relative to the project root
@@ -101,11 +100,9 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     # +++ DEBUG: Read and print a generated endpoint file +++
     users_endpoint_file = endpoints_dir / "users.py"
     if users_endpoint_file.exists():
-        print(f"\n--- DEBUG: Content of {users_endpoint_file} BEFORE mypy ---\n")
-        print(users_endpoint_file.read_text())
-        print("\n--- END DEBUG Content ---\n")
+        pass  # Keep structure, remove prints
     else:
-        print(f"\n--- DEBUG: {users_endpoint_file} does not exist BEFORE mypy ---\n")
+        pass  # Keep structure, remove prints
     # +++ END DEBUG +++
 
     # Run mypy on the generated code to ensure type correctness
@@ -123,8 +120,8 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     mypy_output_filename = test_outputs_dir / "mypy_business_swagger_errors.txt"
 
     mypy_command = ["mypy", "--strict"] + packages_to_check
-    print(f"DEBUG: Running mypy command: {' '.join(mypy_command)} from cwd: {out_dir.parent}")
-    print(f"DEBUG: PYTHONPATH for mypy: {env.get('PYTHONPATH')}")
+    # print(f"DEBUG: Running mypy command: {' '.join(mypy_command)} from cwd: {out_dir.parent}")
+    # print(f"DEBUG: PYTHONPATH for mypy: {env.get('PYTHONPATH')}")
 
     # Run mypy capturing output to stdout/stderr attributes of the result object
     mypy_result = subprocess.run(
@@ -135,34 +132,25 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         cwd=out_dir.parent,  # text=False to handle bytes manually
     )
 
-    # --- START ADDED FOR DEBUG ---
-    final_output_dir_for_inspection = project_root_dir / "test_outputs" / "latest_generated_client"
-    destination_path = final_output_dir_for_inspection / output_package  # output_package is 'out'
-    if destination_path.exists():  # Check existence of the destination 'out' folder
-        shutil.rmtree(destination_path)
-    # Ensure the parent 'latest_generated_client' directory exists
-    final_output_dir_for_inspection.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(out_dir, destination_path)  # out_dir is tmp_path / "out"
-
     # ---- RE-OBTAIN LOGGER ----
     current_logger = logging.getLogger("pyopenapi_gen")  # Or use a more specific name if preferred
-    current_logger.critical(f"DEBUG: Copied generated files from {out_dir} to {destination_path}")
+    # current_logger.critical(f"DEBUG: Copied generated files from {out_dir} to {destination_path}")
 
     # ---- START NEW LOGGING FOR COPIED DIR CONTENTS ----
-    current_logger.critical(f"--- Contents of copied directory: {destination_path} ---")
-    for root, dirs, files in os.walk(destination_path):
-        for name in files:
-            current_logger.critical(os.path.join(root, name))
-        for name in dirs:
-            current_logger.critical(os.path.join(root, name) + "/")  # Add slash for dirs
-    current_logger.critical(f"--- End of contents for: {destination_path} ---")
+    # current_logger.critical(f"--- Contents of copied directory: {destination_path} ---")
+    # for root, dirs, files in os.walk(destination_path):
+    #     for name in files:
+    #         current_logger.critical(os.path.join(root, name))
+    #     for name in dirs:
+    #         current_logger.critical(os.path.join(root, name) + "/")  # Add slash for dirs
+    # current_logger.critical(f"--- End of contents for: {destination_path} ---")
     # ---- END NEW LOGGING FOR COPIED DIR CONTENTS ----
 
     # Initialize with placeholder for mypy_output_content
     mypy_output_content = "Mypy did not run or produce output."
 
     if mypy_result.returncode != 0:
-        print(f"DEBUG: mypy_result object: {mypy_result}")
+        # print(f"DEBUG: mypy_result object: {mypy_result}")
 
         # Decode stdout and stderr, then combine for full output
         mypy_stdout_decoded = (

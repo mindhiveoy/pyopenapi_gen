@@ -38,7 +38,6 @@ class TypeCleaner:
         Returns:
             A cleaned type string
         """
-        # logger.critical(f">>> clean_type_parameters INPUT: '{type_str}' (repr: {repr(type_str)}) ") # DEBUG
         # If the string is empty or doesn't contain brackets, return as is
         if not type_str or "[" not in type_str:
             return type_str
@@ -57,13 +56,10 @@ class TypeCleaner:
         if container == "Union":
             return cls._clean_union_type(type_str)
         elif container == "List":
-            # logger.critical(f">>> clean_type_parameters dispatching to _clean_list_type with: '{type_str}'") # DEBUG
             return cls._clean_list_type(type_str)
         elif container == "Dict":
-            # logger.critical(f">>> clean_type_parameters dispatching to _clean_dict_type with: '{type_str}'") # DEBUG
             return cls._clean_dict_type(type_str)
         elif container == "Optional":
-            # logger.critical(f">>> clean_type_parameters dispatching to _clean_optional_type with: '{type_str}'") # DEBUG
             return cls._clean_optional_type(type_str)
         else:
             # For unrecognized containers, return as is

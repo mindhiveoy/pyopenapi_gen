@@ -30,26 +30,6 @@ class NamedTypeResolver:
         Returns:
             A Python type string for the resolved schema, e.g., "MyModel", "Optional[MyModel]".
         """
-        # ==== TARGETED LOGGING START ====
-        log_trigger_ntr = False
-        schema_name_str = schema.name if schema and schema.name else ""
-
-        if "embedding" in schema_name_str.lower():
-            log_trigger_ntr = True
-
-        if log_trigger_ntr:
-            logger.critical(f"[NTR_TARGET_LOG] NamedTypeResolver.resolve ENTRY:")
-            logger.critical(
-                f"  schema.name: {schema_name_str}, schema.is_nullable: {schema.is_nullable if schema else 'N/A'}"
-            )
-            schema_dict_str = schema.to_dict() if schema and hasattr(schema, "to_dict") else "N/A"
-            logger.critical(f"  schema_details: {schema_dict_str}")
-            logger.critical(f"  self.context.current_file: {self.context.current_file}")
-        # ==== TARGETED LOGGING END ====
-
-        logger.debug(
-            f"[NamedTypeResolver ID:{id(schema)}] Entry: schema.name='{schema.name}', type='{schema.type}', schema.name in all_schemas: {schema.name in self.all_schemas if schema.name else False}"
-        )
 
         if schema.name and schema.name in self.all_schemas:
             # This schema is a REFERENCE to a globally defined schema (e.g., in components/schemas)
@@ -62,42 +42,16 @@ class NamedTypeResolver:
                 f"{self.context.get_current_package_name_for_generated_code()}.models.{module_name_for_ref}"
             )
 
-            # ==== VECTOR_DATABASE DETAILED TRACE LOGGING START ====
-            if schema.name and schema.name.lower() == "vectordatabase":
-                is_structurally_alias_like_check = not (
-                    ref_schema.properties
-                    or ref_schema.enum
-                    or ref_schema.any_of
-                    or ref_schema.one_of
-                    or ref_schema.all_of
-                )
-                logger.error(
-                    f"[NTR_VD_DETAIL_TRACE] schema.name='{schema.name}', ref_schema.name='{ref_schema.name}', "
-                    f"resolve_alias_target={resolve_alias_target}, ref_schema.enum_is_not_none={ref_schema.enum is not None}, "
-                    f"is_structurally_alias_like_check={is_structurally_alias_like_check}, "
-                    f"ref_schema.properties is None: {ref_schema.properties is None}, "
-                    f"ref_schema.type: {ref_schema.type}"
-                )
-            # ==== VECTOR_DATABASE DETAILED TRACE LOGGING END ====
-
             if not resolve_alias_target:
                 # For type hinting (default case), always use the referenced schema's own name
                 # and ensure it's imported. This applies to direct model usage, enums,
                 # or aliases (e.g. MyObjectAlias, MyArrayAlias, MyStringAlias).
-                logger.debug(
-                    f"[NamedTypeResolver] REF to '{schema.name}' (actual def: '{ref_schema.name}'). "
-                    f"Not resolving target. Returning its name: '{class_name_for_ref}'. "
-                    f"Import from: '{model_module_path_for_ref}'."
-                )
+
                 self.context.add_import(logical_module=model_module_path_for_ref, name=class_name_for_ref)
                 return class_name_for_ref
             else:
                 # self.resolve_alias_target is TRUE. We are trying to find the *actual underlying type*
                 # of 'ref_schema' for use in an alias definition (e.g., MyStringAlias: TypeAlias = str).
-                logger.debug(
-                    f"[NamedTypeResolver] REF to '{schema.name}' (actual def: '{ref_schema.name}'). "
-                    f"RESOLVING TARGET (resolve_alias_target=True)."
-                )
                 # Check if ref_schema is structurally a simple alias (no properties, enum, composition)
                 is_structurally_simple_alias = not (
                     ref_schema.properties
@@ -120,10 +74,7 @@ class NamedTypeResolver:
                     # This is a bit of a workaround for not having direct access to other resolvers here.
                     # A better design might involve passing the main SchemaTypeResolver instance.
                     # For now, returning None effectively tells TypeHelper to do this.
-                    logger.debug(
-                        f"[NamedTypeResolver] REF target resolve: '{ref_schema.name}' is structurally a simple alias "
-                        f"to type '{ref_schema.type}'. Deferring to structural resolution for its target by returning None."
-                    )
+
                     return None  # Signal to TypeHelper to resolve ref_schema structurally.
                 else:
                     # ref_schema is NOT structurally alias-like (e.g., it's a full object schema).
@@ -133,10 +84,7 @@ class NamedTypeResolver:
                     # The AliasGenerator will then generate "MyDataAlias: TypeAlias = DataObject".
                     # It needs "DataObject" as the string.
                     # The import for DataObject will be handled by TypeHelper when generating that alias file itself, using the regular non-alias-target path.
-                    logger.debug(
-                        f"[NamedTypeResolver] resolve_alias_target=True, ref_schema '{ref_schema.name}' "
-                        f"is NOT structurally_alias_like. Returning its class name for AliasGenerator: {class_name_for_ref}"
-                    )
+
                     # Simplified and very specific trace for VectorDatabase import path
                     if ref_schema.name and ref_schema.name.lower() == "vectordatabase":
                         logger.error(
@@ -178,7 +126,5 @@ class NamedTypeResolver:
             # Not a reference to a known schema, and not an inline enum.
             # This could be an anonymous complex type, or an unresolved reference.
             # Defer to other resolvers by returning None.
-            logger.debug(
-                f"[NamedTypeResolver] Schema '{schema.name or 'anonymous'}' is not a known ref and not an inline enum. Returning None to defer."
-            )
+
             return None

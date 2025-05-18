@@ -204,11 +204,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
             "    data_source: Optional[DataSource]", generated_code
         )  # Sanitized (was already snake_case like)
 
-        generated_imports = context.import_collector.get_import_statements(
-            current_module_dot_path=context.get_current_module_dot_path(),
-            package_root=context.package_root_for_generated_code,
-            core_package_name_for_absolute_treatment=context.core_package_name,
-        )
+        generated_imports = context.import_collector.get_import_statements()
 
         typing_import_found = any(
             ("from typing import Optional, Dict, Any" in imp)
@@ -251,11 +247,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
 
         # Act
         generated_code = visitor.visit_IRSchema(alias_schema, context)
-        generated_imports = context.import_collector.get_import_statements(
-            current_module_dot_path=context.get_current_module_dot_path(),
-            package_root=context.package_root_for_generated_code,
-            core_package_name_for_absolute_treatment=context.core_package_name,
-        )
+        generated_imports = context.import_collector.get_import_statements()
 
         # Assert
         # Check for the alias definition
@@ -524,7 +516,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         generated_code = visitor.visit_IRSchema(array_schema, context)
 
         # Assert
-        # print(f"\\nGenerated Array Dataclass Code:\\n{generated_code}") # For debugging
+        # print(f"\nGenerated Array Dataclass Code:\\n{generated_code}") # For debugging
 
         self.assertIn("@dataclass", generated_code, f"Expected @dataclass for array wrapper. Got:\n{generated_code}")
         self.assertIn("class MyListWrapper:", generated_code)

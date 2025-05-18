@@ -136,10 +136,10 @@ class EndpointsEmitter:
                 new_op_id = f"{op.operation_id}_{seen_methods[method_name]}"
 
                 # Log a warning about the duplicate
-                logger.warning(
-                    f"Duplicate operation ID detected: '{op.operation_id}' (sanitized to '{method_name}'). "
-                    f"Renaming to '{new_op_id}'"
-                )
+                # logger.warning(
+                #     f"Duplicate operation ID detected: '{op.operation_id}' (sanitized to '{method_name}'). "
+                #     f"Renaming to '{new_op_id}'"
+                # )
 
                 # Update the operation ID
                 op.operation_id = new_op_id

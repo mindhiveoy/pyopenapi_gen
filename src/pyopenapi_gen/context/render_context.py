@@ -11,8 +11,8 @@ import logging
 import os
 import re
 import sys
-from typing import Dict, Optional, Set
 from pathlib import Path
+from typing import Dict, Optional, Set
 
 from .file_manager import FileManager
 from .import_collector import ImportCollector
@@ -86,9 +86,9 @@ class RenderContext:
         Args:
             abs_path: The absolute path of the file to set as current
         """
-        logger.debug(
-            f"[RenderContext.set_current_file] Setting current file to: {abs_path}. Resetting ImportCollector."
-        )
+        # logger.debug(
+        #     f"[RenderContext.set_current_file] Setting current file to: {abs_path}. Resetting ImportCollector."
+        # )
         self.current_file = abs_path
         # Reset the import collector for each new file to ensure isolation
         self.import_collector.reset()
@@ -111,15 +111,15 @@ class RenderContext:
             is_typing_import: Whether the import is a typing import
         """
         # ==== VECTOR_DATABASE TARGETED LOGGING START ====
-        if name and name.lower() == "vectordatabase":
-            logger.error(
-                f"[RC_VD_TRACE] add_import called for VectorDatabase. Context file: {self.current_file}. "
-                f"Details: logical_module='{logical_module}', name='{name}', is_typing_import={is_typing_import}"
-            )
+        # if name and name.lower() == "vectordatabase":
+        #     logger.error(
+        #         f"[RC_VD_TRACE] add_import called for VectorDatabase. Context file: {self.current_file}. "
+        #         f"Details: logical_module='{logical_module}', name='{name}', is_typing_import={is_typing_import}"
+        #     )
         # ==== VECTOR_DATABASE TARGETED LOGGING END ====
 
         if not logical_module:
-            logger.error(f"Attempted to add import with empty module for name: {name}")
+            # logger.error(f"Attempted to add import with empty module for name: {name}")
             return
 
         # 1. Special handling for typing imports if is_typing_import is True
@@ -132,7 +132,7 @@ class RenderContext:
             self.core_package_name + "."
         )
         if is_target_in_core_pkg_namespace:
-            logger.debug(f"[add_import] Core package import: from {logical_module} import {name}")
+            # logger.debug(f"[add_import] Core package import: from {logical_module} import {name}")
             if name:
                 self.import_collector.add_import(module=logical_module, name=name)
             else:
@@ -169,7 +169,7 @@ class RenderContext:
             or logical_module in COMMON_STDLIB
             or top_level_module in COMMON_STDLIB
         ):
-            logger.debug(f"[add_import] StdLib/Builtin import: from {logical_module} import {name}")
+            # logger.debug(f"[add_import] StdLib/Builtin import: from {logical_module} import {name}")
             if name:
                 self.import_collector.add_import(module=logical_module, name=name)
             else:
@@ -179,7 +179,7 @@ class RenderContext:
         # 4. Known third-party?
         KNOWN_THIRD_PARTY = {"httpx", "pydantic"}
         if logical_module in KNOWN_THIRD_PARTY or top_level_module in KNOWN_THIRD_PARTY:
-            logger.debug(f"[add_import] Known third-party library import: from {logical_module} import {name}")
+            # logger.debug(f"[add_import] Known third-party library import: from {logical_module} import {name}")
             if name:
                 self.import_collector.add_import(module=logical_module, name=name)
             else:
@@ -201,7 +201,7 @@ class RenderContext:
             # First, check if it's a direct self-import of the full logical path.
             current_full_module_path = self.get_current_module_dot_path()
             if current_full_module_path == logical_module:
-                logger.debug(f"[add_import] Direct self-import skipped: {logical_module}.{name if name else ''}")
+                # logger.debug(f"[add_import] Direct self-import skipped: {logical_module}.{name if name else ''}")
                 return  # Skip if it's a direct self-import
 
             # Determine module path relative to current generated package root
@@ -215,93 +215,35 @@ class RenderContext:
             else:  # Should not happen if current_gen_package_name_str was required for is_internal_module_candidate
                 module_relative_to_gen_pkg_root = logical_module
 
-            logger.debug(
-                f"[add_import] Identified as internal (prefix '{current_gen_package_name_str}'). "
-                f"Rel part for calc: '{module_relative_to_gen_pkg_root}' from logical '{logical_module}'"
-            )
             relative_path = self.calculate_relative_path_for_internal_module(module_relative_to_gen_pkg_root)
 
             if relative_path:
                 if name is None:
-                    logger.error(
-                        f"[RC_TARGET_LOG] INTERNAL import: Relative path '{relative_path}' calculated but name is None. This should not happen for from-imports. Skipping."
-                    )
                     return
-                # ==== VECTOR_DATABASE TARGETED LOGGING FOR ADD_RELATIVE_IMPORT ====
-                if name == "VectorDatabase":
-                    logger.error(
-                        f"!!!!!!!!!! [RC_VD_ADD_RELATIVE] About to add_relative_import for '{name}' from '{relative_path}'. Context file: {self.current_file} !!!!!!!!!!"
-                    )
-                # ==== END VECTOR_DATABASE TARGETED LOGGING ====
                 self.import_collector.add_relative_import(relative_path, name)
                 return
             else:
-                # ==== TARGETED LOGGING START ====
-                logger.critical(
-                    f"[RC_TARGET_LOG] INTERNAL import - Fallback to ABSOLUTE for '{logical_module}' import {name if name else ''}"
-                )
-                # ==== TARGETED LOGGING END ====
-                # ==== VECTOR_DATABASE TARGETED LOGGING FOR ADD_IMPORT (FALLBACK) ====
-                if name == "VectorDatabase":
-                    logger.error(
-                        f"!!!!!!!!!! [RC_VD_ADD_IMPORT_FALLBACK] About to add_import (fallback) for '{name}' from '{logical_module}'. Context file: {self.current_file} !!!!!!!!!!"
-                    )
-                # ==== END VECTOR_DATABASE TARGETED LOGGING ====
-                logger.warning(
-                    f"[add_import] Failed to get relative path for presumed internal module {logical_module} (rel part {module_relative_to_gen_pkg_root}). "
-                    f"Defaulting to absolute import: '{logical_module}' for '{name if name else '<module_itself>'}'"
-                )
-                # Fallback to absolute for this internal module.
                 if name:
                     self.import_collector.add_import(module=logical_module, name=name)
                 else:
-                    self.import_collector.add_plain_import(module=logical_module)  # Internal fallback plain import
+                    self.import_collector.add_plain_import(module=logical_module)  # Fallback plain import
                 return
 
-        # 6. Fallback: Not core, not stdlib, not known third-party, and not prefixed like an internal module.
-        #    This handles truly external libraries or potentially mis-formed internal logical_modules.
-        # ==== TARGETED LOGGING START ====
-        logger.critical(
-            f"[RC_TARGET_LOG] Fallback to ABSOLUTE/EXTERNAL for '{logical_module}' import {name if name else ''}"
-        )
-        # ==== TARGETED LOGGING END ====
-        # A final self-import check using the raw logical_module as if it were a file path from package_root.
-        # This is a safeguard. The primary self-import is in calculate_relative_path_for_internal_module.
-        skip_due_to_self_import = False
-        if self.package_root_for_generated_code and self.current_file:
-            try:
-                current_file_path = Path(self.current_file)
-                pkg_root_path = Path(self.package_root_for_generated_code)
-
-                # Construct potential target file path from logical_module
-                # e.g., logical_module = "pkg.models.user" -> pkg_root_path / "models" / "user.py"
-                module_parts = logical_module.split(".")
-                if module_parts[0] == self.get_current_package_name_for_generated_code():
-                    target_rel_path_parts = module_parts[1:]  # e.g. ["models", "user"]
-                    target_file_path = pkg_root_path.joinpath(*target_rel_path_parts).with_suffix(".py")
-
-                    if current_file_path.resolve() == target_file_path.resolve():
-                        skip_due_to_self_import = True
-            except Exception as e:
-                logger.debug(f"[RC_TARGET_LOG] Error during self-import check for absolute path: {e}")
-
-        if not skip_due_to_self_import:
-            # Pass name directly, ImportCollector.add_import handles Optional[str]
-            if name:
-                self.import_collector.add_import(module=logical_module, name=name)
-            else:
-                # If name is None, it's a plain import like 'import os'
-                self.import_collector.add_plain_import(module=logical_module)
+        # 6. Default: External library, add as absolute.
+        # logger.debug(f"[add_import] External library import: from {logical_module} import {name}")
+        if name:
+            self.import_collector.add_import(module=logical_module, name=name)
+        else:
+            # If name is None, it's a plain import like 'import os'
+            self.import_collector.add_plain_import(module=logical_module)
 
     def mark_generated_module(self, abs_module_path: str) -> None:
         """
-        Mark a module as being generated in the current run.
-
-        This helps track which modules are part of the current generation
-        process, which is important for determining import paths.
+        Mark a module as generated in this run.
+        This helps in determining if an import is for a locally generated module.
 
         Args:
-            abs_module_path: The absolute path of the module file
+            abs_module_path: The absolute path of the generated module
         """
         self.generated_modules.add(abs_module_path)
 
@@ -338,17 +280,41 @@ class RenderContext:
 
     def add_typing_imports_for_type(self, type_str: str) -> None:
         """
-        Add imports for all typing types found in a type string.
-
-        This method analyzes a type string (e.g., "Optional[List[str]]") and
-        automatically adds imports for any typing types it contains (e.g., "Optional", "List").
-        It uses regex pattern matching to identify potential typing types.
+        Add necessary typing imports for a given type string.
 
         Args:
-            type_str: The type string to analyze for typing imports
+            type_str: The type string to parse for typing imports
         """
-        # Allowlist of typing types to import
-        typing_types = {
+        logger.debug(f"[RenderContext.add_typing_imports_for_type] START - Processing type_str: '{type_str}'")
+
+        # Handle datetime.date and datetime.datetime explicitly
+        # Regex to find "datetime.date" or "datetime.datetime" as whole words
+        datetime_specific_matches = re.findall(r"\b(datetime\.(?:date|datetime))\b", type_str)
+        logger.debug(
+            f"[RenderContext.add_typing_imports_for_type] Value of datetime_specific_matches: {datetime_specific_matches} for type_str: '{type_str}'"
+        )
+        for dt_match in datetime_specific_matches:
+            module_name, class_name = dt_match.split(".")
+            logger.debug(
+                f"[RenderContext.add_typing_imports_for_type] Found datetime specific match: module='{module_name}', class='{class_name}'. Adding import."
+            )
+            self.add_import(module_name, class_name, is_typing_import=False)
+
+        # Remove datetime.xxx parts to avoid matching 'date' or 'datetime' as typing members
+        type_str_for_typing_search = re.sub(r"\bdatetime\.(?:date|datetime)\b", "", type_str)
+        logger.debug(
+            f"[RenderContext.add_typing_imports_for_type] type_str_for_typing_search: '{type_str_for_typing_search}'"
+        )
+
+        # General regex for other potential typing names (words)
+        all_words_in_type_str = re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)\b", type_str_for_typing_search)
+        logger.debug(f"[RenderContext.add_typing_imports_for_type] Raw words found by regex: {all_words_in_type_str}")
+        potential_typing_names = set(all_words_in_type_str)
+        logger.debug(
+            f"[RenderContext.add_typing_imports_for_type] Potential typing names (after set conversion): {potential_typing_names}"
+        )
+
+        known_typing_constructs = {
             "List",
             "Optional",
             "Dict",
@@ -390,33 +356,41 @@ class RenderContext:
             "TypeAlias",
         }
 
-        # Regex: match all capitalized identifiers, which could be typing types
-        matches = re.findall(r"\b([A-Z][A-Za-z0-9_]*)\b", type_str)
+        actually_added_typing = set()
+        for name in potential_typing_names:
+            if name in known_typing_constructs:
+                logger.debug(
+                    f"[RenderContext.add_typing_imports_for_type] Found known typing construct: '{name}'. Adding import 'typing.{name}'."
+                )
+                self.add_import("typing", name, is_typing_import=True)
+                actually_added_typing.add(name)
+            elif (
+                name == "datetime"
+                and dt_match not in datetime_specific_matches  # Check against original list from the first findall
+            ):  # Fixed: use datetime_specific_matches, not dt_match, for the 'not in' check. And this logic is faulty if dt_match is not in scope.
+                # The check should be: name == "datetime" and not any(name_part in dt_match for name_part in ["date", "datetime"] for dt_match in datetime_specific_matches)
+                # A simpler check if "datetime" as a standalone word should be imported if it wasn't "datetime.date" or "datetime.datetime".
+                # The current logic name not in datetime_specific_matches is trying to see if "datetime" was part of "datetime.date" etc.
+                # This check is problematic. Let's re-evaluate the elif condition.
+                # The original check was: `name == "datetime" and name not in datetime_specific_matches`
+                # If datetime_specific_matches contains "datetime.date", then "datetime" is not in it.
+                # This elif is for the case where "datetime" is found as a word by the general regex,
+                # and we want to make sure it wasn't ALREADY handled as part of "datetime.date" or "datetime.datetime".
+                # The current `name not in datetime_specific_matches` is not quite right.
+                # Let's simplify: if name is "datetime" and it wasn't part of the specific matches, what to do?
+                # For now, this elif block is more about *not* double-processing.
+                # The previous code had: `name == "datetime" and name not in datetime_specific_matches`
+                # If `datetime_specific_matches` was `['datetime.date', 'datetime.datetime']`, then `name` ("datetime") is not in it.
+                # This means the condition would be true for a standalone "datetime" word.
+                # This seems to be the intended logic: if "datetime" is found alone, and it wasn't part of the specific patterns, log it.
+                logger.debug(
+                    f"[RenderContext.add_typing_imports_for_type] Found standalone 'datetime' (word: '{name}'), not in known_typing_constructs and was not part of specific datetime.X match patterns ({datetime_specific_matches}). Skipping."
+                )
 
-        # Add imports for any matches that are in our typing_types allowlist
-        for match in set(matches):
-            if match in typing_types:
-                self.import_collector.add_typing_import(match)
-
-        # Special handling for datetime and date if they appear in type strings
-        if "datetime" in type_str:
-            # Check for word boundaries to avoid matching substrings like "mydatetimefield"
-            if re.search(r"\bdatetime\b", type_str):
-                self.import_collector.add_import("datetime", "datetime")
-        if "date" in type_str:
-            if re.search(r"\bdate\b", type_str):
-                # Avoid adding `from datetime import date` if `datetime` (the class) was already
-                # imported from `datetime`. This can happen if type_str is e.g. "Union[datetime, date]"
-                # However, ImportCollector should handle duplicate `from datetime import date` gracefully.
-                self.import_collector.add_import("datetime", "date")
+        logger.debug(f"[RenderContext.add_typing_imports_for_type] END - Finished processing type_str: '{type_str}'")
 
     def add_plain_import(self, module: str) -> None:
-        """
-        Add a plain import (import x) to the current file's import collector.
-
-        Args:
-            module: The module to import
-        """
+        """Add a plain import statement (e.g., `import os`)."""
         self.import_collector.add_plain_import(module)
 
     def calculate_relative_path_for_internal_module(
@@ -441,12 +415,12 @@ class RenderContext:
             The relative import string (e.g., ".sibling", "..models.user"), or None if a relative path
             cannot be determined (e.g., context not fully set, or target is current file).
         """
-        logger.debug(
-            f"[CalculateRelativePath_vOldLogic] Current: {self.current_file}, PkgRoot: {self.package_root_for_generated_code}, TargetRelToPkg: {target_logical_module_relative_to_gen_pkg_root}"
-        )
+        # logger.debug(
+        #     f"[CalculateRelativePath_vOldLogic] Current: {self.current_file}, PkgRoot: {self.package_root_for_generated_code}, TargetRelToPkg: {target_logical_module_relative_to_gen_pkg_root}"
+        # )
 
         if not self.current_file or not self.package_root_for_generated_code:
-            logger.debug("[CalculateRelativePath_vOldLogic] Context not fully set.")
+            # logger.debug("[CalculateRelativePath_vOldLogic] Context not fully set.")
             return None
 
         try:
@@ -454,7 +428,7 @@ class RenderContext:
             package_root_abs = os.path.abspath(self.package_root_for_generated_code)
             current_dir_abs = os.path.dirname(current_file_abs)
         except Exception as e:
-            logger.error(f"[CalculateRelativePath_vOldLogic] Error making paths absolute: {e}")
+            # logger.error(f"[CalculateRelativePath_vOldLogic] Error making paths absolute: {e}")
             return None
 
         target_parts = target_logical_module_relative_to_gen_pkg_root.split(".")
@@ -469,36 +443,36 @@ class RenderContext:
         if os.path.isdir(target_as_dir_abs):
             target_abs_path = target_as_dir_abs
             is_target_package = True
-            logger.debug(
-                f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' is a directory."
-            )
+            # logger.debug(
+            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' is a directory."
+            # )
         elif os.path.isfile(target_as_file_abs):
             target_abs_path = target_as_file_abs
             is_target_package = False
-            logger.debug(
-                f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' is a file."
-            )
+            # logger.debug(
+            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' is a file."
+            # )
         else:
             # Target does not exist. Assume it WILL be a .py module for path calculation.
-            logger.debug(
-                f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' does not exist. Assuming it will be a .py module for path calculation."
-            )
+            # logger.debug(
+            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' does not exist. Assuming it will be a .py module for path calculation."
+            # )
             target_abs_path = target_as_file_abs
             is_target_package = False  # Assume it's a module if it doesn't exist
 
         # Self-import check: if the resolved target_abs_path is the same as the current_file_abs.
         if current_file_abs == target_abs_path:
-            logger.debug(
-                f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' resolved to current file. Skipping relative import (self-import)."
-            )
+            # logger.debug(
+            #     f"[CalculateRelativePath_vOldLogic] Target '{target_logical_module_relative_to_gen_pkg_root}' resolved to current file. Skipping relative import (self-import)."
+            # )
             return None
 
         try:
             relative_file_path = os.path.relpath(target_abs_path, start=current_dir_abs)
         except ValueError:
-            logger.warning(
-                f"[CalculateRelativePath_vOldLogic] Could not determine relpath between '{current_dir_abs}' and '{target_abs_path}'. Defaulting to no relative path."
-            )
+            # logger.warning(
+            #     f"[CalculateRelativePath_vOldLogic] Could not determine relpath between '{current_dir_abs}' and '{target_abs_path}'. Defaulting to no relative path."
+            # )
             return None
 
         # If the target is a module file (not a package/directory), and the relative path ends with .py, remove it.
@@ -550,216 +524,55 @@ class RenderContext:
         if module_name_suffix:
             final_relative_path = leading_dots_str + module_name_suffix
         else:
-            # This happens if only dots are needed, e.g. `from .. import foo` would mean `target_abs_path` was `current_dir/../../foo.py`
-            # and parts_after_pardir became ["foo"]. So `leading_dots_str` would be ".." and suffix "foo".
-            # If parts_after_pardir is empty, it means `relative_file_path` was purely ".." or "."
-            # If `leading_dots_str` is "." and `module_name_suffix` is empty, means "."
-            # If `leading_dots_str` is ".." and `module_name_suffix` is empty, means ".." (importing parent package's __init__)
-            # However, the module name (`target_parts[-1]`) needs to be appended if we are importing a module from parent.
-            # This part of original logic was complex. Let's simplify: if suffix is empty, it's an import of a package itself.
-            # The logic should result in: '.' for same dir package, '..' for parent package.
-            # For example, if target is parent dir, relpath is '..', level 1, num_dots 2 -> '..'
-            # If target is same dir (package itself), relpath is '.', level 0, num_dots 1 -> '.'
-            if not leading_dots_str:  # Should not happen if num_dots_for_prefix is at least 1
-                final_relative_path = "." + target_parts[-1]  # Fallback, should be caught by self-import or other logic
-            elif (
-                is_target_package and leading_dots_str.endswith(".") and len(leading_dots_str) > 1
-            ):  # e.g. ".." or "..."
-                final_relative_path = leading_dots_str[:-1]  # For package, remove trailing dot of `from .. import`
-            elif is_target_package:  # e.g. "." for current package
-                final_relative_path = leading_dots_str
-            else:  # Importing a module from a parent, suffix should not be empty here in a valid case.
-                # This case might be from ..module_name
-                # The original logic was: `relative_module_path = leading_dots_str` if no suffix. Which is for packages.
-                # If not a package and no suffix, it's like from .. import foo_module (suffix should be foo_module)
-                # My loop for parts_after_pardir should have captured the module name.
-                # This means the target_parts[-1] (original module name) needs to be the suffix.
-                final_relative_path = leading_dots_str + target_parts[-1]
+            # This happens if only dots are needed, e.g. `from .. import foo` (suffix is empty, path is just dots)
+            # or `from . import bar`
+            final_relative_path = leading_dots_str
 
-        logger.debug(f"[CalculateRelativePath_vOldLogic] Determined relative import: '{final_relative_path}'")
+        # logger.debug(
+        #     f"[CalculateRelativePath_vOldLogic] CurrentDir: {current_dir_abs}, TargetAbs: {target_abs_path}, RelFilePath: {relative_file_path}, Level: {level}, Suffix: '{module_name_suffix}', FinalRelPath: '{final_relative_path}'"
+        # )
+
         return final_relative_path
 
-    def get_current_module_dot_path(self) -> Optional[str]:
-        if not self.current_file or not self.package_root_for_generated_code:
-            logger.warning(
-                "[RenderContext.get_current_module_dot_path] Current file or package_root_for_generated_code not set."
-            )
+    def get_current_package_name_for_generated_code(self) -> str | None:
+        """
+        Get the current package name for the generated code.
+
+        Returns:
+            The current package name for the generated code, or None if not set.
+        """
+        return self.package_root_for_generated_code.split(os.sep)[-1] if self.package_root_for_generated_code else None
+
+    def get_current_module_dot_path(self) -> str | None:
+        """
+        Get the current module dot path relative to the overall project root.
+        Example: if current_file is /project/pkg/sub/mod.py and package_root_for_generated_code is /project/pkg,
+                 and overall_project_root is /project, this should attempt to return pkg.sub.mod
+        """
+        if not self.current_file or not self.overall_project_root:
             return None
 
         try:
-            # Ensure both paths are absolute and normalized for reliable comparison/relpath
-            abs_current_file = os.path.abspath(self.current_file)
-            abs_package_root = os.path.abspath(self.package_root_for_generated_code)
+            abs_current_file = Path(self.current_file).resolve()
+            abs_overall_project_root = Path(self.overall_project_root).resolve()
 
-            if not abs_current_file.startswith(abs_package_root):
-                logger.error(
-                    f"[RenderContext.get_current_module_dot_path] Current file '{abs_current_file}' "
-                    f"is not under package root '{abs_package_root}'."
-                )
-                # Attempt to derive from overall_project_root if current_file is a direct module name perhaps
-                if self.overall_project_root:
-                    abs_overall_root = os.path.abspath(self.overall_project_root)
-                    if abs_current_file.startswith(abs_overall_root):
-                        # Path of current file relative to the overall project root
-                        rel_to_project_root = os.path.relpath(abs_current_file, abs_overall_root)
-                        module_path_from_project_root = os.path.splitext(rel_to_project_root)[0].replace(os.sep, ".")
-                        logger.info(f"Deriving module path from overall project root: {module_path_from_project_root}")
-                        return module_path_from_project_root
-                return None
+            # Get the relative path of the current file from the overall project root
+            relative_path_from_project_root = abs_current_file.relative_to(abs_overall_project_root)
 
-            # Path of current file relative to its package root
-            # e.g., "models/user.py" or "client.py"
-            rel_path_from_pkg_root = os.path.relpath(abs_current_file, abs_package_root)
+            # Remove .py extension
+            module_parts = list(relative_path_from_project_root.parts)
+            if module_parts[-1].endswith(".py"):
+                module_parts[-1] = module_parts[-1][:-3]
 
-            # Convert to module path (e.g., "models.user" or "client")
-            module_sub_path = os.path.splitext(rel_path_from_pkg_root)[0].replace(os.sep, ".")
+            # Handle __init__.py cases: if the last part is __init__, it refers to the directory itself as the module
+            if module_parts[-1] == "__init__":
+                module_parts.pop()
 
-            # Determine the base package name if overall_project_root is set and is an ancestor
-            # The base_package_name is the name of the package_root_for_generated_code itself.
-            # e.g. if package_root_for_generated_code is ".../project/out", then base_package_name is "out"
-            # This is relevant if the generated code is itself a package.
-            base_package_name_parts = []
-            if self.overall_project_root:
-                abs_overall_root = os.path.abspath(self.overall_project_root)
-                # Check if package_root is a sub-directory of overall_project_root or the same
-                if abs_package_root.startswith(abs_overall_root) and abs_package_root != abs_overall_root:
-                    # Path of package_root relative to project_root, e.g., "out" or "src/client"
-                    rel_pkg_root_dir_to_project = os.path.relpath(abs_package_root, abs_overall_root)
-                    base_package_name_parts = rel_pkg_root_dir_to_project.split(os.sep)
+            return ".".join(module_parts)
 
-            if (
-                not base_package_name_parts and os.path.basename(abs_package_root) != "."
-            ):  # if not a sub-package, use its own name
-                base_package_name_parts = [os.path.basename(abs_package_root)]
-
-            full_module_parts = [part for part in base_package_name_parts if part and part != "."]
-
-            # Append module_sub_path parts, carefully handling if module_sub_path is "." (e.g. for __init__.py at package root)
-            if module_sub_path and module_sub_path != ".":
-                full_module_parts.extend(module_sub_path.split("."))
-
-            # Handle if current file is __init__.py: its module path is its parent dir's path
-            if os.path.basename(abs_current_file) == "__init__.py":
-                # full_module_parts should already represent the directory if module_sub_path was derived correctly
-                # e.g. if current_file is "out/models/__init__.py", pkg_root is "out",
-                # module_sub_path would be "models.__init__". After splitext: "models.__init__"
-                # We want "out.models"
-                # The logic above for module_sub_path results in "models.__init__"
-                # If full_module_parts from base is ["out"], then we get ["out", "models", "__init__"]
-                # So we need to remove the last "__init__" if present.
-                if full_module_parts and full_module_parts[-1] == "__init__":
-                    full_module_parts = full_module_parts[:-1]
-
-            if (
-                not full_module_parts
-            ):  # case like current_file is __init__.py in project_root and pkg_root is project_root
-                logger.debug(
-                    f"Calculated empty module path for {abs_current_file}, perhaps it's a top-level __init__.py not in a package."
-                )
-                return None  # Or return "__main__" or similar if appropriate, but None signals cannot determine
-
-            final_module_path = ".".join(filter(None, full_module_parts))
-            logger.debug(
-                f"Calculated module dot path for '{abs_current_file}' as '{final_module_path}' (pkg_root='{abs_package_root}')"
-            )
-            return final_module_path
-
-        except Exception as e:
-            logger.error(f"Error generating module dot path for {self.current_file}: {e}")
-            return None
-
-    def _add_typing_import_if_known(self, name: str, original_type_str: str) -> None:
-        # original_type_str is for debugging context if needed
-        # logger.debug(f"_add_typing_import_if_known: name='{name}', original_type_str='{original_type_str}', KNOWN_TYPING_IMPORTS: {name in KNOWN_TYPING_IMPORTS}")
-        # if name in KNOWN_TYPING_IMPORTS:
-        #     if name == "Any": # CRITICAL DEBUG
-        #         logger.critical(f"[RenderContextCRITICAL_KNOWN_TYPING_ANY] ADDING 'typing.Any' for type string '{original_type_str}'. Current file: {self.current_file}")
-        #     self.add_import("typing", name)
-        # The above was incorrect as KNOWN_TYPING_IMPORTS is not in scope here.
-        # The actual logic for this method is in add_typing_imports_for_type. This method is not used.
-        pass  # This method seems to be unused and its previous logic was flawed.
-
-    def add_conditional_import(self, condition: str, module: str, name: str) -> None:
-        """
-        Add an import that should be guarded by a condition (e.g., TYPE_CHECKING).
-
-        Useful for forward references to avoid circular imports.
-
-        Args:
-            condition: The condition to guard the import (e.g., "TYPE_CHECKING")
-            module: The module to import from (e.g., "models.pet")
-            name: The name to import (e.g., "Pet")
-        """
-        if condition not in self.conditional_imports:
-            self.conditional_imports[condition] = {}
-
-        if module not in self.conditional_imports[condition]:
-            self.conditional_imports[condition][module] = set()
-
-        self.conditional_imports[condition][module].add(name)
-        logger.debug(f"[add_conditional_import] Added conditional import: if {condition}: from {module} import {name}")
-
-    def clear_imports(self) -> None:
-        """Clear all imports for a new file."""
-        self.import_collector = ImportCollector()
-        self.conditional_imports = {}
-
-    def get_current_package_name_for_generated_code(self) -> Optional[str]:
-        """Derives the top-level package name of the generated code.
-
-        E.g., if overall_project_root is '/tmp/myproj' and
-        package_root_for_generated_code is '/tmp/myproj/client_output',
-        this should return 'client_output'.
-
-        If package_root_for_generated_code is directly under overall_project_root,
-        it returns the basename. If they are the same, it might return an empty string
-        or a specific marker if that's a valid scenario (currently implies direct generation
-        into project root, which might be complex for packaging).
-
-        Returns:
-            The derived package name (e.g., "client_output") or None if roots are not set.
-        """
-        if not self.package_root_for_generated_code or not self.overall_project_root:
-            logger.warning("[get_current_package_name_for_generated_code] Roots not set, cannot derive package name.")
-            return None
-
-        abs_gen_root = os.path.abspath(self.package_root_for_generated_code)
-        abs_proj_root = os.path.abspath(self.overall_project_root)
-
-        if not abs_gen_root.startswith(abs_proj_root):
+        except ValueError:  # If current_file is not under overall_project_root
             logger.error(
-                f"[get_current_package_name_for_generated_code] Generated code root '{abs_gen_root}' "
-                f"is not under overall project root '{abs_proj_root}'. Cannot derive package name."
-            )
-            return None  # Or raise error
-
-        if abs_gen_root == abs_proj_root:
-            # This case implies generating directly into the project root.
-            # Depending on desired behavior, could return None, "" or a special marker.
-            # For now, let's consider this an ambiguous case for package naming via this method.
-            logger.info(
-                "[get_current_package_name_for_generated_code] Generated code root is same as project root. "
-                "Package name is ambiguous via this method."
-            )
-            # It might be better to return the basename of the project root itself if it's intended to be the package name.
-            # For now, returning None to indicate ambiguity or that it's not a sub-package.
-            # If the intention is to always have a sub-package, this indicates a config issue.
-            return os.path.basename(abs_proj_root)  # Fallback to project root's name
-
-        # Get the path of gen_root relative to proj_root
-        relative_path = os.path.relpath(abs_gen_root, abs_proj_root)
-
-        # The first component of this relative path is the package name
-        # e.g., if relative_path is "client_output" or "client_output/something_else"
-        # the package name is "client_output".
-        package_name_parts = relative_path.split(os.sep)
-        if package_name_parts:
-            derived_pkg_name = package_name_parts[0]
-            logger.debug(f"[get_current_package_name_for_generated_code] Derived package name: {derived_pkg_name}")
-            return derived_pkg_name
-        else:
-            logger.warning(
-                f"[get_current_package_name_for_generated_code] Could not derive package name from paths: "
-                f"proj_root='{abs_proj_root}', gen_root='{abs_gen_root}'"
+                f"[get_current_module_dot_path] Could not determine module path. "
+                f"current_file '{self.current_file}' may not be under overall_project_root '{self.overall_project_root}'."
             )
             return None

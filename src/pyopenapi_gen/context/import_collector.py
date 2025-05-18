@@ -158,13 +158,16 @@ class ImportCollector:
 
     def reset(self) -> None:
         """Reset the collector to its initial empty state."""
+        # Use ERROR level for reset to make it highly visible in logs if it's unexpected
+        logger.error(
+            f"[ImportCollector.reset] RESETTING ImportCollector. Current imports: {self.imports}, relative_imports: {self.relative_imports}, plain_imports: {self.plain_imports}"
+        )
         self.imports.clear()
         self.relative_imports.clear()
         self.plain_imports.clear()
         self._current_file_module_dot_path = None
         self._current_file_package_root = None
         self._current_file_core_pkg_name_for_abs = None
-        logger.debug("[ImportCollector.reset] Collector has been reset.")
 
     def set_current_file_context_for_rendering(
         self,
@@ -176,10 +179,6 @@ class ImportCollector:
         self._current_file_module_dot_path = current_module_dot_path
         self._current_file_package_root = package_root
         self._current_file_core_pkg_name_for_abs = core_package_name_for_absolute_treatment
-        logger.debug(
-            f"[ImportCollector.set_current_file_context_for_rendering] Context set: "
-            f"module_path={current_module_dot_path}, pkg_root={package_root}, core_abs={core_package_name_for_absolute_treatment}"
-        )
 
     def add_import(self, module: str, name: str) -> None:
         """
@@ -189,19 +188,26 @@ class ImportCollector:
             module: The module to import from (e.g., "typing")
             name: The name to import (e.g., "List")
         """
-        logger.debug(f"[ImportCollector.add_import] Attempting to add: module='{module}', name='{name}'")
+        logger.debug(
+            f"[ImportCollector.add_import] Called with: module='{module}', name='{name}'. Current self.imports: {self.imports}"
+        )
         # If module and name are the same, and it's a stdlib module
         # that typically uses plain import style (e.g., "import os").
         if module == name and module in STDLIB_MODULES_PREFER_PLAIN_IMPORT_WHEN_NAME_MATCHES:
+            logger.debug(
+                f"[ImportCollector.add_import] Treating '{module}' as plain import due to matching name and stdlib rule."
+            )
             self.add_plain_import(module)
         else:
             if module not in self.imports:
+                logger.debug(
+                    f"[ImportCollector.add_import] Module '{module}' not in self.imports. Initializing new set for it."
+                )
                 self.imports[module] = set()
             self.imports[module].add(name)
-            # ==== HTTPXTRANSPORT DEBUGGING ====
-            # if module.endswith(".http_transport") and "HttpxTransport" in name:
-            #     logger.critical(f"[IC_ADD_HTTPX_DEBUG] Added '{name}' to '{module}'. Current names: {self.imports[module]}")
-            # ==== END HTTPXTRANSPORT DEBUGGING ====
+            logger.debug(
+                f"[ImportCollector.add_import] Added '{name}' to self.imports['{module}']. New set for module: {self.imports[module]}. All self.imports: {self.imports}"
+            )
 
     def add_imports(self, module: str, names: List[str]) -> None:
         """
@@ -254,23 +260,13 @@ class ImportCollector:
             if module in self.relative_imports and name in self.relative_imports[module]:
                 return True
         else:
-            # Check plain imports (e.g., import os)
+            # Check plain imports (e.g. "import os" where module="os", name=None)
             if module in self.plain_imports:
                 return True
-            # Check if module is a key in absolute/standard imports (meaning something was imported from it)
-            if module in self.imports:
-                return True
-            # Check if module is a key in relative imports
-            if module in self.relative_imports:
-                return True
+
         return False
 
-    def get_import_statements(
-        self,
-        current_module_dot_path: Optional[str] = None,
-        package_root: Optional[str] = None,
-        core_package_name_for_absolute_treatment: Optional[str] = None,
-    ) -> List[str]:
+    def get_import_statements(self) -> List[str]:
         """
         Generates a list of import statement strings.
         Order: plain, standard (from x import y), relative (from .x import y).
@@ -281,17 +277,11 @@ class ImportCollector:
         package_root_to_use = self._current_file_package_root
         core_package_name_to_use = self._current_file_core_pkg_name_for_abs
 
-        logger.debug(
-            f"[ImportCollector] get_import_statements called. Using internal context: Current module: {current_module_dot_path_to_use}, Package root: {package_root_to_use}, Core pkg for abs: {core_package_name_to_use}"
-        )
         standard_import_lines: List[str] = []
 
         for module_name, names_set in sorted(self.imports.items()):
             names = sorted(list(names_set))
             is_stdlib_module = _is_stdlib(module_name)
-            logger.debug(
-                f"[ImportCollector] Processing module: '{module_name}', names: {names}, is_stdlib: {is_stdlib_module}"
-            )
 
             is_core_module_to_be_absolute = False
             if core_package_name_to_use and (
@@ -299,16 +289,12 @@ class ImportCollector:
             ):
                 is_core_module_to_be_absolute = True
 
-            logger.debug(
-                f"[ImportCollector] For '{module_name}', is_core_module_to_be_absolute: {is_core_module_to_be_absolute}"
-            )
-
             if is_core_module_to_be_absolute:
                 import_statement = f"from {module_name} import {', '.join(names)}"
-                logger.debug(f"[ImportCollector] -> Core/Absolute import: {import_statement}")
+                standard_import_lines.append(import_statement)
             elif is_stdlib_module:
                 import_statement = f"from {module_name} import {', '.join(names)}"
-                logger.debug(f"[ImportCollector] -> StdLib/Absolute import: {import_statement}")
+                standard_import_lines.append(import_statement)
             elif (
                 current_module_dot_path_to_use
                 and package_root_to_use
@@ -317,19 +303,13 @@ class ImportCollector:
                 try:
                     relative_module = make_relative_import(current_module_dot_path_to_use, module_name)
                     import_statement = f"from {relative_module} import {', '.join(names)}"
-                    logger.debug(f"[ImportCollector] -> Relative import: {import_statement}")
+                    standard_import_lines.append(import_statement)
                 except ValueError as e:
                     import_statement = f"from {module_name} import {', '.join(names)}"
-                    logger.warning(
-                        f"[ImportCollector] Failed to make '{module_name}' relative to '{current_module_dot_path_to_use}', using absolute. Error: {e}"
-                    )
+                    standard_import_lines.append(import_statement)
             else:
                 import_statement = f"from {module_name} import {', '.join(names)}"
-                logger.debug(
-                    f"[ImportCollector] -> Fallback/Absolute import: {import_statement} (current_path: {current_module_dot_path_to_use}, pkg_root: {package_root_to_use}, mod_starts_pkg_root: {module_name.startswith(package_root_to_use + '.') if package_root_to_use else False})"
-                )
-
-            standard_import_lines.append(import_statement)
+                standard_import_lines.append(import_statement)
 
         plain_import_lines: List[str] = []
         for module in sorted(self.plain_imports):
@@ -367,10 +347,6 @@ class ImportCollector:
 
         for module in stdlib_modules:
             names = sorted(self.imports[module])
-            # ==== HTTPXTRANSPORT DEBUGGING ====
-            # if module.endswith(".http_transport"):
-            #     logger.critical(f"[IC_FORMAT_HTTPX_DEBUG] Formatting for module '{module}'. Names found in self.imports[module]: {self.imports[module]}. Sorted names for output: {names}")
-            # ==== END HTTPXTRANSPORT DEBUGGING ====
             statements.append(f"from {module} import {', '.join(names)}")
 
         # Then third-party and app imports
@@ -381,10 +357,6 @@ class ImportCollector:
 
         for module in other_modules:
             names = sorted(self.imports[module])
-            # ==== HTTPXTRANSPORT DEBUGGING ====
-            # if module.endswith(".http_transport"):
-            #     logger.critical(f"[IC_FORMAT_HTTPX_DEBUG] Formatting for module '{module}'. Names found in self.imports[module]: {self.imports[module]}. Sorted names for output: {names}")
-            # ==== END HTTPXTRANSPORT DEBUGGING ====
             statements.append(f"from {module} import {', '.join(names)}")
 
         # Then plain imports
@@ -398,14 +370,6 @@ class ImportCollector:
         # Then relative imports
         if self.relative_imports and (stdlib_modules or other_modules or self.plain_imports):
             statements.append("")  # Add a blank line before relative imports
-
-        # ==== TARGETED LOGGING START ====
-        logger.critical(f"[IC_TARGET_LOG] get_formatted_imports - RELATIVE_IMPORTS about to be processed:")
-        for mod, nms in self.relative_imports.items():
-            logger.critical(f"[IC_TARGET_LOG]   Relative Module: '{mod}', Names: {nms}")
-        if not self.relative_imports:
-            logger.critical(f"[IC_TARGET_LOG]   No relative imports collected.")
-        # ==== TARGETED LOGGING END ====
 
         for module in sorted(self.relative_imports.keys()):
             names = sorted(self.relative_imports[module])

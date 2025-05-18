@@ -207,21 +207,6 @@ def _parse_schema(
             final_required_set: Set[str] = set()  # Initialize final_required_set here
             if "properties" in schema_node:
                 for prop_name, prop_schema_node in schema_node["properties"].items():
-                    # ---- START DEBUG ----
-                    if prop_name == "messages" and schema_name and "addmessage" in schema_name.lower():
-                        temp_prop_schema_context_name = "ERROR_CALCULATING"
-                        if schema_name:  # Parent name
-                            temp_prop_schema_context_name = (
-                                f"{schema_name}{NameSanitizer.sanitize_class_name(prop_name)}"
-                            )
-                        else:
-                            temp_prop_schema_context_name = NameSanitizer.sanitize_class_name(prop_name)
-                        logger.critical(
-                            f"[SchemaParser PROP_ITER_DEBUG AddMessage.messages] Parent Schema Name: '{schema_name}', "
-                            f"Prop Name: '{prop_name}', Constructed Prop Context Name: '{temp_prop_schema_context_name}', "
-                            f"Prop Node Type: {prop_schema_node.get('type') if isinstance(prop_schema_node, dict) else 'N/A'}"
-                        )
-                    # ---- END DEBUG ----
                     if not isinstance(prop_name, str) or not prop_name:
                         logger.warning(
                             f"Skipping property with invalid name '{prop_name}' in schema '{schema_name or 'anonymous'}'."
@@ -236,10 +221,6 @@ def _parse_schema(
                             if ref_name_parts and ref_name_parts[-1]:
                                 ref_name = ref_name_parts[-1]
                                 if ref_name in context.raw_spec_schemas:
-                                    if DEBUG_CYCLES:
-                                        logger.debug(
-                                            f"Property '{prop_name}' in schema '{schema_name or 'anonymous'}' is $ref to '{ref_name}'. Parsing ref directly."
-                                        )
                                     final_properties_for_ir[prop_name] = _parse_schema(
                                         ref_name, context.raw_spec_schemas[ref_name], context, max_depth_override
                                     )
@@ -275,9 +256,6 @@ def _parse_schema(
                                 promoted_ir_schema = _parse_schema(
                                     promoted_schema_name, prop_schema_node, context, max_depth_override
                                 )
-                                # >>> DIAGNOSTIC PRINT (REMOVED) <<<
-                                # if schema_name == "DeepSchemaLevel1" and prop_name == "level2":
-                                #     print(f"SCHEMA_PARSER_ASSIGNMENT_DEBUG for '{schema_name}.{prop_name}': Assigning to final_properties_for_ir. Promoted schema name: {promoted_schema_name}, actual_promoted_ir.name: {getattr(actual_promoted_ir, 'name', 'N/A')}")
 
                                 final_properties_for_ir[prop_name] = IRSchema(
                                     name=prop_name,  # Property name remains original
@@ -287,16 +265,7 @@ def _parse_schema(
                                     or promoted_ir_schema.is_nullable,
                                     _refers_to_schema=promoted_ir_schema,
                                 )
-                                # >>> NEW PRINT 1 <<<
-                                if schema_name == "DeepSchemaLevel1" and prop_name == "level2":
-                                    print(
-                                        f"SCHEMA_PARSER_POST_ASSIGN_DEBUG for '{schema_name}': final_properties_for_ir NOW: {final_properties_for_ir}"
-                                    )
-                                # CRITICAL: The promoted schema MUST be parsed and added to context.parsed_schemas
                                 context.parsed_schemas[promoted_schema_name] = promoted_ir_schema  # Ensure it's stored
-                                logger.critical(
-                                    f"[PROMOTION_SUCCESS] Promoted '{promoted_schema_name}' and stored in context.parsed_schemas. Parsed IR: {promoted_ir_schema!r}"
-                                )
                             else:  # Non-promoted inline object or simple type
                                 # This helps in tracking but doesn't guarantee a globally unique schema name if not promoted.
                                 # If this inline schema is complex enough to be promoted, its name will be based on this.
@@ -446,17 +415,6 @@ def _parse_schema(
                 if is_promoted_inline_object:
                     # Check if the context actually contains the promoted item by its name, RIGHT NOW.
                     # This is crucial because ModelsEmitter later fetches from context.parsed_schemas.
-                    if (
-                        actual_item_ir.name in context.parsed_schemas
-                        and context.parsed_schemas[actual_item_ir.name] is actual_item_ir
-                    ):
-                        logger.critical(
-                            f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_SUCCESS] Promoted array item '{actual_item_ir.name}' IS correctly in context.parsed_schemas."
-                        )
-                    else:
-                        logger.critical(
-                            f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_FAIL] Promoted array item '{actual_item_ir.name}' NOT in context or points to wrong object! Keys: {list(context.parsed_schemas.keys())}"
-                        )
 
                     ref_holder_ir = IRSchema(
                         name=None,
@@ -517,19 +475,6 @@ def _parse_schema(
             )
 
             if is_promoted_inline_object_in_reparse_block:
-                # Similar check for the reparse block
-                if (
-                    direct_reparsed_item_ir.name in context.parsed_schemas
-                    and context.parsed_schemas[direct_reparsed_item_ir.name] is direct_reparsed_item_ir
-                ):
-                    logger.critical(
-                        f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_SUCCESS_REPARSE] Promoted array item '{direct_reparsed_item_ir.name}' (reparse) IS correctly in context.parsed_schemas."
-                    )
-                else:
-                    logger.critical(
-                        f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_FAIL_REPARSE] Promoted array item '{direct_reparsed_item_ir.name}' (reparse) NOT in context or points to wrong object! Keys: {list(context.parsed_schemas.keys())}"
-                    )
-
                 ref_holder_for_reparse_ir = IRSchema(
                     name=None,
                     type=direct_reparsed_item_ir.name,
@@ -543,25 +488,9 @@ def _parse_schema(
         # YIELDING LOGIC FOR EXISTING CYCLE PLACEHOLDER (applies if schema_name is not None):
         if schema_name and schema_name in context.parsed_schemas:
             existing_in_context = context.parsed_schemas[schema_name]
-            if DEBUG_CYCLES:
-                logger.debug(
-                    f"YIELD CHECK for '{schema_name}': schema_ir id={id(schema_ir)}, name={getattr(schema_ir, 'name', 'N/A')}, circular={getattr(schema_ir, '_is_circular_ref', 'N/A')}"
-                )
-                logger.debug(
-                    f"YIELD CHECK for '{schema_name}': existing_in_context id={id(existing_in_context)}, name={getattr(existing_in_context, 'name', 'N/A')}, circular={getattr(existing_in_context, '_is_circular_ref', 'N/A')}"
-                )
 
             if existing_in_context._is_circular_ref and existing_in_context is not schema_ir:
-                if DEBUG_CYCLES:
-                    logger.debug(
-                        f"Outer parse of '{schema_name}' yielding to existing cycle placeholder "
-                        f"(id={id(existing_in_context)}) instead of its own build (id={id(schema_ir)})."
-                    )
                 return existing_in_context
-            else:
-                logger.debug(
-                    f"YIELDING DECISION for '{schema_name}': Not yielding. existing._is_circular_ref={existing_in_context._is_circular_ref}, is_different_object={existing_in_context is not schema_ir}"
-                )
 
         # Store the schema_ir we built (or obtained, e.g. from a $ref that resolved to a cycle placeholder)
         # in context, using original (un-sanitized) schema_name as key, if schema_name is not None.
