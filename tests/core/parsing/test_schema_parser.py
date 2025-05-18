@@ -7,6 +7,7 @@ from unittest.mock import ANY, patch
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
+from pyopenapi_gen.core.utils import NameSanitizer
 
 logger = logging.getLogger(__name__)
 # Basic logging setup for tests if needed, e.g. to see promoter logs
@@ -16,8 +17,8 @@ logger = logging.getLogger(__name__)
 class TestSchemaParser(unittest.TestCase):
     def setUp(self) -> None:
         self.context = ParsingContext()
-        # Ensure logger for parsing modules is also available for debugging if needed
-        # logging.getLogger('pyopenapi_gen.core.parsing').setLevel(logging.DEBUG)
+        # Reset shared state if any, though parser should be stateless
+        # NameSanitizer.reset() # If NameSanitizer has global state for unique names
 
         # Mirror TestLogging.setUp to ensure schema_parser module is reloaded
         import pyopenapi_gen.core.parsing.schema_parser
@@ -98,6 +99,112 @@ class TestSchemaParser(unittest.TestCase):
             details_property_ir.description,
             "Inline details object",
             "Description on the property reference IR should match original inline object's description",
+        )
+
+    def test_parse_schema_array_with_inline_object_items__promotes_item_and_updates_context(self) -> None:
+        """
+        Scenario:
+            An ArraySchema is defined with its 'items' being an inline object definition.
+        Expected Outcome:
+            - The inline 'items' object is promoted to a new global schema (e.g., 'ArraySchemaItem').
+            - This new global item schema is added to context.parsed_schemas.
+            - The ArraySchema.items IRSchema now refers to this new global item schema by type.
+            - The original ArraySchema is also in context.parsed_schemas.
+        """
+        # Arrange
+        array_schema_name = "MyTestArray"
+        openapi_node = {
+            "type": "array",
+            "description": "An array of inline items.",
+            "items": {  # This is the inline object item to be promoted
+                "type": "object",
+                "description": "An inline item object.",
+                "properties": {
+                    "itemId": {"type": "string", "description": "Item ID"},
+                    "itemValue": {"type": "integer", "description": "Item Value"},
+                },
+                "required": ["itemId"],
+            },
+        }
+
+        # Act
+        array_schema_ir = _parse_schema(array_schema_name, openapi_node, self.context)
+
+        # Assert
+        self.assertIsNotNone(array_schema_ir, "Parsed array schema IR should not be None")
+        self.assertEqual(array_schema_ir.name, "MyTestArray")
+        self.assertEqual(array_schema_ir.type, "array")
+        self.assertEqual(array_schema_ir.description, "An array of inline items.")
+        self.assertIn("MyTestArray", self.context.parsed_schemas, "MyTestArray should be in context.parsed_schemas")
+        self.assertIs(self.context.parsed_schemas["MyTestArray"], array_schema_ir)
+
+        # Check the 'items' attribute of the array schema
+        item_schema_ref_ir_optional = array_schema_ir.items  # Keep optional for initial check
+        self.assertIsNotNone(item_schema_ref_ir_optional, "ArraySchema.items should not be None")
+        item_schema_ref_ir = cast(IRSchema, item_schema_ref_ir_optional)  # Cast to IRSchema after None check
+
+        # The 'type' of the items property should be the name of the promoted schema
+        promoted_item_schema_type_name = item_schema_ref_ir.type
+        self.assertIsNotNone(
+            promoted_item_schema_type_name, "Item schema reference IR should have a type (the promoted name)"
+        )
+
+        # Default naming convention for promoted item of an array MyTestArray is MyTestArrayItem
+        # This name is generated within _parse_schema when calling itself for the item.
+        expected_promoted_name = "MyTestArrayItem"
+        # The actual name of the IRSchema object for the item might be this.
+        # The item_schema_ref_ir.name might be None if it's just a holder,
+        # or it could be 'items' or the promoted name.
+        # Let's assert that the promoted schema with the expected name exists in the context.
+
+        self.assertIn(
+            expected_promoted_name,
+            self.context.parsed_schemas,
+            f"Promoted item schema '{expected_promoted_name}' not found in parsed_schemas. Keys: {list(self.context.parsed_schemas.keys())}",
+        )
+
+        promoted_item_schema_ir = self.context.parsed_schemas[expected_promoted_name]
+        self.assertEqual(promoted_item_schema_ir.name, expected_promoted_name)
+        self.assertEqual(promoted_item_schema_ir.type, "object", "Promoted item schema should be of type 'object'")
+        self.assertEqual(
+            promoted_item_schema_ir.description,
+            "An inline item object.",  # Description of the promoted schema should match inline item's description
+        )
+        self.assertIn(
+            "itemId", promoted_item_schema_ir.properties, "itemId should be a property of the promoted item schema"
+        )
+        self.assertEqual(promoted_item_schema_ir.properties["itemId"].type, "string")
+        self.assertEqual(promoted_item_schema_ir.properties["itemId"].description, "Item ID")
+        self.assertIn(
+            "itemValue",
+            promoted_item_schema_ir.properties,
+            "itemValue should be a property of the promoted item schema",
+        )
+        self.assertEqual(promoted_item_schema_ir.properties["itemValue"].type, "integer")
+        self.assertEqual(promoted_item_schema_ir.properties["itemValue"].description, "Item Value")
+        self.assertEqual(
+            promoted_item_schema_ir.required, ["itemId"], "Required fields of promoted item schema not as expected"
+        )
+
+        # Check that ArraySchema.items (item_schema_ref_ir) correctly refers to the promoted schema
+        self.assertEqual(
+            item_schema_ref_ir.type,
+            expected_promoted_name,
+            f"ArraySchema.items.type expected '{expected_promoted_name}' but got '{item_schema_ref_ir.type}'",
+        )
+        self.assertIsNotNone(
+            item_schema_ref_ir._refers_to_schema,
+            "ArraySchema.items IR should have its _refers_to_schema attribute set to the promoted item schema object",
+        )
+        self.assertIs(
+            item_schema_ref_ir._refers_to_schema,
+            promoted_item_schema_ir,
+            "ArraySchema.items IR should internally refer to the promoted item schema object",
+        )
+        # The description on the item_schema_ref_ir (the reference holder) should also match the original inline one.
+        self.assertEqual(
+            item_schema_ref_ir.description,
+            "An inline item object.",
         )
 
     def test_parse_schema_node_is_none(self) -> None:
@@ -649,6 +756,86 @@ class TestSchemaParser(unittest.TestCase):
             actual_result_ir,
             expected_recursive_result_ir,
             "The result of parsing a $ref node should be the result of parsing the referenced schema.",
+        )
+
+    def test_parse_schema_with_inline_object_property_promotes_and_sets_type_ref(self) -> None:
+        """
+        Test that an inline object property in a schema is correctly promoted
+        and the parent schema's property IR correctly refers to it by the promoted type name.
+        """
+        # Arrange
+        parent_schema_name = "ParentWithInlineConfig"
+        inline_prop_name = "config_details"
+        promoted_config_name = f"{parent_schema_name}{NameSanitizer.sanitize_class_name(inline_prop_name)}"
+
+        openapi_spec_dict = {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                inline_prop_name: {  # This is the inline object property
+                    "type": "object",
+                    "description": "Configuration details for the parent.",
+                    "properties": {
+                        "settingA": {"type": "boolean"},
+                        "settingB": {"type": "number"},
+                    },
+                    "required": ["settingA"],
+                },
+            },
+            "required": ["id", inline_prop_name],
+        }
+
+        # Act: Parse the parent schema
+        parent_ir = _parse_schema(parent_schema_name, openapi_spec_dict, self.context)
+
+        # Assertions for parent schema
+        self.assertIsNotNone(parent_ir)
+        self.assertEqual(parent_ir.name, parent_schema_name, f"Parent schema IR name should be '{parent_schema_name}'.")
+
+        # 1. Check that the promoted schema for the inline object exists in the context
+        self.assertIn(
+            promoted_config_name,
+            self.context.parsed_schemas,
+            f"Promoted schema '{promoted_config_name}' not found in parsing context.",
+        )
+        promoted_config_ir = self.context.parsed_schemas[promoted_config_name]
+        self.assertEqual(promoted_config_ir.name, promoted_config_name)
+        self.assertEqual(promoted_config_ir.type, "object")
+        self.assertIn("settingA", promoted_config_ir.properties)
+        self.assertEqual(promoted_config_ir.properties["settingA"].type, "boolean")
+        self.assertEqual(promoted_config_ir.description, "Configuration details for the parent.")
+
+        # 2. Check the property IR on the parent schema for the inline object
+        self.assertIn(
+            inline_prop_name,
+            parent_ir.properties,
+            f"Property '{inline_prop_name}' not found in parent schema '{parent_schema_name}'.",
+        )
+        config_property_ir = parent_ir.properties[inline_prop_name]
+
+        # 3. Check that the property IR's type is the string name of the promoted schema
+        self.assertEqual(
+            config_property_ir.type,
+            promoted_config_name,
+            f"Property '{inline_prop_name}' on '{parent_schema_name}' should have its type set to the string name "
+            f"of the promoted schema ('{promoted_config_name}'), but got '{config_property_ir.type}'.",
+        )
+
+        # Optional: Check if _refers_to_schema is also set (good practice, but type string is key for TypeHelper)
+        self.assertIsNotNone(
+            config_property_ir._refers_to_schema, f"Property '{inline_prop_name}' should have _refers_to_schema set."
+        )
+        if config_property_ir._refers_to_schema:  # Guard for linter if previous assert fails
+            self.assertIs(
+                config_property_ir._refers_to_schema,
+                promoted_config_ir,
+                f"Property '{inline_prop_name}'._refers_to_schema should point to the correct promoted IR instance.",
+            )
+
+        self.assertEqual(
+            config_property_ir.description,
+            "Configuration details for the parent.",
+            "Description from inline object should be copied to the property referring to it.",
         )
 
 

@@ -67,7 +67,10 @@ def _finalize_schema_object(
             existing_schema, "_from_unresolved_ref", False
         ):
             logger.debug(
-                f"_finalize_schema_object: Early return of cycle placeholder for '{name}' (_is_circular_ref={getattr(existing_schema, '_is_circular_ref', None)}, id={id(existing_schema)})"
+                (
+                    f"_finalize_schema_object: Early return of cycle placeholder for '{name}' "
+                    f"(_is_circular_ref={getattr(existing_schema, '_is_circular_ref', None)}, id={id(existing_schema)})"
+                )
             )
             return existing_schema
 
@@ -117,7 +120,9 @@ def _finalize_schema_object(
         and schema_obj.type is not None
     ):
         logger.debug(
-            f"_finalize_schema_object: Named schema '{schema_obj.name}' in context has no type, adopting type '{schema_obj.type}'."
+            f"_finalize_schema_object: Named schema '{schema_obj.name}' in context has no type, adopting type '{
+                schema_obj.type
+            }'."
         )
         # schema_obj will be placed in context later, overwriting if necessary.
 

@@ -17,12 +17,33 @@ class TypeFinalizer:
         self.context = context
         self.all_schemas = all_schemas if all_schemas is not None else {}
 
-    def finalize(self, py_type: str, schema: IRSchema, required: bool) -> str:
-        """Wraps with Optional if needed, then cleans the type string."""
+    def finalize(self, py_type: TypingOptional[str], schema: IRSchema, required: bool) -> str:
+        """Wraps with Optional if needed, cleans the type string, and ensures typing imports."""
+        if py_type is None:
+            logger.warning(
+                f"[TypeFinalizer] Received None as py_type for schema '{schema.name or 'anonymous'}'. Defaulting to 'Any'."
+            )
+            self.context.add_import("typing", "Any")
+            py_type = "Any"
+
         optional_type = self._wrap_with_optional_if_needed(py_type, schema, required)
         cleaned_type = self._clean_type(optional_type)
+
+        # Ensure imports for common typing constructs that might have been introduced by cleaning
+        if "Dict[" in cleaned_type or cleaned_type == "Dict":
+            self.context.add_import("typing", "Dict")
+        if "List[" in cleaned_type or cleaned_type == "List":
+            self.context.add_import("typing", "List")
+        if "Tuple[" in cleaned_type or cleaned_type == "Tuple":  # Tuple might also appear bare
+            self.context.add_import("typing", "Tuple")
+        if "Union[" in cleaned_type:
+            self.context.add_import("typing", "Union")
+        # Optional is now handled entirely by _wrap_with_optional_if_needed and not here
+        if cleaned_type == "Any":  # Ensure Any is imported if it's the final type
+            self.context.add_import("typing", "Any")
+
         logger.debug(
-            f"[TypeFinalizer] Finalized type for '{schema.name or 'anonymous'}': Input='{py_type}', Required={required}, Nullable={schema.is_nullable} -> OptionalWrapped='{optional_type}' -> Cleaned='{cleaned_type}'"
+            f"[TypeFinalizer] Finalized type for '{schema.name or 'anonymous'}': Input='{py_type}', Required={required}, Nullable={schema.is_nullable} -> OptionalWrapped='{optional_type}' -> CleanedAndImportChecked='{cleaned_type}'"
         )
         return cleaned_type
 
@@ -39,6 +60,7 @@ class TypeFinalizer:
             self.context.add_import("typing", "Optional")
             return "Optional[Any]"  # Any is special, always wrap if usage is optional.
 
+        # If already Optional, don't add import again
         if py_type.startswith("Optional["):
             return py_type  # Already explicitly Optional.
 
@@ -59,6 +81,7 @@ class TypeFinalizer:
             if referenced_schema.is_nullable:
                 return py_type
 
+        # Only now add the Optional import and wrap the type
         self.context.add_import("typing", "Optional")
         return f"Optional[{py_type}]"
 

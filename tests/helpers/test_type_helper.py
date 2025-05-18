@@ -540,7 +540,7 @@ class TestTypeHelperWithIRSchema:
         # Arrange
         schemas: Dict[str, IRSchema] = {}
         # Act
-        result = TypeHelper.get_python_type_for_schema(None, schemas, context)  # type: ignore
+        result = TypeHelper.get_python_type_for_schema(None, schemas, context, required=True)
         # Assert
         assert result == "Any"
         assert context.import_collector.has_import("typing", "Any")
@@ -830,7 +830,7 @@ class TestCompositionTypeResolver:  # Renamed class
             "type": "object",
         }  # Ensure type is set if not a composition keyword
         if composition_type in ["any_of", "one_of", "all_of"]:
-            parent_schema_dict["type"] = None  # Type should be None if a composition keyword is present
+            parent_schema_dict["type"] = None  # type: ignore # Type should be None if a composition keyword is present
 
         parent_schema = IRSchema(**parent_schema_dict)  # type: ignore
 

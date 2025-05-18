@@ -2,6 +2,7 @@ import os
 
 from pyopenapi_gen import IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
+
 from ..visit.docs_visitor import DocsVisitor
 
 """Simple documentation emitter using markdown with Python str.format placeholders."""

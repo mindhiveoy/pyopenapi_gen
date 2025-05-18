@@ -1,5 +1,5 @@
 import pytest
-from pyopenapi_gen.core.loader import load_ir_from_spec
+from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 
 
 def test_load_ir_from_spec_missing_openapi() -> None:

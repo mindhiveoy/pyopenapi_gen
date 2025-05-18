@@ -3,6 +3,7 @@ Generates Python code for dataclasses from IRSchema objects.
 """
 
 import logging
+import json
 from typing import Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IRSchema
@@ -64,8 +65,8 @@ class DataclassGenerator:
 
         if ps.default is not None:
             if isinstance(ps.default, str):
-                escaped_default = ps.default.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
-                return '"' + escaped_default + '"'
+                escaped_inner_content = json.dumps(ps.default)[1:-1]
+                return '"' + escaped_inner_content + '"'
             elif isinstance(ps.default, bool):
                 return str(ps.default)
             elif isinstance(ps.default, (int, float)):
@@ -155,7 +156,12 @@ class DataclassGenerator:
                 is_required = prop_name in schema.required
 
                 py_type = TypeHelper.get_python_type_for_schema(
-                    prop_schema, self.all_schemas, context, required=is_required, resolve_alias_target=False
+                    prop_schema,
+                    self.all_schemas,
+                    context,
+                    required=is_required,
+                    resolve_alias_target=False,
+                    parent_schema_name=schema.name,
                 )
                 py_type = TypeFinalizer(context)._clean_type(py_type)
 
@@ -163,7 +169,8 @@ class DataclassGenerator:
                 if not is_required:
                     default_expr = self._get_field_default(prop_schema, context)
 
-                fields_data.append((prop_name, py_type, default_expr, prop_schema.description))
+                field_doc = prop_schema.description
+                fields_data.append((prop_name, py_type, default_expr, field_doc))
 
         logger.debug(
             f"DataclassGenerator: Preparing to render dataclass '{class_name}' with fields: {fields_data}.אללو"

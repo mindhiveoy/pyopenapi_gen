@@ -1,5 +1,6 @@
 import pytest
-from pyopenapi_gen.core.loader import load_ir_from_spec
+
+from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 
 
 def test_loader_raises_on_missing_paths() -> None:

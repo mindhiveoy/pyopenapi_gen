@@ -90,7 +90,7 @@ __version__: str = "0.1.0"
 # ---------------------------------------------------------------------------
 if TYPE_CHECKING:
     # Imports for static analysis
-    from .core.loader import load_ir_from_spec  # noqa: F401
+    from .core.loader.loader import load_ir_from_spec  # noqa: F401
     from .core.warning_collector import WarningCollector  # noqa: F401
 
 # Expose loader and collector at package level
@@ -100,7 +100,7 @@ if TYPE_CHECKING:
 def __getattr__(name: str) -> Any:
     # Lazy-import attributes for runtime, supports IDE completion via TYPE_CHECKING
     if name == "load_ir_from_spec":
-        from .core.loader import load_ir_from_spec as _func
+        from .core.loader.loader import load_ir_from_spec as _func
 
         return _func
     if name == "WarningCollector":

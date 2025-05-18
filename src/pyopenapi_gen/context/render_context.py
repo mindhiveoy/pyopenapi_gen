@@ -11,7 +11,7 @@ import logging
 import os
 import re
 import sys
-from typing import Optional, Set
+from typing import Dict, Optional, Set
 
 from .file_manager import FileManager
 from .import_collector import ImportCollector
@@ -40,6 +40,7 @@ class RenderContext:
         overall_project_root: Absolute path to the top-level project.
                             Used as the base for resolving absolute Python import paths,
                             especially for an external core_package.
+        conditional_imports: Dictionary of conditional imports (e.g., under TYPE_CHECKING)
     """
 
     def __init__(
@@ -71,6 +72,8 @@ class RenderContext:
         self.overall_project_root: Optional[str] = overall_project_root or os.getcwd()
         if self.package_root_for_generated_code and not self.overall_project_root:
             pass
+        # Dictionary to store conditional imports, keyed by condition
+        self.conditional_imports: Dict[str, Dict[str, Set[str]]] = {}
 
     def set_current_file(self, abs_path: str) -> None:
         """
@@ -220,19 +223,34 @@ class RenderContext:
 
     def render_imports(self) -> str:
         """
-        Render all imports for the current file as a formatted string.
+        Render all imports for the current file, including conditional imports.
 
         Returns:
-            A newline-separated string of import statements
+            A string containing all import statements.
         """
-        current_module_dot_path = self.get_current_module_dot_path()
-        # Pass core_package_name to influence import rendering strategy for core modules
-        import_statements_list = self.import_collector.get_import_statements(
-            current_module_dot_path,
-            self.package_root_for_generated_code,
-            self.core_package_name,  # Pass core_package_name
-        )
-        return "\n".join(import_statements_list)
+        # Get standard imports
+        regular_imports = self.import_collector.get_formatted_imports()
+
+        # Handle conditional imports
+        conditional_imports = []
+        for condition, imports in self.conditional_imports.items():
+            if imports:
+                # Start the conditional block
+                conditional_block = [f"\nif {condition}:"]
+
+                # Add each import under the condition
+                for module, names in sorted(imports.items()):
+                    names_str = ", ".join(sorted(names))
+                    conditional_block.append(f"    from {module} import {names_str}")
+
+                conditional_imports.append("\n".join(conditional_block))
+
+        # Combine all imports
+        all_imports = regular_imports
+        if conditional_imports:
+            all_imports += "\n" + "\n".join(conditional_imports)
+
+        return all_imports
 
     def add_typing_imports_for_type(self, type_str: str) -> None:
         """
@@ -479,3 +497,28 @@ class RenderContext:
         # The above was incorrect as KNOWN_TYPING_IMPORTS is not in scope here.
         # The actual logic for this method is in add_typing_imports_for_type. This method is not used.
         pass  # This method seems to be unused and its previous logic was flawed.
+
+    def add_conditional_import(self, condition: str, module: str, name: str) -> None:
+        """
+        Add an import that should be guarded by a condition (e.g., TYPE_CHECKING).
+
+        Useful for forward references to avoid circular imports.
+
+        Args:
+            condition: The condition to guard the import (e.g., "TYPE_CHECKING")
+            module: The module to import from (e.g., "models.pet")
+            name: The name to import (e.g., "Pet")
+        """
+        if condition not in self.conditional_imports:
+            self.conditional_imports[condition] = {}
+
+        if module not in self.conditional_imports[condition]:
+            self.conditional_imports[condition][module] = set()
+
+        self.conditional_imports[condition][module].add(name)
+        logger.debug(f"[add_conditional_import] Added conditional import: if {condition}: from {module} import {name}")
+
+    def clear_imports(self) -> None:
+        """Clear all imports for a new file."""
+        self.import_collector = ImportCollector()
+        self.conditional_imports = {}

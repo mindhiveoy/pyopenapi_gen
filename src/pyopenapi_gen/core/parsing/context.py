@@ -96,3 +96,38 @@ class ParsingContext:
     def get_current_path_for_logging(self) -> str:
         """Helper to get a string representation of the current parsing path for logs."""
         return " -> ".join(self.currently_parsing)
+
+    def get_parsed_schemas_for_emitter(self) -> Dict[str, IRSchema]:
+        # ---- START RESTORE ----
+        return {
+            name: schema
+            for name, schema in self.parsed_schemas.items()
+            if not getattr(schema, "_is_circular_ref", False)
+            and not getattr(schema, "_from_unresolved_ref", False)
+            and not getattr(schema, "_max_depth_exceeded", False)
+        }
+        # ---- END RESTORE ----
+
+    def is_schema_parsed(self, schema_name: str) -> bool:
+        """Check if a schema with the given name has been parsed.
+
+        Contracts:
+            Preconditions:
+                - schema_name is a valid string
+            Postconditions:
+                - Returns True if the schema exists in parsed_schemas, False otherwise
+        """
+        assert isinstance(schema_name, str), "schema_name must be a string"
+        return schema_name in self.parsed_schemas
+
+    def get_parsed_schema(self, schema_name: str) -> Optional["IRSchema"]:
+        """Get a parsed schema by its name.
+
+        Contracts:
+            Preconditions:
+                - schema_name is a valid string
+            Postconditions:
+                - Returns the IRSchema if it exists, None otherwise
+        """
+        assert isinstance(schema_name, str), "schema_name must be a string"
+        return self.parsed_schemas.get(schema_name)

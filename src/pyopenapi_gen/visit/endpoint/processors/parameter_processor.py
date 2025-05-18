@@ -128,6 +128,12 @@ class EndpointParameterProcessor:
                     )
 
         final_ordered_params = self._ensure_path_variables_as_params(op, ordered_params, param_details_map)
+
+        # Sort parameters: required first, then optional.
+        # We use a stable sort by negating 'required' (True becomes -1, False becomes 0).
+        # Parameters with the same required status maintain their relative order.
+        final_ordered_params.sort(key=lambda p: not p["required"])
+
         return final_ordered_params, primary_content_type, resolved_body_type
 
     def _ensure_path_variables_as_params(

@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 from pyopenapi_gen import IRSchema
-from pyopenapi_gen.core.loader import (
+from pyopenapi_gen.core.loader.loader import (
     load_ir_from_spec,
 )
 
@@ -21,7 +21,7 @@ def test_loader_continues_on_validate_spec_error(monkeypatch: Any) -> None:
         - load_ir_from_spec returns an IRSpec with operations parsed normally.
     """
     # Monkeypatch validate_spec to always raise
-    import pyopenapi_gen.core.loader as loader
+    import pyopenapi_gen.core.loader.loader as loader
 
     monkeypatch.setattr(
         loader,
@@ -69,7 +69,7 @@ def test_loader_handles_unresolved_ref_in_response_content(monkeypatch: Any) -> 
         - The content schema is an IRSchema instance with name=None.
     """
     # Monkeypatch validate_spec to None to skip real validation
-    import pyopenapi_gen.core.loader as loader
+    import pyopenapi_gen.core.loader.loader as loader
 
     monkeypatch.setattr(loader, "validate_spec", None)
     # Spec with unresolved $ref inside response content

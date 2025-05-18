@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from pyopenapi_gen import IRRequestBody, IRResponse
-from pyopenapi_gen.core.loader import load_ir_from_spec
+from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 
 # Spec with multipart/form-data requestBody and streaming response
 MULTIPART_SPEC = {

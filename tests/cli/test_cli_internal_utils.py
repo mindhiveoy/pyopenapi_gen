@@ -1,12 +1,9 @@
 from pathlib import Path
-from typing import Any
 
 import pytest
-import yaml
+from typer import Exit
 
 from pyopenapi_gen.cli import _load_spec
-from pyopenapi_gen.core.loader import load_ir_from_spec
-from typer import Exit
 
 
 def test_load_spec_from_file(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional
 
 from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -27,17 +27,11 @@ class ModelsEmitter:
         self.import_collector = self.context.import_collector
         self.writer = CodeWriter()
 
-        # DEBUG log for constructor
-        with open("models_emitter_constructor_debug.txt", "w", encoding="utf-8") as debug_f:
-            debug_f.write(f"MODELS_EMITTER_CONSTRUCTOR_DEBUG: Parsed schemas count: {len(self.parsed_schemas)}\n")
-            for k, v_schema in self.parsed_schemas.items():
-                debug_f.write(f"  SchemaKeyInConstructor: {k}, Name: {v_schema.name}, Type: {v_schema.type}\n")
-
-    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> None:
+    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> Optional[str]:
         """Generates a single Python file for a given IRSchema."""
         if not schema_ir.name:
             logger.warning(f"Skipping model generation for schema without a name: {schema_ir}")
-            return
+            return None
 
         module_name = NameSanitizer.sanitize_module_name(schema_ir.name)
         file_path = models_dir / f"{module_name}.py"
@@ -47,17 +41,24 @@ class ModelsEmitter:
         visitor = ModelVisitor(schemas=self.parsed_schemas)
         rendered_model_str = visitor.visit(schema_ir, self.context)
 
-        if not rendered_model_str.strip():
-            logger.debug(f"ModelVisitor returned empty string for schema: {schema_ir.name}, skipping file generation.")
-            return
-
         imports_str = self.context.render_imports()
         file_content = f"{imports_str}\n\n{rendered_model_str}"
 
-        self.context.file_manager.write_file(str(file_path), file_content)
-        logger.debug(f"Generated model file: {file_path} for schema: {schema_ir.name}")
+        model_file_name = NameSanitizer.sanitize_filename(schema_ir.name)
+        model_file_path = models_dir / model_file_name
 
-    def _generate_init_py_content(self) -> str:
+        try:
+            model_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            model_file_path.write_text(file_content, encoding="utf-8")
+            return str(model_file_path)
+        except OSError as e:
+            logger.error(
+                f"Error writing model file {model_file_path if 'model_file_path' in locals() else 'UNKNOWN_PATH'}: {e}"
+            )
+            return None
+
+    def _generate_init_py_content(self, generated_files_paths: List[str], models_dir: Path) -> str:
         """Generates the content for models/__init__.py."""
         init_writer = CodeWriter()
 
@@ -67,11 +68,6 @@ class ModelsEmitter:
 
         all_class_names: Set[str] = set()
         sorted_schema_items = sorted(self.parsed_schemas.items())
-
-        with open("models_emitter_init_debug.txt", "w", encoding="utf-8") as debug_f:
-            debug_f.write(
-                f"MODELS_EMITTER_INIT_CONTENT_DEBUG: Processing {len(sorted_schema_items)} schemas for __init__.py\n"
-            )
 
         for schema_key, s_schema in sorted_schema_items:
             if not s_schema.name:
@@ -84,11 +80,6 @@ class ModelsEmitter:
 
             module_name = NameSanitizer.sanitize_module_name(s_schema.name)
             class_name = NameSanitizer.sanitize_class_name(s_schema.name)
-
-            with open("models_emitter_init_debug.txt", "a", encoding="utf-8") as debug_f:
-                debug_f.write(
-                    f"  Processing for __init__: schema_key='{schema_key}', s.name='{s_schema.name}', module_name='{module_name}', class_name='{class_name}'\n"
-                )
 
             if module_name == "__init__":
                 logger.warning(f"Skipping import for schema '{s_schema.name}' as its module name became __init__.")
@@ -104,17 +95,12 @@ class ModelsEmitter:
         init_writer.write_line("]")
 
         generated_content = init_writer.get_code()
-
-        # Write the exact generated content to a debug file for inspection
-        with open("models_emitter_init_py_generated_content.txt", "w", encoding="utf-8") as debug_f:
-            debug_f.write(f"--- START OF models/__init__.py CONTENT ---\n")
-            debug_f.write(generated_content)
-            debug_f.write(f"\n--- END OF models/__init__.py CONTENT ---")
-
         return generated_content
 
     def emit(self, spec: IRSpec, output_dir_str: str) -> list[str]:
         """Emits all model files and the models/__init__.py file."""
+        logger.debug(f"ModelsEmitter.emit called. Processing {len(self.parsed_schemas)} schemas.")
+
         models_dir = Path(output_dir_str) / "models"
         self.context.file_manager.ensure_dir(str(models_dir))
 
@@ -130,20 +116,37 @@ class ModelsEmitter:
 
         sorted_schemas_for_files = sorted(self.parsed_schemas.values(), key=lambda s: s.name or "")
 
-        for schema_ir_to_file in sorted_schemas_for_files:
-            if schema_ir_to_file.name and not schema_ir_to_file._from_unresolved_ref:
-                self._generate_model_file(schema_ir_to_file, models_dir)
-                generated_files_paths.append(
-                    str(models_dir / f"{NameSanitizer.sanitize_module_name(schema_ir_to_file.name)}.py")
-                )
-            else:
+        logger.debug(
+            f"ModelsEmitter.emit: Starting loop to generate model files for {len(sorted_schemas_for_files)} sorted schemas."
+        )
+
+        for schema_ir in sorted_schemas_for_files:
+            if not schema_ir.name:
+                logger.debug(f"Skipping model file generation for schema without a name: {schema_ir!r}")
+                continue
+
+            if schema_ir._from_unresolved_ref or schema_ir._max_depth_exceeded:
                 logger.debug(
-                    f"Skipping file generation for schema: name='{schema_ir_to_file.name}', "
-                    f"type='{schema_ir_to_file.type}', is_ref='{schema_ir_to_file._from_unresolved_ref}'"
+                    f"Skipping file generation for schema: Name='{schema_ir.name}', "
+                    f"IsRefPlaceholder='{schema_ir._from_unresolved_ref}', MaxDepthExceeded='{schema_ir._max_depth_exceeded}'"
+                )
+                continue
+
+            generated_file: Optional[str] = None
+            try:
+                generated_file = self._generate_model_file(schema_ir, models_dir)
+            except Exception as e:
+                logger.error(
+                    f"[ModelsEmitter.emit ERROR] Unhandled exception while generating model for '{schema_ir.name}'. Error: {type(e).__name__}: {e}",
+                    exc_info=True,
                 )
 
-        init_content = self._generate_init_py_content()
+            if generated_file:
+                generated_files_paths.append(generated_file)
+
+        init_content = self._generate_init_py_content(generated_files_paths, models_dir)
         init_py_path = models_dir / "__init__.py"
+
         self.context.file_manager.write_file(str(init_py_path), init_content)
         generated_files_paths.append(str(init_py_path))
 

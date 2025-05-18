@@ -1,17 +1,18 @@
+import logging
 import os
 import subprocess
 from pathlib import Path
-import logging
-import tempfile
+import shutil
 
 import yaml
 
-from pyopenapi_gen.core.loader import load_ir_from_spec
-from pyopenapi_gen.emitters.client_emitter import ClientEmitter
-from pyopenapi_gen.emitters.core_emitter import CONFIG_TEMPLATE, CoreEmitter
-from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
-from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.loader.loader import load_ir_from_spec
+from pyopenapi_gen.emitters.client_emitter import ClientEmitter
+from pyopenapi_gen.emitters.core_emitter import CoreEmitter
+from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
+from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
 def test_business_swagger_generation(tmp_path: Path) -> None:
@@ -27,7 +28,12 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     logging.getLogger("pyopenapi_gen").setLevel(logging.DEBUG)  # Capture all logs from the package
 
     # Arrange
-    spec_source = Path(__file__).parent.parent / "input" / "business_swagger.json"
+    # Correctly locate spec_source relative to the project root
+    project_root_dir = Path(
+        __file__
+    ).parent.parent.parent  # Go up three levels from tests/integrations/test.py to project root
+    spec_source = project_root_dir / "input" / "business_swagger.json"
+
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(spec_source.read_text())
     out_dir = tmp_path / "out"
@@ -58,13 +64,19 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         overall_project_root=str(project_root),
     )
 
-    # Instantiate emitters with correct core package name where needed
-    core_emitter = CoreEmitter(core_package=core_package_name)
+    # Run ExceptionsEmitter first to get alias names
+    exceptions_emitter = ExceptionsEmitter(core_package_name=core_package_name, overall_project_root=str(project_root))
+    exception_files_list, exception_alias_names = exceptions_emitter.emit(ir, str(core_dir))  # Emit to core_dir
+
+    core_emitter = CoreEmitter(
+        core_package=core_package_name, exception_alias_names=exception_alias_names
+    )  # Pass names
     models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
     endpoints_emitter = EndpointsEmitter(core_package=core_package_name, overall_project_root=str(project_root))
     client_emitter = ClientEmitter(core_package=core_package_name, overall_project_root=str(project_root))
 
     # Run emitters
+    # Exceptions were already emitted to get names
     core_emitter.emit(str(out_dir))  # Generate core files first (takes output dir)
     models_emitter.emit(ir, str(out_dir))
     endpoints_emitter.emit(ir, str(out_dir))
@@ -123,6 +135,29 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         cwd=out_dir.parent,  # text=False to handle bytes manually
     )
 
+    # --- START ADDED FOR DEBUG ---
+    final_output_dir_for_inspection = project_root_dir / "test_outputs" / "latest_generated_client"
+    destination_path = final_output_dir_for_inspection / output_package  # output_package is 'out'
+    if destination_path.exists():  # Check existence of the destination 'out' folder
+        shutil.rmtree(destination_path)
+    # Ensure the parent 'latest_generated_client' directory exists
+    final_output_dir_for_inspection.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(out_dir, destination_path)  # out_dir is tmp_path / "out"
+
+    # ---- RE-OBTAIN LOGGER ----
+    current_logger = logging.getLogger("pyopenapi_gen")  # Or use a more specific name if preferred
+    current_logger.critical(f"DEBUG: Copied generated files from {out_dir} to {destination_path}")
+
+    # ---- START NEW LOGGING FOR COPIED DIR CONTENTS ----
+    current_logger.critical(f"--- Contents of copied directory: {destination_path} ---")
+    for root, dirs, files in os.walk(destination_path):
+        for name in files:
+            current_logger.critical(os.path.join(root, name))
+        for name in dirs:
+            current_logger.critical(os.path.join(root, name) + "/")  # Add slash for dirs
+    current_logger.critical(f"--- End of contents for: {destination_path} ---")
+    # ---- END NEW LOGGING FOR COPIED DIR CONTENTS ----
+
     # Initialize with placeholder for mypy_output_content
     mypy_output_content = "Mypy did not run or produce output."
 
@@ -168,7 +203,8 @@ def test_generated_agent_datasources_imports_are_valid(tmp_path: Path) -> None:
         - The first import line is a valid Python import (no slashes, starts with 'from ..models.' or 'from .').
     """
     # Copy the provided business_swagger.json into a temporary spec file
-    spec_source = Path(__file__).parent.parent / "input" / "business_swagger.json"
+    project_root_dir = Path(__file__).parent.parent.parent  # Go up three levels
+    spec_source = project_root_dir / "input" / "business_swagger.json"
     spec_file = tmp_path / "spec.json"
     spec_file.write_text(spec_source.read_text())
 

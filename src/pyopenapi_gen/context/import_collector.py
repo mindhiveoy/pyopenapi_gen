@@ -83,7 +83,8 @@ def make_relative_import(current_module_dot_path: str, target_module_dot_path: s
     remaining_target_components = target_parts[L:]
 
     if up_levels == 0:
-        # This means the common prefix L makes current_dir_parts a prefix of (or same as) target_parts's directory structure portion.
+        # This means the common prefix L makes current_dir_parts a prefix of (or same as)
+        # target_parts's directory structure portion.
         # Or, target is in a subdirectory of current_dir_parts[L-1]
 
         # Special case for importing a submodule from its parent package's __init__.py
@@ -235,7 +236,9 @@ class ImportCollector:
         Core package imports are treated as absolute if core_package_name_for_absolute_treatment is provided.
         """
         logger.debug(
-            f"[ImportCollector] get_import_statements called. Current module: {current_module_dot_path}, Package root: {package_root}, Core pkg for abs: {core_package_name_for_absolute_treatment}"
+            f"[ImportCollector] get_import_statements called. Current module: {current_module_dot_path}, Package root: {
+                package_root
+            }, Core pkg for abs: {core_package_name_for_absolute_treatment}"
         )
         standard_import_lines: List[str] = []
 
@@ -271,12 +274,18 @@ class ImportCollector:
                 except ValueError as e:
                     import_statement = f"from {module_name} import {', '.join(names)}"
                     logger.warning(
-                        f"[ImportCollector] Failed to make '{module_name}' relative to '{current_module_dot_path}', using absolute. Error: {e}"
+                        f"[ImportCollector] Failed to make '{module_name}' relative to '{
+                            current_module_dot_path
+                        }', using absolute. Error: {e}"
                     )
             else:
                 import_statement = f"from {module_name} import {', '.join(names)}"
                 logger.debug(
-                    f"[ImportCollector] -> Fallback/Absolute import: {import_statement} (current_path: {current_module_dot_path}, pkg_root: {package_root}, mod_starts_pkg_root: {module_name.startswith(package_root + '.') if package_root else False})"
+                    f"[ImportCollector] -> Fallback/Absolute import: {import_statement} (current_path: {
+                        current_module_dot_path
+                    }, pkg_root: {package_root}, mod_starts_pkg_root: {
+                        module_name.startswith(package_root + '.') if package_root else False
+                    })"
                 )
 
             standard_import_lines.append(import_statement)
@@ -305,12 +314,47 @@ class ImportCollector:
 
     def get_formatted_imports(self) -> str:
         """
-        Return the import statements as a formatted string.
+        Get all imports as a formatted string.
 
         Returns:
             A newline-separated string of import statements
         """
-        return "\n".join(self.get_import_statements())
+        statements: List[str] = []
+
+        # Standard library imports first
+        stdlib_modules = sorted([m for m in self.imports.keys() if _is_stdlib(m)])
+
+        for module in stdlib_modules:
+            names = sorted(self.imports[module])
+            statements.append(f"from {module} import {', '.join(names)}")
+
+        # Then third-party and app imports
+        other_modules = sorted([m for m in self.imports.keys() if not _is_stdlib(m)])
+
+        if stdlib_modules and other_modules:
+            statements.append("")  # Add a blank line between stdlib and other imports
+
+        for module in other_modules:
+            names = sorted(self.imports[module])
+            statements.append(f"from {module} import {', '.join(names)}")
+
+        # Then plain imports
+        if self.plain_imports:
+            if statements:  # Add blank line if we have imports already
+                statements.append("")
+
+            for module in sorted(self.plain_imports):
+                statements.append(f"import {module}")
+
+        # Then relative imports
+        if self.relative_imports and (stdlib_modules or other_modules or self.plain_imports):
+            statements.append("")  # Add a blank line before relative imports
+
+        for module in sorted(self.relative_imports.keys()):
+            names = sorted(self.relative_imports[module])
+            statements.append(f"from {module} import {', '.join(names)}")
+
+        return "\n".join(statements)
 
     def merge(self, other: "ImportCollector") -> None:
         """

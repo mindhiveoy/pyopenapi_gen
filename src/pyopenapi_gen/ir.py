@@ -41,6 +41,7 @@ class IRSchema:
     )
     _is_circular_ref: bool = False  # True if this schema was detected as part of a circular reference
     _circular_ref_path: Optional[str] = None  # Contains the path of the circular reference if detected
+    _max_depth_exceeded: bool = False  # ADDED: True if parsing was stopped due to exceeding max depth
     _is_name_derived: bool = field(
         default=False, repr=False
     )  # True if the name was derived (e.g. for promoted inline objects)

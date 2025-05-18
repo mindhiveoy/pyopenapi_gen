@@ -204,8 +204,24 @@ def _parse_schema(
 
         if current_final_type == "object":
             final_properties_for_ir = props_from_comp.copy()
+            final_required_set: Set[str] = set()  # Initialize final_required_set here
             if "properties" in schema_node:
                 for prop_name, prop_schema_node in schema_node["properties"].items():
+                    # ---- START DEBUG ----
+                    if prop_name == "messages" and schema_name and "addmessage" in schema_name.lower():
+                        temp_prop_schema_context_name = "ERROR_CALCULATING"
+                        if schema_name:  # Parent name
+                            temp_prop_schema_context_name = (
+                                f"{schema_name}{NameSanitizer.sanitize_class_name(prop_name)}"
+                            )
+                        else:
+                            temp_prop_schema_context_name = NameSanitizer.sanitize_class_name(prop_name)
+                        logger.critical(
+                            f"[SchemaParser PROP_ITER_DEBUG AddMessage.messages] Parent Schema Name: '{schema_name}', "
+                            f"Prop Name: '{prop_name}', Constructed Prop Context Name: '{temp_prop_schema_context_name}', "
+                            f"Prop Node Type: {prop_schema_node.get('type') if isinstance(prop_schema_node, dict) else 'N/A'}"
+                        )
+                    # ---- END DEBUG ----
                     if not isinstance(prop_name, str) or not prop_name:
                         logger.warning(
                             f"Skipping property with invalid name '{prop_name}' in schema '{schema_name or 'anonymous'}'."
@@ -256,7 +272,7 @@ def _parse_schema(
 
                             if is_inline_object_node and schema_name:  # Promote named inline objects
                                 promoted_schema_name = f"{schema_name}{NameSanitizer.sanitize_class_name(prop_name)}"
-                                actual_promoted_ir = _parse_schema(
+                                promoted_ir_schema = _parse_schema(
                                     promoted_schema_name, prop_schema_node, context, max_depth_override
                                 )
                                 # >>> DIAGNOSTIC PRINT (REMOVED) <<<
@@ -266,29 +282,142 @@ def _parse_schema(
                                 final_properties_for_ir[prop_name] = IRSchema(
                                     name=prop_name,  # Property name remains original
                                     type=promoted_schema_name,  # Type is the name of the promoted schema
-                                    description=actual_promoted_ir.description,
+                                    description=promoted_ir_schema.description,
                                     is_nullable=prop_schema_node.get("nullable", False)
-                                    or actual_promoted_ir.is_nullable,
-                                    _refers_to_schema=actual_promoted_ir,
+                                    or promoted_ir_schema.is_nullable,
+                                    _refers_to_schema=promoted_ir_schema,
                                 )
                                 # >>> NEW PRINT 1 <<<
                                 if schema_name == "DeepSchemaLevel1" and prop_name == "level2":
                                     print(
                                         f"SCHEMA_PARSER_POST_ASSIGN_DEBUG for '{schema_name}': final_properties_for_ir NOW: {final_properties_for_ir}"
                                     )
-                            else:  # Non-promoted inline object or simple type
-                                prop_schema_context_name: str
-                                if schema_name:
-                                    prop_schema_context_name = (
-                                        f"{schema_name}{NameSanitizer.sanitize_class_name(prop_name)}"
-                                    )
-                                else:
-                                    # For anonymous parent schema, base name on sanitized prop_name only
-                                    prop_schema_context_name = NameSanitizer.sanitize_class_name(prop_name)
-
-                                final_properties_for_ir[prop_name] = _parse_schema(
-                                    prop_schema_context_name, prop_schema_node, context, max_depth_override
+                                # CRITICAL: The promoted schema MUST be parsed and added to context.parsed_schemas
+                                context.parsed_schemas[promoted_schema_name] = promoted_ir_schema  # Ensure it's stored
+                                logger.critical(
+                                    f"[PROMOTION_SUCCESS] Promoted '{promoted_schema_name}' and stored in context.parsed_schemas. Parsed IR: {promoted_ir_schema!r}"
                                 )
+                            else:  # Non-promoted inline object or simple type
+                                # This helps in tracking but doesn't guarantee a globally unique schema name if not promoted.
+                                # If this inline schema is complex enough to be promoted, its name will be based on this.
+                                prop_schema_context_name = NameSanitizer.sanitize_class_name(prop_name)
+
+                                # This is the IR of the (potentially) promoted schema for the property
+                                parsed_prop_schema_ir = _parse_schema(
+                                    prop_schema_context_name,
+                                    prop_schema_node,
+                                    context,
+                                    max_depth_override,
+                                )
+
+                                # Check if the property's schema was an inline object/array that got promoted
+                                # (i.e., its parsed name matches the context name we gave it, and it's now a global schema)
+                                original_prop_node_type = (
+                                    prop_schema_node.get("type") if isinstance(prop_schema_node, Mapping) else None
+                                )
+
+                                if (
+                                    isinstance(prop_schema_node, Mapping)
+                                    and (original_prop_node_type == "object" or original_prop_node_type == "array")
+                                    and parsed_prop_schema_ir.name == prop_schema_context_name
+                                    and context.is_schema_parsed(parsed_prop_schema_ir.name)
+                                    and context.get_parsed_schema(parsed_prop_schema_ir.name) is parsed_prop_schema_ir
+                                ):
+                                    # It's a promoted inline object/array. Create a holder IR for the property slot.
+                                    # The holder's 'type' will be the NAME of the promoted schema.
+                                    # The holder's 'name' will be the original property name.
+
+                                    # Determine nullability for the property reference itself based on the property's node
+                                    prop_is_nullable = False
+                                    if "nullable" in prop_schema_node:  # OpenAPI v3
+                                        prop_is_nullable = prop_schema_node["nullable"]
+                                    elif (
+                                        isinstance(prop_schema_node.get("type"), list)
+                                        and "null" in prop_schema_node["type"]
+                                    ):  # OpenAPI v2 style for type: [..., null]
+                                        prop_is_nullable = True
+                                    elif (
+                                        parsed_prop_schema_ir.is_nullable
+                                    ):  # Fallback to promoted schema's nullability if not on prop node
+                                        prop_is_nullable = True
+
+                                    property_holder_ir = IRSchema(
+                                        name=prop_name,  # Original property name (e.g., "config")
+                                        type=parsed_prop_schema_ir.name,  # Type is the *name* of the promoted schema (e.g., "ParentConfig")
+                                        description=prop_schema_node.get(
+                                            "description", parsed_prop_schema_ir.description
+                                        ),
+                                        is_nullable=prop_is_nullable,
+                                        default=prop_schema_node.get(
+                                            "default"
+                                        ),  # Default comes from property definition
+                                        example=prop_schema_node.get(
+                                            "example"
+                                        ),  # Example comes from property definition
+                                        enum=prop_schema_node.get("enum")
+                                        if not parsed_prop_schema_ir.enum
+                                        else None,  # Enum on prop node takes precedence
+                                        _refers_to_schema=parsed_prop_schema_ir,  # Link to the actual promoted schema definition
+                                    )
+                                    # If the promoted schema itself had an enum, and prop node didn't, it's part of the type, not this ref
+                                    if parsed_prop_schema_ir.enum and not property_holder_ir.enum:
+                                        # This indicates the enum is on the referenced type.
+                                        # The property_holder_ir.type already points to its name.
+                                        pass
+
+                                    final_properties_for_ir[prop_name] = property_holder_ir
+                                else:
+                                    # Not a promoted complex type, or some other scenario.
+                                    # Assign directly, but ensure its name is prop_name if it's not a global ref.
+                                    if parsed_prop_schema_ir.name != prop_name and not (
+                                        parsed_prop_schema_ir.name
+                                        and context.is_schema_parsed(parsed_prop_schema_ir.name)
+                                        and context.get_parsed_schema(parsed_prop_schema_ir.name)
+                                        is parsed_prop_schema_ir
+                                    ):
+                                        # This case is tricky: parsed_prop_schema_ir might have a generated name.
+                                        # For simple types (string, int), parsed_prop_schema_ir.name is often None or based on context.
+                                        # We want the IR stored in parent's properties to have the correct 'prop_name'.
+                                        # Let's create a new simple IR holder for this property if its name doesn't match.
+                                        # This typically applies to anonymous simple types.
+                                        simple_prop_holder = IRSchema(
+                                            name=prop_name,
+                                            type=parsed_prop_schema_ir.type,
+                                            description=prop_schema_node.get(
+                                                "description", parsed_prop_schema_ir.description
+                                            ),
+                                            is_nullable=parsed_prop_schema_ir.is_nullable,  # Should be derived from prop_schema_node ideally
+                                            default=prop_schema_node.get("default", parsed_prop_schema_ir.default),
+                                            example=prop_schema_node.get("example", parsed_prop_schema_ir.example),
+                                            enum=prop_schema_node.get("enum", parsed_prop_schema_ir.enum),
+                                            format=parsed_prop_schema_ir.format,
+                                            # No _refers_to_schema for simple types not in global context
+                                        )
+                                        # Re-check nullability from prop_schema_node
+                                        prop_node_nullable = False
+                                        if isinstance(prop_schema_node, Mapping):
+                                            if "nullable" in prop_schema_node:
+                                                prop_node_nullable = prop_schema_node["nullable"]
+                                            elif (
+                                                isinstance(prop_schema_node.get("type"), list)
+                                                and "null" in prop_schema_node["type"]
+                                            ):
+                                                prop_node_nullable = True
+                                        simple_prop_holder.is_nullable = (
+                                            prop_node_nullable or parsed_prop_schema_ir.is_nullable
+                                        )
+
+                                        final_properties_for_ir[prop_name] = simple_prop_holder
+
+                                    else:  # Is a global ref by its name, or name already matches prop_name
+                                        final_properties_for_ir[prop_name] = parsed_prop_schema_ir
+
+                        required_from_prop = (
+                            set(prop_schema_node.get("required", []))
+                            if isinstance(prop_schema_node, Mapping)
+                            else set()
+                        )
+                        final_required_set.update(required_from_prop)
         final_required_fields_set = req_from_comp.copy()
         if "required" in schema_node and isinstance(schema_node["required"], list):
             final_required_fields_set.update(schema_node["required"])
@@ -299,8 +428,45 @@ def _parse_schema(
             items_node = schema_node.get("items")
             if items_node:
                 # Construct a name for the items schema if it's an inline object/array that needs promotion/naming
-                item_schema_name_context = f"{schema_name or 'AnonymousArray'}Item"
-                items_ir = _parse_schema(item_schema_name_context, items_node, context, max_depth_override)
+                # Ensure sanitize_class_name gets a valid string.
+                base_name_for_item = schema_name or "AnonymousArray"
+                item_schema_name_for_recursive_parse = NameSanitizer.sanitize_class_name(f"{base_name_for_item}Item")
+
+                actual_item_ir = _parse_schema(
+                    item_schema_name_for_recursive_parse, items_node, context, max_depth_override
+                )
+
+                is_promoted_inline_object = (
+                    isinstance(items_node, Mapping)
+                    and items_node.get("type") == "object"
+                    and "$ref" not in items_node
+                    and actual_item_ir.name == item_schema_name_for_recursive_parse
+                )
+
+                if is_promoted_inline_object:
+                    # Check if the context actually contains the promoted item by its name, RIGHT NOW.
+                    # This is crucial because ModelsEmitter later fetches from context.parsed_schemas.
+                    if (
+                        actual_item_ir.name in context.parsed_schemas
+                        and context.parsed_schemas[actual_item_ir.name] is actual_item_ir
+                    ):
+                        logger.critical(
+                            f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_SUCCESS] Promoted array item '{actual_item_ir.name}' IS correctly in context.parsed_schemas."
+                        )
+                    else:
+                        logger.critical(
+                            f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_FAIL] Promoted array item '{actual_item_ir.name}' NOT in context or points to wrong object! Keys: {list(context.parsed_schemas.keys())}"
+                        )
+
+                    ref_holder_ir = IRSchema(
+                        name=None,
+                        type=actual_item_ir.name,
+                        description=actual_item_ir.description or items_node.get("description"),
+                    )
+                    ref_holder_ir._refers_to_schema = actual_item_ir
+                    items_ir = ref_holder_ir
+                else:
+                    items_ir = actual_item_ir
             else:
                 if DEBUG_CYCLES:
                     logger.debug(
@@ -332,38 +498,47 @@ def _parse_schema(
         # If the schema is an array and its items field is a sub-schema (dict),
         # recursively parse it so depth/cycles in items are caught.
         if schema_ir.type == "array" and isinstance(schema_node.get("items"), Mapping):
-            raw_items_node = schema_node["items"]  # Known to be Mapping here
-            # Avoid re-parsing if items is a $ref that top-level $ref logic would handle,
-            # but this deep items $ref needs its own parse if not caught by top-level.
-            # For direct inline item objects, or $refs within items not caught by main $ref block:
-            if isinstance(raw_items_node, Mapping):  # Redundant but for clarity
-                if DEBUG_CYCLES:
-                    logger.debug(
-                        f"Recursively parsing items for array schema '{schema_name or 'anonymous'}'. Item node: {raw_items_node}"
-                    )
-                # Determine a name for the item schema for context, if possible
-                item_schema_context_name: Optional[str] = None
-                if schema_name:
-                    item_schema_context_name = (
-                        f"{NameSanitizer.sanitize_class_name(schema_name)}Item"  # Sanitize parent for name
-                    )
-                # else, it's an item of an anonymous array, pass None
+            raw_items_node = schema_node["items"]
+            item_schema_context_name_for_reparse: Optional[str]
+            base_name_for_reparse_item = schema_name or "AnonymousArray"  # Fallback for anonymous parent array
+            item_schema_context_name_for_reparse = NameSanitizer.sanitize_class_name(
+                f"{base_name_for_reparse_item}Item"
+            )
 
-                # Check if items node is a $ref itself, if so, parse it as such by passing it to _parse_schema directly
-                # The main $ref block at the top of _parse_schema handles $refs for the *current* schema_node.
-                # This here handles if schema_node.items is a $ref.
-                if "$ref" in raw_items_node:  # Item itself is a $ref
-                    # The main $ref logic at the top of _parse_schema should handle this if raw_items_node was the schema_node.
-                    # Here, we are a sub-parser. We can directly call _parse_schema with the raw_items_node,
-                    # and it will handle its $ref internally.
-                    # The name passed here would be the contextual name for the item definition spot.
-                    schema_ir.items = _parse_schema(
-                        item_schema_context_name, raw_items_node, context, max_depth_override
+            direct_reparsed_item_ir = _parse_schema(
+                item_schema_context_name_for_reparse, raw_items_node, context, max_depth_override
+            )
+
+            is_promoted_inline_object_in_reparse_block = (
+                isinstance(raw_items_node, Mapping)
+                and raw_items_node.get("type") == "object"
+                and "$ref" not in raw_items_node
+                and direct_reparsed_item_ir.name == item_schema_context_name_for_reparse
+            )
+
+            if is_promoted_inline_object_in_reparse_block:
+                # Similar check for the reparse block
+                if (
+                    direct_reparsed_item_ir.name in context.parsed_schemas
+                    and context.parsed_schemas[direct_reparsed_item_ir.name] is direct_reparsed_item_ir
+                ):
+                    logger.critical(
+                        f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_SUCCESS_REPARSE] Promoted array item '{direct_reparsed_item_ir.name}' (reparse) IS correctly in context.parsed_schemas."
                     )
-                else:  # Item is an inline schema definition
-                    schema_ir.items = _parse_schema(
-                        item_schema_context_name, raw_items_node, context, max_depth_override
+                else:
+                    logger.critical(
+                        f"[PROMOTION_ARRAY_ITEM_CONTEXT_CHECK_FAIL_REPARSE] Promoted array item '{direct_reparsed_item_ir.name}' (reparse) NOT in context or points to wrong object! Keys: {list(context.parsed_schemas.keys())}"
                     )
+
+                ref_holder_for_reparse_ir = IRSchema(
+                    name=None,
+                    type=direct_reparsed_item_ir.name,
+                    description=direct_reparsed_item_ir.description or raw_items_node.get("description"),
+                )
+                ref_holder_for_reparse_ir._refers_to_schema = direct_reparsed_item_ir
+                schema_ir.items = ref_holder_for_reparse_ir
+            else:
+                schema_ir.items = direct_reparsed_item_ir
 
         # YIELDING LOGIC FOR EXISTING CYCLE PLACEHOLDER (applies if schema_name is not None):
         if schema_name and schema_name in context.parsed_schemas:
@@ -406,6 +581,11 @@ def _parse_schema(
             # Re-evaluating: _handle_... functions DO store in context.parsed_schemas[original_name].
             # So, if we returned from there, schema_ir *is* that placeholder.
             # If we built schema_ir fresh, or got it from $ref, then we store it.
+            context.parsed_schemas[schema_name] = schema_ir
+
+        # Store the fully parsed schema (unless it's a placeholder for an unresolved ref or max depth hit)
+        # Aliases with simple types are also stored here if they have a schema_name.
+        if schema_name and not schema_ir._from_unresolved_ref and not schema_ir._max_depth_exceeded:
             context.parsed_schemas[schema_name] = schema_ir
 
         return schema_ir

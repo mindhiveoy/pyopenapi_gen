@@ -54,7 +54,7 @@ class PythonConstructRenderer:
             ```python
             # Assuming: from typing import TypeAlias
             UserId: TypeAlias = str
-            '''Alias for a user identifier'''
+            '''Alias for a user identifier'''  # Reverted to triple-single for example
             ```
         """
         writer = CodeWriter()
@@ -69,8 +69,10 @@ class PythonConstructRenderer:
 
         writer.write_line(f"{alias_name}: TypeAlias = {target_type}")
         if description:
-            # Simple docstring for alias
-            writer.write_line(f"'''Alias for {description}'''")
+            # Sanitize description for use within a triple-double-quoted string for the actual docstring
+            safe_desc_content = description.replace("\\", "\\\\")  # Escape backslashes first
+            safe_desc_content = safe_desc_content.replace('"""', '\\"\\"\\"')  # Escape triple-double-quotes
+            writer.write_line(f'"""Alias for {safe_desc_content}"""')  # Actual generated docstring uses """
         return writer.get_code()
 
     def render_enum(

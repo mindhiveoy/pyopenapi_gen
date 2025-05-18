@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from pyopenapi_gen import HTTPMethod
 from pyopenapi_gen.ir import IRSchema
-from pyopenapi_gen.core.loader import load_ir_from_spec
+from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
 
@@ -129,7 +129,7 @@ def test_codegen_analytics_query_params(tmp_path: Path) -> None:
     Expected Outcome:
         The generated endpoint code includes both query params in the params dict, and not the path param.
     """
-    from pyopenapi_gen.core.loader import load_ir_from_spec
+    from pyopenapi_gen.core.loader.loader import load_ir_from_spec
     from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 
     spec = {

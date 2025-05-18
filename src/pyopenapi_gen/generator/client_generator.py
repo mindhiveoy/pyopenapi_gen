@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, List, Union
 
-from pyopenapi_gen.core.loader import load_ir_from_spec
+from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.postprocess_manager import PostprocessManager
 from pyopenapi_gen.core.warning_collector import WarningCollector
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
