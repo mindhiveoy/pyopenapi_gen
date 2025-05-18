@@ -1,6 +1,7 @@
+import logging  # Added for logging
 import re
 import textwrap
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from pyopenapi_gen import IRSpec
 
@@ -8,6 +9,12 @@ from ..context.render_context import RenderContext
 from ..core.utils import NameSanitizer
 from ..core.writers.code_writer import CodeWriter
 from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
+
+if TYPE_CHECKING:
+    # To prevent circular imports if any type from core itself is needed for hints
+    pass
+
+logger = logging.getLogger(__name__)  # Added for logging
 
 
 class ClientVisitor:
@@ -56,8 +63,17 @@ class ClientVisitor:
         writer = CodeWriter()
         # Register all endpoint client imports using context.add_import
         for _, class_name, module_name in tag_tuples:
-            # Use package-relative logical path
-            context.add_import(f"endpoints.{module_name}", class_name)
+            current_gen_pkg_name = context.get_current_package_name_for_generated_code()
+            if not current_gen_pkg_name:
+                logger.error(
+                    f"[ClientVisitor] Could not determine generated package name from context. "
+                    f"Cannot form fully qualified import for endpoints.{module_name}.{class_name}"
+                )
+                # Fallback or raise error - for now, attempt direct, which might fail later in mypy
+                context.add_import(f"endpoints.{module_name}", class_name)
+            else:
+                logical_module_for_add_import = f"{current_gen_pkg_name}.endpoints.{module_name}"
+                context.add_import(logical_module_for_add_import, class_name)
 
         # Register core/config/typing imports for class signature
         # Use LOGICAL import path for core components
@@ -133,7 +149,18 @@ class ClientVisitor:
         for tag, class_name, module_name in tag_tuples:
             writer.write_line(f"@property")
             # Use context.add_import here too
-            context.add_import(f"endpoints.{module_name}", class_name)
+            current_gen_pkg_name_prop = context.get_current_package_name_for_generated_code()
+            if not current_gen_pkg_name_prop:
+                logger.error(
+                    f"[ClientVisitor Property] Could not determine generated package name from context. "
+                    f"Cannot form fully qualified import for endpoints.{module_name}.{class_name}"
+                )
+                # Fallback or raise error
+                context.add_import(f"endpoints.{module_name}", class_name)
+            else:
+                logical_module_for_add_import_prop = f"{current_gen_pkg_name_prop}.endpoints.{module_name}"
+                context.add_import(logical_module_for_add_import_prop, class_name)
+
             writer.write_line(f"def {module_name}(self) -> {class_name}:")
             writer.indent()
             writer.write_line(f'"""Client for \'{tag}\' endpoints."""')
@@ -161,6 +188,10 @@ class ClientVisitor:
         writer.indent()
         writer.write_line("await self.transport.close()")
         writer.dedent()
+        writer.write_line("else:")
+        writer.indent()
+        writer.write_line("pass  # Or log a warning if close is expected but not found")
+        writer.dedent()
         writer.dedent()
         writer.write_line("")
         # __aenter__ for async context management (dedented)
@@ -182,15 +213,23 @@ class ClientVisitor:
             "async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None) -> None:"
         )
         writer.indent()
-        writer.write_line('"""Exit the async context manager. Calls close()."""')
+        writer.write_line('"""Exit the async context manager, ensuring transport is closed."""')
+        # Close internal transport if it supports __aexit__
         writer.write_line("if hasattr(self.transport, '__aexit__'):")
         writer.indent()
         writer.write_line("await self.transport.__aexit__(exc_type, exc_val, exc_tb)")
         writer.dedent()
-        writer.write_line("else:")
+        writer.write_line("else:")  # Fallback if transport doesn't have __aexit__ but has close()
         writer.indent()
         writer.write_line("await self.close()")
         writer.dedent()
         writer.dedent()
         writer.write_line("")
+
+        # Ensure crucial core imports are present before final rendering
+        # This is a fallback / re-emphasis due to potential issues with ImportCollector
+        context.add_import(f"{context.core_package_name}.http_transport", "HttpTransport")
+        context.add_import(f"{context.core_package_name}.http_transport", "HttpxTransport")
+        context.add_import(f"{context.core_package_name}.config", "ClientConfig")
+
         return writer.get_code()

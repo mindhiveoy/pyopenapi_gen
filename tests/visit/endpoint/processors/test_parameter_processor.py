@@ -5,6 +5,7 @@ Tests for the EndpointParameterProcessor class.
 from typing import Dict
 from unittest.mock import MagicMock
 from unittest.mock import patch
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,7 @@ from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.http_types import HTTPMethod
 from pyopenapi_gen.ir import IROperation, IRParameter, IRRequestBody, IRSchema
 from pyopenapi_gen.visit.endpoint.processors.parameter_processor import EndpointParameterProcessor
+from pyopenapi_gen.context.import_collector import ImportCollector
 
 
 @pytest.fixture
@@ -32,15 +34,28 @@ def minimal_op_for_params() -> IROperation:
 
 
 @pytest.fixture
-def render_context_mock_for_params() -> MagicMock:
-    mock = MagicMock(spec=RenderContext)
-    mock.core_package_name = "test_core"
-    mock.add_import = MagicMock()
-    mock.add_plain_import = MagicMock()
-    mock.add_typing_imports_for_type = MagicMock()
-    # Mock get_python_type_for_schema if TypeHelper is too complex to bring in for these tests
-    # For now, assume direct type strings or simple mock returns are fine.
-    return mock
+def render_context_mock_for_params(tmp_path: Path) -> MagicMock:
+    mock_context = MagicMock(spec=RenderContext)
+    # For NamedTypeResolver and TypeHelper to work when resolving requestBody schema
+    # Provide dummy string paths for these, as their exact values are not critical
+    # for testing the parameter processing logic itself, but their presence is.
+    mock_context.overall_project_root = str(tmp_path)
+    mock_context.package_root_for_generated_code = str(tmp_path / "test_pkg")  # e.g. /tmp/pytest.../test_pkg
+    mock_context.core_package_name = "test_pkg.core"
+
+    # If ImportCollector is accessed directly via context.import_collector
+    # or through methods like add_import that use it.
+    mock_context.import_collector = MagicMock(spec=ImportCollector)
+
+    # Mock methods of RenderContext if their full behavior isn't needed
+    mock_context.add_import = MagicMock()
+    # Ensure a plausible module path for current file if calculate_relative_path is involved
+    mock_context.get_current_module_dot_path = MagicMock(return_value="test_pkg.endpoints.some_endpoint")
+    mock_context.calculate_relative_path_for_internal_module = MagicMock(
+        return_value=None
+    )  # Simplifies if we don't test relative import generation here
+
+    return mock_context
 
 
 @pytest.fixture

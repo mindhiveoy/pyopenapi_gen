@@ -11,6 +11,7 @@ from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
 from pyopenapi_gen.helpers.type_helper import TypeHelper
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
+from pyopenapi_gen.core.utils import NameSanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,9 @@ class DataclassGenerator:
             for prop_name, prop_schema in sorted_props:
                 is_required = prop_name in schema.required
 
+                # Sanitize the property name for use as a Python attribute
+                field_name = NameSanitizer.sanitize_method_name(prop_name)
+
                 py_type = TypeHelper.get_python_type_for_schema(
                     prop_schema,
                     self.all_schemas,
@@ -170,7 +174,7 @@ class DataclassGenerator:
                     default_expr = self._get_field_default(prop_schema, context)
 
                 field_doc = prop_schema.description
-                fields_data.append((prop_name, py_type, default_expr, field_doc))
+                fields_data.append((field_name, py_type, default_expr, field_doc))
 
         logger.debug(
             f"DataclassGenerator: Preparing to render dataclass '{class_name}' with fields: {fields_data}.אללو"

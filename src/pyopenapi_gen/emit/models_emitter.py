@@ -1,12 +1,12 @@
 import logging
-import re
+import os
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import List
 
-from pyopenapi_gen.core.context import RenderContext
+from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import CodeWriter, NameSanitizer
 from pyopenapi_gen.ir import IRSchema
-from pyopenapi_gen.visit.model_visitor import ModelVisitor
+from pyopenapi_gen.visit.model.model_visitor import ModelVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -34,32 +34,66 @@ class ModelsEmitter:
             return
 
         module_name = NameSanitizer.sanitize_module_name(schema_ir.name)
-        class_name = NameSanitizer.sanitize_class_name(schema_ir.name)
+        # class_name = NameSanitizer.sanitize_class_name(schema_ir.name) # Not directly used here for file content
         file_path = models_dir / f"{module_name}.py"
 
-        # Reset import collector for the new file
-        self.import_collector.clear_current_file_imports()
-        self.import_collector.set_current_file_path(file_path, self.context.package_name)
+        # Set current file on RenderContext. This also resets its internal ImportCollector.
+        self.context.set_current_file(str(file_path))
 
-        # Instantiate ModelVisitor according to its __init__(schemas=...)
+        # ModelsEmitter's import_collector should be the same instance as RenderContext's.
+        # The line `self.import_collector = self.context.import_collector` was added in __init__
+        # or after set_current_file previously. Let's ensure it's correctly synced if there was any doubt.
+        current_ic = self.context.import_collector  # Use the collector from the context
+
+        # Instantiate ModelVisitor
+        # ModelVisitor will use self.context (and thus current_ic) to add imports.
         visitor = ModelVisitor(schemas=self.context.parsed_schemas)
-
-        # Call the generic visit method, assuming it dispatches to visit_IRSchema(schema, context)
-        # ModelVisitor.visit_IRSchema returns the rendered code string.
         rendered_model_str = visitor.visit(schema_ir, self.context)
 
-        # Get collected imports for the current file (ModelVisitor should have added to context.import_collector)
-        imports_code = self.import_collector.render_imports_for_current_file()
+        # Prepare current_ic for rendering imports by setting its path context.
+        current_module_dot_path = self.context.get_current_module_dot_path()
+
+        package_name_for_collector = None
+        if self.context.package_root_for_generated_code and self.context.overall_project_root:
+            abs_pkg_root = os.path.abspath(self.context.package_root_for_generated_code)
+            abs_overall_root = os.path.abspath(self.context.overall_project_root)
+            if abs_pkg_root.startswith(abs_overall_root) and abs_pkg_root != abs_overall_root:
+                rel_pkg_root_dir = os.path.relpath(abs_pkg_root, abs_overall_root)
+                if rel_pkg_root_dir and rel_pkg_root_dir != ".":
+                    package_name_for_collector = rel_pkg_root_dir.replace(os.sep, ".")
+            elif abs_pkg_root == abs_overall_root:  # Package root is the project root
+                package_name_for_collector = None  # No base package prefix for module paths
+            else:  # package_root is not under overall_project_root or is outside, use its own base name
+                base_name = os.path.basename(abs_pkg_root)
+                if base_name and base_name != ".":
+                    package_name_for_collector = base_name
+        elif self.context.package_root_for_generated_code:  # Only pkg root is given
+            base_name = os.path.basename(os.path.abspath(self.context.package_root_for_generated_code))
+            if base_name and base_name != ".":
+                package_name_for_collector = base_name
+
+        logger.debug(
+            f"[ModelsEmitter] Setting ImportCollector context: mod_path='{current_module_dot_path}', pkg_root_for_ic='{package_name_for_collector}', core='{self.context.core_package_name}'"
+        )
+        current_ic.set_current_file_context_for_rendering(
+            current_module_dot_path=current_module_dot_path,
+            package_root=package_name_for_collector,
+            core_package_name_for_absolute_treatment=self.context.core_package_name,
+        )
+
+        # Get collected imports for the current file.
+        imports_list = current_ic.get_import_statements()
+        imports_code = "\\n".join(imports_list)
 
         # The model_code is what the visitor returned.
         model_code = rendered_model_str
 
-        full_code = imports_code + "\n\n" + model_code if imports_code else model_code
+        full_code = imports_code + "\\n\\n" + model_code if imports_code else model_code
 
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with file_path.open("w", encoding="utf-8") as f:
             f.write(full_code)
-        self.writer.clear()  # Clear ModelsEmitter's writer, as it's not used for model body here.
+        # self.writer.clear() # ModelsEmitter's self.writer is not used for individual model file body
         logger.debug(f"Generated model file: {file_path} for schema: {schema_ir.name}")
 
     def _generate_init_py_content(self) -> str:

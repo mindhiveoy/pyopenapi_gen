@@ -20,33 +20,41 @@ class ArrayTypeResolver:
         self.all_schemas = all_schemas
         self.main_resolver = main_resolver  # For resolving item types
 
-    def resolve(self, schema: IRSchema, parent_name_hint: Optional[str] = None) -> Optional[str]:
+    def resolve(
+        self,
+        schema: IRSchema,
+        parent_name_hint: Optional[str] = None,
+        resolve_alias_target: bool = False,
+    ) -> Optional[str]:
         """
         Resolves an IRSchema of `type: "array"` to a Python `List[...]` type string.
 
         Args:
             schema: The IRSchema, expected to have `type: "array"`.
             parent_name_hint: Optional name of the containing schema for context.
+            resolve_alias_target: Whether to resolve alias targets.
 
         Returns:
             A Python type string like "List[ItemType]" or None.
         """
         if schema.type == "array":
-            item_type: str
-            if schema.items:
-                # Use the main resolver to get the type of the items
-                item_type = self.main_resolver.resolve(
-                    schema.items,
-                    required=True,  # Item nullability handled by item schema itself
-                    current_schema_context_name=parent_name_hint,
-                )
-            else:
-                item_type = "Any"
+            item_schema = schema.items
+            if not item_schema:
+                logger.warning(f"[ArrayTypeResolver] Array schema '{schema.name}' has no items. -> List[Any]")
                 self.context.add_import("typing", "Any")
+                self.context.add_import("typing", "List")
+                return "List[Any]"
 
-            self.context.add_import("typing", "List")
-            logger.debug(
-                f"[ArrayTypeResolver] Resolved array with item type '{item_type}' for schema '{schema.name or 'anonymous'}'."
+            item_type_str = self.main_resolver.resolve(
+                item_schema,
+                current_schema_context_name=parent_name_hint,
+                resolve_alias_target=resolve_alias_target,
             )
-            return f"List[{item_type}]"
+
+            if item_type_str:
+                self.context.add_import("typing", "List")
+                logger.debug(
+                    f"[ArrayTypeResolver] Resolved array with item type '{item_type_str}' for schema '{schema.name or 'anonymous'}'."
+                )
+                return f"List[{item_type_str}]"
         return None

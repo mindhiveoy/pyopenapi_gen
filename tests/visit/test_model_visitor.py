@@ -191,16 +191,18 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # Assertions (mostly unchanged from previous correct version)
         self.assertIn("class AgentDataSource:", generated_code)
         self.assertIn("@dataclass", generated_code)
-        self.assertIn("    agentId: str", generated_code)
-        self.assertIn("    dataSourceId: str", generated_code)
+        self.assertIn("    agent_id: str", generated_code)  # Sanitized
+        self.assertIn("    data_source_id: str", generated_code)  # Sanitized
         self.assertIn("    description: Optional[str]", generated_code)
         self.assertIn("    instructions: Optional[str]", generated_code)
         self.assertIn(
             "    config: Optional[Dict[str, Any]]", generated_code
         )  # additionalProperties: true maps to Dict[str, Any]
-        self.assertIn("    createdAt: datetime", generated_code)
-        self.assertIn("    updatedAt: datetime", generated_code)
-        self.assertIn("    dataSource: Optional[DataSource]", generated_code)
+        self.assertIn("    created_at: datetime", generated_code)  # Sanitized
+        self.assertIn("    updated_at: datetime", generated_code)  # Sanitized
+        self.assertIn(
+            "    data_source: Optional[DataSource]", generated_code
+        )  # Sanitized (was already snake_case like)
 
         generated_imports = context.import_collector.get_import_statements(
             current_module_dot_path=context.get_current_module_dot_path(),

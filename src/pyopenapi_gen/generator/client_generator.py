@@ -434,7 +434,66 @@ class ClientGenerator:
             generated_files += client_files
             self._log_progress(f"Generated {len(client_files)} client files", "EMIT_CLIENT")
 
-            # Post-processing on the final generated files
+            # After all emitters, if core_package is specified (external core),
+            # create a rich __init__.py in the client's output_package (out_dir).
+            if core_package:  # core_package is the user-provided original arg
+                client_init_py_path = out_dir / "__init__.py"
+                self._log_progress(
+                    f"Generating rich __init__.py for client package at {client_init_py_path}", "CLIENT_INIT"
+                )
+
+                # Core components to re-export.
+                # resolved_core_package_fqn is the correct fully qualified name to use for imports.
+                core_imports = [
+                    f"from {resolved_core_package_fqn}.auth import BaseAuth, ApiKeyAuth, BearerAuth, OAuth2Auth",
+                    f"from {resolved_core_package_fqn}.config import ClientConfig",
+                    f"from {resolved_core_package_fqn}.exceptions import HTTPError, ClientError, ServerError",
+                    f"from {resolved_core_package_fqn}.exception_aliases import *  # noqa: F401, F403",
+                    f"from {resolved_core_package_fqn}.http_transport import HttpTransport, HttpxTransport",
+                    f"from {resolved_core_package_fqn}.schemas import BaseSchema",
+                ]
+
+                client_imports = [
+                    "from .client import APIClient",
+                ]
+
+                all_list = [
+                    '"APIClient",',
+                    '"BaseAuth", "ApiKeyAuth", "BearerAuth", "OAuth2Auth",',
+                    '"ClientConfig",',
+                    '"HTTPError", "ClientError", "ServerError",',
+                    # Names from exception_aliases are available via star import
+                    '"HttpTransport", "HttpxTransport",',
+                    '"BaseSchema",',
+                ]
+
+                init_content_lines = [
+                    "# Client package __init__.py",
+                    "# Re-exports from core and local client.",
+                    "",
+                ]
+                init_content_lines.extend(core_imports)
+                init_content_lines.extend(client_imports)
+                init_content_lines.append("")
+                init_content_lines.append("__all__ = [")
+                for item in all_list:
+                    init_content_lines.append(f"    {item}")
+                init_content_lines.append("]")
+                init_content_lines.append("")  # Trailing newline
+
+                # Use FileManager from the main_render_context if available, or create one.
+                # For simplicity here, just write directly.
+                try:
+                    with open(client_init_py_path, "w") as f:
+                        f.write("\\n".join(init_content_lines))
+                    generated_files.append(client_init_py_path)  # Track this generated file
+                    self._log_progress(f"Successfully wrote rich __init__.py to {client_init_py_path}", "CLIENT_INIT")
+                except IOError as e:
+                    self._log_progress(f"ERROR: Failed to write client __init__.py: {e}", "CLIENT_INIT")
+                    # Optionally re-raise or handle as a generation failure
+                    raise GenerationError(f"Failed to write client __init__.py: {e}") from e
+
+            # Post-processing applies to all generated files
             if not no_postprocess:
                 self._log_progress("Running post-processing on generated files", "POSTPROCESS")
                 PostprocessManager(str(project_root)).run([str(p) for p in generated_files])

@@ -1,6 +1,7 @@
 """Helper functions for determining Python types and managing related imports from IRSchema."""
 
 import logging
+import os
 from typing import Dict, Optional, Set
 
 from pyopenapi_gen import IRSchema
@@ -82,7 +83,7 @@ class TypeHelper:
 
     @staticmethod
     def get_python_type_for_schema(
-        schema: IRSchema,
+        schema: Optional[IRSchema],
         all_schemas: Dict[str, IRSchema],
         context: RenderContext,
         required: bool,
@@ -108,6 +109,36 @@ class TypeHelper:
         Returns:
             A string representing the Python type for the schema.
         """
+        # ==== TARGETED LOGGING START ====
+        log_trigger = False
+        # Ensure these are empty strings if None, for .lower() calls
+        s_name_str = schema.name if schema and schema.name else ""
+        s_type_str = schema.type if schema and schema.type else ""
+        parent_s_name_str = parent_schema_name if parent_schema_name else ""
+
+        if (
+            "embedding" in s_name_str.lower()
+            or "embeddingresponse" in s_name_str.lower()
+            or "embedding" in s_type_str.lower()
+            or "embeddingresponse" in s_type_str.lower()
+            or "embedding" in parent_s_name_str.lower()
+            or "embeddingresponse" in parent_s_name_str.lower()
+        ):
+            log_trigger = True
+
+        if log_trigger:
+            logger.critical(f"[TypeHelper_TARGET_LOG] get_python_type_for_schema ENTRY:")
+            logger.critical(f"  parent_schema_name: {parent_schema_name}")
+            logger.critical(
+                f"  schema.name: {s_name_str if s_name_str else 'N/A'}, schema.type: {s_type_str if s_type_str else 'N/A'}, schema.is_nullable: {schema.is_nullable if schema else 'N/A'}"
+            )
+            schema_dict_str = schema.to_dict() if schema and hasattr(schema, "to_dict") else "N/A"
+            logger.critical(f"  schema_details: {schema_dict_str}")
+            logger.critical(f"  context.current_file: {context.current_file}")
+            logger.critical(f"  required: {required}, resolve_alias_target: {resolve_alias_target}")
+            logger.critical(f"  all_schemas keys: {list(all_schemas.keys())[:20]}...")  # Log some keys
+        # ==== TARGETED LOGGING END ====
+
         # Special case: if schema is None, default to Any
         if schema is None:
             context.add_import("typing", "Any")
@@ -142,31 +173,81 @@ class TypeHelper:
             target_schema_name_for_import = schema.type
             class_name_to_import = NameSanitizer.sanitize_class_name(target_schema_name_for_import)
             module_name_to_import_from = NameSanitizer.sanitize_module_name(target_schema_name_for_import)
-            model_module_path = f"models.{module_name_to_import_from}"
 
-            if is_circular:
-                # For circular references, use forward references with TYPE_CHECKING
-                context.add_import("typing", "TYPE_CHECKING")
+            # Construct model_module_path:
+            base_model_path_part = f"models.{module_name_to_import_from}"
+            model_module_path = base_model_path_part
 
-                # Add conditional import
-                if hasattr(context, "add_conditional_import"):
+            if log_trigger and class_name_to_import.lower() == "embedding":  # Logging for var before pkg prefixing
+                logger.critical(f"[TypeHelper_TARGET_LOG] Special Case Path - Before add_import for Embedding:")
+                logger.critical(f"  class_name_to_import: {class_name_to_import}")
+                logger.critical(f"  module_name_to_import_from: {module_name_to_import_from}")
+                logger.critical(f"  model_module_path (before pkg prefixing): {model_module_path}")
+
+            if context.package_root_for_generated_code and context.overall_project_root:
+                current_gen_pkg_name_from_proj_root = os.path.basename(
+                    os.path.normpath(context.package_root_for_generated_code)
+                )
+                if current_gen_pkg_name_from_proj_root and current_gen_pkg_name_from_proj_root != ".":
+                    model_module_path = f"{current_gen_pkg_name_from_proj_root}.{base_model_path_part}"
+
+            elif context.package_root_for_generated_code:  # Only pkg_root is set
+                current_gen_pkg_name_from_basename = os.path.basename(
+                    os.path.normpath(context.package_root_for_generated_code)
+                )
+                if current_gen_pkg_name_from_basename and current_gen_pkg_name_from_basename != ".":
+                    model_module_path = f"{current_gen_pkg_name_from_basename}.{base_model_path_part}"
+
+            # Check if the target module is the current module being generated
+            current_module_dot_path = context.get_current_module_dot_path()
+            is_self_import = current_module_dot_path == model_module_path
+
+            # ==== TARGETED LOGGING START (Corrected Placement)====
+            if log_trigger and class_name_to_import.lower() == "embedding":
+                logger.critical(
+                    f"[TypeHelper_TARGET_LOG] Special Case Path - After pkg prefixing & self-import check for Embedding:"
+                )
+                logger.critical(f"  model_module_path (final after potential prefixing): {model_module_path}")
+                logger.critical(f"  current_module_dot_path: {current_module_dot_path}")
+                logger.critical(f"  is_self_import: {is_self_import}")
+            # ==== TARGETED LOGGING END ====
+
+            if is_self_import:
+                logger.debug(
+                    f"[TypeHelper] Skipping import for '{class_name_to_import}' from '{model_module_path}' "
+                    f"as it is the current file/module being generated."
+                )
+            else:
+                if is_circular:
+                    logger.debug(
+                        f"[TypeHelper] Adding conditional import for circular reference: "
+                        f"'{class_name_to_import}' from '{model_module_path}'"
+                    )
+                    context.add_import("typing", "TYPE_CHECKING")
                     context.add_conditional_import("TYPE_CHECKING", model_module_path, class_name_to_import)
                 else:
-                    # Add TYPE_CHECKING guard comment as a note
-                    logger.debug(
-                        f"Forward reference needed for {class_name_to_import} from {model_module_path} "
-                        f"due to circular dependency. Add TYPE_CHECKING guard manually."
-                    )
-            else:
-                # Normal case - direct import
-                context.add_import(model_module_path, class_name_to_import)
+                    # ==== TARGETED LOGGING START ====
+                    if log_trigger and class_name_to_import.lower() == "embedding":
+                        logger.critical(
+                            f"[TypeHelper_TARGET_LOG] Special Case Path - Calling context.add_import for Embedding with:"
+                        )
+                        logger.critical(f"  logical_module='{model_module_path}', name='{class_name_to_import}'")
+                    # ==== TARGETED LOGGING END ====
+                    context.add_import(model_module_path, class_name_to_import)
+                logger.debug(f"Added import: {model_module_path}.{class_name_to_import} (was circular: {is_circular})")
 
             resolved_type_str = class_name_to_import
-            # Finalize (e.g., add Optional) using the original schema's requirement status
             return TypeFinalizer(context, all_schemas).finalize(resolved_type_str, schema, required)
 
-        # Default path: use SchemaTypeResolver for more complex cases or standard types
-        # SchemaTypeResolver will internally call other specialized resolvers.
+        # ==== TARGETED LOGGING START ====
+        # Use s_name_str and s_type_str here for safety
+        if log_trigger and not (
+            s_type_str and s_type_str in all_schemas and s_type_str != "array" and s_type_str not in PRIMITIVE_TYPES
+        ):
+            logger.critical(
+                f"[TypeHelper_TARGET_LOG] Taking DEFAULT PATH (SchemaTypeResolver) for schema.name='{s_name_str if s_name_str else 'N/A'}', schema.type='{s_type_str if s_type_str else 'N/A'}'"
+            )
+        # ==== TARGETED LOGGING END ====
         resolver = SchemaTypeResolver(context=context, all_schemas=all_schemas)
 
         # The 'required' status is primarily for TypeFinalizer, but resolver might use it too.

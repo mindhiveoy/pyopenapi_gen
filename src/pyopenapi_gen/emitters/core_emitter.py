@@ -128,10 +128,22 @@ class CoreEmitter:
 
         auth_dir = os.path.join(actual_core_dir, "auth")
         if os.path.exists(auth_dir):  # Only create auth/__init__.py if auth files were copied
-            auth_init = os.path.join(auth_dir, "__init__.py")
-            self.file_manager.ensure_dir(os.path.dirname(auth_init))
-            self.file_manager.write_file(auth_init, "")
-            generated_files.append(auth_init)
+            auth_init_path = os.path.join(auth_dir, "__init__.py")
+            self.file_manager.ensure_dir(os.path.dirname(auth_init_path))
+            auth_init_content = [
+                "# Core Auth __init__",
+                "from .base import BaseAuth",
+                "from .plugins import ApiKeyAuth, BearerAuth, OAuth2Auth",
+                "",
+                "__all__ = [",
+                '    "BaseAuth",',
+                '    "ApiKeyAuth",',
+                '    "BearerAuth",',
+                '    "OAuth2Auth",',
+                "]",
+            ]
+            self.file_manager.write_file(auth_init_path, "\n".join(auth_init_content) + "\n")
+            generated_files.append(auth_init_path)
 
         # Ensure py.typed marker for mypy in the actual core directory
         pytyped_path = os.path.join(actual_core_dir, "py.typed")

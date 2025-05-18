@@ -62,7 +62,7 @@ class SchemaTypeResolver:
 
         # 1. Handle direct named types (models, enums) if not resolving alias target
         if not resolve_alias_target:
-            py_type_str = self.named_resolver.resolve(schema)
+            py_type_str = self.named_resolver.resolve(schema, resolve_alias_target=resolve_alias_target)
             if py_type_str:
                 # Named resolver already handles simple aliases by returning None if they should be structurally resolved.
                 # If it returns a name, it's a direct model/enum class name.
@@ -83,7 +83,7 @@ class SchemaTypeResolver:
             # When resolve_alias_target is true, we still want the name if it is a named enum.
             # If it's an unnamed enum, it gives base type.
             # If it's a named alias TO an enum, this path is tricky. Current named_resolver gives the alias name or None.
-            temp_enum_type = self.named_resolver.resolve(schema)
+            temp_enum_type = self.named_resolver.resolve(schema, resolve_alias_target=resolve_alias_target)
             if temp_enum_type:
                 py_type_str = temp_enum_type
                 logger.debug(
@@ -108,7 +108,11 @@ class SchemaTypeResolver:
 
         # 5. Array types
         if not py_type_str:
-            py_type_str = self.array_resolver.resolve(schema, parent_name_hint=effective_parent_context_name)
+            py_type_str = self.array_resolver.resolve(
+                schema,
+                parent_name_hint=effective_parent_context_name,
+                resolve_alias_target=resolve_alias_target,
+            )
             if py_type_str:
                 logger.debug(f"[SchemaTypeResolver ID:{id(schema)}] Resolved by ArrayTypeResolver to '{py_type_str}'.")
 

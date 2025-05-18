@@ -2,6 +2,7 @@
 
 import logging
 from typing import TYPE_CHECKING, Dict, Optional
+import os
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -124,18 +125,81 @@ class ObjectTypeResolver:
                     self.context.add_import("typing", "Any")
                     return "Dict[str, Any]"
                 else:  # Named object with properties
-                    logger.debug(
-                        f"[ObjectTypeResolver] Named object '{schema.name}' with properties. -> {NameSanitizer.sanitize_class_name(schema.name)}"
-                    )
-                    # The NamedTypeResolver would have handled the import if this was a direct reference.
-                    # Here, we just return the name as it's structurally an object with properties.
-                    return NameSanitizer.sanitize_class_name(schema.name)
+                    class_name = NameSanitizer.sanitize_class_name(schema.name)
+                    logger.debug(f"[ObjectTypeResolver] Named object '{schema.name}' with properties. -> {class_name}")
+                    # If this named object is a component schema, ensure it's imported.
+                    if schema.name in self.all_schemas:
+                        module_name = NameSanitizer.sanitize_module_name(schema.name)
+                        base_model_path_part = f"models.{module_name}"
+                        model_module_path = base_model_path_part
+
+                        if self.context.package_root_for_generated_code and self.context.overall_project_root:
+                            abs_pkg_root = os.path.abspath(self.context.package_root_for_generated_code)
+                            abs_overall_root = os.path.abspath(self.context.overall_project_root)
+                            if abs_pkg_root.startswith(abs_overall_root) and abs_pkg_root != abs_overall_root:
+                                rel_pkg_path = os.path.relpath(abs_pkg_root, abs_overall_root)
+                                current_gen_pkg_dot_path = rel_pkg_path.replace(os.sep, ".")
+                                model_module_path = f"{current_gen_pkg_dot_path}.{base_model_path_part}"
+                            elif abs_pkg_root == abs_overall_root:
+                                model_module_path = base_model_path_part
+                        elif self.context.package_root_for_generated_code:
+                            current_gen_pkg_name_from_basename = os.path.basename(
+                                os.path.normpath(self.context.package_root_for_generated_code)
+                            )
+                            if current_gen_pkg_name_from_basename and current_gen_pkg_name_from_basename != ".":
+                                model_module_path = f"{current_gen_pkg_name_from_basename}.{base_model_path_part}"
+
+                        current_module_dot_path = self.context.get_current_module_dot_path()
+                        if model_module_path != current_module_dot_path:  # Avoid self-imports
+                            self.context.add_import(model_module_path, class_name)
+                        else:
+                            logger.debug(
+                                f"[ObjectTypeResolver] Skipping self-import for {class_name} from {model_module_path}"
+                            )
+                    return class_name
             else:  # Object has NO properties
-                if schema.name:  # Named object, no properties
+                if (
+                    schema.name and schema.name in self.all_schemas
+                ):  # Named object, no properties, AND it's a known component
+                    class_name = NameSanitizer.sanitize_class_name(schema.name)
                     logger.debug(
-                        f"[ObjectTypeResolver] Named object '{schema.name}' with NO properties. -> {NameSanitizer.sanitize_class_name(schema.name)}"
+                        f"[ObjectTypeResolver] Named object '{schema.name}' (component) with NO properties. -> {class_name}"
                     )
-                    return NameSanitizer.sanitize_class_name(schema.name)
+                    module_name = NameSanitizer.sanitize_module_name(schema.name)
+                    base_model_path_part = f"models.{module_name}"
+                    model_module_path = base_model_path_part
+
+                    if self.context.package_root_for_generated_code and self.context.overall_project_root:
+                        abs_pkg_root = os.path.abspath(self.context.package_root_for_generated_code)
+                        abs_overall_root = os.path.abspath(self.context.overall_project_root)
+                        if abs_pkg_root.startswith(abs_overall_root) and abs_pkg_root != abs_overall_root:
+                            rel_pkg_path = os.path.relpath(abs_pkg_root, abs_overall_root)
+                            current_gen_pkg_dot_path = rel_pkg_path.replace(os.sep, ".")
+                            model_module_path = f"{current_gen_pkg_dot_path}.{base_model_path_part}"
+                        elif abs_pkg_root == abs_overall_root:
+                            model_module_path = base_model_path_part
+                    elif self.context.package_root_for_generated_code:
+                        current_gen_pkg_name_from_basename = os.path.basename(
+                            os.path.normpath(self.context.package_root_for_generated_code)
+                        )
+                        if current_gen_pkg_name_from_basename and current_gen_pkg_name_from_basename != ".":
+                            model_module_path = f"{current_gen_pkg_name_from_basename}.{base_model_path_part}"
+
+                    current_module_dot_path = self.context.get_current_module_dot_path()
+                    if model_module_path != current_module_dot_path:  # Avoid self-imports
+                        self.context.add_import(model_module_path, class_name)
+                    else:
+                        logger.debug(
+                            f"[ObjectTypeResolver] Skipping self-import for {class_name} from {model_module_path}"
+                        )
+                    return class_name
+                elif schema.name:  # Named object, no properties, but NOT a known component
+                    logger.debug(
+                        f"[ObjectTypeResolver] Named object '{schema.name}' (not a component) with NO properties. Defaulting to Dict[str, Any]."
+                    )
+                    self.context.add_import("typing", "Dict")
+                    self.context.add_import("typing", "Any")
+                    return "Dict[str, Any]"
                 else:  # Anonymous object, no properties
                     if schema.additional_properties is None:  # Default OpenAPI behavior allows additional props
                         logger.debug(
