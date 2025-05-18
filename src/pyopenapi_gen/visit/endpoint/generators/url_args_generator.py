@@ -98,6 +98,7 @@ class EndpointUrlArgsGenerator:
         has_spec_query_params = any(p.get("param_in") == "query" for p in ordered_params)
         if has_spec_query_params:
             context.add_import("typing", "Any")  # For Dict[str, Any]
+            context.add_import("typing", "Dict")  # For Dict[str, Any]
             writer.write_line("params: Dict[str, Any] = {")
             # writer.indent() # Indentation should be handled by CodeWriter when writing lines
             self._write_query_params(writer, op, ordered_params, context)
@@ -109,6 +110,7 @@ class EndpointUrlArgsGenerator:
         has_header_params = any(p.get("param_in") == "header" for p in ordered_params)
         if has_header_params:
             context.add_import("typing", "Any")  # For Dict[str, Any]
+            context.add_import("typing", "Dict")  # For Dict[str, Any]
             writer.write_line("headers: Dict[str, Any] = {")
             # writer.indent()
             self._write_header_params(writer, op, ordered_params, context)
