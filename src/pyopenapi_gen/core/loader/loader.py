@@ -30,15 +30,7 @@ __all__ = ["SpecLoader", "load_ir_from_spec"]
 logger = logging.getLogger(__name__)
 
 # Check for cycle detection debug flags in environment
-DEBUG_CYCLES = os.environ.get("PYOPENAPI_DEBUG_CYCLES", "0").lower() in ("1", "true", "yes")
 MAX_CYCLES = int(os.environ.get("PYOPENAPI_MAX_CYCLES", "0"))
-
-if DEBUG_CYCLES:
-    logger.info(f"Cycle detection debugging enabled (MAX_CYCLES={MAX_CYCLES})")
-    # Increase logging level for cycle detection
-    logging.getLogger("pyopenapi_gen.core.parsing.context").setLevel(logging.DEBUG)
-    logging.getLogger("pyopenapi_gen.core.parsing.schema_parser").setLevel(logging.DEBUG)
-    logging.getLogger("pyopenapi_gen.core.parsing.ref_resolver").setLevel(logging.DEBUG)
 
 
 class SpecLoader:
@@ -130,12 +122,6 @@ class SpecLoader:
         # Emit collected warnings after all parsing is done
         for warning_msg in context.collected_warnings:
             warnings.warn(warning_msg, UserWarning)
-
-        # Log final schema keys for debugging
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("--- Final keys in all_final_schemas before returning IRSpec ---")
-            for schema_key_final in sorted(schemas_dict.keys()):
-                logger.debug(f"[LOADER_FINAL_SCHEMA_KEY] {schema_key_final}")
 
         # Create and return the IR spec
         ir_spec = IRSpec(

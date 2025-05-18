@@ -479,112 +479,136 @@ def merge_params_with_model_fields(
 
 
 def get_type_for_specific_response(
+    operation_path: str,
     resp_ir: IRResponse,
-    context: RenderContext,
-    schemas: Dict[str, IRSchema],
-) -> tuple[str, bool]:
-    """
-    Determines the Python type hint and unwrap status for a specific IRResponse object.
-    Similar to get_return_type but focused on a single response, not the whole operation.
-    """
-    # Special case for the test_list_object_unwrapping test
-    operation = getattr(resp_ir, "parent_op", None)
-    operation_id = getattr(operation, "operation_id", "") if operation else ""
-    operation_path = getattr(operation, "path", "") if operation else ""
+    all_schemas: dict[str, IRSchema],
+    ctx: RenderContext,
+    return_unwrap_data_property: bool = False,
+) -> str:
+    """Get the Python type for a specific response."""
+    # If the response content is empty or None, return None
+    if not hasattr(resp_ir, "content") or not resp_ir.content:
+        return "None"
 
-    if operation_id == "get_items_wrapped" or "items_wrapped" in operation_path:
-        logger.debug(f"Forcing List[Item] return type for get_items_wrapped response: {operation_path}")
-        context.add_import("typing", "List")
-        context.add_import("models.item", "Item")
-        # Return with unwrap = True to ensure response handling uses unwrapping logic
-        return ("List[Item]", True)
+    # Unwrap data property if needed
+    final_py_type = get_python_type_for_response_body(resp_ir, all_schemas, ctx)
 
-    # Log all responses with 'items_wrapped' in the path for debugging
-    if "items_wrapped" in operation_path:
-        logger.debug(f"get_type_for_specific_response called for items_wrapped path: {operation_path}")
-        logger.debug(f"resp_ir: {resp_ir}, content={getattr(resp_ir, 'content', None)}")
+    if return_unwrap_data_property:
+        wrapper_schema = get_schema_from_response(resp_ir, all_schemas)
+        if wrapper_schema and hasattr(wrapper_schema, "properties") and wrapper_schema.properties.get("data"):
+            # We have a data property we can unwrap
+            data_schema = wrapper_schema.properties["data"]
 
-    if not resp_ir.content or resp_ir.status_code == "204":
-        return ("None", False)
+            wrapper_type_str = final_py_type
 
-    schema, _ = _get_response_schema_and_content_type(resp_ir)  # We only need schema here
+            # Handle array unwrapping
+            if hasattr(data_schema, "type") and data_schema.type == "array" and hasattr(data_schema, "items"):
+                # Need to unwrap array in data property
 
+                # Extract the item type from the array items
+                parent_schema_name = (
+                    getattr(wrapper_schema, "name", "") + "Data" if hasattr(wrapper_schema, "name") else ""
+                )
+
+                # Make sure items is not None before passing to TypeHelper
+                if data_schema.items:
+                    item_type = TypeHelper.get_python_type_for_schema(
+                        data_schema.items, all_schemas, ctx, required=True, parent_schema_name=parent_schema_name
+                    )
+                else:
+                    ctx.add_import("typing", "Any")
+                    item_type = "Any"
+
+                # Handle problematic array item types
+                if not item_type or item_type == "Any":
+                    # Try to get a better type from the item schema directly
+                    parent_schema_name = (
+                        getattr(wrapper_schema, "name", "") + "DataItem" if hasattr(wrapper_schema, "name") else ""
+                    )
+
+                    # Make sure items is not None before passing to TypeHelper
+                    if data_schema.items:
+                        item_type = TypeHelper.get_python_type_for_schema(
+                            data_schema.items, all_schemas, ctx, required=True, parent_schema_name=parent_schema_name
+                        )
+                    else:
+                        ctx.add_import("typing", "Any")
+                        item_type = "Any"
+
+                # Build the final List type
+                ctx.add_import("typing", "List")
+                final_type = f"List[{item_type}]"
+                return final_type
+
+            else:
+                # Unwrap non-array data property
+                parent_schema_name = (
+                    getattr(wrapper_schema, "name", "") + "Data" if hasattr(wrapper_schema, "name") else ""
+                )
+                return TypeHelper.get_python_type_for_schema(
+                    data_schema, all_schemas, ctx, required=True, parent_schema_name=parent_schema_name
+                )
+
+    # For AsyncIterator/streaming handlers, add appropriate type annotation
+    if getattr(resp_ir, "is_stream", False):
+        if _is_binary_stream_content(resp_ir):
+            # Binary stream returns bytes chunks
+            ctx.add_import("typing", "AsyncIterator")
+            return "AsyncIterator[bytes]"
+
+        # If it's not a binary stream, try to determine the item type for the event stream
+        item_type_opt = _get_item_type_from_schema(resp_ir, all_schemas, ctx)
+        if item_type_opt:
+            ctx.add_import("typing", "AsyncIterator")
+            return f"AsyncIterator[{item_type_opt}]"
+
+        # Default for unknown event streams
+        ctx.add_import("typing", "AsyncIterator")
+        ctx.add_import("typing", "Dict")
+        ctx.add_import("typing", "Any")
+        return "AsyncIterator[Dict[str, Any]]"
+
+    return final_py_type
+
+
+def _is_binary_stream_content(resp_ir: IRResponse) -> bool:
+    """Check if the response is a binary stream based on content type."""
+    if not hasattr(resp_ir, "content") or not resp_ir.content:
+        return False
+
+    content_types = resp_ir.content.keys()
+    return any(
+        ct in ("application/octet-stream", "application/pdf", "image/", "audio/", "video/")
+        or ct.startswith("image/")
+        or ct.startswith("audio/")
+        or ct.startswith("video/")
+        for ct in content_types
+    )
+
+
+def _get_item_type_from_schema(
+    resp_ir: IRResponse, all_schemas: dict[str, IRSchema], ctx: RenderContext
+) -> Optional[str]:
+    """Extract item type from schema for streaming responses."""
+    schema, _ = _get_response_schema_and_content_type(resp_ir)
     if not schema:
-        # If no schema but content exists (e.g. unknown binary), default to Any or bytes?
-        # For now, align with get_return_type's fallback if schema is None after _get_response_schema_and_content_type
-        context.add_import("typing", "Any")
-        return ("Any", False)
+        return None
 
-    # --- Unwrapping Logic (adapted from get_return_type) ---
-    should_unwrap = False
-    data_schema: Optional[IRSchema] = None
-    wrapper_type_str: Optional[str] = None
+    # For event streams, we want the schema type
+    return TypeHelper.get_python_type_for_schema(schema, all_schemas, ctx, required=True)
 
-    if isinstance(schema, IRSchema) and getattr(schema, "type", None) == "object" and hasattr(schema, "properties"):
-        properties = schema.properties
-        if len(properties) == 1 and "data" in properties:
-            should_unwrap = True
-            data_schema = properties["data"]
-            logger.debug(f"Found data property to unwrap: {data_schema}, type={getattr(data_schema, 'type', None)}")
-            # Import for wrapper type (similar to get_return_type)
-            wrapper_type_str = TypeHelper.get_python_type_for_schema(schema, schemas, context, required=True)
-            if wrapper_type_str and wrapper_type_str != "Any":
-                # Simplified import logic for wrapper, TypeHelper should handle most direct imports
-                context.add_typing_imports_for_type(wrapper_type_str)
-                logger.debug(f"Wrapper type string: {wrapper_type_str}")
 
-    # Special handling for array/list unwrapping
-    if should_unwrap and data_schema and getattr(data_schema, "type", None) == "array" and data_schema.items:
-        logger.debug(f"Unwrapping array in get_type_for_specific_response: {operation_path}")
-        logger.debug(
-            f"data_schema={data_schema}, items={data_schema.items}, items.name={getattr(data_schema.items, 'name', None)}"
-        )
-        # For array/list unwrapping, we need to get the item type from the data_schema.items
-        # Instead of using the data_schema directly, we'll create a List[ItemType]
-        item_schema = data_schema.items
-        item_type = TypeHelper.get_python_type_for_schema(item_schema, schemas, context, required=True)
-        logger.debug(f"Generated item_type={item_type}")
-        # Adjust import path if needed
-        if item_type.startswith(".") and not item_type.startswith(".."):
-            item_type = "models" + item_type
-            logger.debug(f"Adjusted item_type={item_type}")
+def get_python_type_for_response_body(resp_ir: IRResponse, all_schemas: dict[str, IRSchema], ctx: RenderContext) -> str:
+    """Get the Python type for a response body without unwrapping."""
+    schema, _ = _get_response_schema_and_content_type(resp_ir)
+    if not schema:
+        ctx.add_import("typing", "Any")
+        return "Any"
 
-        # Add List import and build the List[ItemType] return type
-        context.add_import("typing", "List")
-        final_type = f"List[{item_type}]"
-        logger.debug(f"Final list unwrapped type: {final_type}")
+    return TypeHelper.get_python_type_for_schema(schema, all_schemas, ctx, required=True)
 
-        # Force return List[Item] type for array unwrapping
-        return (final_type, should_unwrap)
 
-    final_schema = data_schema if should_unwrap and data_schema else schema
-
-    # Log what we're getting for any unwrapping
-    if should_unwrap and "items_wrapped" in operation_path:
-        logger.debug(f"Unwrapping non-array: final_schema={final_schema}, type={getattr(final_schema, 'type', None)}")
-
-    # Streaming check specific to this response (resp_ir.stream)
-    # Note: get_return_type handles op-level streaming, this is for specific response streams.
-    # This part might need more careful integration if a specific 2xx response is a stream
-    # while the primary operation return type (from get_return_type) isn't.
-    # For now, assume if resp_ir.stream is True, it's a stream.
-    if resp_ir.stream and not should_unwrap:  # resp_ir.stream is new here
-        item_type = TypeHelper.get_python_type_for_schema(final_schema, schemas, context, required=True)
-        # Adjust import path if needed
-        if item_type.startswith(".") and not item_type.startswith(".."):
-            item_type = "models" + item_type
-            logger.debug(f"Adjusted stream item_type={item_type}")
-        context.add_import("typing", "AsyncIterator")
-        # context.add_plain_import("collections.abc") # TypeHelper or caller might do this
-        return (f"AsyncIterator[{item_type}]", False)  # No unwrap for streams by default
-    else:
-        py_type = TypeHelper.get_python_type_for_schema(final_schema, schemas, context, required=True)
-        if py_type.startswith(".") and not py_type.startswith(".."):
-            py_type = "models" + py_type
-            logger.debug(f"Adjusted final py_type={py_type}")
-
-        # If this is the items_wrapped endpoint but not giving a List type, log an error and force it
-        if "items_wrapped" in operation_path and "List" not in py_type and should_unwrap:
-            logger.error(f"Expected List[Item] for items_wrapped but got {py_type}")
-
-        return (py_type, should_unwrap)
+def get_schema_from_response(resp_ir: IRResponse, all_schemas: dict[str, IRSchema]) -> Optional[IRSchema]:
+    """Get the schema from a response object."""
+    schema, _ = _get_response_schema_and_content_type(resp_ir)
+    return schema

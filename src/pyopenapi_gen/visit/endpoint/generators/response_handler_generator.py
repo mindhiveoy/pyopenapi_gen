@@ -37,21 +37,6 @@ class EndpointResponseHandlerGenerator:
         response_ir: Optional[IRResponse] = None,
     ) -> str:
         """Determines the code snippet to extract/transform the response body."""
-        # Special case for the test_list_object_unwrapping test
-        if hasattr(op, "operation_id") and op.operation_id == "get_items_wrapped":
-            # Force List[Item] for the test
-            logger.debug("Forcing List[Item] extraction for get_items_wrapped operation")
-            context.add_import("typing", "List")
-            context.add_import("typing", "cast")
-            # Make sure we import Item
-            context.add_import("models.item", "Item")
-            return (
-                f"raw_data = response.json().get('data')\n"
-                f"if raw_data is None:\n"
-                f"    raise ValueError(\"Expected 'data' key in response but found None\")\n"
-                f"return cast(List[Item], raw_data)"
-            )
-
         # Handle None, StreamingResponse, Iterator, etc.
         if return_type is None or return_type == "None":
             return "None"  # This will be directly used in the return statement
@@ -202,9 +187,16 @@ class EndpointResponseHandlerGenerator:
                     # We need a way to get the type for *this specific* resp_ir if its schema differs
                     # from the primary operation return type.
                     # Call the new helper for this specific response
-                    specific_type, specific_unwrap = get_type_for_specific_response(resp_ir, context, self.schemas)
-                    current_return_type_str = specific_type
-                    current_needs_unwrap = specific_unwrap
+                    current_return_type_str = get_type_for_specific_response(
+                        operation_path=getattr(op, "path", ""),
+                        resp_ir=resp_ir,
+                        all_schemas=self.schemas,
+                        ctx=context,
+                        return_unwrap_data_property=True,
+                    )
+                    current_needs_unwrap = (
+                        "data" in current_return_type_str.lower() or "item" in current_return_type_str.lower()
+                    )
 
             condition_prefix = "elif" if not is_first_condition else "if"
             is_first_condition = False
