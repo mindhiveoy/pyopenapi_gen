@@ -1,19 +1,10 @@
 Mypy STDOUT:
-out/models/validation_errors_item.py:4: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/models/message_response.py:4: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/models/get_message_200_response.py:4: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
 out/models/embedding_response.py:16: error: Name "Embedding" is not defined  [name-defined]
-out/models/details_item.py:4: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/models/change_password_200_response_data.py:4: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/models/log_document_event_request_body.py:6: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
 out/models/listen_events_param_filters.py:22: error: Type cannot be declared in assignment to non-self attribute  [misc]
 out/models/listen_events_param_filters.py:22: error: Name "document" is not defined  [name-defined]
 out/models/listen_events_param_filters.py:23: error: Type cannot be declared in assignment to non-self attribute  [misc]
 out/models/listen_events_param_filters.py:23: error: Name "document" is not defined  [name-defined]
-out/models/error_response_error.py:5: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/models/detect_platform_job_200_response.py:5: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/models/add_message_request_body.py:3: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/models/data_source_event.py:5: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
+out/models/data.py:11: error: Name "VectorDatabase" is not defined  [name-defined]
 out/endpoints/vector_databases.py:104: error: Name "Dict" is not defined  [name-defined]
 out/endpoints/vector_databases.py:104: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Dict")
 out/endpoints/users.py:207: error: Name "Dict" is not defined  [name-defined]
@@ -26,8 +17,6 @@ out/endpoints/tenants.py:66: error: Incompatible return value type (got "None", 
 out/endpoints/tenants.py:113: error: Incompatible return value type (got "None", expected "Tenant")  [return-value]
 out/endpoints/tenants.py:198: error: Name "Dict" is not defined  [name-defined]
 out/endpoints/tenants.py:198: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Dict")
-out/endpoints/messages.py:15: error: Cannot find implementation or library stub for module named "out.models.message"  [import-not-found]
-out/endpoints/messages.py:15: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
 out/endpoints/messages.py:176: error: Name "Dict" is not defined  [name-defined]
 out/endpoints/messages.py:176: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Dict")
 out/endpoints/messages.py:241: error: Name "Dict" is not defined  [name-defined]
@@ -36,6 +25,7 @@ out/endpoints/messages.py:307: error: Name "Dict" is not defined  [name-defined]
 out/endpoints/messages.py:307: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Dict")
 out/endpoints/messages.py:381: error: Name "Dict" is not defined  [name-defined]
 out/endpoints/messages.py:381: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Dict")
+out/endpoints/messages.py:400: error: Incompatible return value type (got "None", expected "Message")  [return-value]
 out/endpoints/listen.py:22: error: Name "ListenEventsParamFilters" is not defined  [name-defined]
 out/endpoints/listen.py:46: error: Name "Dict" is not defined  [name-defined]
 out/endpoints/listen.py:46: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Dict")
@@ -96,7 +86,7 @@ out/endpoints/agent_datasources.py:60: note: Did you forget to import it from "t
 out/endpoints/agent_datasources.py:222: error: Name "Dict" is not defined  [name-defined]
 out/endpoints/agent_datasources.py:222: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Dict")
 out/endpoints/agent_datasources.py:236: error: Incompatible return value type (got "None", expected "GetAgentDataSources401Response")  [return-value]
-Found 65 errors in 28 files (checked 776 source files)
+Found 56 errors in 19 files (checked 777 source files)
 
 
 Mypy STDERR:

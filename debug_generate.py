@@ -1,30 +1,31 @@
 #!/usr/bin/env python3
+import logging
 import os
 import signal
 import subprocess
 import sys
 import time
-import logging
 import traceback
 
 # Set timeout in seconds
 TIMEOUT = 180  # Extended timeout for more debug info
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-def run_with_timeout():
+
+def run_with_timeout() -> int:
     """Run the generator with a timeout"""
     logger.info(f"Running generator with {TIMEOUT} second timeout...")
 
     # Set environment variables to increase verbosity
     env = os.environ.copy()
-    env['PYTHONUNBUFFERED'] = '1'  # Prevent Python from buffering output
-    env['LOGLEVEL'] = 'DEBUG'      # Set logging level to DEBUG
+    env["PYTHONUNBUFFERED"] = "1"  # Prevent Python from buffering output
+    env["LOGLEVEL"] = "DEBUG"  # Set logging level to DEBUG
 
     # Add environment variable for cycle detection
-    env['PYOPENAPI_DEBUG_CYCLES'] = '1'  # Enable cycle detection logging
-    env['PYOPENAPI_MAX_CYCLES'] = '10'   # Stop after detecting 10 cycles
+    env["PYOPENAPI_DEBUG_CYCLES"] = "1"  # Enable cycle detection logging
+    env["PYOPENAPI_MAX_CYCLES"] = "10"  # Stop after detecting 10 cycles
 
     cmd = f"cd /Users/villevenalainen/development/mainio.app/packages/pyapis && python -m pyapis.commands.openapi_generator business --no-enhanced-client"
     logger.info(f"Running command: {cmd}")
@@ -37,7 +38,7 @@ def run_with_timeout():
         shell=True,
         text=True,
         env=env,
-        bufsize=1  # Line buffered
+        bufsize=1,  # Line buffered
     )
 
     # Start timer
@@ -140,6 +141,7 @@ def run_with_timeout():
 
     return process.returncode
 
+
 def run_with_profiling():
     """Run the generator with profiling enabled"""
     import cProfile
@@ -155,7 +157,7 @@ def run_with_profiling():
     finally:
         pr.disable()
         s = io.StringIO()
-        ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+        ps = pstats.Stats(pr, stream=s).sort_stats("cumulative")
         ps.print_stats(30)  # Top 30 time-consuming functions
         print(s.getvalue())
 
@@ -165,6 +167,7 @@ def run_with_profiling():
         logger.info("Profile stats saved to generator_profile.txt")
 
     return returncode
+
 
 if __name__ == "__main__":
     try:
