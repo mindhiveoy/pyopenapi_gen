@@ -60,13 +60,22 @@ class EndpointResponseHandlerGenerator:
         if return_type.startswith("AsyncIterator["):
             # Check if it's a bytes stream or other type of stream
             if return_type == "AsyncIterator[bytes]":
+                context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_bytes")
                 return "iter_bytes(response)"
             elif "Dict[str, Any]" in return_type or "dict" in return_type.lower():
                 # For event streams that return Dict objects
                 context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_sse_events_text")
                 return "sse_json_stream_marker"  # Special marker handled by _write_parsed_return
             else:
+                # Model streaming - likely an SSE model stream
+                # Extract the model type and check if content type is text/event-stream
+                model_type = return_type[13:-1]  # Remove 'AsyncIterator[' and ']'
+                if response_ir and "text/event-stream" in response_ir.content:
+                    context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_sse_events_text")
+                    return "sse_json_stream_marker"  # Special marker for SSE
+
                 # Default to bytes streaming for other types
+                context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_bytes")
                 return "iter_bytes(response)"
 
         # Special case for "data: Any" unwrapping when the actual schema has no fields/properties
@@ -360,6 +369,7 @@ class EndpointResponseHandlerGenerator:
                 return_type.startswith("AsyncIterator[") and "Iterator" in return_type
             ):
                 # Handle streaming responses - either binary (bytes) or event-stream (Dict[str, Any])
+                context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_bytes")
                 if return_type == "AsyncIterator[bytes]":
                     # Binary streaming
                     writer.write_line(f"async for chunk in iter_bytes(response):")
@@ -369,6 +379,7 @@ class EndpointResponseHandlerGenerator:
                 elif "Dict[str, Any]" in return_type or "dict" in return_type.lower():
                     # Event-stream or JSON streaming
                     context.add_plain_import("json")
+                    context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_sse_events_text")
                     writer.write_line(f"async for chunk in iter_sse_events_text(response):")
                     writer.indent()
                     writer.write_line("yield json.loads(chunk)")
