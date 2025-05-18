@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Set
 
+from pyopenapi_gen import IRSchema
 from .file_manager import FileManager
 from .import_collector import ImportCollector
 
@@ -41,6 +42,7 @@ class RenderContext:
         overall_project_root: Absolute path to the top-level project.
                             Used as the base for resolving absolute Python import paths,
                             especially for an external core_package.
+        parsed_schemas: Optional dictionary of all parsed IRSchema objects, keyed by their original names.
         conditional_imports: Dictionary of conditional imports (e.g., under TYPE_CHECKING)
     """
 
@@ -50,6 +52,7 @@ class RenderContext:
         core_package_name: str = "core",
         package_root_for_generated_code: Optional[str] = None,
         overall_project_root: Optional[str] = None,
+        parsed_schemas: Optional[Dict[str, IRSchema]] = None,
     ) -> None:
         """
         Initialize a new RenderContext.
@@ -63,6 +66,7 @@ class RenderContext:
             overall_project_root: Absolute path to the top-level project.
                                 Used as the base for resolving absolute Python import paths,
                                 especially for an external core_package.
+            parsed_schemas: Optional dictionary of all parsed IRSchema objects.
         """
         self.file_manager = file_manager or FileManager()
         self.import_collector = ImportCollector()
@@ -71,6 +75,7 @@ class RenderContext:
         self.core_package_name: str = core_package_name
         self.package_root_for_generated_code: Optional[str] = package_root_for_generated_code
         self.overall_project_root: Optional[str] = overall_project_root or os.getcwd()
+        self.parsed_schemas: Optional[Dict[str, IRSchema]] = parsed_schemas
         if self.package_root_for_generated_code and not self.overall_project_root:
             pass
         # Dictionary to store conditional imports, keyed by condition
@@ -80,15 +85,30 @@ class RenderContext:
         """
         Set the absolute path of the file currently being rendered.
 
-        This method also resets the import collector to ensure import isolation
-        between different generated files.
+        This method also resets the import collector and immediately re-initializes
+        its file context for subsequent import additions.
 
         Args:
             abs_path: The absolute path of the file to set as current
         """
+        logger.debug(f"[RenderContext] Setting current file to: {abs_path}")
         self.current_file = abs_path
         # Reset the import collector for each new file to ensure isolation
         self.import_collector.reset()
+
+        # Immediately set the new context on the import_collector
+        current_module_dot_path = self.get_current_module_dot_path()
+        package_root_for_collector = self.get_current_package_name_for_generated_code()
+
+        logger.debug(
+            f"[RenderContext] Updating ImportCollector context: mod_path='{current_module_dot_path}', "
+            f"pkg_root_for_ic='{package_root_for_collector}', core_pkg_name='{self.core_package_name}'"
+        )
+        self.import_collector.set_current_file_context_for_rendering(
+            current_module_dot_path=current_module_dot_path,
+            package_root=package_root_for_collector,
+            core_package_name_for_absolute_treatment=self.core_package_name,
+        )
 
     def add_import(self, logical_module: str, name: Optional[str] = None, is_typing_import: bool = False) -> None:
         """

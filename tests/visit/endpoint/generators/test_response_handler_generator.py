@@ -11,6 +11,8 @@ from pyopenapi_gen.visit.endpoint.generators.response_handler_generator import E
 class TestEndpointResponseHandlerGenerator(unittest.TestCase):
     def setUp(self) -> None:
         self.render_context_mock = MagicMock(spec=RenderContext)
+        self.render_context_mock.import_collector = MagicMock()
+        self.render_context_mock.import_collector._current_file_module_dot_path = "some.dummy.path"
         self.code_writer_mock = MagicMock(spec=CodeWriter)
         self.generator = EndpointResponseHandlerGenerator()
         self.mock_op = MagicMock(spec=IROperation)

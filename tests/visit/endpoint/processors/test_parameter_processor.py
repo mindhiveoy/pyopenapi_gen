@@ -46,6 +46,9 @@ def render_context_mock_for_params(tmp_path: Path) -> MagicMock:
     # If ImportCollector is accessed directly via context.import_collector
     # or through methods like add_import that use it.
     mock_context.import_collector = MagicMock(spec=ImportCollector)
+    mock_context.import_collector._current_file_module_dot_path = (
+        "some.dummy.path"  # Ensure this attribute exists for logging
+    )
 
     # Mock methods of RenderContext if their full behavior isn't needed
     mock_context.add_import = MagicMock()

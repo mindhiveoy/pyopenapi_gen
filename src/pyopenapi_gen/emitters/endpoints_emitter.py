@@ -1,6 +1,7 @@
 import os
 import logging
 from typing import Dict, List, Optional, Tuple, Any, Set
+from pathlib import Path
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -103,15 +104,10 @@ def _deduplicate_tag_clients(client_classes: List[Tuple[str, str]]) -> List[Tupl
 class EndpointsEmitter:
     """Generates endpoint modules organized by tag from IRSpec using the visitor/context architecture."""
 
-    def __init__(
-        self,
-        core_package: str = "core",
-        overall_project_root: Optional[str] = None,
-    ) -> None:
+    def __init__(self, context: RenderContext) -> None:
+        self.context = context
         self.formatter = Formatter()
-        self.visitor: EndpointVisitor = None  # type: ignore
-        self.core_package = core_package
-        self.overall_project_root = overall_project_root
+        self.visitor: Optional[EndpointVisitor] = None
 
     def _deduplicate_operation_ids(self, operations: List[IROperation]) -> None:
         """
@@ -120,71 +116,52 @@ class EndpointsEmitter:
         Args:
             operations: List of operations for a single tag.
         """
-        # Track sanitized method names
         seen_methods: Dict[str, int] = {}
-
         for op in operations:
-            # Get the sanitized method name
             method_name = NameSanitizer.sanitize_method_name(op.operation_id)
-
-            # If this method name already exists
             if method_name in seen_methods:
-                # Increment the counter for this name
                 seen_methods[method_name] += 1
-
-                # Create a new unique operation ID with suffix
                 new_op_id = f"{op.operation_id}_{seen_methods[method_name]}"
-
-                # Log a warning about the duplicate
-                # logger.warning(
-                #     f"Duplicate operation ID detected: '{op.operation_id}' (sanitized to '{method_name}'). "
-                #     f"Renaming to '{new_op_id}'"
-                # )
-
-                # Update the operation ID
                 op.operation_id = new_op_id
             else:
-                # First time seeing this method name
                 seen_methods[method_name] = 1
 
-    def emit(self, spec: IRSpec, output_dir: str) -> List[str]:
-        """Render endpoint client files per tag under <output_dir>/endpoints using the visitor/context/registry
-        pattern. Returns a list of generated file paths."""
-        endpoints_dir = os.path.join(output_dir, "endpoints")
-        context = RenderContext(
-            core_package_name=self.core_package,
-            package_root_for_generated_code=output_dir,
-            overall_project_root=self.overall_project_root,
-        )
-        context.file_manager.ensure_dir(endpoints_dir)
-        # Always create an empty __init__.py to ensure package
-        empty_init_path = os.path.join(endpoints_dir, "__init__.py")
-        if not os.path.exists(empty_init_path):
-            context.file_manager.write_file(empty_init_path, "")
-        # Ensure root __init__.py for output_dir
-        root_init_path = os.path.join(output_dir, "__init__.py")
-        if not os.path.exists(root_init_path):
-            context.file_manager.write_file(root_init_path, "")
-        # Ensure py.typed marker for mypy
-        pytyped_path = os.path.join(endpoints_dir, "py.typed")
-        if not os.path.exists(pytyped_path):
-            context.file_manager.write_file(pytyped_path, "")
+    def emit(self, operations: List[IROperation], output_dir_str: str) -> List[str]:
+        """Render endpoint client files per tag under <output_dir>/endpoints.
+        Returns a list of generated file paths."""
+        output_dir = Path(output_dir_str)
+        endpoints_dir = output_dir / "endpoints"
 
-        # Always use schemas from the current spec
+        self.context.file_manager.ensure_dir(str(endpoints_dir))
+
+        # Manage __init__.py and py.typed files
+        common_files_to_ensure = [
+            (endpoints_dir / "__init__.py", ""),
+            (output_dir / "__init__.py", ""),  # Ensure root client package __init__.py
+            (endpoints_dir / "py.typed", ""),
+        ]
+        for file_path, content in common_files_to_ensure:
+            if not file_path.exists():
+                self.context.file_manager.write_file(str(file_path), content)
+
+        if not self.context.parsed_schemas:
+            logger.error(
+                "[EndpointsEmitter] RenderContext is missing parsed_schemas. Cannot initialize EndpointVisitor."
+            )
+            return []  # Or raise error
+
         if self.visitor is None:
-            self.visitor = EndpointVisitor(spec.schemas)
+            self.visitor = EndpointVisitor(self.context.parsed_schemas)
 
-        # Group operations by normalized tag key
         tag_key_to_ops: Dict[str, List[IROperation]] = {}
         tag_key_to_candidates: Dict[str, List[str]] = {}
-        for op in spec.operations:
+        for op in operations:
             tags = op.tags or [DEFAULT_TAG]
             for tag in tags:
                 key = NameSanitizer.normalize_tag_key(tag)
                 tag_key_to_ops.setdefault(key, []).append(op)
                 tag_key_to_candidates.setdefault(key, []).append(tag)
 
-        # For each normalized tag, pick a canonical tag (best formatted)
         def tag_score(t: str) -> tuple[bool, int, int, str]:
             import re
 
@@ -195,56 +172,49 @@ class EndpointsEmitter:
             upper = sum(1 for c in t if c.isupper())
             return (is_pascal, word_count, upper, t)
 
-        tag_map = {}
+        tag_map: Dict[str, str] = {}
         for key, candidates in tag_key_to_candidates.items():
-            best = max(candidates, key=tag_score)
-            tag_map[key] = best
-
-        # Prepare context and mark all generated modules (one per normalized tag)
-        for key, ops in tag_key_to_ops.items():
-            tag = tag_map[key]
-            module_name = NameSanitizer.sanitize_module_name(tag)
-            file_path = os.path.join(endpoints_dir, f"{module_name}.py")
-            context.mark_generated_module(file_path)
+            best_tag_for_key = DEFAULT_TAG  # Default if no candidates somehow
+            if candidates:
+                best_tag_for_key = max(candidates, key=tag_score)
+            tag_map[key] = best_tag_for_key
 
         generated_files: List[str] = []
         client_classes: List[Tuple[str, str]] = []
-        # Generate endpoint files per canonical tag
-        for key, ops in tag_key_to_ops.items():
-            tag = tag_map[key]
-            module_name = NameSanitizer.sanitize_module_name(tag)
-            class_name = NameSanitizer.sanitize_class_name(tag) + "Client"
-            file_path = os.path.join(endpoints_dir, f"{module_name}.py")
-            context.set_current_file(file_path)
 
-            # Ensure operations have unique method names
-            self._deduplicate_operation_ids(ops)
+        for key, ops_for_tag in tag_key_to_ops.items():
+            canonical_tag_name = tag_map[key]
+            module_name = NameSanitizer.sanitize_module_name(canonical_tag_name)
+            class_name = NameSanitizer.sanitize_class_name(canonical_tag_name) + "Client"
+            file_path = endpoints_dir / f"{module_name}.py"
 
-            # Render all methods for this tag
-            methods = [self.visitor.visit(op, context) for op in ops]
-            # Compose class content
-            class_content = self.visitor.emit_endpoint_client_class(tag, methods, context)
+            # This will set current_file and reset+reinit import_collector's context
+            self.context.set_current_file(str(file_path))
 
-            # Render imports for this file
-            imports = context.render_imports()
+            self._deduplicate_operation_ids(ops_for_tag)
 
-            # Write the file
+            # EndpointVisitor must exist here due to check above
+            assert self.visitor is not None, "EndpointVisitor not initialized"
+            methods = [self.visitor.visit(op, self.context) for op in ops_for_tag]
+            class_content = self.visitor.emit_endpoint_client_class(canonical_tag_name, methods, self.context)
+
+            imports = self.context.render_imports()
             file_content = imports + "\n\n" + class_content
-            # file_content = self.formatter.format(file_content)
-            context.file_manager.write_file(file_path, file_content)
+            self.context.file_manager.write_file(str(file_path), file_content)
             client_classes.append((class_name, module_name))
-            generated_files.append(file_path)
+            generated_files.append(str(file_path))
 
-        # Deduplicate client classes by canonical name
         unique_clients = _deduplicate_tag_clients(client_classes)
-
-        # Write __init__.py with __all__ and imports for all unique client classes
         init_lines = []
         if unique_clients:
-            all_list = ", ".join(f'"{cls}"' for cls, _ in unique_clients)
-            init_lines.append(f"__all__ = [{all_list}]")
-            for cls, mod in unique_clients:
+            all_list_items = sorted([f'"{cls}"' for cls, _ in unique_clients])
+            init_lines.append(f"__all__ = [{', '.join(all_list_items)}]")
+            for cls, mod in sorted(unique_clients):
                 init_lines.append(f"from .{mod} import {cls}")
-        context.file_manager.write_file(os.path.join(endpoints_dir, "__init__.py"), "\n".join(init_lines) + "\n")
-        generated_files.append(os.path.join(endpoints_dir, "__init__.py"))
+
+        endpoints_init_path = endpoints_dir / "__init__.py"
+        self.context.file_manager.write_file(str(endpoints_init_path), "\n".join(init_lines) + "\n")
+        if str(endpoints_init_path) not in generated_files:
+            generated_files.append(str(endpoints_init_path))
+
         return generated_files

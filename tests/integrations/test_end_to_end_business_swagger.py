@@ -61,6 +61,7 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         core_package_name=core_package_name,
         package_root_for_generated_code=str(out_dir),
         overall_project_root=str(project_root),
+        parsed_schemas=ir.schemas,
     )
 
     # Run ExceptionsEmitter first to get alias names
@@ -70,15 +71,15 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     core_emitter = CoreEmitter(
         core_package=core_package_name, exception_alias_names=exception_alias_names
     )  # Pass names
-    models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
-    endpoints_emitter = EndpointsEmitter(core_package=core_package_name, overall_project_root=str(project_root))
-    client_emitter = ClientEmitter(core_package=core_package_name, overall_project_root=str(project_root))
+    models_emitter = ModelsEmitter(context=render_context)
+    endpoints_emitter = EndpointsEmitter(context=render_context)
+    client_emitter = ClientEmitter(context=render_context)
 
     # Run emitters
     # Exceptions were already emitted to get names
     core_emitter.emit(str(out_dir))  # Generate core files first (takes output dir)
-    models_emitter.emit(ir, str(out_dir))
-    endpoints_emitter.emit(ir, str(out_dir))
+    models_emitter.emit(out_dir)
+    endpoints_emitter.emit(ir.operations, str(out_dir))
     client_emitter.emit(ir, str(out_dir))
 
     # Assert
@@ -218,18 +219,19 @@ def test_generated_agent_datasources_imports_are_valid(tmp_path: Path) -> None:
         core_package_name=core_package_name,
         package_root_for_generated_code=str(out_dir),
         overall_project_root=str(project_root),
+        parsed_schemas=ir.schemas,
     )
 
     # Instantiate emitters with correct core package name where needed
     core_emitter = CoreEmitter(core_package=core_package_name)
-    models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
-    endpoints_emitter = EndpointsEmitter(core_package=core_package_name, overall_project_root=str(project_root))
-    client_emitter = ClientEmitter(core_package=core_package_name, overall_project_root=str(project_root))
+    models_emitter = ModelsEmitter(context=render_context)
+    endpoints_emitter = EndpointsEmitter(context=render_context)
+    client_emitter = ClientEmitter(context=render_context)
 
     # Run emitters
-    core_emitter.emit(str(out_dir))  # Generate core files first (takes output dir)
-    models_emitter.emit(ir, str(out_dir))
-    endpoints_emitter.emit(ir, str(out_dir))
+    core_emitter.emit(str(out_dir))
+    models_emitter.emit(out_dir)
+    endpoints_emitter.emit(ir.operations, str(out_dir))
     client_emitter.emit(ir, str(out_dir))
 
     assert (out_dir / "endpoints" / "agent_datasources.py").exists(), "agent_datasources.py not generated"

@@ -170,6 +170,7 @@ class ClientGenerator:
             core_package_name=resolved_core_package_fqn,
             package_root_for_generated_code=str(out_dir),
             overall_project_root=str(project_root),
+            parsed_schemas=ir.schemas,
         )
 
         if not force and out_dir.exists():
@@ -233,11 +234,12 @@ class ClientGenerator:
                     core_package_name=resolved_core_package_fqn,
                     package_root_for_generated_code=str(tmp_out_dir_for_diff),
                     overall_project_root=str(tmp_project_root_for_diff),
+                    parsed_schemas=ir.schemas,
                 )
-                models_emitter = ModelsEmitter(context=tmp_render_context_for_diff, parsed_schemas=ir.schemas)
+                models_emitter = ModelsEmitter(context=tmp_render_context_for_diff)
                 model_files = [
                     Path(p)
-                    for p in models_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
+                    for p in models_emitter.emit(Path(tmp_out_dir_for_diff))  # emit takes Path output_dir
                 ]
                 temp_generated_files += model_files
                 schema_count = len(ir.schemas) if ir.schemas else 0
@@ -247,13 +249,12 @@ class ClientGenerator:
 
                 # 5. EndpointsEmitter (emits endpoints to tmp_out_dir_for_diff/endpoints)
                 self._log_progress("Generating endpoint files (temp)", "EMIT_ENDPOINTS_TEMP")
-                endpoints_emitter = EndpointsEmitter(
-                    core_package=resolved_core_package_fqn,
-                    overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root
-                )
+                endpoints_emitter = EndpointsEmitter(context=tmp_render_context_for_diff)
                 endpoint_files = [
                     Path(p)
-                    for p in endpoints_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
+                    for p in endpoints_emitter.emit(
+                        ir.operations, str(tmp_out_dir_for_diff)
+                    )  # emit takes ir.operations, str output_dir
                 ]
                 temp_generated_files += endpoint_files
                 operation_count = len(ir.operations) if ir.operations else 0
@@ -264,13 +265,10 @@ class ClientGenerator:
 
                 # 6. ClientEmitter (emits client.py to tmp_out_dir_for_diff)
                 self._log_progress("Generating client file (temp)", "EMIT_CLIENT_TEMP")
-                client_emitter = ClientEmitter(
-                    core_package=resolved_core_package_fqn,
-                    overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root
-                )
+                client_emitter = ClientEmitter(context=tmp_render_context_for_diff)  # ClientEmitter now takes context
                 client_files = [
                     Path(p)
-                    for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # Emit TO temp output dir
+                    for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # emit takes ir, str output_dir
                 ]
                 temp_generated_files += client_files
                 self._log_progress(f"Generated {len(client_files)} client files (temp)", "EMIT_CLIENT_TEMP")
@@ -370,26 +368,22 @@ class ClientGenerator:
             self._log_progress("Generating exception files", "EMIT_EXCEPTIONS")
             exceptions_emitter = ExceptionsEmitter(
                 core_package_name=resolved_core_package_fqn,
-                overall_project_root=str(project_root),  # Use final project root
+                overall_project_root=str(project_root),
             )
-            exception_files_list, exception_alias_names = exceptions_emitter.emit(
-                ir, str(core_dir)
-            )  # Emit to final core dir
-            exception_files = [Path(p) for p in exception_files_list]
-            generated_files += exception_files
-            self._log_progress(f"Generated {len(exception_files)} exception files", "EMIT_EXCEPTIONS")
+            exception_files_list, exception_alias_names = exceptions_emitter.emit(ir, str(core_dir))
+            generated_files += [Path(p) for p in exception_files_list]
+            self._log_progress(f"Generated {len(exception_files_list)} exception files", "EMIT_EXCEPTIONS")
 
             # 2. CoreEmitter
             self._log_progress("Generating core files", "EMIT_CORE")
-            relative_core_path_for_emitter_init_final = os.path.relpath(core_dir, out_dir)
+            relative_core_path_for_emitter_init = os.path.relpath(core_dir, out_dir)
             core_emitter = CoreEmitter(
-                core_dir=str(relative_core_path_for_emitter_init_final),
+                core_dir=str(relative_core_path_for_emitter_init),
                 core_package=resolved_core_package_fqn,
                 exception_alias_names=exception_alias_names,
             )
-            core_files = [Path(p) for p in core_emitter.emit(str(out_dir))]
-            generated_files += core_files
-            self._log_progress(f"Generated {len(core_files)} core files", "EMIT_CORE")
+            generated_files += [Path(p) for p in core_emitter.emit(str(out_dir))]
+            self._log_progress(f"Generated {len(core_emitter.emit(str(out_dir)))} core files", "EMIT_CORE")
 
             # 3. config.py (using FileManager) - REMOVED, CoreEmitter handles this
             # fm = FileManager()
@@ -400,36 +394,35 @@ class ClientGenerator:
 
             # 4. ModelsEmitter
             self._log_progress("Generating model files", "EMIT_MODELS")
-            # For the force=True / first-run path, use the main_render_context
-            models_emitter = ModelsEmitter(context=main_render_context, parsed_schemas=ir.schemas)
-            model_files = [Path(p) for p in models_emitter.emit(ir, str(out_dir))]
-            generated_files += model_files
-            self._log_progress(f"Generated {len(model_files)} model files for {schema_count} schemas", "EMIT_MODELS")
+            models_emitter = ModelsEmitter(context=main_render_context)
+            generated_files += [
+                Path(p)
+                for p in models_emitter.emit(Path(out_dir))  # emit takes Path output_dir
+            ]
+            schema_count = len(ir.schemas) if ir.schemas else 0
+            self._log_progress(
+                f"Generated {len(models_emitter.emit(Path(out_dir)))} model files for {schema_count} schemas",  # emit takes Path output_dir
+                "EMIT_MODELS",
+            )
 
             # 5. EndpointsEmitter
             self._log_progress("Generating endpoint files", "EMIT_ENDPOINTS")
-            endpoints_emitter = EndpointsEmitter(
-                core_package=resolved_core_package_fqn,
-                overall_project_root=str(project_root),  # Use final project root
-            )
-            endpoint_files = [
-                Path(p)
-                for p in endpoints_emitter.emit(ir, str(out_dir))  # Emit to final output dir
-            ]
-            generated_files += endpoint_files
+            endpoints_emitter = EndpointsEmitter(context=main_render_context)
+            generated_files += [
+                Path(p) for p in endpoints_emitter.emit(ir.operations, str(out_dir))
+            ]  # emit takes ir.operations, str output_dir
+            operation_count = len(ir.operations) if ir.operations else 0
             self._log_progress(
-                f"Generated {len(endpoint_files)} endpoint files for {operation_count} operations", "EMIT_ENDPOINTS"
+                f"Generated {len(endpoints_emitter.emit(ir.operations, str(out_dir)))} endpoint files for {operation_count} operations",  # emit takes ir.operations, str output_dir
+                "EMIT_ENDPOINTS",
             )
 
             # 6. ClientEmitter
             self._log_progress("Generating client file", "EMIT_CLIENT")
-            client_emitter = ClientEmitter(
-                core_package=resolved_core_package_fqn,
-                overall_project_root=str(project_root),  # Use final project root
-            )
+            client_emitter = ClientEmitter(context=main_render_context)  # ClientEmitter now takes context
             client_files = [
                 Path(p)
-                for p in client_emitter.emit(ir, str(out_dir))  # Emit to final output dir
+                for p in client_emitter.emit(ir, str(out_dir))  # emit takes ir, str output_dir
             ]
             generated_files += client_files
             self._log_progress(f"Generated {len(client_files)} client files", "EMIT_CLIENT")

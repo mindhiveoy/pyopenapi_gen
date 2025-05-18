@@ -30,6 +30,9 @@ class NamedTypeResolver:
         Returns:
             A Python type string for the resolved schema, e.g., "MyModel", "Optional[MyModel]".
         """
+        logger.warning(
+            f"[NTR ENTRY] Current file context: {self.context.import_collector._current_file_module_dot_path}, Collector ID: {id(self.context.import_collector)}"
+        )
 
         if schema.name and schema.name in self.all_schemas:
             # This schema is a REFERENCE to a globally defined schema (e.g., in components/schemas)
@@ -42,13 +45,16 @@ class NamedTypeResolver:
                 f"{self.context.get_current_package_name_for_generated_code()}.models.{module_name_for_ref}"
             )
 
-            if not resolve_alias_target:
-                # For type hinting (default case), always use the referenced schema's own name
-                # and ensure it's imported. This applies to direct model usage, enums,
-                # or aliases (e.g. MyObjectAlias, MyArrayAlias, MyStringAlias).
+            key_to_check = model_module_path_for_ref
+            name_to_add = class_name_for_ref
 
-                self.context.add_import(logical_module=model_module_path_for_ref, name=class_name_for_ref)
-                return class_name_for_ref
+            if not resolve_alias_target:
+                # logger.warning(f"[NTR] BEFORE add_import for '{name_to_add}' from '{key_to_check}'. Current file: {self.context.import_collector._current_file_module_dot_path}. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
+
+                self.context.add_import(logical_module=key_to_check, name=name_to_add)
+
+                # logger.warning(f"[NTR] AFTER add_import for '{name_to_add}' from '{key_to_check}'. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
+                return name_to_add
             else:
                 # self.resolve_alias_target is TRUE. We are trying to find the *actual underlying type*
                 # of 'ref_schema' for use in an alias definition (e.g., MyStringAlias: TypeAlias = str).
@@ -91,10 +97,13 @@ class NamedTypeResolver:
                             f"!!!!!!!!!! [NTR_VD_FINAL_TRACE] About to import VectorDatabase for Alias Target. "
                             f"Context file: {self.context.current_file}, resolve_alias_target: {resolve_alias_target} !!!!!!"
                         )
-                    self.context.add_import(logical_module=model_module_path_for_ref, name=class_name_for_ref)
-                    return (
-                        class_name_for_ref  # Return the name of the referenced complex type for AliasGenerator's RHS.
-                    )
+
+                    # logger.warning(f"[NTR] (Alias Target Path) BEFORE add_import for '{name_to_add}' from '{key_to_check}'. Current file: {self.context.import_collector._current_file_module_dot_path}. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
+
+                    self.context.add_import(logical_module=key_to_check, name=name_to_add)
+
+                    # logger.warning(f"[NTR] (Alias Target Path) AFTER add_import for '{name_to_add}' from '{key_to_check}'. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
+                    return name_to_add  # Return name_to_add
 
         elif schema.enum:
             # This is an INLINE enum definition (not a reference to a global enum)
