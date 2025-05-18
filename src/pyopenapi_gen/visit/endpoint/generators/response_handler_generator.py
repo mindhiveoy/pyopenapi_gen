@@ -163,12 +163,19 @@ class EndpointResponseHandlerGenerator:
             writer.write_line(f"if {condition}:")
             is_first_condition = False
             writer.indent()
-            return_type, needs_unwrap = get_return_type(op, context, self.schemas)
+            # This is the return_type for the *entire operation*, based on its primary success response
+            return_type_for_op, needs_unwrap_for_op = get_return_type(op, context, self.schemas)
 
-            if return_type == "None" or not primary_success_ir.content:
+            # If get_return_type determined a specific type (not "None"),
+            # we should attempt to parse the response accordingly. This handles cases
+            # where the type was inferred even if the spec lacked explicit content for the 2xx.
+            # If get_return_type says "None" (e.g., for a 204 or truly no content), then return None.
+            if return_type_for_op == "None":
                 writer.write_line("return None")
             else:
-                self._write_parsed_return(writer, op, context, return_type, needs_unwrap, primary_success_ir)
+                self._write_parsed_return(
+                    writer, op, context, return_type_for_op, needs_unwrap_for_op, primary_success_ir
+                )
             writer.dedent()
 
         # 2. Handle other specific responses (other 2xx, then default, then errors)
