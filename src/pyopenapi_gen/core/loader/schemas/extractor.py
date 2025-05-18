@@ -43,16 +43,16 @@ def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Map
     return context
 
 
-def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
-    """Extract inline property enums as unique schemas and update property references.
+def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
+    """Extract inline array item schemas as unique named schemas and update references.
 
     Contracts:
         Preconditions:
             - schemas is a dict of IRSchema objects
         Postconditions:
-            - Returns an updated schemas dict with extracted enum types
-            - All property schemas with enums have proper names
-            - No duplicate enum names are created
+            - Returns an updated schemas dict with extracted array item types
+            - All array item schemas have proper names
+            - No duplicate schema names are created
     """
     assert isinstance(schemas, dict), "schemas must be a dict"
     assert all(isinstance(s, IRSchema) for s in schemas.values()), "all values must be IRSchema objects"
@@ -61,11 +61,70 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     original_schema_count = len(schemas)
     original_schemas = set(schemas.keys())
 
+    new_item_schemas = {}
+    for schema_name, schema in list(schemas.items()):
+        # Check properties for array types
+        for prop_name, prop_schema in list(schema.properties.items()):
+            if prop_schema.type == "array" and prop_schema.items and not prop_schema.items.name:
+                # Only extract complex item schemas (objects and arrays)
+                if prop_schema.items.type == "object" or prop_schema.items.type == "array":
+                    # Generate a suitable name for the item schema
+                    item_schema_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{
+                        NameSanitizer.sanitize_class_name(prop_name)
+                    }Item"
+                    base_item_name = item_schema_name
+                    i = 1
+                    while item_schema_name in schemas or item_schema_name in new_item_schemas:
+                        item_schema_name = f"{base_item_name}{i}"
+                        i += 1
+
+                    # Create a copy of the item schema with a name
+                    items_copy = copy.deepcopy(prop_schema.items)
+                    items_copy.name = item_schema_name
+                    new_item_schemas[item_schema_name] = items_copy
+
+                    # Update the original array schema to reference the named item schema
+                    prop_schema.items.name = item_schema_name
+
+    # Update the schemas dict with the new item schemas
+    schemas.update(new_item_schemas)
+
+    # Post-condition checks
+    assert len(schemas) >= original_schema_count, "Schemas count should not decrease"
+    assert original_schemas.issubset(set(schemas.keys())), "Original schemas should still be present"
+
+    return schemas
+
+
+def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
+    """Extract inline property enums as unique schemas and update property references.
+
+    Contracts:
+        Preconditions:
+            - schemas is a dict of IRSchema objects
+        Postconditions:
+            - Returns an updated schemas dict with extracted enum types and array item types
+            - All property schemas with enums have proper names
+            - All array item schemas have proper names
+            - No duplicate schema names are created
+    """
+    assert isinstance(schemas, dict), "schemas must be a dict"
+    assert all(isinstance(s, IRSchema) for s in schemas.values()), "all values must be IRSchema objects"
+
+    # Store original schema count for post-condition validation
+    original_schema_count = len(schemas)
+    original_schemas = set(schemas.keys())
+
+    # First extract array item schemas so they can have enums extracted in the next step
+    schemas = extract_inline_array_items(schemas)
+
     new_enums = {}
     for schema_name, schema in list(schemas.items()):
         for prop_name, prop_schema in list(schema.properties.items()):
             if prop_schema.enum and not prop_schema.name:
-                enum_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Enum"
+                enum_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{
+                    NameSanitizer.sanitize_class_name(prop_name)
+                }Enum"
                 base_enum_name = enum_name
                 i = 1
                 while enum_name in schemas or enum_name in new_enums:

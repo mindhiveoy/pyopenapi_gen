@@ -58,9 +58,12 @@ class SpecLoader:
             Postconditions:
                 - Instance is ready to load IR from the spec
         """
-        assert isinstance(spec, Mapping), "spec must be a Mapping"
-        assert "openapi" in spec, "Missing 'openapi' field in the specification"
-        assert "paths" in spec, "Missing 'paths' section in the specification"
+        if not isinstance(spec, Mapping):
+            raise ValueError("spec must be a Mapping")
+        if "openapi" not in spec:
+            raise ValueError("Missing 'openapi' field in the specification")
+        if "paths" not in spec:
+            raise ValueError("Missing 'paths' section in the specification")
 
         self.spec = spec
         self.info = spec.get("info", {})
@@ -162,7 +165,8 @@ def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
         Postconditions:
             - Returns a fully populated IRSpec object
     """
-    assert isinstance(spec, Mapping), "spec must be a Mapping"
+    if not isinstance(spec, Mapping):
+        raise ValueError("spec must be a Mapping")
 
     loader = SpecLoader(spec)
     return loader.load_ir()

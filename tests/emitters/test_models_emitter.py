@@ -117,7 +117,13 @@ def test_models_emitter_array(tmp_path: Path) -> None:
     assert "from typing import" in result
     assert "@dataclass" in result
     assert "class PetList:" in result
-    assert "items: Optional[List[Dict[str, Any]]]" in result
+    # Check for the item model import and type
+    assert "from .pet_list_items_item import PetListItemsItem" in result
+    assert "items: Optional[List[PetListItemsItem]]" in result
+
+    # Also verify the item model was created
+    item_model_file: Path = out_dir / "models" / "pet_list_items_item.py"
+    assert item_model_file.exists()
 
 
 def test_models_emitter_datetime(tmp_path: Path) -> None:
@@ -407,8 +413,8 @@ def test_models_emitter__unnamed_schema_skipped(tmp_path: Path) -> None:
     )
     # Simulate that the unnamed schema was processed and maybe even promoted to `ContainerData` by the loader.
     # The ModelsEmitter itself receives the result of parsing.
-    # If `unnamed_schema` was promoted to `ContainerData` and its `name` field was updated, then `ModelsEmitter` would emit it.
-    # If it was truly unnamed and not promoted, `_generate_model_file` in ModelsEmitter skips it.
+    # If `unnamed_schema` was promoted to `ContainerData` and its `name` field was updated, then `ModelsEmitter`
+    # would emit it. If it was truly unnamed and not promoted, `_generate_model_file` in ModelsEmitter skips it.
 
     # To test the skipping within ModelsEmitter for a schema that *is* in its `parsed_schemas` dict but has no `name`:
     no_name_in_map_schema = IRSchema(type="object")  # name is None
@@ -420,12 +426,8 @@ def test_models_emitter__unnamed_schema_skipped(tmp_path: Path) -> None:
     )  # spec is used by emit for some things, but schemas from constructor
 
     # Assert that only Container.py is generated, not for the unnamed_schema or no_name_in_map_schema
-    assert any("container.py" in f.lower() for f in generated_files)
-    assert not any("_some_internal_key_for_no_name.py" in f.lower() for f in generated_files)
-    # Check that the directory for the unnamed schema file does not exist
-    # (ModelsEmitter._generate_model_file checks `if not schema_ir.name: return`)
-    # This test is a bit tricky because the emitter iterates `self.parsed_schemas.values()`
-    # So if an unnamed schema is in there, it will try to process it.
+    assert any("container.py" in f.lower() for f in generated_files["models"])
+    assert not any("_some_internal_key_for_no_name.py" in f.lower() for f in generated_files["models"])
 
 
 def test_models_emitter__unknown_type_fallback(tmp_path: Path) -> None:

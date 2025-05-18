@@ -158,14 +158,6 @@ def get_return_type(
     data_schema: Optional[IRSchema] = None
     wrapper_type_str: Optional[str] = None
 
-    # # +++ Add logging +++
-    # logger = logging.getLogger(__name__)
-    # if isinstance(schema, IRSchema) and hasattr(schema, "name") and schema.name:
-    #     logger.info(f"get_return_type: Processing schema: {schema.name}, type: {getattr(schema, 'type', None)}")
-    #     if hasattr(schema, "properties"):
-    #         logger.info(f"get_return_type: Schema {schema.name} properties: {list(schema.properties.keys()) if schema.properties else 'None'}")
-    # # +++ End logging +++
-
     if isinstance(schema, IRSchema) and getattr(schema, "type", None) == "object" and hasattr(schema, "properties"):
         properties = schema.properties
         if len(properties) == 1 and "data" in properties:
@@ -191,15 +183,30 @@ def get_return_type(
     final_schema = data_schema if should_unwrap and data_schema else schema
     is_streaming = resp.stream and not should_unwrap  # Don't unwrap streams for now
 
-    # # +++ Add logging before decision logic +++
-    # logger.info(f"get_return_type PRE-DECISION for schema '{getattr(schema, 'name', 'anonymous_inline')}':")
-    # logger.info(f"  Initial should_unwrap: {should_unwrap} (set if len(props)==1 and 'data' in props)")
-    # logger.info(f"  resp.stream value: {resp.stream}")
-    # logger.info(f"  is_streaming (evaluates to: resp.stream AND (NOT should_unwrap)): {is_streaming}")
-    # logger.info(f"  data_schema is None: {data_schema is None}")
-    # if data_schema:
-    #     logger.info(f"  data_schema name: {getattr(data_schema, 'name', 'anonymous_inline_data_schema')}, type: {getattr(data_schema, 'type', 'N/A')}")
-    # # +++ End logging +++
+    # Special handling for array/list unwrapping
+    is_unwrapped_list = False
+    if should_unwrap and data_schema and getattr(data_schema, "type", None) == "array" and data_schema.items:
+        is_unwrapped_list = True
+        logger.debug(
+            f"Unwrapping array: data_schema={data_schema}, items={data_schema.items}, "
+            f"items.name={getattr(data_schema.items, 'name', None)}, "
+            f"items.type={getattr(data_schema.items, 'type', None)}"
+        )
+        # For array/list unwrapping, we need to get the item type from the data_schema.items
+        # Instead of using the data_schema directly, we'll create a List[ItemType]
+        item_schema = data_schema.items
+        item_type = TypeHelper.get_python_type_for_schema(item_schema, schemas, context, required=True)
+        logger.debug(f"Generated item_type={item_type}")
+        # Adjust import path if needed
+        if item_type.startswith(".") and not item_type.startswith(".."):
+            item_type = "models" + item_type
+            logger.debug(f"Adjusted item_type={item_type}")
+
+        # Add List import and build the List[ItemType] return type
+        context.add_import("typing", "List")
+        final_type = f"List[{item_type}]"
+        logger.debug(f"Final list unwrapped type: {final_type}")
+        return (final_type, should_unwrap)
 
     if is_streaming:
         item_type = TypeHelper.get_python_type_for_schema(final_schema, schemas, context, required=True)
@@ -208,9 +215,6 @@ def get_return_type(
             item_type = "models" + item_type
         context.add_import("typing", "AsyncIterator")
         context.add_plain_import("collections.abc")
-        # # +++ Add logging for streaming return +++
-        # logger.info(f"  >>> RETURNING STREAMING: type={streaming_type}, final should_unwrap=False") # LOGGING
-        # # +++ End logging +++
         return (f"AsyncIterator[{item_type}]", False)
     else:
         py_type = TypeHelper.get_python_type_for_schema(final_schema, schemas, context, required=True)
@@ -219,9 +223,7 @@ def get_return_type(
         # but kept for safety.
         if py_type.startswith(".") and not py_type.startswith(".."):
             py_type = "models" + py_type
-        # # +++ Add logging for regular return +++
-        # logger.info(f"  >>> RETURNING REGULAR: type={py_type}, final should_unwrap={should_unwrap}") # LOGGING
-        # # +++ End logging +++
+
         return (py_type, should_unwrap)
 
 
@@ -500,6 +502,20 @@ def get_type_for_specific_response(
             if wrapper_type_str and wrapper_type_str != "Any":
                 # Simplified import logic for wrapper, TypeHelper should handle most direct imports
                 context.add_typing_imports_for_type(wrapper_type_str)
+
+    # Special handling for array/list unwrapping
+    if should_unwrap and data_schema and getattr(data_schema, "type", None) == "array" and data_schema.items:
+        # For array/list unwrapping, we need to get the item type from the data_schema.items
+        # Instead of using the data_schema directly, we'll create a List[ItemType]
+        item_schema = data_schema.items
+        item_type = TypeHelper.get_python_type_for_schema(item_schema, schemas, context, required=True)
+        # Adjust import path if needed
+        if item_type.startswith(".") and not item_type.startswith(".."):
+            item_type = "models" + item_type
+
+        # Add List import and build the List[ItemType] return type
+        context.add_import("typing", "List")
+        return (f"List[{item_type}]", should_unwrap)
 
     final_schema = data_schema if should_unwrap and data_schema else schema
 

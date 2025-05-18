@@ -77,12 +77,19 @@ class EndpointResponseHandlerGenerator:
             context.add_typing_imports_for_type(return_type)  # Ensure model itself is imported
 
             if needs_unwrap:
-                # Ensure quotes within the ValueError message are properly escaped for the outer f-string
+                # Special handling for List unwrapping (List is imported already)
+                if return_type.startswith("List["):
+                    # Handle unwrapping of List directly
+                    return (
+                        "raw_data = response.json().get('data')\nif raw_data is None:\n    raise ValueError(\"Expected 'data' key in response but found None\")\nreturn cast("
+                        + return_type
+                        + ", raw_data)"
+                    )
+                # Standard unwrapping for single object
                 return (
-                    f"raw_data = response.json().get('data')\\n"
-                    f"if raw_data is None:\\n"
-                    f"    raise ValueError(\"Expected 'data' key in response but found None\")\\n"
-                    f"return cast({return_type}, raw_data)"
+                    "raw_data = response.json().get('data')\nif raw_data is None:\n    raise ValueError(\"Expected 'data' key in response but found None\")\nreturn cast("
+                    + return_type
+                    + ", raw_data)"
                 )
             else:
                 return f"cast({return_type}, response.json())"
@@ -269,10 +276,11 @@ class EndpointResponseHandlerGenerator:
                 writer.indent()
                 # Pass response_ir to _get_extraction_code if available
                 extraction_code_type1 = self._get_extraction_code(type1_str, context, op, needs_unwrap, response_ir)
-                if "\\n" in extraction_code_type1:  # Multi-line extraction
-                    for line in extraction_code_type1.split("\\n")[:-1]:  # all but 'return ...'
+                if "\n" in extraction_code_type1:  # Multi-line extraction
+                    lines = extraction_code_type1.split("\n")
+                    for line in lines[:-1]:  # all but 'return ...'
                         writer.write_line(line)
-                    writer.write_line(extraction_code_type1.split("\\n")[-1].replace("return ", "return_value = "))
+                    writer.write_line(lines[-1].replace("return ", "return_value = "))
                     writer.write_line("return return_value")
                 else:
                     writer.write_line(f"return {extraction_code_type1}")
@@ -281,10 +289,11 @@ class EndpointResponseHandlerGenerator:
                 writer.write_line("except Exception:  # Attempt to parse as the second type")
                 writer.indent()
                 extraction_code_type2 = self._get_extraction_code(type2_str, context, op, needs_unwrap, response_ir)
-                if "\\n" in extraction_code_type2:  # Multi-line extraction
-                    for line in extraction_code_type2.split("\\n")[:-1]:
+                if "\n" in extraction_code_type2:  # Multi-line extraction
+                    lines = extraction_code_type2.split("\n")
+                    for line in lines[:-1]:
                         writer.write_line(line)
-                    writer.write_line(extraction_code_type2.split("\\n")[-1].replace("return ", "return_value = "))
+                    writer.write_line(lines[-1].replace("return ", "return_value = "))
                     writer.write_line("return return_value")
                 else:
                     writer.write_line(f"return {extraction_code_type2}")
@@ -331,9 +340,9 @@ class EndpointResponseHandlerGenerator:
                 writer.dedent()
                 writer.write_line("return  # Explicit return for async generator")
 
-            elif "\\n" in extraction_code_str:  # Multi-line extraction code (e.g. data unwrap)
+            elif "\n" in extraction_code_str:  # Multi-line extraction code (e.g. data unwrap)
                 # The _get_extraction_code for unwrap already includes "return cast(...)"
-                for line in extraction_code_str.split("\\n"):
+                for line in extraction_code_str.split("\n"):
                     writer.write_line(line)
             else:  # Single line extraction code
                 if return_type != "None":  # Should already be handled, but as safety

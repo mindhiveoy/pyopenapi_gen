@@ -161,9 +161,9 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             Returns multi-line code for unwrapping 'data' key and casting, and registers imports.
         """
         expected_code = (
-            "raw_data = response.json().get('data')\\n"
-            "if raw_data is None:\\n"
-            "    raise ValueError(\"Expected 'data' key in response but found None\")\\n"
+            "raw_data = response.json().get('data')\n"
+            "if raw_data is None:\n"
+            "    raise ValueError(\"Expected 'data' key in response but found None\")\n"
             "return cast(MyDataModel, raw_data)"
         )
         code = self.generator._get_extraction_code(
