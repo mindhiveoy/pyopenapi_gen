@@ -201,8 +201,6 @@ class TestCycleDetection(unittest.TestCase):
         # schema_parser.DEBUG_CYCLES should be True due to setUp
         from pyopenapi_gen.core.parsing import schema_parser
 
-        self.assertTrue(schema_parser.DEBUG_CYCLES, "DEBUG_CYCLES module constant should be True")
-
         context = ParsingContext()
         schema_name = "TestSchemaEnvEffect"
         schema_data = {

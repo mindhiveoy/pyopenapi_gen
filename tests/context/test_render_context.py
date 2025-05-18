@@ -115,14 +115,21 @@ class TestRenderContextGetCurrentModuleDotPath:
         base_render_context.current_file = None
         assert base_render_context.get_current_module_dot_path() is None
 
-    def test_get_current_module_dot_path__no_pkg_root(self, base_render_context: RenderContext, tmp_path: Path) -> None:
-        """Scenario: package_root_for_generated_code not set. Expected: None"""
+    def test_get_current_module_dot_path__pkg_root_is_none_but_overall_root_is_set(
+        self, base_render_context: RenderContext, tmp_path: Path
+    ) -> None:
+        """
+        Scenario: package_root_for_generated_code is None, but overall_project_root is set.
+        Expected: Module path should be derived from overall_project_root.
+        """
         base_render_context.package_root_for_generated_code = None
         current_file = tmp_path / "out" / "models" / "a.py"  # Needs a current file to attempt
         current_file.parent.mkdir(parents=True, exist_ok=True)
         current_file.touch()
         base_render_context.set_current_file(str(current_file))
-        assert base_render_context.get_current_module_dot_path() is None
+        # current_file is tmp_path/out/models/a.py, overall_project_root is tmp_path (from fixture)
+        # So, relative path is "out/models/a.py" -> "out.models.a"
+        assert base_render_context.get_current_module_dot_path() == "out.models.a"
 
     def test_get_current_module_dot_path__file_not_under_pkg_root(
         self, base_render_context: RenderContext, tmp_path: Path

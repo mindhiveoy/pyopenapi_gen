@@ -126,9 +126,6 @@ class SchemaTypeResolver:
 
         # Fallback if no type determined
         if not py_type_str:
-            logger.warning(
-                f"[SchemaTypeResolver ID:{id(schema)}] Fallback: No specific type determined for schema: name='{schema.name}', type='{schema.type}'. Defaulting to 'Any'."
-            )
             self.context.add_import("typing", "Any")
             py_type_str = "Any"
 

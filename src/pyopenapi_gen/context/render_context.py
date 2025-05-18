@@ -331,23 +331,8 @@ class RenderContext:
                 actually_added_typing.add(name)
             elif (
                 name == "datetime"
-                and dt_match not in datetime_specific_matches  # Check against original list from the first findall
+                and name not in datetime_specific_matches  # Check against original list from the first findall
             ):  # Fixed: use datetime_specific_matches, not dt_match, for the 'not in' check. And this logic is faulty if dt_match is not in scope.
-                # The check should be: name == "datetime" and not any(name_part in dt_match for name_part in ["date", "datetime"] for dt_match in datetime_specific_matches)
-                # A simpler check if "datetime" as a standalone word should be imported if it wasn't "datetime.date" or "datetime.datetime".
-                # The current logic name not in datetime_specific_matches is trying to see if "datetime" was part of "datetime.date" etc.
-                # This check is problematic. Let's re-evaluate the elif condition.
-                # The original check was: `name == "datetime" and name not in datetime_specific_matches`
-                # If datetime_specific_matches contains "datetime.date", then "datetime" is not in it.
-                # This elif is for the case where "datetime" is found as a word by the general regex,
-                # and we want to make sure it wasn't ALREADY handled as part of "datetime.date" or "datetime.datetime".
-                # The current `name not in datetime_specific_matches` is not quite right.
-                # Let's simplify: if name is "datetime" and it wasn't part of the specific matches, what to do?
-                # For now, this elif block is more about *not* double-processing.
-                # The previous code had: `name == "datetime" and name not in datetime_specific_matches`
-                # If `datetime_specific_matches` was `['datetime.date', 'datetime.datetime']`, then `name` ("datetime") is not in it.
-                # This means the condition would be true for a standalone "datetime" word.
-                # This seems to be the intended logic: if "datetime" is found alone, and it wasn't part of the specific patterns, log it.
                 pass  # Was a logger.debug, now removed
 
     def add_plain_import(self, module: str) -> None:
