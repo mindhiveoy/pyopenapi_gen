@@ -16,19 +16,18 @@ from typing import (
     Optional,
 )  # Kept Any, List, Optional, TYPE_CHECKING for __getattr__ and __dir__
 
-# Import IR classes from their canonical location
-from .ir import (
-    IRParameter,
-    IRResponse,
-    IROperation,
-    IRSchema,
-    IRSpec,
-    IRRequestBody,
-)
-
 # Import HTTPMethod from its canonical location
 from .http_types import HTTPMethod
 
+# Import IR classes from their canonical location
+from .ir import (
+    IROperation,
+    IRParameter,
+    IRRequestBody,
+    IRResponse,
+    IRSchema,
+    IRSpec,
+)
 
 __all__ = [
     "HTTPMethod",

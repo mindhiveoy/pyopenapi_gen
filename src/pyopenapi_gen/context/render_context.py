@@ -14,7 +14,9 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Set
 
+
 from pyopenapi_gen import IRSchema
+from pyopenapi_gen.core.utils import NameSanitizer
 
 from .file_manager import FileManager
 from .import_collector import ImportCollector
@@ -77,8 +79,6 @@ class RenderContext:
         self.package_root_for_generated_code: Optional[str] = package_root_for_generated_code
         self.overall_project_root: Optional[str] = overall_project_root or os.getcwd()
         self.parsed_schemas: Optional[Dict[str, IRSchema]] = parsed_schemas
-        if self.package_root_for_generated_code and not self.overall_project_root:
-            pass
         # Dictionary to store conditional imports, keyed by condition
         self.conditional_imports: Dict[str, Dict[str, Set[str]]] = {}
 
@@ -296,7 +296,14 @@ class RenderContext:
 
         # General regex for other potential typing names (words)
         all_words_in_type_str = re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)\b", type_str_for_typing_search)
-        potential_typing_names = set(all_words_in_type_str)
+        potential_names_to_import = set(all_words_in_type_str)
+
+        # Names that were part of datetime.date or datetime.datetime (e.g., "date", "datetime")
+        # These should not be re-imported from typing or as models if already handled by specific datetime import
+        handled_datetime_parts = set()
+        for dt_match in datetime_specific_matches:  # e.g., "datetime.date"
+            parts = dt_match.split(".")  # ["datetime", "date"]
+            handled_datetime_parts.update(parts)
 
         known_typing_constructs = {
             "List",
@@ -340,16 +347,54 @@ class RenderContext:
             "TypeAlias",
         }
 
-        actually_added_typing = set()
-        for name in potential_typing_names:
+        for name in potential_names_to_import:
+            if name in handled_datetime_parts and name in {"date", "datetime"}:
+                # If 'date' or 'datetime' were part of 'datetime.date' or 'datetime.datetime'
+                # they were handled by add_import(module_name, class_name) earlier. Skip further processing.
+                continue
+
             if name in known_typing_constructs:
                 self.add_import("typing", name, is_typing_import=True)
-                actually_added_typing.add(name)
-            elif (
-                name == "datetime"
-                and name not in datetime_specific_matches  # Check against original list from the first findall
-            ):  # Fixed: use datetime_specific_matches, not dt_match, for the 'not in' check. And this logic is faulty if dt_match is not in scope.
-                pass
+                continue  # Successfully handled as a typing import
+
+            # Check if 'name' is a known schema (model)
+            if self.parsed_schemas:
+                found_schema_obj = None
+                # schema_obj.name is the Python class name (e.g., VectorDatabase)
+                for schema_obj in self.parsed_schemas.values():
+                    if schema_obj.name == name:
+                        found_schema_obj = schema_obj
+                        break
+
+                if found_schema_obj:
+                    schema_class_name = found_schema_obj.name
+                    if schema_class_name is None:
+                        logger.warning(f"Skipping import generation for an unnamed schema: {found_schema_obj}")
+                        continue  # Skip to the next name if schema_class_name is None
+                    # NameSanitizer.sanitize_filename typically converts PascalCase to snake_case.
+                    schema_file_name_segment = NameSanitizer.sanitize_filename(schema_class_name, suffix="")
+
+                    current_gen_pkg_base_name = self.get_current_package_name_for_generated_code()
+
+                    if current_gen_pkg_base_name:
+                        # Models are typically in <current_gen_pkg_base_name>.models.<schema_file_name>
+                        model_module_logical_path = f"{current_gen_pkg_base_name}.models.{schema_file_name_segment}"
+
+                        current_rendering_module_logical_path = self.get_current_module_dot_path()
+
+                        # Avoid self-importing if the model is defined in the current file being rendered
+                        if current_rendering_module_logical_path != model_module_logical_path:
+                            self.add_import(logical_module=model_module_logical_path, name=schema_class_name)
+                        # else:
+                        #     logger.debug(f"Skipping import of {schema_class_name} from {model_module_logical_path} as it's the current module.")
+                        continue  # Successfully handled (or skipped self-import) as a model import
+                    else:
+                        logger.warning(
+                            f"Cannot determine current generated package name for schema '{schema_class_name}'. "
+                            f"Import for it might be missing in {self.current_file}."
+                        )
+            # Fall-through: if name is not a typing construct, not datetime part, and not a parsed schema,
+            # it will be ignored by this function. Other import mechanisms might handle it (e.g. primitives like 'str').
 
     def add_plain_import(self, module: str) -> None:
         """Add a plain import statement (e.g., `import os`)."""
