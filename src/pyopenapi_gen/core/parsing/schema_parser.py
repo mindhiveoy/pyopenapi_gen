@@ -260,7 +260,7 @@ def _parse_schema(
 
                                     property_holder_ir = IRSchema(
                                         name=prop_name,
-                                        type=parsed_prop_schema_ir.name,
+                                        type=parsed_prop_schema_ir.type,
                                         description=prop_schema_node.get(
                                             "description", parsed_prop_schema_ir.description
                                         ),
@@ -268,6 +268,10 @@ def _parse_schema(
                                         default=prop_schema_node.get("default"),
                                         example=prop_schema_node.get("example"),
                                         enum=prop_schema_node.get("enum") if not parsed_prop_schema_ir.enum else None,
+                                        items=parsed_prop_schema_ir.items
+                                        if parsed_prop_schema_ir.type == "array"
+                                        else None,
+                                        format=parsed_prop_schema_ir.format,
                                         _refers_to_schema=parsed_prop_schema_ir,
                                     )
                                     if parsed_prop_schema_ir.enum and not property_holder_ir.enum:
@@ -366,6 +370,7 @@ def _parse_schema(
             format=schema_node.get("format") if isinstance(schema_node.get("format"), str) else None,
             enum=schema_node.get("enum") if isinstance(schema_node.get("enum"), list) else None,
             default=schema_node.get("default"),
+            example=schema_node.get("example"),
             is_nullable=is_nullable_overall,
             items=items_ir,
         )
