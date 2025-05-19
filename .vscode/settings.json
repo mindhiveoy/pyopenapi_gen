@@ -11,5 +11,6 @@
   "python.testing.pytestEnabled": true,
   "pytest_runner.pytest_exec": "venv/bin/pytest",
   "pytest_runner.check_config": true,
-  "pytest_runner.pytest_options": "-v"
+  "pytest_runner.pytest_options": "-v",
+  "makefile.configureOnOpen": false
 }

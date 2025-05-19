@@ -30,7 +30,7 @@ class NamedTypeResolver:
         Returns:
             A Python type string for the resolved schema, e.g., "MyModel", "Optional[MyModel]".
         """
-        logger.warning(
+        logger.debug(
             f"[NTR ENTRY] Current file context: {self.context.import_collector._current_file_module_dot_path}, Collector ID: {id(self.context.import_collector)}"
         )
 
@@ -49,11 +49,7 @@ class NamedTypeResolver:
             name_to_add = class_name_for_ref
 
             if not resolve_alias_target:
-                # logger.warning(f"[NTR] BEFORE add_import for '{name_to_add}' from '{key_to_check}'. Current file: {self.context.import_collector._current_file_module_dot_path}. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
-
                 self.context.add_import(logical_module=key_to_check, name=name_to_add)
-
-                # logger.warning(f"[NTR] AFTER add_import for '{name_to_add}' from '{key_to_check}'. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
                 return name_to_add
             else:
                 # self.resolve_alias_target is TRUE. We are trying to find the *actual underlying type*
@@ -91,18 +87,7 @@ class NamedTypeResolver:
                     # It needs "DataObject" as the string.
                     # The import for DataObject will be handled by TypeHelper when generating that alias file itself, using the regular non-alias-target path.
 
-                    # Simplified and very specific trace for VectorDatabase import path
-                    if ref_schema.name and ref_schema.name.lower() == "vectordatabase":
-                        logger.error(
-                            f"!!!!!!!!!! [NTR_VD_FINAL_TRACE] About to import VectorDatabase for Alias Target. "
-                            f"Context file: {self.context.current_file}, resolve_alias_target: {resolve_alias_target} !!!!!!"
-                        )
-
-                    # logger.warning(f"[NTR] (Alias Target Path) BEFORE add_import for '{name_to_add}' from '{key_to_check}'. Current file: {self.context.import_collector._current_file_module_dot_path}. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
-
                     self.context.add_import(logical_module=key_to_check, name=name_to_add)
-
-                    # logger.warning(f"[NTR] (Alias Target Path) AFTER add_import for '{name_to_add}' from '{key_to_check}'. Collector imports for this key: {self.context.import_collector.imports.get(key_to_check)}")
                     return name_to_add  # Return name_to_add
 
         elif schema.enum:

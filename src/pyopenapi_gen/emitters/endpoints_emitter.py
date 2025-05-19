@@ -144,14 +144,17 @@ class EndpointsEmitter:
             if not file_path.exists():
                 self.context.file_manager.write_file(str(file_path), content)
 
-        if not self.context.parsed_schemas:
-            logger.error(
-                "[EndpointsEmitter] RenderContext is missing parsed_schemas. Cannot initialize EndpointVisitor."
+        # Ensure parsed_schemas is at least an empty dict if None,
+        # as EndpointVisitor expects Dict[str, IRSchema]
+        current_parsed_schemas = self.context.parsed_schemas
+        if current_parsed_schemas is None:
+            logger.warning(
+                "[EndpointsEmitter] RenderContext.parsed_schemas was None. Defaulting to empty dict for EndpointVisitor."
             )
-            return []  # Or raise error
+            current_parsed_schemas = {}  # Default to empty dict if None
 
         if self.visitor is None:
-            self.visitor = EndpointVisitor(self.context.parsed_schemas)
+            self.visitor = EndpointVisitor(current_parsed_schemas)  # Pass the (potentially defaulted) dict
 
         tag_key_to_ops: Dict[str, List[IROperation]] = {}
         tag_key_to_candidates: Dict[str, List[str]] = {}

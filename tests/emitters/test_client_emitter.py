@@ -1,10 +1,31 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
+import pytest
 from pyopenapi_gen import IRSpec
+from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
+from pyopenapi_gen.context.file_manager import FileManager
 
 
-def test_client_emitter_creates_core_files(tmp_path: Path) -> None:
+@pytest.fixture
+def mock_render_context() -> MagicMock:
+    ctx = MagicMock(spec=RenderContext)
+    ctx.parsed_schemas = {}
+    # Configure file_manager to actually write files for .exists() checks
+    actual_fm = FileManager()  # Create a real FileManager
+    ctx.file_manager = MagicMock(spec=FileManager)
+    ctx.file_manager.write_file.side_effect = actual_fm.write_file
+    ctx.file_manager.ensure_dir.side_effect = actual_fm.ensure_dir
+
+    ctx.import_collector = MagicMock()
+    ctx.import_collector.render_imports.return_value = "# Mocked imports\nfrom typing import Any"
+    ctx.render_imports.return_value = "# Mocked imports\nfrom typing import Any"
+    ctx.core_package_name = "test_client.core"
+    return ctx
+
+
+def test_client_emitter_creates_core_files(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """ClientEmitter should generate client.py with expected content."""
     out_dir = tmp_path / "out"
     # Dummy spec (not used by emitter)
@@ -15,7 +36,7 @@ def test_client_emitter_creates_core_files(tmp_path: Path) -> None:
         operations=[],
         servers=["https://api.test"],
     )
-    emitter = ClientEmitter()
+    emitter = ClientEmitter(context=mock_render_context)
     emitter.emit(spec, str(out_dir))
 
     client_file = out_dir / "client.py"

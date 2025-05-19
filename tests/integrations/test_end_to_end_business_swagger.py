@@ -71,14 +71,14 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     core_emitter = CoreEmitter(
         core_package=core_package_name, exception_alias_names=exception_alias_names
     )  # Pass names
-    models_emitter = ModelsEmitter(context=render_context)
+    models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
     endpoints_emitter = EndpointsEmitter(context=render_context)
     client_emitter = ClientEmitter(context=render_context)
 
     # Run emitters
     # Exceptions were already emitted to get names
     core_emitter.emit(str(out_dir))  # Generate core files first (takes output dir)
-    models_emitter.emit(out_dir)
+    models_emitter.emit(ir, str(out_dir))
     endpoints_emitter.emit(ir.operations, str(out_dir))
     client_emitter.emit(ir, str(out_dir))
 
@@ -224,13 +224,13 @@ def test_generated_agent_datasources_imports_are_valid(tmp_path: Path) -> None:
 
     # Instantiate emitters with correct core package name where needed
     core_emitter = CoreEmitter(core_package=core_package_name)
-    models_emitter = ModelsEmitter(context=render_context)
+    models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
     endpoints_emitter = EndpointsEmitter(context=render_context)
     client_emitter = ClientEmitter(context=render_context)
 
     # Run emitters
     core_emitter.emit(str(out_dir))
-    models_emitter.emit(out_dir)
+    models_emitter.emit(ir, str(out_dir))
     endpoints_emitter.emit(ir.operations, str(out_dir))
     client_emitter.emit(ir, str(out_dir))
 

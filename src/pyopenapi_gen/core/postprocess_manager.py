@@ -39,7 +39,6 @@ class PostprocessManager:
                 self.remove_unused_imports(target_path)
                 self.sort_imports(target_path)
                 self.format_code(target_path)
-        # print("DEBUG: Skipping Ruff checks in PostprocessManager") # Keep commented
         # --- END RE-ENABLE ---
 
         # Determine the package root directory(s) for Mypy

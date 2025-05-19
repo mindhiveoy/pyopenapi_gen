@@ -1,25 +1,42 @@
-import unittest
 from typing import Any, Dict
-from unittest.mock import MagicMock, call
+from unittest.mock import (
+    MagicMock,
+)  # Alias to avoid conflict if pytest.patch is used elsewhere, though not in this file
+from unittest.mock import (
+    patch as unittest_patch,
+)
+
+import pytest
 
 from pyopenapi_gen.context.render_context import RenderContext
 
 # Assuming endpoint_utils is in pyopenapi_gen.helpers
-from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_request_body_type, get_return_type
-
-# Corrected imports based on actual file structure
-from pyopenapi_gen.ir import IROperation, IRParameter, IRSchema, IRRequestBody, IRResponse
-from pyopenapi_gen.visit.endpoint.processors.import_analyzer import EndpointImportAnalyzer
 from pyopenapi_gen.http_types import HTTPMethod
 
+# Corrected imports based on actual file structure
+from pyopenapi_gen.ir import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
+from pyopenapi_gen.visit.endpoint.processors.import_analyzer import EndpointImportAnalyzer
 
-class TestEndpointImportAnalyzer(unittest.TestCase):
-    def setUp(self) -> None:
-        self.render_context_mock = MagicMock(spec=RenderContext)
-        self.schemas_mock: Dict[str, Any] = {}
-        self.analyzer = EndpointImportAnalyzer(schemas=self.schemas_mock)
 
-    def test_analyze_and_register_imports_basic(self) -> None:
+@pytest.fixture
+def render_context_mock() -> MagicMock:
+    return MagicMock(spec=RenderContext)
+
+
+@pytest.fixture
+def schemas_mock() -> Dict[str, Any]:
+    return {}
+
+
+@pytest.fixture
+def import_analyzer(schemas_mock: Dict[str, Any]) -> EndpointImportAnalyzer:
+    return EndpointImportAnalyzer(schemas=schemas_mock)
+
+
+class TestEndpointImportAnalyzer:
+    def test_analyze_and_register_imports_basic(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             Test with a simple operation having one parameter and a basic return type.
@@ -50,26 +67,26 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
         )
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("SuccessResponse", False),
             ) as mock_get_return_type,
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
             # Called once in main loop, once in AsyncIterator check
-            self.assertEqual(mock_get_param_type.call_count, 2)
-            mock_get_param_type.assert_any_call(param1, self.render_context_mock, self.schemas_mock)
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("str")  # For param
+            assert mock_get_param_type.call_count == 2
+            mock_get_param_type.assert_any_call(param1, render_context_mock, schemas_mock)
+            render_context_mock.add_typing_imports_for_type.assert_any_call("str")  # For param
 
-            mock_get_return_type.assert_called_once_with(operation, self.render_context_mock, self.schemas_mock)
+            mock_get_return_type.assert_called_once_with(operation, render_context_mock, schemas_mock)
             # For return type "SuccessResponse"
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("SuccessResponse")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("SuccessResponse")
             # Total calls to add_typing_imports_for_type depends on how many distinct types are processed
             # For ("str") and ("SuccessResponse"), it should be 2 if they are distinct and handled.
             # If get_param_type is called twice with "str", add_typing_imports_for_type might be called twice for "str"
@@ -78,7 +95,9 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
             # self.assertEqual(self.render_context_mock.add_typing_imports_for_type.call_count, 2)
             # This assertion is fragile; focusing on specific any_call for expected types is better.
 
-    def test_analyze_and_register_imports_request_body_multipart(self) -> None:
+    def test_analyze_and_register_imports_request_body_multipart(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             Operation with a multipart/form-data request body.
@@ -102,33 +121,35 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
         )
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,  # Parameters list is empty, so this won't be called in param loop
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("None", True),  # Assuming 204 No Content means None return type
             ) as mock_get_return_type,
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
             # Imports for multipart body
-            self.render_context_mock.add_import.assert_any_call("typing", "Dict")
-            self.render_context_mock.add_import.assert_any_call("typing", "IO")
-            self.render_context_mock.add_import.assert_any_call("typing", "Any")
+            render_context_mock.add_import.assert_any_call("typing", "Dict")
+            render_context_mock.add_import.assert_any_call("typing", "IO")
+            render_context_mock.add_import.assert_any_call("typing", "Any")
             # Type registration for the body type string
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, IO[Any]]")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, IO[Any]]")
 
             # Return type import
-            mock_get_return_type.assert_called_once_with(operation, self.render_context_mock, self.schemas_mock)
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("None")
+            mock_get_return_type.assert_called_once_with(operation, render_context_mock, schemas_mock)
+            render_context_mock.add_typing_imports_for_type.assert_any_call("None")
 
             # get_param_type should be called 0 times in param loop (empty params) + 0 times in async check (empty params)
-            self.assertEqual(mock_get_param_type.call_count, 0)
+            assert mock_get_param_type.call_count == 0
 
-    def test_analyze_and_register_imports_request_body_json(self) -> None:
+    def test_analyze_and_register_imports_request_body_json(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             Operation with an application/json request body.
@@ -152,32 +173,32 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
         )
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_request_body_type",
                 return_value="MyJsonPayload",
             ) as mock_get_request_body_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("None", True),
             ) as mock_get_return_type,
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
-            mock_get_request_body_type.assert_called_once_with(
-                mock_request_body, self.render_context_mock, self.schemas_mock
-            )
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("MyJsonPayload")
+            mock_get_request_body_type.assert_called_once_with(mock_request_body, render_context_mock, schemas_mock)
+            render_context_mock.add_typing_imports_for_type.assert_any_call("MyJsonPayload")
 
             # Return type import
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("None")
-            self.assertEqual(mock_get_param_type.call_count, 0)  # No params
+            render_context_mock.add_typing_imports_for_type.assert_any_call("None")
+            assert mock_get_param_type.call_count == 0  # No params
 
-    def test_analyze_and_register_imports_request_body_form_urlencoded(self) -> None:
+    def test_analyze_and_register_imports_request_body_form_urlencoded(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             Operation with an application/x-www-form-urlencoded request body.
@@ -202,29 +223,31 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
         )
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("None", True),
             ) as mock_get_return_type,
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
             # Imports for form-urlencoded body
-            self.render_context_mock.add_import.assert_any_call("typing", "Dict")
-            self.render_context_mock.add_import.assert_any_call("typing", "Any")
+            render_context_mock.add_import.assert_any_call("typing", "Dict")
+            render_context_mock.add_import.assert_any_call("typing", "Any")
             # Type registration for the body type string "Dict[str, Any]"
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, Any]")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, Any]")
 
             # Return type import
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("None")
-            self.assertEqual(mock_get_param_type.call_count, 0)  # No params
+            render_context_mock.add_typing_imports_for_type.assert_any_call("None")
+            assert mock_get_param_type.call_count == 0  # No params
 
-    def test_analyze_and_register_imports_request_body_octet_stream(self) -> None:
+    def test_analyze_and_register_imports_request_body_octet_stream(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             Operation with an application/octet-stream request body (fallback to bytes).
@@ -250,27 +273,29 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
         )
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("None", True),
             ) as mock_get_return_type,
             # get_request_body_type is NOT called in this path
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
             # Type registration for the body type string "bytes"
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("bytes")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("bytes")
 
             # Return type import
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("None")
-            self.assertEqual(mock_get_param_type.call_count, 0)  # No params
+            render_context_mock.add_typing_imports_for_type.assert_any_call("None")
+            assert mock_get_param_type.call_count == 0  # No params
 
-    def test_analyze_and_register_imports_request_body_empty_content(self) -> None:
+    def test_analyze_and_register_imports_request_body_empty_content(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             Operation with a request body that has no defined content types.
@@ -293,19 +318,19 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
         )
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_request_body_type"
             ) as mock_get_request_body_type,  # Should not be called
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("None", True),
             ) as mock_get_return_type,
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
             # Ensure add_typing_imports_for_type was not called for any specific body type derived from the empty content
@@ -313,21 +338,21 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
             # We need to check that it wasn't called for e.g. "bytes" or "Dict[str, Any]" due to body path.
 
             # Get all calls to add_typing_imports_for_type
-            all_add_typing_calls = [
-                c[0][0] for c in self.render_context_mock.add_typing_imports_for_type.call_args_list
-            ]
+            all_add_typing_calls = [c[0][0] for c in render_context_mock.add_typing_imports_for_type.call_args_list]
             # Expected calls are only for parameters (if any) and return type.
             # In this test, no params, return type is "None".
-            self.assertIn("None", all_add_typing_calls)  # For return type
+            assert "None" in all_add_typing_calls
             # Ensure no body-specific types like 'bytes' or 'Dict[str, IO[Any]]' or 'Dict[str, Any]' were added from body path
-            self.assertNotIn("bytes", all_add_typing_calls)
-            self.assertNotIn("Dict[str, IO[Any]]", all_add_typing_calls)
-            self.assertNotIn("Dict[str, Any]", all_add_typing_calls)
+            assert "bytes" not in all_add_typing_calls
+            assert "Dict[str, IO[Any]]" not in all_add_typing_calls
+            assert "Dict[str, Any]" not in all_add_typing_calls
 
             mock_get_request_body_type.assert_not_called()
-            self.assertEqual(mock_get_param_type.call_count, 0)
+            assert mock_get_param_type.call_count == 0
 
-    def test_analyze_and_register_imports_async_iterator_return(self) -> None:
+    def test_analyze_and_register_imports_async_iterator_return(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             Operation return type contains "AsyncIterator".
@@ -350,24 +375,26 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
         )
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("AsyncIterator[DataItem]", False),  # Return type includes AsyncIterator
             ) as mock_get_return_type,
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
-            self.render_context_mock.add_plain_import.assert_called_once_with("collections.abc")
+            render_context_mock.add_plain_import.assert_called_once_with("collections.abc")
             # Ensure type imports for the return type itself still happen
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("AsyncIterator[DataItem]")
-            self.assertEqual(mock_get_param_type.call_count, 0)  # No params
+            render_context_mock.add_typing_imports_for_type.assert_any_call("AsyncIterator[DataItem]")
+            assert mock_get_param_type.call_count == 0  # No params
 
-    def test_analyze_and_register_imports_async_iterator_param(self) -> None:
+    def test_analyze_and_register_imports_async_iterator_param(
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+    ) -> None:
         """
         Scenario:
             A parameter type contains "AsyncIterator", return type does not.
@@ -397,27 +424,23 @@ class TestEndpointImportAnalyzer(unittest.TestCase):
             return "RegularType"
 
         with (
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type",
                 side_effect=mock_get_param_type_side_effect,
             ) as mock_get_param_type,
-            unittest.mock.patch(
+            unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
                 return_value=("SimpleResponse", False),  # Return type does NOT include AsyncIterator
             ) as mock_get_return_type,
         ):
             # Act
-            self.analyzer.analyze_and_register_imports(operation, self.render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
 
             # Assert
-            self.render_context_mock.add_plain_import.assert_called_once_with("collections.abc")
+            render_context_mock.add_plain_import.assert_called_once_with("collections.abc")
             # Ensure type imports for param types and return type still happen
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("AsyncIterator[bytes]")
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("SimpleResponse")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("AsyncIterator[bytes]")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("SimpleResponse")
             # get_param_type is called once in param loop, once in async_iterator check loop for this param
-            self.assertEqual(mock_get_param_type.call_count, 2)
-            mock_get_param_type.assert_any_call(async_param, self.render_context_mock, self.schemas_mock)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert mock_get_param_type.call_count == 2
+            mock_get_param_type.assert_any_call(async_param, render_context_mock, schemas_mock)

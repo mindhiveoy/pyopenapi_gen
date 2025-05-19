@@ -141,4 +141,45 @@ def test_user_registration_flow__valid_data__creates_user_and_sends_email():
     email_service.send_welcome_email.assert_called_once()
     assert result == {"status": "ok"}
 ```
+## 10. Preferred Testing Framework & Style
 
+**10.1. Framework Choice:**
+    - All new Python unit tests and integration tests written for this project **MUST** use the `pytest` framework.
+    - Existing tests written using `unittest.TestCase` **SHOULD** be refactored to `pytest` style when those files are being significantly modified or as a dedicated refactoring effort to improve test suite consistency and leverage `pytest` features.
+
+**10.2. `pytest` Idiomatic Style:**
+    - **Assertions:** Tests **MUST** use plain `assert` statements for assertions (e.g., `assert result == expected`).
+    - **Fixtures:** Test setup, teardown, and dependency injection **MUST** be managed using `pytest` fixtures. Fixtures should be defined in the test file itself or in a relevant `conftest.py`.
+    - **Parameterization:** For testing multiple variations of inputs or conditions against the same test logic, `pytest.mark.parametrize` **MUST** be used to keep tests DRY (Don't Repeat Yourself) and data-driven.
+    - **Test Structure:** Test classes (if used) **SHOULD NOT** inherit from `unittest.TestCase`. They should be plain Python classes. Test functions can also be defined at the module level.
+    - **Exception Testing:** Testing for expected exceptions **MUST** use `pytest.raises` as a context manager (e.g., `with pytest.raises(SpecificException):`).
+
+## 11. Test Suite Analysis & Documentation
+
+**11.1. Purpose:**
+    - To maintain a continuous understanding of the test suite's health, coverage, and adherence to conventions.
+    - To provide a quick reference for the status and quality of tests within different modules.
+
+**11.2. Root Analysis Overview (`tests/test_analysis_overview.md`):**
+    - **Maintenance:** This document **MUST** be kept up-to-date.
+    - **Content:**
+        - It **MUST** list all test files and their current analysis status (e.g., "Analyzed", "Needs Analysis", "Analyzed - Empty").
+        - It **MUST** include links to per-directory detailed analysis documents.
+    - **Updates:** This document **SHOULD** be updated whenever:
+        - New test files are added.
+        - Existing test files are significantly refactored or moved.
+        - A new pass of test analysis is completed for any part of the suite.
+
+**11.3. Per-Directory Analysis Documents (e.g., `tests/<module>/<module>_analysis.md`):**
+    - **Maintenance:** These documents **SHOULD** be created or updated when a significant portion of tests within a directory/module is reviewed or refactored.
+    - **Content:** Each document **SHOULD** summarize:
+        - Overall conciseness and consistency of tests within that directory.
+        - Alignment with these testing conventions.
+        - Identification of any potentially contradictory expectations or areas for improvement specific to that module's tests.
+    - **Trigger for Updates:**
+        - After a focused review or refactoring effort on the tests within that directory.
+        - When the `test_analysis_overview.md` indicates a need for a detailed review of a specific area.
+
+**11.4. Responsibility for AI Agents:**
+    - When an AI agent is tasked with adding new test files or performing significant refactoring of existing tests, it **MUST** update the `tests/test_analysis_overview.md` to reflect the new or changed files and their status.
+    - If an AI agent performs an analysis pass on a directory as requested, it **MUST** contribute to or create the relevant per-directory analysis document.

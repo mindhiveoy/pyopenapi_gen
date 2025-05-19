@@ -236,15 +236,17 @@ class ClientGenerator:
                     overall_project_root=str(tmp_project_root_for_diff),
                     parsed_schemas=ir.schemas,
                 )
-                models_emitter = ModelsEmitter(context=tmp_render_context_for_diff)
-                model_files = [
-                    Path(p)
-                    for p in models_emitter.emit(Path(tmp_out_dir_for_diff))  # emit takes Path output_dir
-                ]
-                temp_generated_files += model_files
+                models_emitter = ModelsEmitter(context=tmp_render_context_for_diff, parsed_schemas=ir.schemas)
+                model_files_dict = models_emitter.emit(
+                    ir, str(tmp_out_dir_for_diff)
+                )  # ModelsEmitter.emit now takes IRSpec
+                temp_generated_files += [
+                    Path(p) for p_list in model_files_dict.values() for p in p_list
+                ]  # Flatten list of lists
                 schema_count = len(ir.schemas) if ir.schemas else 0
                 self._log_progress(
-                    f"Generated {len(model_files)} model files for {schema_count} schemas (temp)", "EMIT_MODELS_TEMP"
+                    f"Generated {len(model_files_dict)} model files for {schema_count} schemas (temp)",
+                    "EMIT_MODELS_TEMP",
                 )
 
                 # 5. EndpointsEmitter (emits endpoints to tmp_out_dir_for_diff/endpoints)
@@ -394,14 +396,14 @@ class ClientGenerator:
 
             # 4. ModelsEmitter
             self._log_progress("Generating model files", "EMIT_MODELS")
-            models_emitter = ModelsEmitter(context=main_render_context)
+            models_emitter = ModelsEmitter(context=main_render_context, parsed_schemas=ir.schemas)
+            model_files_dict = models_emitter.emit(ir, str(out_dir))  # ModelsEmitter.emit now takes IRSpec
             generated_files += [
-                Path(p)
-                for p in models_emitter.emit(Path(out_dir))  # emit takes Path output_dir
-            ]
+                Path(p) for p_list in model_files_dict.values() for p in p_list
+            ]  # Flatten list of lists
             schema_count = len(ir.schemas) if ir.schemas else 0
             self._log_progress(
-                f"Generated {len(models_emitter.emit(Path(out_dir)))} model files for {schema_count} schemas",  # emit takes Path output_dir
+                f"Generated {len(model_files_dict)} model files for {schema_count} schemas",  # emit takes Path output_dir
                 "EMIT_MODELS",
             )
 

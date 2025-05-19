@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Dict, Optional, Set
 
 from pyopenapi_gen import IRSchema
+
 from .file_manager import FileManager
 from .import_collector import ImportCollector
 
@@ -91,7 +92,6 @@ class RenderContext:
         Args:
             abs_path: The absolute path of the file to set as current
         """
-        logger.debug(f"[RenderContext] Setting current file to: {abs_path}")
         self.current_file = abs_path
         # Reset the import collector for each new file to ensure isolation
         self.import_collector.reset()
@@ -100,10 +100,6 @@ class RenderContext:
         current_module_dot_path = self.get_current_module_dot_path()
         package_root_for_collector = self.get_current_package_name_for_generated_code()
 
-        logger.debug(
-            f"[RenderContext] Updating ImportCollector context: mod_path='{current_module_dot_path}', "
-            f"pkg_root_for_ic='{package_root_for_collector}', core_pkg_name='{self.core_package_name}'"
-        )
         self.import_collector.set_current_file_context_for_rendering(
             current_module_dot_path=current_module_dot_path,
             package_root=package_root_for_collector,
@@ -353,7 +349,7 @@ class RenderContext:
                 name == "datetime"
                 and name not in datetime_specific_matches  # Check against original list from the first findall
             ):  # Fixed: use datetime_specific_matches, not dt_match, for the 'not in' check. And this logic is faulty if dt_match is not in scope.
-                pass  # Was a logger.debug, now removed
+                pass
 
     def add_plain_import(self, module: str) -> None:
         """Add a plain import statement (e.g., `import os`)."""

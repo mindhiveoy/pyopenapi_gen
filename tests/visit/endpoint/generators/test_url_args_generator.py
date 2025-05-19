@@ -1,5 +1,5 @@
-import unittest
-from typing import Any as TypingAny, Union
+import pytest
+from typing import Any, Union
 from typing import Dict, List
 from unittest.mock import MagicMock, call, patch
 
@@ -10,13 +10,25 @@ from pyopenapi_gen.ir import IROperation, IRParameter, IRSchema
 from pyopenapi_gen.visit.endpoint.generators.url_args_generator import EndpointUrlArgsGenerator
 
 
-class TestEndpointUrlArgsGenerator(unittest.TestCase):
-    def setUp(self) -> None:
-        self.render_context_mock = MagicMock(spec=RenderContext)
-        self.code_writer_mock = MagicMock(spec=CodeWriter)
-        self.generator = EndpointUrlArgsGenerator()
+@pytest.fixture
+def render_context_mock() -> MagicMock:
+    return MagicMock(spec=RenderContext)
 
-    def test_generate_url_and_args_basic_get(self) -> None:
+
+@pytest.fixture
+def code_writer_mock() -> MagicMock:
+    return MagicMock(spec=CodeWriter)
+
+
+@pytest.fixture
+def url_args_generator() -> EndpointUrlArgsGenerator:
+    return EndpointUrlArgsGenerator()
+
+
+class TestEndpointUrlArgsGenerator:
+    def test_generate_url_and_args_basic_get(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test basic GET operation with no parameters."""
         operation = IROperation(
             operation_id="get_items",
@@ -29,12 +41,12 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             request_body=None,
             responses=[],
         )
-        ordered_parameters: List[Dict[str, TypingAny]] = []
+        ordered_parameters: List[Dict[str, Any]] = []
 
-        self.generator.generate_url_and_args(
-            self.code_writer_mock,
+        url_args_generator.generate_url_and_args(
+            code_writer_mock,
             operation,
-            self.render_context_mock,
+            render_context_mock,
             ordered_parameters,
             None,  # primary_content_type
             None,  # resolved_body_type
@@ -43,33 +55,31 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             call('url = f"{self.base_url}/items"'),
             call(""),
         ]
-        self.code_writer_mock.write_line.assert_has_calls(expected_calls, any_order=False)
+        code_writer_mock.write_line.assert_has_calls(expected_calls, any_order=False)
 
         # Check return value
-        returned_value = self.generator.generate_url_and_args(
-            self.code_writer_mock,  # Re-call to get return value, mock calls will be duplicated but assertions are specific
+        returned_value = url_args_generator.generate_url_and_args(
+            code_writer_mock,  # Re-call to get return value, mock calls will be duplicated but assertions are specific
             operation,
-            self.render_context_mock,
+            render_context_mock,
             ordered_parameters,
             None,
             None,
         )
-        self.assertFalse(returned_value, "generate_url_and_args should return False when no headers are written.")
+        assert not returned_value, "generate_url_and_args should return False when no headers are written."
 
-        calls = self.code_writer_mock.write_line.call_args_list
+        calls = code_writer_mock.write_line.call_args_list
         params_written = any("params: Dict[str, Any] = {" in c[0][0] for c in calls)
         headers_written = any("headers: Dict[str, Any] = {" in c[0][0] for c in calls)
 
-        self.assertFalse(
-            params_written, "Params dict should not have been written for a basic GET with no query params."
-        )
-        self.assertFalse(
-            headers_written, "Headers dict should not have been written for a basic GET with no header params."
-        )
+        assert not params_written, "Params dict should not have been written for a basic GET with no query params."
+        assert not headers_written, "Headers dict should not have been written for a basic GET with no header params."
 
-    def test_generate_url_and_args_with_path_params(self) -> None:
+    def test_generate_url_and_args_with_path_params(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test operation with path parameters."""
-        path_param_info: Dict[str, TypingAny] = {
+        path_param_info: Dict[str, Any] = {
             "name": "item_id",
             "param_in": "path",
             "required": True,
@@ -98,15 +108,17 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
         with patch(
             "pyopenapi_gen.core.utils.NameSanitizer.sanitize_method_name", return_value="item_id_sanitized"
         ) as mock_sanitize:
-            self.generator.generate_url_and_args(
-                self.code_writer_mock, operation, self.render_context_mock, [path_param_info], None, None
+            url_args_generator.generate_url_and_args(
+                code_writer_mock, operation, render_context_mock, [path_param_info], None, None
             )
-            self.code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items/{{item_id_sanitized}}"')
+            code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items/{{item_id_sanitized}}"')
             mock_sanitize.assert_called_with("item_id")
 
-    def test_generate_url_and_args_with_query_params(self) -> None:
+    def test_generate_url_and_args_with_query_params(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test operation with query parameters."""
-        query_param_dict: Dict[str, TypingAny] = {
+        query_param_dict: Dict[str, Any] = {
             "name": "filter_by",
             "param_in": "query",
             "required": False,
@@ -136,28 +148,30 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
         with patch(
             "pyopenapi_gen.core.utils.NameSanitizer.sanitize_method_name", side_effect=lambda name: name
         ) as mock_sanitize_query:
-            self.generator.generate_url_and_args(
-                self.code_writer_mock, operation, self.render_context_mock, [query_param_dict], None, None
+            url_args_generator.generate_url_and_args(
+                code_writer_mock, operation, render_context_mock, [query_param_dict], None, None
             )
 
-            self.code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items"')
-            self.code_writer_mock.write_line.assert_any_call("params: Dict[str, Any] = {")
-            self.code_writer_mock.write_line.assert_any_call(
+            code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items"')
+            code_writer_mock.write_line.assert_any_call("params: Dict[str, Any] = {")
+            code_writer_mock.write_line.assert_any_call(
                 '    **({"filterBy": filter_by} if filter_by is not None else {}),'
             )
             mock_sanitize_query.assert_any_call("filter_by")
-            self.render_context_mock.add_import.assert_any_call("typing", "Any")
+            render_context_mock.add_import.assert_any_call("typing", "Any")
 
-    def test_generate_url_and_args_with_header_params(self) -> None:
+    def test_generate_url_and_args_with_header_params(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test operation with header parameters."""
-        header_param_required_dict: Dict[str, TypingAny] = {
+        header_param_required_dict: Dict[str, Any] = {
             "name": "x_request_id",
             "param_in": "header",
             "required": True,
             "original_name": "X-Request-ID",
             "schema": IRSchema(type="string", is_nullable=False),
         }
-        header_param_optional_dict: Dict[str, TypingAny] = {
+        header_param_optional_dict: Dict[str, Any] = {
             "name": "x_client_version",
             "param_in": "header",
             "required": False,
@@ -203,51 +217,26 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             "pyopenapi_gen.core.utils.NameSanitizer.sanitize_method_name", side_effect=mock_sanitize_name
         ) as mock_sanitize_header_method_name:
             # Capture return value
-            returned_value = self.generator.generate_url_and_args(
-                self.code_writer_mock, operation, self.render_context_mock, ordered_parameters, None, None
+            returned_value = url_args_generator.generate_url_and_args(
+                code_writer_mock, operation, render_context_mock, ordered_parameters, None, None
             )
 
-        self.assertTrue(returned_value, "generate_url_and_args should return True when headers are written.")
+        assert returned_value, "generate_url_and_args should return True when headers are written."
 
-        self.code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items_with_headers"')
-        self.code_writer_mock.write_line.assert_any_call("headers: Dict[str, Any] = {")
-        self.code_writer_mock.write_line.assert_any_call('    "X-Request-ID": x_request_id,')
-        self.code_writer_mock.write_line.assert_any_call(
+        code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items_with_headers"')
+        code_writer_mock.write_line.assert_any_call("headers: Dict[str, Any] = {")
+        code_writer_mock.write_line.assert_any_call('    "X-Request-ID": x_request_id,')
+        code_writer_mock.write_line.assert_any_call(
             '    **({"X-Client-Version": x_client_version} if x_client_version is not None else {}),'
         )
-        self.code_writer_mock.write_line.assert_any_call("}")  # Closing brace for headers dict
+        code_writer_mock.write_line.assert_any_call("}")  # Closing brace for headers dict
 
-        # Ensure NameSanitizer.sanitize_method_name was called for the Python variable names
-        # This assertion is tricky because sanitize_method_name is called by _build_url_with_path_vars
-        # if path variables were present. For header/query params, the 'name' in param_info is assumed
-        # to be pre-sanitized. Let's adjust the expectation.
-        # If path had vars, e.g. /items/{id}, then sanitize_method_name('id') would be called.
-        # Since our path /items_with_headers has no vars, sanitize_method_name is NOT called by _build_url_with_path_vars.
-        # The mock_sanitize_name is used by the test setup to provide sanitized names for `param_info["name"]` if needed,
-        # but `EndpointUrlArgsGenerator` itself doesn't call sanitize_method_name on header/query param names from `param_info`.
+        render_context_mock.add_import.assert_any_call("typing", "Any")
+        # render_context_mock.add_import.assert_any_call("typing", "Dict") # This line should be removed or commented
 
-        # Let's verify based on the `param_info` provided, which has `name` already set to the sanitized form.
-        # The actual call to `sanitize_method_name` happens upstream in EndpointParameterProcessor.
-        # For this unit test, we're testing that `_write_header_params` uses `param_info["name"]` correctly.
-
-        # The mock_sanitize_header_method_name will only be hit if the path itself has variables that need sanitizing.
-        # For this specific test case, the path "/items_with_headers" has no variables.
-        # So, mock_sanitize_header_method_name should not have been called by _build_url_with_path_vars.
-        # The `side_effect=mock_sanitize_name` is mostly for if the path *did* have variables.
-        # The important check is that the output code uses the correct variable names (e.g., 'x_request_id')
-        # which come from `ordered_parameters[...]['name']`.
-
-        # If there were path params, this would be asserted:
-        # mock_sanitize_header_method_name.assert_any_call("some_path_var_name")
-
-        # Assert that the Python variable names used in the output code match the sanitized names provided in `ordered_parameters`.
-        # This is implicitly checked by the assert_any_call for the lines themselves:
-        # e.g. '    "X-Request-ID": x_request_id,' implicitly checks that 'x_request_id' is used.
-
-        self.render_context_mock.add_import.assert_any_call("typing", "Any")
-        # self.render_context_mock.add_import.assert_any_call("typing", "Dict") # This line should be removed or commented
-
-    def test_generate_url_and_args_with_content_type_header(self) -> None:
+    def test_generate_url_and_args_with_content_type_header(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test that Content-Type header is NOT added to a headers dict by this generator standalone."""
         operation = IROperation(
             operation_id="post_data",
@@ -260,49 +249,51 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             request_body=MagicMock(),
             responses=[],
         )
-        ordered_parameters: List[Dict[str, TypingAny]] = []
+        ordered_parameters: List[Dict[str, Any]] = []
         primary_content_type = (
             "application/json"  # This is passed but not used by current generator to make a headers dict
         )
 
-        self.generator.generate_url_and_args(
-            self.code_writer_mock,
+        url_args_generator.generate_url_and_args(
+            code_writer_mock,
             operation,
-            self.render_context_mock,
+            render_context_mock,
             ordered_parameters,
             primary_content_type,
             None,  # resolved_body_type
         )
 
-        self.code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/data"')
+        code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/data"')
 
         # Assert that "headers: Dict[str, Any] = {" was NOT called
-        for call_args, _ in self.code_writer_mock.write_line.call_args_list:
-            self.assertNotIn("headers: Dict[str, Any] = {", call_args[0])
+        for call_args, _ in code_writer_mock.write_line.call_args_list:
+            assert not "headers: Dict[str, Any] = {" in call_args[0]
 
         # It will write lines for json_body setup due to op.request_body and primary_content_type being json
-        self.code_writer_mock.write_line.assert_any_call(
+        code_writer_mock.write_line.assert_any_call(
             "json_body: Any = body  # 'body' param not found in signature details"
         )
         # self.render_context_mock.add_import.assert_any_call("typing", "Dict") # Dict is not explicitly imported here
-        self.render_context_mock.add_import.assert_any_call("typing", "Any")  # Any is imported for json_body
+        render_context_mock.add_import.assert_any_call("typing", "Any")  # Any is imported for json_body
 
-    def test_generate_url_and_args_all_param_types_and_content_type(self) -> None:
+    def test_generate_url_and_args_all_param_types_and_content_type(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test operation with path, query, header params, and Content-Type."""
-        path_param_info: Dict[str, TypingAny] = {
+        path_param_info: Dict[str, Any] = {
             "name": "user_id",
             "param_in": "path",
             "required": True,
             "original_name": "user_id",
         }
-        query_param_info: Dict[str, TypingAny] = {
+        query_param_info: Dict[str, Any] = {
             "name": "verbose_output",  # sanitized from verboseOutput
             "param_in": "query",
             "required": False,
             "original_name": "verboseOutput",
             "schema": IRSchema(type="boolean", is_nullable=True),
         }
-        header_param_info: Dict[str, TypingAny] = {
+        header_param_info: Dict[str, Any] = {
             "name": "x_correlation_id",  # sanitized from X-Correlation-ID
             "param_in": "header",
             "required": True,
@@ -358,24 +349,24 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
         with patch(
             "pyopenapi_gen.core.utils.NameSanitizer.sanitize_method_name", side_effect=mock_sanitize_name
         ) as mock_sanitize_method_name:
-            self.generator.generate_url_and_args(
-                self.code_writer_mock,
+            url_args_generator.generate_url_and_args(
+                code_writer_mock,
                 operation,
-                self.render_context_mock,
+                render_context_mock,
                 ordered_parameters,
                 primary_content_type,
                 None,  # resolved_body_type
             )
 
             # URL assertion (with path param)
-            self.code_writer_mock.write_line.assert_any_call(
+            code_writer_mock.write_line.assert_any_call(
                 f'url = f"{{self.base_url}}/users/{{user_id_sanitized}}/profile"'
             )
             mock_sanitize_method_name.assert_any_call("user_id")  # For path param in _build_url_with_path_vars
 
             # Query params assertions
-            self.code_writer_mock.write_line.assert_any_call("params: Dict[str, Any] = {")
-            self.code_writer_mock.write_line.assert_any_call(
+            code_writer_mock.write_line.assert_any_call("params: Dict[str, Any] = {")
+            code_writer_mock.write_line.assert_any_call(
                 '    **({"verboseOutput": verbose_output_sanitized} if verbose_output_sanitized is not None else {}),'
             )
             # _write_query_params calls sanitize_method_name on p["name"]
@@ -384,10 +375,10 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             )  # query_param_info["name"] is "verbose_output"
 
             # Header params assertions
-            self.code_writer_mock.write_line.assert_any_call("headers: Dict[str, Any] = {")
+            code_writer_mock.write_line.assert_any_call("headers: Dict[str, Any] = {")
             # Content-Type is NOT added by this generator to the headers dict
             # self.code_writer_mock.write_line.assert_any_call(f'    "Content-Type": "{primary_content_type}",')
-            self.code_writer_mock.write_line.assert_any_call('    "X-Correlation-ID": x_correlation_id_sanitized,')
+            code_writer_mock.write_line.assert_any_call('    "X-Correlation-ID": x_correlation_id_sanitized,')
 
             # _write_header_params calls sanitize_method_name on p_info["name"]
             mock_sanitize_method_name.assert_any_call(
@@ -395,7 +386,7 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             )  # header_param_info["name"] is "x_correlation_id"
 
             # Ensure closing braces for params and headers
-            calls = [c[0][0] for c in self.code_writer_mock.write_line.call_args_list]
+            calls = [c[0][0] for c in code_writer_mock.write_line.call_args_list]
             param_block_closed = False
             header_block_closed = False
             in_param_block = False
@@ -412,21 +403,23 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
                     header_block_closed = True
                     in_header_block = False
 
-            self.assertTrue(param_block_closed, "Params dict should be closed with '}'")
-            self.assertTrue(header_block_closed, "Headers dict should be closed with '}'")
+            assert param_block_closed, "Params dict should be closed with '}'"
+            assert header_block_closed, "Headers dict should be closed with '}'"
 
             # Assert body setup
             # With primary_content_type = "application/json" and no 'body' in ordered_parameters
-            self.code_writer_mock.write_line.assert_any_call(
+            code_writer_mock.write_line.assert_any_call(
                 "json_body: Any = body  # 'body' param not found in signature details"
             )
-            self.render_context_mock.add_import.assert_any_call("typing", "Any")
+            render_context_mock.add_import.assert_any_call("typing", "Any")
             # Dict is not explicitly imported by this section, but Any is for the Dict[str, Any] and json_body: Any
             # self.render_context_mock.add_import.assert_any_call("typing", "Dict")
 
-    def test_generate_url_and_args_multipart_with_files_param(self) -> None:
+    def test_generate_url_and_args_multipart_with_files_param(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test multipart/form-data with 'files' parameter present in ordered_params."""
-        files_param_info: Dict[str, TypingAny] = {
+        files_param_info: Dict[str, Any] = {
             "name": "files",  # Must be 'files' for the current generator logic
             "param_in": "formData",  # Not strictly checked by this part of generator, but typical
             "required": True,
@@ -447,19 +440,21 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
         ordered_parameters = [files_param_info]
         primary_content_type = "multipart/form-data"
 
-        self.generator.generate_url_and_args(
-            self.code_writer_mock,
+        url_args_generator.generate_url_and_args(
+            code_writer_mock,
             operation,
-            self.render_context_mock,
+            render_context_mock,
             ordered_parameters,
             primary_content_type,
             None,  # resolved_body_type not directly used for multipart in this path
         )
 
-        self.code_writer_mock.write_line.assert_any_call(f"files_data: {files_param_info['type']} = files")
-        self.render_context_mock.add_typing_imports_for_type.assert_called_with(files_param_info["type"])
+        code_writer_mock.write_line.assert_any_call(f"files_data: {files_param_info['type']} = files")
+        render_context_mock.add_typing_imports_for_type.assert_called_with(files_param_info["type"])
 
-    def test_generate_url_and_args_multipart_no_files_param_fallback(self) -> None:
+    def test_generate_url_and_args_multipart_no_files_param_fallback(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test multipart/form-data fallback when 'files' parameter is not in ordered_params."""
         operation = IROperation(
             operation_id="upload_files_multipart_fallback",
@@ -472,31 +467,33 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             request_body=MagicMock(),  # Indicates a body is expected
             responses=[],
         )
-        ordered_parameters: List[Dict[str, TypingAny]] = []  # No 'files' param info
+        ordered_parameters: List[Dict[str, Any]] = []  # No 'files' param info
         primary_content_type = "multipart/form-data"
 
         # Mock logger to check warning
         with patch("pyopenapi_gen.visit.endpoint.generators.url_args_generator.logger") as mock_logger:
-            self.generator.generate_url_and_args(
-                self.code_writer_mock,
+            url_args_generator.generate_url_and_args(
+                code_writer_mock,
                 operation,
-                self.render_context_mock,
+                render_context_mock,
                 ordered_parameters,
                 primary_content_type,
                 None,
             )
 
         mock_logger.warning.assert_called_once()
-        self.assertIn("Could not find 'files' parameter details", mock_logger.warning.call_args[0][0])
+        assert "Could not find 'files' parameter details" in mock_logger.warning.call_args[0][0]
 
-        self.code_writer_mock.write_line.assert_any_call(
+        code_writer_mock.write_line.assert_any_call(
             "files_data: Dict[str, IO[Any]] = files  # Type inference for files_data failed"
         )
-        self.render_context_mock.add_import.assert_any_call("typing", "Dict")
-        self.render_context_mock.add_import.assert_any_call("typing", "IO")
-        self.render_context_mock.add_import.assert_any_call("typing", "Any")
+        render_context_mock.add_import.assert_any_call("typing", "Dict")
+        render_context_mock.add_import.assert_any_call("typing", "IO")
+        render_context_mock.add_import.assert_any_call("typing", "Any")
 
-    def test_generate_url_and_args_form_urlencoded_with_resolved_type(self) -> None:
+    def test_generate_url_and_args_form_urlencoded_with_resolved_type(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test application/x-www-form-urlencoded with resolved_body_type."""
         operation = IROperation(
             operation_id="submit_form_data_typed",
@@ -509,25 +506,25 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             request_body=MagicMock(),
             responses=[],
         )
-        ordered_parameters: List[
-            Dict[str, TypingAny]
-        ] = []  # form_data param usually handled by EndpointParameterProcessor
+        ordered_parameters: List[Dict[str, Any]] = []  # form_data param usually handled by EndpointParameterProcessor
         primary_content_type = "application/x-www-form-urlencoded"
         resolved_body_type = "Dict[str, Union[str, int]]"  # Example resolved type
 
-        self.generator.generate_url_and_args(
-            self.code_writer_mock,
+        url_args_generator.generate_url_and_args(
+            code_writer_mock,
             operation,
-            self.render_context_mock,
+            render_context_mock,
             ordered_parameters,
             primary_content_type,
             resolved_body_type,
         )
 
-        self.code_writer_mock.write_line.assert_any_call(f"form_data_body: {resolved_body_type} = form_data")
+        code_writer_mock.write_line.assert_any_call(f"form_data_body: {resolved_body_type} = form_data")
         # This specific path does not add imports itself, assumes type hint is valid
 
-    def test_generate_url_and_args_form_urlencoded_no_resolved_type_fallback(self) -> None:
+    def test_generate_url_and_args_form_urlencoded_no_resolved_type_fallback(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test application/x-www-form-urlencoded fallback when resolved_body_type is None."""
         operation = IROperation(
             operation_id="submit_form_data_fallback",
@@ -540,24 +537,26 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             request_body=MagicMock(),
             responses=[],
         )
-        ordered_parameters: List[Dict[str, TypingAny]] = []
+        ordered_parameters: List[Dict[str, Any]] = []
         primary_content_type = "application/x-www-form-urlencoded"
         resolved_body_type = None
 
-        self.generator.generate_url_and_args(
-            self.code_writer_mock,
+        url_args_generator.generate_url_and_args(
+            code_writer_mock,
             operation,
-            self.render_context_mock,
+            render_context_mock,
             ordered_parameters,
             primary_content_type,
             resolved_body_type,
         )
 
-        self.code_writer_mock.write_line.assert_any_call("form_data_body: Dict[str, Any] = form_data  # Fallback type")
-        self.render_context_mock.add_import.assert_any_call("typing", "Dict")
-        self.render_context_mock.add_import.assert_any_call("typing", "Any")
+        code_writer_mock.write_line.assert_any_call("form_data_body: Dict[str, Any] = form_data  # Fallback type")
+        render_context_mock.add_import.assert_any_call("typing", "Dict")
+        render_context_mock.add_import.assert_any_call("typing", "Any")
 
-    def test_generate_url_and_args_bytes_body(self) -> None:
+    def test_generate_url_and_args_bytes_body(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
         """Test body handling when resolved_body_type is 'bytes'."""
         operation = IROperation(
             operation_id="upload_binary_data",
@@ -570,24 +569,20 @@ class TestEndpointUrlArgsGenerator(unittest.TestCase):
             request_body=MagicMock(),
             responses=[],
         )
-        ordered_parameters: List[Dict[str, TypingAny]] = []
+        ordered_parameters: List[Dict[str, Any]] = []
         # primary_content_type could be e.g. "application/octet-stream"
         # The logic specifically checks `elif resolved_body_type == "bytes":`
         primary_content_type = "application/octet-stream"
         resolved_body_type = "bytes"
 
-        self.generator.generate_url_and_args(
-            self.code_writer_mock,
+        url_args_generator.generate_url_and_args(
+            code_writer_mock,
             operation,
-            self.render_context_mock,
+            render_context_mock,
             ordered_parameters,
             primary_content_type,
             resolved_body_type,
         )
 
-        self.code_writer_mock.write_line.assert_any_call(f"bytes_body: bytes = bytes_content")
+        code_writer_mock.write_line.assert_any_call(f"bytes_body: bytes = bytes_content")
         # No specific imports added by this path in the generator
-
-
-if __name__ == "__main__":
-    unittest.main()

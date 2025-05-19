@@ -1,9 +1,13 @@
 import re
 from pathlib import Path
 from typing import Any, Dict
+from unittest.mock import MagicMock
+
+import pytest
 
 from pyopenapi_gen import HTTPMethod
-from pyopenapi_gen.ir import IRSchema
+from pyopenapi_gen.context.file_manager import FileManager
+from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
@@ -45,6 +49,31 @@ MIN_SPEC = {
         }
     },
 }
+
+
+@pytest.fixture
+def mock_render_context(tmp_path: Path) -> MagicMock:
+    ctx = MagicMock(spec=RenderContext)
+    # Parsed schemas will be set by the test itself if needed
+    ctx.parsed_schemas = {}
+
+    # Configure file_manager to actually write files for .exists() checks
+    actual_fm = FileManager()
+    ctx.file_manager = MagicMock(spec=FileManager)
+    # Use lambda to pass through kwargs if any for write_file
+    ctx.file_manager.write_file.side_effect = lambda path, content, **kwargs: actual_fm.write_file(
+        path, content, **kwargs
+    )
+    ctx.file_manager.ensure_dir.side_effect = actual_fm.ensure_dir
+
+    ctx.import_collector = MagicMock()
+    ctx.render_imports.return_value = "# Mocked imports\nfrom typing import Any"  # Basic mock
+
+    # Required attributes for EndpointsEmitter and its visitor
+    ctx.core_package_name = "test_client.core"  # Default core package name
+    ctx.package_root_for_generated_code = str(tmp_path / "out")  # Default output package root
+    ctx.overall_project_root = str(tmp_path)  # Project root for path calculations
+    return ctx
 
 
 def test_load_ir_min_spec() -> None:
@@ -122,7 +151,7 @@ def test_load_ir_query_params() -> None:
         assert p.schema.type == "string"
 
 
-def test_codegen_analytics_query_params(tmp_path: Path) -> None:
+def test_codegen_analytics_query_params(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """
     Scenario:
         The OpenAPI spec defines a GET endpoint with a path param and two query params (start_date, end_date).
@@ -168,8 +197,13 @@ def test_codegen_analytics_query_params(tmp_path: Path) -> None:
     }
     ir = load_ir_from_spec(spec)
     out_dir = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(ir, str(out_dir))
+    # Ensure the mock_render_context has the correct parsed_schemas
+    mock_render_context.parsed_schemas = ir.schemas
+    # Update package_root_for_generated_code based on the actual out_dir for this test
+    mock_render_context.package_root_for_generated_code = str(out_dir)
+
+    emitter = EndpointsEmitter(context=mock_render_context)  # Pass context
+    emitter.emit(ir.operations, str(out_dir))  # Pass ir.operations
     analytics_file = out_dir / "endpoints" / "analytics.py"
     assert analytics_file.exists(), "analytics.py not generated"
     content = analytics_file.read_text()

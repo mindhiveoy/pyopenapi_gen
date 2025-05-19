@@ -1,5 +1,7 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
+import pytest
 from pyopenapi_gen import (
     HTTPMethod,
     IROperation,
@@ -9,10 +11,33 @@ from pyopenapi_gen import (
     IRSchema,
     IRSpec,
 )
+from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+from pyopenapi_gen.context.file_manager import FileManager
 
 
-def test_endpoints_emitter_basic(tmp_path: Path) -> None:
+@pytest.fixture
+def mock_render_context(tmp_path: Path) -> MagicMock:
+    ctx = MagicMock(spec=RenderContext)
+
+    # Configure file_manager to actually write files for .exists() checks
+    actual_fm = FileManager()
+    ctx.file_manager = MagicMock(spec=FileManager)
+    ctx.file_manager.write_file.side_effect = lambda path, content, **kwargs: actual_fm.write_file(
+        path, content, **kwargs
+    )
+    ctx.file_manager.ensure_dir.side_effect = actual_fm.ensure_dir
+
+    ctx.import_collector = MagicMock()
+    ctx.render_imports.return_value = "# Mocked imports\nfrom typing import Any"
+    ctx.package_root_for_generated_code = str(tmp_path / "out")
+    ctx.overall_project_root = str(tmp_path)
+    ctx.parsed_schemas = {}
+    ctx.core_package_name = "test_client.core"
+    return ctx
+
+
+def test_endpoints_emitter_basic(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """Test the basic functionality of the EndpointsEmitter.
 
     Scenario:
@@ -60,8 +85,9 @@ def test_endpoints_emitter_basic(tmp_path: Path) -> None:
     )
 
     out_dir: Path = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
 
     # Check that files were created for each tag
     pets_file: Path = out_dir / "endpoints" / "pets.py"
@@ -82,7 +108,7 @@ def test_endpoints_emitter_basic(tmp_path: Path) -> None:
     assert "async def list_users" in users_content
 
 
-def test_endpoints_emitter_json_body(tmp_path: Path) -> None:
+def test_endpoints_emitter_json_body(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """Test JSON body parameter support in EndpointsEmitter."""
     # Define a JSON schema for the request body
     schema = IRSchema(name=None, type="object")
@@ -107,8 +133,9 @@ def test_endpoints_emitter_json_body(tmp_path: Path) -> None:
     )
 
     out_dir: Path = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
 
     pets_file: Path = out_dir / "endpoints" / "pets.py"
     assert pets_file.exists()
@@ -118,7 +145,7 @@ def test_endpoints_emitter_json_body(tmp_path: Path) -> None:
     assert "json_body: Dict[str, Any] = body" in content
 
 
-def test_endpoints_emitter_multipart(tmp_path: Path) -> None:
+def test_endpoints_emitter_multipart(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """Test multipart/form-data file upload support in EndpointsEmitter."""
     # Define a simple schema for multipart/form-data (file upload)
     schema = IRSchema(name=None, type="string")
@@ -143,8 +170,9 @@ def test_endpoints_emitter_multipart(tmp_path: Path) -> None:
     )
 
     out_dir: Path = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
 
     file_module: Path = out_dir / "endpoints" / "files.py"
     assert file_module.exists()
@@ -155,7 +183,7 @@ def test_endpoints_emitter_multipart(tmp_path: Path) -> None:
     assert "files_data: Dict[str, IO[Any]] = files" in content
 
 
-def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
+def test_endpoints_emitter_streaming(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """Test that streaming (binary) responses generate async iterators."""
     # Create a streaming response IR
     streaming_resp = IRResponse(
@@ -184,8 +212,9 @@ def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
     )
 
     out_dir: Path = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
 
     stream_file: Path = out_dir / "endpoints" / "stream.py"
     assert stream_file.exists()
@@ -196,7 +225,7 @@ def test_endpoints_emitter_streaming(tmp_path: Path) -> None:
     assert "async for chunk in iter_bytes(response):" in content
 
 
-def test_endpoints_emitter_imports(tmp_path: Path) -> None:
+def test_endpoints_emitter_imports(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """Test that the endpoint module has the correct import statements."""
     from pyopenapi_gen import (
         HTTPMethod,
@@ -242,8 +271,9 @@ def test_endpoints_emitter_imports(tmp_path: Path) -> None:
     )
 
     out_dir = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
 
     mod = out_dir / "endpoints" / "combined.py"
     assert mod.exists()
@@ -267,7 +297,7 @@ def create_simple_param_schema() -> IRSchema:
 
 
 def test_endpoints_emitter__sanitize_tag_name__creates_sanitized_module_and_class(
-    tmp_path: Path,
+    tmp_path: Path, mock_render_context: MagicMock
 ) -> None:
     """
     Scenario:
@@ -307,7 +337,8 @@ def test_endpoints_emitter__sanitize_tag_name__creates_sanitized_module_and_clas
     out_dir = tmp_path / "out"
 
     # Act
-    EndpointsEmitter().emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    EndpointsEmitter(context=mock_render_context).emit(spec.operations, str(out_dir))
 
     # Assert
     endpoints_dir = out_dir / "endpoints"
@@ -320,7 +351,7 @@ def test_endpoints_emitter__sanitize_tag_name__creates_sanitized_module_and_clas
 
 
 def test_endpoints_emitter__multiple_operations_same_tag__includes_all_methods(
-    tmp_path: Path,
+    tmp_path: Path, mock_render_context: MagicMock
 ) -> None:
     """
     Scenario:
@@ -377,7 +408,8 @@ def test_endpoints_emitter__multiple_operations_same_tag__includes_all_methods(
     out_dir = tmp_path / "out"
 
     # Act
-    EndpointsEmitter().emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    EndpointsEmitter(context=mock_render_context).emit(spec.operations, str(out_dir))
 
     # Assert
     endpoints_dir = out_dir / "endpoints"
@@ -389,7 +421,7 @@ def test_endpoints_emitter__multiple_operations_same_tag__includes_all_methods(
     assert "async def get_item" in content, "get_item method missing"
 
 
-def test_endpoints_emitter__init_file_contains_correct_import(tmp_path: Path) -> None:
+def test_endpoints_emitter__init_file_contains_correct_import(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """
     Scenario:
         Emit endpoints for a spec and inspect the __init__.py file.
@@ -421,7 +453,8 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path: Path) ->
     out_dir = tmp_path / "out"
 
     # Act
-    EndpointsEmitter().emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    EndpointsEmitter(context=mock_render_context).emit(spec.operations, str(out_dir))
 
     # Assert
     init_file = out_dir / "endpoints" / "__init__.py"
@@ -435,7 +468,9 @@ def test_endpoints_emitter__init_file_contains_correct_import(tmp_path: Path) ->
     assert f"from .{module_name} import {sanitized}" in text, "Import statement missing or incorrect"
 
 
-def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path: Path) -> None:
+def test_endpoints_emitter__tag_deduplication__single_client_and_import(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         Emit endpoints for a spec with multiple operations using tags that differ only
@@ -479,7 +514,8 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     out_dir = tmp_path / "out"
 
     # Act
-    EndpointsEmitter().emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    EndpointsEmitter(context=mock_render_context).emit(spec.operations, str(out_dir))
 
     # Assert
     endpoints_dir = out_dir / "endpoints"
@@ -502,7 +538,9 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(tmp_path
     )
 
 
-def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_path: Path) -> None:
+def test_endpoints_emitter__streaming_inline_object_schema__yields_model(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         Generate an endpoint for a streaming (event-stream) response where the schema is
@@ -569,8 +607,9 @@ def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_pat
         servers=["https://api.example.com"],
     )
     out_dir = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
     listen_file = out_dir / "endpoints" / "listen.py"
     assert listen_file.exists()
     content = listen_file.read_text()
@@ -584,7 +623,7 @@ def test_endpoints_emitter__streaming_inline_object_schema__yields_model(tmp_pat
 
 
 def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yields_dict(
-    tmp_path: Path,
+    tmp_path: Path, mock_render_context: MagicMock
 ) -> None:
     """
     Scenario:
@@ -640,8 +679,9 @@ def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yield
         servers=[],
     )
     out_dir = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
     listen_file = out_dir / "endpoints" / "listen.py"
     assert listen_file.exists(), "listen.py not generated"
     content = listen_file.read_text()
@@ -654,7 +694,9 @@ def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yield
     assert "from ..models" not in content or "ListenEventsResponse" not in content
 
 
-def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path: Path) -> None:
+def test_endpoints_emitter__query_params_included_in_params_dict(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         Generate an endpoint with multiple query parameters.
@@ -713,8 +755,9 @@ def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path: Path)
     )
     spec = IRSpec(title="Test API", version="1.0.0", operations=[op], schemas={})
     out_dir = tmp_path / "out"
-    emitter = EndpointsEmitter()
-    emitter.emit(spec, str(out_dir))
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
     # Read the generated code
     with open(os.path.join(out_dir, "endpoints", "tenants.py")) as f:
         content = f.read()
@@ -725,7 +768,9 @@ def test_endpoints_emitter__query_params_included_in_params_dict(tmp_path: Path)
     assert '"tenant_id": tenant_id' not in content
 
 
-def test_endpoints_emitter__post_with_body__only_body_param_and_path_query_args(tmp_path: Path) -> None:
+def test_endpoints_emitter__post_with_body__only_body_param_and_path_query_args(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         - A POST endpoint has path params and a JSON request body with multiple fields.
@@ -770,10 +815,11 @@ def test_endpoints_emitter__post_with_body__only_body_param_and_path_query_args(
         servers=["https://api.example.com"],
     )
     out_dir: Path = tmp_path / "out"
-    emitter = EndpointsEmitter()
+    mock_render_context.parsed_schemas = spec.schemas
+    emitter = EndpointsEmitter(context=mock_render_context)
 
     # Act: Generate the endpoints
-    emitter.emit(spec, str(out_dir))
+    emitter.emit(spec.operations, str(out_dir))
     search_file: Path = out_dir / "endpoints" / "search.py"
     assert search_file.exists()
     content = search_file.read_text()

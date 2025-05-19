@@ -50,10 +50,6 @@ class IRSchema:
     )  # Path used for resolving inline names
 
     def __post_init__(self) -> None:
-        # >>> DIAGNOSTIC PRINT (REMOVED) <<<
-        # if self.name == "PropA":
-        #     print(f"IRSCHEMA_POST_INIT_ENTRY for PropA: self.type='{self.type}', raw_node={getattr(self, '_raw_schema_node', 'N/A')}, id={id(self)}")
-
         # Ensure name is always a valid Python identifier if set
         # This must happen BEFORE type inference that might use the name (though current logic doesn't)
         if self.name:
@@ -156,3 +152,7 @@ class IRSpec:
     schemas: Dict[str, IRSchema] = field(default_factory=dict)
     operations: List[IROperation] = field(default_factory=list)
     servers: List[str] = field(default_factory=list)
+
+    #     self._raw_schema_node = None
+
+    # def __setattr__(self, name, value):
