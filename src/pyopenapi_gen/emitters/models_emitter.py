@@ -24,35 +24,64 @@ class ModelsEmitter:
 
     def __init__(self, context: RenderContext, parsed_schemas: Dict[str, IRSchema]):
         self.context: RenderContext = context
+        # Store a reference to the schemas that were passed in.
+        # These schemas will have their .generation_name and .final_module_stem updated.
         self.parsed_schemas: Dict[str, IRSchema] = parsed_schemas
         self.import_collector = self.context.import_collector
         self.writer = CodeWriter()
 
     def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> Optional[str]:
         """Generates a single Python file for a given IRSchema."""
-        if not schema_ir.name:
-            logger.warning(f"Skipping model generation for schema without a name: {schema_ir}")
+        if not schema_ir.name:  # Original name, used for logging/initial identification
+            logger.warning(f"Skipping model generation for schema without an original name: {schema_ir}")
             return None
 
-        module_name = NameSanitizer.sanitize_module_name(schema_ir.name)
-        file_path = models_dir / f"{module_name}.py"
+        # Assert that de-collided names have been set by the emit() method's preprocessing.
+        assert schema_ir.generation_name is not None, (
+            f"Schema '{schema_ir.name}' must have generation_name set before file generation."
+        )
+        assert schema_ir.final_module_stem is not None, (
+            f"Schema '{schema_ir.name}' must have final_module_stem set before file generation."
+        )
+
+        file_path = models_dir / f"{schema_ir.final_module_stem}.py"
 
         self.context.set_current_file(str(file_path))
 
         # Add support for handling arrays properly by ensuring items schema is processed
+        # This part might need to ensure that items_schema also has its generation_name/final_module_stem set
+        # if it's being recursively generated here. The main emit loop should handle all schemas.
         if schema_ir.type == "array" and schema_ir.items is not None:
-            # Check if the array items schema is complex and needs its own model file
             items_schema = schema_ir.items
             if items_schema.name and items_schema.type == "object" and items_schema.properties:
-                # Ensure the items schema has a proper file generated if needed
-                items_module_name = NameSanitizer.sanitize_module_name(items_schema.name)
-                items_file_path = models_dir / f"{items_module_name}.py"
-                if not items_file_path.exists() and items_schema.name in self.parsed_schemas:
-                    # Recursively generate the items schema file
-                    self._generate_model_file(items_schema, models_dir)
+                if (
+                    items_schema.name in self.parsed_schemas and items_schema.final_module_stem
+                ):  # Check if it's a managed schema
+                    items_file_path = models_dir / f"{items_schema.final_module_stem}.py"
+                    if not items_file_path.exists():
+                        # This recursive call might be problematic if items_schema wasn't fully preprocessed.
+                        # The main emit loop is preferred for driving generation.
+                        # For now, assuming items_schema has its names set if it's a distinct schema.
+                        logger.debug(f"Potentially generating item schema {items_schema.name} recursively.")
+                        # self._generate_model_file(items_schema, models_dir) # Re-evaluating recursive call here.
+                        # Better to rely on main loop processing all schemas.
 
-        visitor = ModelVisitor(schemas=self.parsed_schemas)
+        # ModelVisitor should use schema_ir.generation_name for the class name.
+        # We'll need to verify ModelVisitor's behavior.
+        # For now, ModelVisitor.visit uses schema.name as base_name_for_construct if not schema.generation_name.
+        # If schema.generation_name is set, it should be preferred. Let's assume ModelVisitor handles this,
+        # or we ensure schema.name is updated to schema.generation_name before visitor.
+        # The IRSchema.__post_init__ already sanitizes schema.name.
+        # The ModelVisitor's `visit_IRSchema` uses schema.name for `base_name_for_construct`.
+        # So, `schema.generation_name` should be used by the visitor.
+        # For now, the visitor logic uses schema.name. We must ensure that the `generation_name` (decollided)
+        # is what the visitor uses for the class definition.
+        # A temporary workaround could be:
+        # original_ir_name = schema_ir.name
+        # schema_ir.name = schema_ir.generation_name # Temporarily set for visitor
+        visitor = ModelVisitor(schemas=self.parsed_schemas)  # Pass all schemas for reference
         rendered_model_str = visitor.visit(schema_ir, self.context)
+        # schema_ir.name = original_ir_name # Restore if changed
 
         imports_str = self.context.render_imports()
         file_content = f"{imports_str}\n\n{rendered_model_str}"
@@ -60,44 +89,58 @@ class ModelsEmitter:
         try:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(file_content, encoding="utf-8")
+            logger.debug(f"Generated model file: {file_path} for class {schema_ir.generation_name}")
             return str(file_path)
         except OSError as e:
-            logger.error(f"Error writing model file {file_path if 'file_path' in locals() else 'UNKNOWN_PATH'}: {e}")
+            logger.error(f"Error writing model file {file_path}: {e}")
             return None
 
-    def _generate_init_py_content(self, generated_files_paths: List[str], models_dir: Path) -> str:
+    def _generate_init_py_content(self) -> str:  # Removed generated_files_paths, models_dir args
         """Generates the content for models/__init__.py."""
         init_writer = CodeWriter()
-
-        # Only import List, which is needed for __all__
         init_writer.write_line("from typing import List")
         init_writer.write_line("")
 
-        all_class_names: Set[str] = set()
-        sorted_schema_items = sorted(self.parsed_schemas.items())
+        all_class_names_to_export: Set[str] = set()
 
-        for schema_key, s_schema in sorted_schema_items:
-            if not s_schema.name:
-                logger.warning(f"Schema with key '{schema_key}' has no name, skipping for __init__.py")
+        # Iterate over the schemas that were processed for name generation
+        # to ensure we use the final, de-collided names.
+        # Sort by original schema name for deterministic __init__.py content.
+        sorted_schemas_for_init = sorted(
+            [s for s in self.parsed_schemas.values() if s.name and s.generation_name and s.final_module_stem],
+            key=lambda s: s.name,  # type: ignore
+        )
+
+        for s_schema in sorted_schemas_for_init:
+            # These should have been set in the emit() preprocessing step.
+            assert s_schema.generation_name is not None, (
+                f"Schema '{s_schema.name}' missing generation_name in __init__ generation."
+            )
+            assert s_schema.final_module_stem is not None, (
+                f"Schema '{s_schema.name}' missing final_module_stem in __init__ generation."
+            )
+
+            if s_schema._from_unresolved_ref:  # Check this flag if it's relevant
+                logger.debug(
+                    f"Skipping schema '{s_schema.generation_name}' in __init__ as it's an unresolved reference."
+                )
                 continue
 
-            if s_schema._from_unresolved_ref:
-                logger.debug(f"Skipping schema '{s_schema.name}' in __init__ as it's an unresolved reference.")
+            class_name_to_import = s_schema.generation_name
+            module_name_to_import_from = s_schema.final_module_stem
+
+            if module_name_to_import_from == "__init__":
+                logger.warning(
+                    f"Skipping import for schema class '{class_name_to_import}' as its module name became __init__."
+                )
                 continue
 
-            module_name = NameSanitizer.sanitize_module_name(s_schema.name)
-            class_name = NameSanitizer.sanitize_class_name(s_schema.name)
-
-            if module_name == "__init__":
-                logger.warning(f"Skipping import for schema '{s_schema.name}' as its module name became __init__.")
-                continue
-
-            init_writer.write_line(f"from .{module_name} import {class_name}")
-            all_class_names.add(class_name)
+            init_writer.write_line(f"from .{module_name_to_import_from} import {class_name_to_import}")
+            all_class_names_to_export.add(class_name_to_import)
 
         init_writer.write_line("")
         init_writer.write_line("__all__: List[str] = [")
-        for name_to_export in sorted(list(all_class_names)):
+        for name_to_export in sorted(list(all_class_names_to_export)):
             init_writer.write_line(f"    '{name_to_export}',")
         init_writer.write_line("]")
 
@@ -119,60 +162,179 @@ class ModelsEmitter:
         assert isinstance(spec, IRSpec), "spec must be an IRSpec"
         assert output_root, "output_root must be a non-empty string"
 
-        # Ensure models directory exists
         output_dir = Path(output_root.rstrip("/"))
         models_dir = output_dir / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
 
-        # Add init files to ensure models are importable
         init_path = models_dir / "__init__.py"
+        # Initial __init__.py content, will be overwritten later with actual imports.
         if not init_path.exists():
             init_path.write_text('"""Models generated from the OpenAPI specification."""\n')
 
-        # Extract inline array items first, then extract enums
-        schemas_with_extracted_items = extract_inline_array_items(self.parsed_schemas)
-        schemas_with_extracted_enums = extract_inline_enums(schemas_with_extracted_items)
+        # 1. Extract all inline schemas first.
+        # self.parsed_schemas initially comes from the spec.
+        # extract_inline_array_items might add new named schemas to the collection it returns.
+        # These new schemas are instances created by promoting anonymous ones.
+        # It's important that these extractors operate on and return a comprehensive
+        # dictionary of *all* schemas that should potentially be generated.
+        # The `self.parsed_schemas` (which is `spec.schemas` passed in constructor)
+        # should be updated or replaced by the result of these extractions if they modify
+        # or add to the set of schemas to be processed.
 
-        # Write a file for each schema
+        # Let's assume extractors return a new dict containing original and newly promoted schemas.
+        # The `parsed_schemas` in `RenderContext` also needs to be aware of all schemas for type resolution.
+        # The ModelsEmitter was initialized with `parsed_schemas=ir.schemas`.
+        # If extractors modify these in place (e.g., add new IRSchema to ir.schemas), then all good.
+        # If they return a *new* dict, then self.parsed_schemas needs to be updated.
+        # Current `extract_inline_array_items` and `extract_inline_enums` take `parsed_schemas` (a Dict)
+        # and return a new Dict.
+
+        # So, the source of truth for schemas to generate becomes the result of these extractions.
+        schemas_after_item_extraction = extract_inline_array_items(self.parsed_schemas)
+        all_schemas_for_generation = extract_inline_enums(schemas_after_item_extraction)
+
+        # Update self.parsed_schemas to this complete list, as this is what subsequent
+        # operations (like _generate_init_py_content) will iterate over.
+        # Also, RenderContext needs the most up-to-date list of all schemas.
+        self.parsed_schemas = all_schemas_for_generation
+        self.context.parsed_schemas = all_schemas_for_generation  # Correctly update the attribute
+
+        # --- Name de-collision pre-processing ---
+        # This step ensures each schema that will generate a file
+        # has a unique class name (generation_name) and a unique module stem (final_module_stem).
+        # This should run on ALL schemas that are candidates for file generation.
+
+        assigned_class_names: Set[str] = set()
+        assigned_module_stems: Set[str] = set()
+
+        # Iterate over the values of all_schemas_for_generation
+        # Sort by original name for deterministic suffixing if collisions occur.
+        # Filter for schemas that actually have a name, as unnamed schemas don't get their own files.
+        # A schema created by extraction (e.g. PetListItemsItem) will have a .name.
+        schemas_to_name_decollision = sorted(
+            [s for s in all_schemas_for_generation.values() if s.name],
+            key=lambda s: s.name,  # type: ignore
+        )
+
+        for schema_for_naming in schemas_to_name_decollision:  # Use the comprehensive list
+            original_schema_name = schema_for_naming.name
+            if not original_schema_name:
+                continue  # Should be filtered
+
+            # 1. Determine unique class name (schema_for_naming.generation_name)
+            base_class_name = NameSanitizer.sanitize_class_name(original_schema_name)
+            final_class_name = base_class_name
+            class_suffix = 1
+            while final_class_name in assigned_class_names:
+                class_suffix += 1
+                final_class_name = f"{base_class_name}{class_suffix}"
+            assigned_class_names.add(final_class_name)
+            schema_for_naming.generation_name = final_class_name
+            logger.debug(f"Resolved class name for original '{original_schema_name}': '{final_class_name}'")
+
+            # 2. Determine unique module stem (schema_for_naming.final_module_stem)
+            base_module_stem = NameSanitizer.sanitize_module_name(original_schema_name)
+            final_module_stem = base_module_stem
+            module_suffix = 1
+
+            if final_module_stem in assigned_module_stems:
+                module_suffix = 2
+                final_module_stem = f"{base_module_stem}_{module_suffix}"
+                while final_module_stem in assigned_module_stems:
+                    module_suffix += 1
+                    final_module_stem = f"{base_module_stem}_{module_suffix}"
+
+            assigned_module_stems.add(final_module_stem)
+            schema_for_naming.final_module_stem = final_module_stem
+            logger.debug(
+                f"Resolved module stem for original '{original_schema_name}' (class '{final_class_name}'): '{final_module_stem}'"
+            )
+        # --- End of Name de-collision ---
+
         generated_files = []
+        # Iterate using the keys from `all_schemas_for_generation` as it's the definitive list.
+        all_schema_keys_to_emit = list(all_schemas_for_generation.keys())
+        processed_schema_original_keys: set[str] = set()
 
-        # Process schemas in dependency order to ensure imports work correctly
-        all_schema_names = list(schemas_with_extracted_enums.keys())
-        processed_schema_names: set[str] = set()
+        max_processing_rounds = len(all_schema_keys_to_emit) + 5
+        rounds = 0
 
-        # Process schemas with a simple heuristic to handle dependencies:
-        # 1. First pass: Handle schemas without references to other schemas
-        # 2. Second pass: Handle schemas with references to already processed schemas
-        # 3. Repeat until all schemas are processed
-
-        while processed_schema_names != set(all_schema_names):
+        while len(processed_schema_original_keys) < len(all_schema_keys_to_emit) and rounds < max_processing_rounds:
+            rounds += 1
             something_processed_this_round = False
+            logger.debug(
+                f"ModelsEmitter: Starting processing round {rounds}. Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}"
+            )
 
-            for schema_name in all_schema_names:
-                if schema_name in processed_schema_names:
-                    continue  # Already processed
+            for schema_key in all_schema_keys_to_emit:
+                if schema_key in processed_schema_original_keys:
+                    continue
 
-                schema_ir = schemas_with_extracted_enums[schema_name]
-                file_path = self._generate_model_file(schema_ir, models_dir)
+                # Fetch the schema_ir object using the key from all_schemas_for_generation
+                # This ensures we are working with the potentially newly created & named schemas.
+                current_schema_ir_obj: Optional[IRSchema] = all_schemas_for_generation.get(schema_key)
 
-                if file_path is not None:
-                    generated_files.append(file_path)
-                    processed_schema_names.add(schema_name)
+                if not current_schema_ir_obj:
+                    logger.warning(f"Schema key '{schema_key}' from all_schemas_for_generation not found. Skipping.")
+                    processed_schema_original_keys.add(schema_key)
                     something_processed_this_round = True
+                    continue
 
-            # If we can't process any more schemas in this round, break to avoid infinite loop
-            if not something_processed_this_round:
-                # There might be circular dependencies; process remaining schemas anyway
-                for schema_name in set(all_schema_names) - processed_schema_names:
-                    schema_ir = schemas_with_extracted_enums[schema_name]
-                    file_path = self._generate_model_file(schema_ir, models_dir)
-                    if file_path is not None:
-                        generated_files.append(file_path)
-                    processed_schema_names.add(schema_name)
+                schema_ir: IRSchema = current_schema_ir_obj
+
+                if not schema_ir.name:
+                    logger.debug(f"Skipping file generation for unnamed schema (original key '{schema_key}').")
+                    processed_schema_original_keys.add(schema_key)
+                    something_processed_this_round = True
+                    continue
+
+                if not schema_ir.generation_name or not schema_ir.final_module_stem:
+                    logger.error(
+                        f"Schema '{schema_ir.name}' (original key '{schema_key}') is missing de-collided names. "
+                        f"GenName: {schema_ir.generation_name}, ModStem: {schema_ir.final_module_stem}. Skipping file gen."
+                    )
+                    processed_schema_original_keys.add(schema_key)
+                    something_processed_this_round = True
+                    continue
+
+                file_path_str = self._generate_model_file(schema_ir, models_dir)
+
+                if file_path_str is not None:
+                    generated_files.append(file_path_str)
+                    processed_schema_original_keys.add(schema_key)
+                    something_processed_this_round = True
+                # If file_path_str is None, it means an error occurred, but we still mark as processed to avoid infinite loop.
+                elif schema_ir.name:  # Only mark as processed if it was a schema we attempted to generate
+                    processed_schema_original_keys.add(schema_key)
+                    something_processed_this_round = True  # Also count this as processed for loop termination
+
+            if not something_processed_this_round and len(processed_schema_original_keys) < len(
+                all_schema_keys_to_emit
+            ):
+                logger.warning(
+                    f"ModelsEmitter: No schemas processed in round {rounds}, but not all schemas are done. "
+                    f"Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}. "
+                    f"Remaining: {set(all_schema_keys_to_emit) - processed_schema_original_keys}. Breaking to avoid infinite loop."
+                )
+                # Process any remaining ones that were not touched, to ensure they are marked as "processed"
+                for schema_key_rem in set(all_schema_keys_to_emit) - processed_schema_original_keys:
+                    s_rem = all_schemas_for_generation.get(schema_key_rem)
+                    logger.error(
+                        f"Force marking remaining schema '{s_rem.name if s_rem else schema_key_rem}' as processed due to loop break."
+                    )
+                    processed_schema_original_keys.add(schema_key_rem)
                 break
 
-        # Generate or update the __init__.py file with imports for all generated models
-        init_content = self._generate_init_py_content(generated_files, models_dir)
-        init_path.write_text(init_content)
+        if rounds >= max_processing_rounds:
+            logger.error(
+                f"ModelsEmitter: Exceeded max processing rounds ({max_processing_rounds}). "
+                f"Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}. "
+                f"Remaining: {set(all_schema_keys_to_emit) - processed_schema_original_keys}."
+            )
+
+        init_content = self._generate_init_py_content()
+        init_path.write_text(init_content, encoding="utf-8")
+        # py.typed file to indicate type information is available
+        (models_dir / "py.typed").write_text("")  # Ensure empty content, encoding defaults to utf-8
 
         return {"models": generated_files}

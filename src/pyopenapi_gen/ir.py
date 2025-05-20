@@ -49,6 +49,10 @@ class IRSchema:
         default=None, repr=False
     )  # Path used for resolving inline names
 
+    # Fields for storing final, de-collided names for code generation
+    generation_name: Optional[str] = field(default=None, repr=True)  # Final class/enum name
+    final_module_stem: Optional[str] = field(default=None, repr=True)  # Final module filename stem
+
     def __post_init__(self) -> None:
         # Ensure name is always a valid Python identifier if set
         # This must happen BEFORE type inference that might use the name (though current logic doesn't)

@@ -97,8 +97,24 @@ class ModelVisitor(Visitor[IRSchema, str]):
             return ""
 
         # Pre-condition check after filtering anonymous
-        assert schema.name is not None, "Schema name is required for standalone model generation at this stage."
-        base_name_for_construct = schema.name
+        # schema.name is the original sanitized name. schema.generation_name is the de-collided one.
+        # For standalone models, generation_name should be set and used.
+        if schema.generation_name:
+            base_name_for_construct = schema.generation_name
+            logger.debug(f"Using schema.generation_name ('{schema.generation_name}') for construct base name.")
+        elif (
+            schema.name
+        ):  # Fallback for schemas not processed by emitter pre-naming (e.g. inline, or if generation_name wasn't set)
+            base_name_for_construct = schema.name
+            logger.debug(f"Using schema.name ('{schema.name}') for construct base name, as generation_name is not set.")
+        else:
+            # This case should ideally be caught by the "not schema.name and (is_type_alias...)" check above
+            # or by assertions in generators if they receive a schema without a usable name.
+            logger.error(
+                f"ModelVisitor: Schema has no usable name (name or generation_name) for model generation: {schema}"
+            )
+            assert False, "Schema must have a name or generation_name for model code generation at this point."
+            # return "" # Should not reach here if assertions are active
 
         # --- Import Registration ---
         # Analyze the schema for all necessary type imports and register them.
