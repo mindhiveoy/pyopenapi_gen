@@ -21,6 +21,9 @@ logging.getLogger("pyopenapi_gen.context.render_context").setLevel(logging.DEBUG
 logging.getLogger("pyopenapi_gen.helpers.type_helper").setLevel(logging.DEBUG)
 logging.getLogger("pyopenapi_gen.context.import_collector").setLevel(logging.DEBUG)
 
+# Attempt to silence blib2to3.pgen2.driver logs
+logging.getLogger("blib2to3.pgen2.driver").setLevel(logging.WARNING)
+
 
 class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
     def setUp(self) -> None:
