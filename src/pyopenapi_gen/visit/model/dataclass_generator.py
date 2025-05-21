@@ -176,9 +176,9 @@ class DataclassGenerator:
                 field_doc = prop_schema.description
                 fields_data.append((field_name, py_type, default_expr, field_doc))
 
-        logger.debug(
-            f"DataclassGenerator: Preparing to render dataclass '{class_name}' with fields: {fields_data}.אללو"
-        )
+        # logger.debug(
+        #     f"DataclassGenerator: Preparing to render dataclass '{class_name}' with fields: {fields_data}."
+        # )
 
         rendered_code = self.renderer.render_dataclass(
             class_name=class_name,

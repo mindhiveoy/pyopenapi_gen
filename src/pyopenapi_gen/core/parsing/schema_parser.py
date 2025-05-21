@@ -417,6 +417,11 @@ def _parse_schema(
         if schema_name and not schema_ir._from_unresolved_ref and not schema_ir._max_depth_exceeded:
             context.parsed_schemas[schema_name] = schema_ir
 
+        # Ensure generation_name and final_module_stem are set if the schema has a name
+        if schema_ir.name:
+            schema_ir.generation_name = NameSanitizer.sanitize_class_name(schema_ir.name)
+            schema_ir.final_module_stem = NameSanitizer.sanitize_module_name(schema_ir.name)
+
         return schema_ir
 
     finally:

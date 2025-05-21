@@ -45,15 +45,9 @@ class PrimitiveTypeResolver:
         if schema.type == "null":
             return "None"  # String literal "None"
         if schema.type == "string" and schema.format == "date-time":
-            logger.debug(
-                f"[PrimitiveTypeResolver] Matched date-time for schema: {schema.name or 'anonymous'}. Adding specific import."
-            )
             self.context.add_import("datetime", "datetime")
             return "datetime"
         if schema.type == "string" and schema.format == "date":
-            logger.debug(
-                f"[PrimitiveTypeResolver] Matched date for schema: {schema.name or 'anonymous'}. Adding specific import."
-            )
             self.context.add_import("datetime", "date")
             return "date"
         if schema.type == "string" and schema.format == "binary":

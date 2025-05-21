@@ -1,8 +1,10 @@
-import pytest
 from pathlib import Path
+
+import pytest
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.helpers.type_resolution.named_resolver import NamedTypeResolver
 
 
@@ -48,6 +50,11 @@ class TestNamedTypeResolver:
         child_schema_definition = IRSchema(
             name="ChildSchema", type="object", properties={"field1": IRSchema(type="string")}
         )
+        # Prepare the schema
+        if child_schema_definition.name:
+            child_schema_definition.generation_name = NameSanitizer.sanitize_class_name(child_schema_definition.name)
+            child_schema_definition.final_module_stem = NameSanitizer.sanitize_module_name(child_schema_definition.name)
+
         all_schemas = {"ChildSchema": child_schema_definition}
 
         resolver = NamedTypeResolver(context=render_context, all_schemas=all_schemas)

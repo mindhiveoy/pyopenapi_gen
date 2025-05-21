@@ -44,24 +44,15 @@ class CompositionTypeResolver:
 
         if not composition_schemas:  # Empty list
             self.context.add_import("typing", "Any")
-            logger.debug(
-                f"[CompositionTypeResolver] Empty '{composition_keyword}' for schema '{schema.name or 'anonymous'}'. -> Any"
-            )
             return "Any"
 
         if composition_keyword == "allOf":
             if len(composition_schemas) == 1:
                 resolved_type = self.main_resolver.resolve(composition_schemas[0], required=True)
-                logger.debug(
-                    f"[CompositionTypeResolver] allOf with one item for '{schema.name or 'anonymous'}'. -> {resolved_type}"
-                )
                 return resolved_type
             if composition_schemas:  # len > 1
                 # Heuristic: return type of the FIRST schema for allOf with multiple items.
                 first_schema_type = self.main_resolver.resolve(composition_schemas[0], required=True)
-                logger.debug(
-                    f"[CompositionTypeResolver] allOf with multiple items for '{schema.name or 'anonymous'}'. Picking first: {first_schema_type}"
-                )
                 return first_schema_type
             self.context.add_import("typing", "Any")  # Should be unreachable
             return "Any"
@@ -76,22 +67,13 @@ class CompositionTypeResolver:
 
             if not unique_types:
                 self.context.add_import("typing", "Any")
-                logger.debug(
-                    f"[CompositionTypeResolver] No unique types in '{composition_keyword}' for '{schema.name or 'anonymous'}'. -> Any"
-                )
                 return "Any"
 
             if len(unique_types) == 1:
-                logger.debug(
-                    f"[CompositionTypeResolver] '{composition_keyword}' for '{schema.name or 'anonymous'}' resolved to single type: {unique_types[0]}"
-                )
                 return unique_types[0]
 
             self.context.add_import("typing", "Union")
             union_str = f"Union[{', '.join(unique_types)}]"
-            logger.debug(
-                f"[CompositionTypeResolver] '{composition_keyword}' for '{schema.name or 'anonymous'}'. -> {union_str}"
-            )
             return union_str
 
         return None

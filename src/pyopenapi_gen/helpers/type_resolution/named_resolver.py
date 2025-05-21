@@ -30,17 +30,26 @@ class NamedTypeResolver:
         Returns:
             A Python type string for the resolved schema, e.g., "MyModel", "Optional[MyModel]".
         """
-        logger.debug(
-            f"[NTR ENTRY] Current file context: {self.context.import_collector._current_file_module_dot_path}, Collector ID: {id(self.context.import_collector)}"
-        )
+        # logger.debug(
+        #     f"[NTR ENTRY] Current file context: {self.context.import_collector._current_file_module_dot_path}, Collector ID: {id(self.context.import_collector)}"
+        # )
 
         if schema.name and schema.name in self.all_schemas:
             # This schema is a REFERENCE to a globally defined schema (e.g., in components/schemas)
             ref_schema = self.all_schemas[schema.name]  # Get the actual definition
             assert ref_schema.name is not None, f"Schema '{schema.name}' resolved to ref_schema with None name."
 
-            class_name_for_ref = NameSanitizer.sanitize_class_name(ref_schema.name)
-            module_name_for_ref = NameSanitizer.sanitize_module_name(ref_schema.name)
+            # NEW: Use generation_name and final_module_stem from the referenced schema
+            assert ref_schema.generation_name is not None, (
+                f"Referenced schema '{ref_schema.name}' must have generation_name set."
+            )
+            assert ref_schema.final_module_stem is not None, (
+                f"Referenced schema '{ref_schema.name}' must have final_module_stem set."
+            )
+
+            class_name_for_ref = ref_schema.generation_name
+            module_name_for_ref = ref_schema.final_module_stem
+
             model_module_path_for_ref = (
                 f"{self.context.get_current_package_name_for_generated_code()}.models.{module_name_for_ref}"
             )
@@ -98,9 +107,9 @@ class NamedTypeResolver:
                 module_name = NameSanitizer.sanitize_module_name(schema.name)
                 model_module_path = f"{self.context.get_current_package_name_for_generated_code()}.models.{module_name}"
                 self.context.add_import(logical_module=model_module_path, name=enum_name)
-                logger.debug(
-                    f"[NamedTypeResolver] INLINE NAMED ENUM '{schema.name}'. Returning its name: '{enum_name}'. Import from: '{model_module_path}'."
-                )
+                # logger.debug(
+                #     f"[NamedTypeResolver] INLINE NAMED ENUM '{schema.name}'. Returning its name: '{enum_name}'. Import from: '{model_module_path}'."
+                # )
                 return enum_name
             else:  # Inline anonymous enum, falls back to primitive type of its values
                 # (Handled by PrimitiveTypeResolver if this returns None or specific primitive)
@@ -112,9 +121,9 @@ class NamedTypeResolver:
                 elif schema.type == "number":
                     primitive_type_of_enum = "float"
                 # other types for enums are unusual.
-                logger.debug(
-                    f"[NamedTypeResolver] INLINE ANONYMOUS ENUM. Values suggest type '{primitive_type_of_enum}'. Returning this primitive type."
-                )
+                # logger.debug(
+                #     f"[NamedTypeResolver] INLINE ANONYMOUS ENUM. Values suggest type '{primitive_type_of_enum}'. Returning this primitive type."
+                # )
                 return primitive_type_of_enum
         else:
             # Not a reference to a known schema, and not an inline enum.

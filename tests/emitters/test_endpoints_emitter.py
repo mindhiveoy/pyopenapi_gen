@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen import (
     HTTPMethod,
     IROperation,
@@ -11,9 +12,10 @@ from pyopenapi_gen import (
     IRSchema,
     IRSpec,
 )
-from pyopenapi_gen.context.render_context import RenderContext
-from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 from pyopenapi_gen.context.file_manager import FileManager
+from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
+from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 
 
 @pytest.fixture
@@ -814,6 +816,13 @@ def test_endpoints_emitter__post_with_body__only_body_param_and_path_query_args(
         schemas={"ElaborateSearchPhraseRequest": body_schema},
         servers=["https://api.example.com"],
     )
+
+    # Prepare schemas in spec.schemas
+    for schema_obj in spec.schemas.values():
+        if schema_obj.name:
+            schema_obj.generation_name = NameSanitizer.sanitize_class_name(schema_obj.name)
+            schema_obj.final_module_stem = NameSanitizer.sanitize_module_name(schema_obj.name)
+
     out_dir: Path = tmp_path / "out"
     mock_render_context.parsed_schemas = spec.schemas
     emitter = EndpointsEmitter(context=mock_render_context)

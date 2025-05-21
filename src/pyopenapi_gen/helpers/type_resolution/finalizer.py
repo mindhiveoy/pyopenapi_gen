@@ -42,9 +42,9 @@ class TypeFinalizer:
         if cleaned_type == "Any":  # Ensure Any is imported if it's the final type
             self.context.add_import("typing", "Any")
 
-        logger.debug(
-            f"[TypeFinalizer] Finalized type for '{schema.name or 'anonymous'}': Input='{py_type}', Required={required}, Nullable={schema.is_nullable} -> OptionalWrapped='{optional_type}' -> CleanedAndImportChecked='{cleaned_type}'"
-        )
+        # logger.debug(
+        #     f"[TypeFinalizer] Finalized type for '{schema.name or 'anonymous'}': Input='{py_type}', Required={required}, Nullable={schema.is_nullable} -> OptionalWrapped='{optional_type}' -> CleanedAndImportChecked='{cleaned_type}'"
+        # )
         return cleaned_type
 
     def _wrap_with_optional_if_needed(self, py_type: str, schema_being_wrapped: IRSchema, required: bool) -> str:

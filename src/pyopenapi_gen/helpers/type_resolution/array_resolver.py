@@ -53,8 +53,8 @@ class ArrayTypeResolver:
 
             if item_type_str:
                 self.context.add_import("typing", "List")
-                logger.debug(
-                    f"[ArrayTypeResolver] Resolved array with item type '{item_type_str}' for schema '{schema.name or 'anonymous'}'."
-                )
+                # logger.debug(
+                #     f"[ArrayTypeResolver] Resolved array with item type '{item_type_str}' for schema '{schema.name or 'anonymous'}'."
+                # )
                 return f"List[{item_type_str}]"
         return None

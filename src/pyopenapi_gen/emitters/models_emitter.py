@@ -36,6 +36,11 @@ class ModelsEmitter:
             logger.warning(f"Skipping model generation for schema without an original name: {schema_ir}")
             return None
 
+        # logger.debug(
+        #     f"_generate_model_file processing schema: original_name='{schema_ir.name}', "
+        #     f"generation_name='{schema_ir.generation_name}', final_module_stem='{schema_ir.final_module_stem}'"
+        # )
+
         # Assert that de-collided names have been set by the emit() method's preprocessing.
         assert schema_ir.generation_name is not None, (
             f"Schema '{schema_ir.name}' must have generation_name set before file generation."
@@ -45,6 +50,10 @@ class ModelsEmitter:
         )
 
         file_path = models_dir / f"{schema_ir.final_module_stem}.py"
+        logger.info(
+            f"Attempting to generate model file: {file_path} for class {schema_ir.generation_name} "
+            f"(original schema name: {schema_ir.name})"
+        )
 
         self.context.set_current_file(str(file_path))
 
@@ -62,9 +71,10 @@ class ModelsEmitter:
                         # This recursive call might be problematic if items_schema wasn't fully preprocessed.
                         # The main emit loop is preferred for driving generation.
                         # For now, assuming items_schema has its names set if it's a distinct schema.
-                        logger.debug(f"Potentially generating item schema {items_schema.name} recursively.")
+                        # logger.debug(f"Potentially generating item schema {items_schema.name} recursively.")
                         # self._generate_model_file(items_schema, models_dir) # Re-evaluating recursive call here.
                         # Better to rely on main loop processing all schemas.
+                        pass
 
         # ModelVisitor should use schema_ir.generation_name for the class name.
         # We'll need to verify ModelVisitor's behavior.
@@ -88,8 +98,9 @@ class ModelsEmitter:
 
         try:
             file_path.parent.mkdir(parents=True, exist_ok=True)
+            # logger.debug(f"Attempting to write content to {file_path}")
             file_path.write_text(file_content, encoding="utf-8")
-            logger.debug(f"Generated model file: {file_path} for class {schema_ir.generation_name}")
+            logger.info(f"Successfully generated model file: {file_path} for class {schema_ir.generation_name}")
             return str(file_path)
         except OSError as e:
             logger.error(f"Error writing model file {file_path}: {e}")
@@ -121,9 +132,9 @@ class ModelsEmitter:
             )
 
             if s_schema._from_unresolved_ref:  # Check this flag if it's relevant
-                logger.debug(
-                    f"Skipping schema '{s_schema.generation_name}' in __init__ as it's an unresolved reference."
-                )
+                # logger.debug(
+                #     f"Skipping schema '{s_schema.generation_name}' in __init__ as it's an unresolved reference."
+                # )
                 continue
 
             class_name_to_import = s_schema.generation_name
@@ -211,10 +222,19 @@ class ModelsEmitter:
         # Sort by original name for deterministic suffixing if collisions occur.
         # Filter for schemas that actually have a name, as unnamed schemas don't get their own files.
         # A schema created by extraction (e.g. PetListItemsItem) will have a .name.
+
+        # logger.debug(
+        #     f"ModelsEmitter: Schemas considered for naming/de-collision (pre-filter): { {k: v.name for k, v in all_schemas_for_generation.items()} }"
+        # )
+
         schemas_to_name_decollision = sorted(
-            [s for s in all_schemas_for_generation.values() if s.name],
+            [s for s in all_schemas_for_generation.values() if s.name and s.name.strip()],  # Added s.name.strip()
             key=lambda s: s.name,  # type: ignore
         )
+
+        # logger.debug(
+        #     f"ModelsEmitter: Schemas to actually de-collide (post-filter by s.name): {[s.name for s in schemas_to_name_decollision]}"
+        # )
 
         for schema_for_naming in schemas_to_name_decollision:  # Use the comprehensive list
             original_schema_name = schema_for_naming.name
@@ -230,7 +250,7 @@ class ModelsEmitter:
                 final_class_name = f"{base_class_name}{class_suffix}"
             assigned_class_names.add(final_class_name)
             schema_for_naming.generation_name = final_class_name
-            logger.debug(f"Resolved class name for original '{original_schema_name}': '{final_class_name}'")
+            # logger.debug(f"Resolved class name for original '{original_schema_name}': '{final_class_name}'")
 
             # 2. Determine unique module stem (schema_for_naming.final_module_stem)
             base_module_stem = NameSanitizer.sanitize_module_name(original_schema_name)
@@ -246,9 +266,9 @@ class ModelsEmitter:
 
             assigned_module_stems.add(final_module_stem)
             schema_for_naming.final_module_stem = final_module_stem
-            logger.debug(
-                f"Resolved module stem for original '{original_schema_name}' (class '{final_class_name}'): '{final_module_stem}'"
-            )
+            # logger.debug(
+            #     f"Resolved module stem for original '{original_schema_name}' (class '{final_class_name}'): '{final_module_stem}'"
+            # )
         # --- End of Name de-collision ---
 
         generated_files = []
@@ -262,9 +282,9 @@ class ModelsEmitter:
         while len(processed_schema_original_keys) < len(all_schema_keys_to_emit) and rounds < max_processing_rounds:
             rounds += 1
             something_processed_this_round = False
-            logger.debug(
-                f"ModelsEmitter: Starting processing round {rounds}. Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}"
-            )
+            # logger.debug(
+            #     f"ModelsEmitter: Starting processing round {rounds}. Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}"
+            # )
 
             for schema_key in all_schema_keys_to_emit:
                 if schema_key in processed_schema_original_keys:
@@ -283,7 +303,9 @@ class ModelsEmitter:
                 schema_ir: IRSchema = current_schema_ir_obj
 
                 if not schema_ir.name:
-                    logger.debug(f"Skipping file generation for unnamed schema (original key '{schema_key}').")
+                    # logger.debug(
+                    #     f"Skipping file generation for unnamed schema (original key '{schema_key}'). IR: {schema_ir}"
+                    # )
                     processed_schema_original_keys.add(schema_key)
                     something_processed_this_round = True
                     continue
@@ -291,7 +313,7 @@ class ModelsEmitter:
                 if not schema_ir.generation_name or not schema_ir.final_module_stem:
                     logger.error(
                         f"Schema '{schema_ir.name}' (original key '{schema_key}') is missing de-collided names. "
-                        f"GenName: {schema_ir.generation_name}, ModStem: {schema_ir.final_module_stem}. Skipping file gen."
+                        f"GenName: {schema_ir.generation_name}, ModStem: {schema_ir.final_module_stem}. Skipping file gen. IR: {schema_ir}"
                     )
                     processed_schema_original_keys.add(schema_key)
                     something_processed_this_round = True

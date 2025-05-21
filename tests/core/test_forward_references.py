@@ -5,6 +5,7 @@ from typing import Dict
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.helpers.type_helper import TypeHelper
 
 
@@ -45,6 +46,12 @@ class TestForwardReferences(unittest.TestCase):
 
         # Create a dictionary of schemas
         all_schemas: Dict[str, IRSchema] = {"MessageA": schema_a, "MessageB": schema_b}
+
+        # Prepare schemas with generation_name and final_module_stem
+        for schema_name, schema_obj in all_schemas.items():
+            if schema_obj.name:  # Should always be true here
+                schema_obj.generation_name = NameSanitizer.sanitize_class_name(schema_obj.name)
+                schema_obj.final_module_stem = NameSanitizer.sanitize_module_name(schema_obj.name)
 
         # Create a render context to track imports
         context = RenderContext()

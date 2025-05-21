@@ -45,14 +45,14 @@ def resolve_schema_ref(
     if actual_schema_name in context.parsed_schemas:
         existing_schema = context.parsed_schemas[actual_schema_name]
         if getattr(existing_schema, "_is_circular_ref", False):
-            logger.debug(f"Returning existing circular reference for '{actual_schema_name}'")
+            # logger.debug(f"Returning existing circular reference for '{actual_schema_name}'")
             return existing_schema
-        logger.debug(f"Direct cycle detected for '{actual_schema_name}', handling...")
+        # logger.debug(f"Direct cycle detected for '{actual_schema_name}', handling...")
         return handle_direct_cycle(actual_schema_name, context)
 
     # Check for existing fully parsed schema
     if actual_schema_name in context.parsed_schemas:
-        logger.debug(f"Returning existing fully parsed schema for '{actual_schema_name}'")
+        # logger.debug(f"Returning existing fully parsed schema for '{actual_schema_name}'")
         return handle_existing_schema(actual_schema_name, context)
 
     # Get referenced node data
@@ -66,7 +66,7 @@ def resolve_schema_ref(
             if base_name.endswith(suffix):
                 base_name = base_name[: -len(suffix)]
                 if base_name in context.raw_spec_schemas:
-                    logger.debug(f"Found schema '{base_name}' after stripping suffix '{suffix}'")
+                    # logger.debug(f"Found schema '{base_name}' after stripping suffix '{suffix}'")
                     referenced_node_data = context.raw_spec_schemas[base_name]
                     break
 
@@ -75,8 +75,8 @@ def resolve_schema_ref(
             return handle_missing_ref(ref_value, ref_name, context, max_depth, _parse_schema)
 
     # Standard parsing path for a new schema
-    logger.debug(f"Parsing new schema '{actual_schema_name}'")
-    schema = parse_new_schema(actual_schema_name, referenced_node_data, context, max_depth, _parse_schema)
+    # logger.debug(f"Parsing new schema '{actual_schema_name}'")
+    schema = parse_new_schema(actual_schema_name, dict(referenced_node_data), context, max_depth, _parse_schema)
 
     # Ensure we maintain the original reference name
     if schema.name != ref_name:

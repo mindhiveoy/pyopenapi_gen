@@ -64,7 +64,7 @@ class ModelsEmitter:
         with file_path.open("w", encoding="utf-8") as f:
             f.write(full_code)
         # self.writer.clear() # ModelsEmitter's self.writer is not used for individual model file body
-        logger.debug(f"Generated model file: {file_path} for schema: {schema_ir.name}")
+        # logger.debug(f"Generated model file: {file_path} for schema: {schema_ir.name}")
         return str(file_path)
 
     def _generate_init_py(self, models_dir: Path) -> str:
@@ -140,7 +140,8 @@ class ModelsEmitter:
                     if file_path:
                         generated_files.append(file_path)
                 else:
-                    logger.debug(f"Skipping file generation for unnamed schema: {schema_ir.type}")
+                    # logger.debug(f"Skipping file generation for unnamed schema: {schema_ir.type}")
+                    pass  # Schema has no name, already warned in _generate_model_file or skipped if truly unnamed
 
         init_py_path = self._generate_init_py(models_dir)
         generated_files.append(init_py_path)

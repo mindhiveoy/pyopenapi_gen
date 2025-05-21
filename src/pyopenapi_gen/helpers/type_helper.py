@@ -138,9 +138,23 @@ class TypeHelper:
                     is_circular = True
 
             # Process the reference according to whether it's circular or not
-            target_schema_name_for_import = schema.type
-            class_name_to_import = NameSanitizer.sanitize_class_name(target_schema_name_for_import)
-            module_name_to_import_from = NameSanitizer.sanitize_module_name(target_schema_name_for_import)
+            target_ir_schema = all_schemas.get(schema.type)
+            if not target_ir_schema:
+                logger.error(
+                    f"Schema '{schema.type}' referenced by '{parent_schema_name}' not found in all_schemas. This should not happen."
+                )
+                context.add_import("typing", "Any")
+                return "Any"  # Fallback, though this indicates a deeper issue
+
+            assert target_ir_schema.generation_name is not None, (
+                f"Target schema '{target_ir_schema.name}' must have generation_name set."
+            )
+            assert target_ir_schema.final_module_stem is not None, (
+                f"Target schema '{target_ir_schema.name}' must have final_module_stem set."
+            )
+
+            class_name_to_import = target_ir_schema.generation_name
+            module_name_to_import_from = target_ir_schema.final_module_stem
 
             # Construct model_module_path:
             base_model_path_part = f"models.{module_name_to_import_from}"

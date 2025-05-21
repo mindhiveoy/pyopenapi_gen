@@ -70,6 +70,8 @@ testpaths = ["tests"]
 pythonpath = "src"
 python_files = ["test_*.py"]
 python_functions = ["test_"]
+log_cli = true
+log_cli_level = "DEBUG"
 # For details on registering custom marks, see:
 # https://docs.pytest.org/en/stable/how-to/mark.html
 markers = [

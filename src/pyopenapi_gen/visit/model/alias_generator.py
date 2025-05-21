@@ -67,7 +67,7 @@ class AliasGenerator:
         )
         target_type = TypeFinalizer(context)._clean_type(target_type)
 
-        logger.debug(f"AliasGenerator: Rendering alias '{alias_name}' for target type '{target_type}'.")
+        # logger.debug(f"AliasGenerator: Rendering alias '{alias_name}' for target type '{target_type}'.")
 
         rendered_code = self.renderer.render_alias(
             alias_name=alias_name,

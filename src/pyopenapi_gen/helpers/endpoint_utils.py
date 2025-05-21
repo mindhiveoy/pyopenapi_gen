@@ -5,15 +5,15 @@ Used by EndpointVisitor and related emitters.
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 
-logger = logging.getLogger(__name__)
-
 from ..core.utils import NameSanitizer
 from .type_helper import TypeHelper
+
+logger = logging.getLogger(__name__)
 
 
 def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSchema]) -> List[Dict[str, Any]]:
@@ -95,7 +95,6 @@ def get_return_type(
     """
     # Special case for the test_list_object_unwrapping test
     if hasattr(op, "operation_id") and op.operation_id == "get_items_wrapped":
-        logger.debug("Forcing List[Item] return type for get_items_wrapped operation")
         context.add_import("typing", "List")
         context.add_import("models.item", "Item")
         # Return with unwrap = True to ensure response handling uses unwrapping logic
@@ -195,25 +194,17 @@ def get_return_type(
     is_unwrapped_list = False
     if should_unwrap and data_schema and getattr(data_schema, "type", None) == "array" and data_schema.items:
         is_unwrapped_list = True
-        logger.debug(
-            f"Unwrapping array: data_schema={data_schema}, items={data_schema.items}, "
-            f"items.name={getattr(data_schema.items, 'name', None)}, "
-            f"items.type={getattr(data_schema.items, 'type', None)}"
-        )
         # For array/list unwrapping, we need to get the item type from the data_schema.items
         # Instead of using the data_schema directly, we'll create a List[ItemType]
         item_schema = data_schema.items
         item_type = TypeHelper.get_python_type_for_schema(item_schema, schemas, context, required=True)
-        logger.debug(f"Generated item_type={item_type}")
         # Adjust import path if needed
         if item_type.startswith(".") and not item_type.startswith(".."):
             item_type = "models" + item_type
-            logger.debug(f"Adjusted item_type={item_type}")
 
         # Add List import and build the List[ItemType] return type
         context.add_import("typing", "List")
         final_type = f"List[{item_type}]"
-        logger.debug(f"Final list unwrapped type: {final_type}")
 
         # Force all callers to use this List type for unwrapped arrays
         return (final_type, should_unwrap)
@@ -376,7 +367,28 @@ def _infer_type_from_path(path: str, schemas: Dict[str, IRSchema]) -> Optional[I
             logger.info(f"Inferred response type '{schema_name}' from path '{path}'")
             return schema
 
-    logger.debug(f"Could not infer response type from path '{path}'")
+    # Heuristic: if the path ends with a pluralized version of a known schema, infer list of that schema
+    # Example: /users and a User schema -> List[User]
+    if singular_name in schemas:
+        # Create a temporary array schema for type resolution
+        return IRSchema(type="array", items=schemas[singular_name])
+
+    # Heuristic: if the path ends with a singular version of a known schema, infer that schema
+    # Example: /user/{id} or /users/{id} and a User schema -> User
+    # Covers /resource_name/{param} or /plural_resource_name/{param}
+    # More robustly, check if any part of the path matches a schema name (singular or plural)
+    # and if it has a path parameter immediately following it.
+    path_parts = [part for part in path.split("/") if part]
+    for i, part in enumerate(path_parts):
+        # potential_schema_name_singular = NameSanitizer.pascal_case(NameSanitizer.singularize(part))
+        # HACK: Use a simplified version until NameSanitizer.pascal_case and singularize are available
+        # This is a placeholder and might not be correct for all cases.
+        potential_schema_name_singular = part.capitalize()  # Simplified placeholder
+        if potential_schema_name_singular in schemas and (
+            i + 1 < len(path_parts) and path_parts[i + 1].startswith("{")
+        ):
+            return schemas[potential_schema_name_singular]
+
     return None
 
 

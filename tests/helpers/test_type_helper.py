@@ -637,10 +637,15 @@ class TestArrayTypeResolver:  # Renamed class
 
     @pytest.fixture
     def schemas_fixture(self) -> Dict[str, IRSchema]:  # Renamed to avoid conflict with schemas param
-        return {
+        schemas = {
             "MyModel": IRSchema(name="MyModel", type="object", properties={"id": IRSchema(type="integer")}),
             "MyEnum": IRSchema(name="MyEnum", type="string", enum=["A", "B"]),
         }
+        for schema in schemas.values():
+            if schema.name:
+                schema.generation_name = NameSanitizer.sanitize_class_name(schema.name)
+                schema.final_module_stem = NameSanitizer.sanitize_module_name(schema.name)
+        return schemas
 
     @pytest.fixture
     def array_resolver(self, context: RenderContext, schemas_fixture: Dict[str, IRSchema]) -> ArrayTypeResolver:
@@ -728,18 +733,23 @@ class TestCompositionTypeResolver:  # Renamed class
 
     @pytest.fixture
     def schemas(self) -> Dict[str, IRSchema]:
-        return {
+        schemas_dict = {
             "SchemaA": IRSchema(name="SchemaA", type="object", properties={"a": IRSchema(type="string")}),
             "SchemaB": IRSchema(name="SchemaB", type="object", properties={"b": IRSchema(type="integer")}),
             "SchemaC": IRSchema(name="SchemaC", type="string", format="date"),
             "DataWrapper": IRSchema(
                 name="DataWrapper",
                 type="object",
-                properties={"data": IRSchema(name="SchemaA_ref", type="SchemaA")},
+                properties={"data": IRSchema(name="SchemaA_ref", type="SchemaA")},  # type here refers to SchemaA
                 is_data_wrapper=True,
             ),
             "SimpleObject": IRSchema(name="SimpleObject", type="object"),
         }
+        for schema in schemas_dict.values():
+            if schema.name:
+                schema.generation_name = NameSanitizer.sanitize_class_name(schema.name)
+                schema.final_module_stem = NameSanitizer.sanitize_module_name(schema.name)
+        return schemas_dict
 
     @pytest.fixture
     def composition_resolver(self, context: RenderContext, schemas: Dict[str, IRSchema]) -> CompositionTypeResolver:
@@ -882,7 +892,7 @@ class TestNamedTypeResolver:  # Renamed class
 
     @pytest.fixture
     def base_schemas(self) -> Dict[str, IRSchema]:
-        return {
+        schemas_dict = {
             "ReferencedModel": IRSchema(
                 name="ReferencedModel", type="object", properties={"id": IRSchema(type="integer")}
             ),
@@ -899,6 +909,11 @@ class TestNamedTypeResolver:  # Renamed class
             ),
             "MyObjectAlias": IRSchema(name="MyObjectAlias", type="object"),
         }
+        for schema in schemas_dict.values():
+            if schema.name:
+                schema.generation_name = NameSanitizer.sanitize_class_name(schema.name)
+                schema.final_module_stem = NameSanitizer.sanitize_module_name(schema.name)
+        return schemas_dict
 
     @pytest.fixture
     def named_resolver(self, context: RenderContext, base_schemas: Dict[str, IRSchema]) -> NamedTypeResolver:
@@ -1094,7 +1109,7 @@ class TestObjectTypeResolver:  # Renamed class
 
     @pytest.fixture
     def schemas(self) -> Dict[str, IRSchema]:
-        return {
+        schemas_dict = {
             "ReferencedModel": IRSchema(
                 name="ReferencedModel", type="object", properties={"id": IRSchema(type="integer")}
             ),
@@ -1105,6 +1120,13 @@ class TestObjectTypeResolver:  # Renamed class
                 name="MyNamedEmptyPropsObject", type="object", additional_properties=False
             ),
         }
+        # Ensure ReferencedModel also gets its names set if it's used in ObjectTypeResolver tests
+        # All schemas in this dict should be prepared
+        for schema in schemas_dict.values():
+            if schema.name:  # Should always be true for these
+                schema.generation_name = NameSanitizer.sanitize_class_name(schema.name)
+                schema.final_module_stem = NameSanitizer.sanitize_module_name(schema.name)
+        return schemas_dict
 
     @pytest.fixture
     def object_resolver(self, context: RenderContext, schemas: Dict[str, IRSchema]) -> ObjectTypeResolver:
@@ -1439,6 +1461,12 @@ class TestTypeHelperModelToModelImports:
 
         # Define SchemaB
         schema_b_def = IRSchema(name=schema_b_name, type="object", properties={"id": IRSchema(type="integer")})
+        assert schema_b_def.name is not None  # Ensure name is not None for sanitizer
+        schema_b_def.generation_name = NameSanitizer.sanitize_class_name(schema_b_def.name)
+        schema_b_def.final_module_stem = NameSanitizer.sanitize_module_name(schema_b_def.name)
+
+        # Manually set generation_name and final_module_stem for the target schema,
+        # as TypeHelper expects these to be pre-processed.
 
         # Define SchemaA's property that references SchemaB
         field_referencing_schema_b = IRSchema(type=schema_b_name)  # 'type' holds the ref name
@@ -1504,6 +1532,9 @@ class TestTypeHelperModelToModelImports:
         target_schema_b_file_path.touch()
 
         schema_b_def = IRSchema(name=schema_b_name, type="object", properties={"id": IRSchema(type="integer")})
+        assert schema_b_def.name is not None  # Ensure name is not None for sanitizer
+        schema_b_def.generation_name = NameSanitizer.sanitize_class_name(schema_b_def.name)
+        schema_b_def.final_module_stem = NameSanitizer.sanitize_module_name(schema_b_def.name)
 
         # Field in SchemaAOpt is: field_b: Optional[SchemaBOpt]
         # Represented as IRSchema(type="SchemaBOpt", is_nullable=True)

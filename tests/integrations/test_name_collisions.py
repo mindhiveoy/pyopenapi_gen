@@ -1,23 +1,24 @@
 import logging
 import os
-import subprocess
-import yaml
-from pathlib import Path
 import re
+import subprocess
+from pathlib import Path
+
+import yaml
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
 from pyopenapi_gen.emitters.core_emitter import CoreEmitter
 from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
-from pyopenapi_gen.core.utils import NameSanitizer
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("pyopenapi_gen")
-logger.setLevel(logging.DEBUG)  # Uncomment for detailed logs during debugging
+# logger.setLevel(logging.DEBUG)  # Uncomment for detailed logs during debugging
 
 
 def test_name_collision_generation(tmp_path: Path) -> None:

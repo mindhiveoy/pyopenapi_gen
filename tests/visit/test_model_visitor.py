@@ -1,9 +1,10 @@
+import logging
 import os  # For path manipulation
 import unittest  # Add this import
 from typing import Dict
-import logging
 
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer  # Added import
 
 # from pyopenapi_gen.model.ir_schema import IRSchema, IRSchemaType # Old incorrect import
 from pyopenapi_gen.ir import IRSchema  # Updated import path
@@ -184,6 +185,12 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
             ads_name: agent_data_source_schema,
             "DataSource": IRSchema(name="DataSource", type="object", description="A data source object"),
         }
+        # Prepare schemas
+        for schema_obj in all_schemas_for_context.values():
+            if schema_obj.name:
+                schema_obj.generation_name = NameSanitizer.sanitize_class_name(schema_obj.name)
+                schema_obj.final_module_stem = NameSanitizer.sanitize_module_name(schema_obj.name)
+
         model_visitor = ModelVisitor(schemas=all_schemas_for_context)
 
         generated_code = model_visitor.visit_IRSchema(agent_data_source_schema, context)
@@ -627,6 +634,13 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIsNotNone(schema_with_defaults.name)
         assert schema_with_defaults.name is not None
         all_schemas: Dict[str, IRSchema] = {schema_with_defaults.name: schema_with_defaults}
+        # Prepare schema
+        if schema_with_defaults.name:  # Should always be true
+            schema_with_defaults.generation_name = NameSanitizer.sanitize_class_name(schema_with_defaults.name)
+            schema_with_defaults.final_module_stem = NameSanitizer.sanitize_module_name(schema_with_defaults.name)
+        # Note: if schema_with_defaults had complex sub-schemas that were also in all_schemas,
+        # they would also need preparation if referenced.
+
         visitor = ModelVisitor(schemas=all_schemas)
 
         # Act

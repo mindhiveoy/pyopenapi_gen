@@ -162,8 +162,8 @@ class EndpointParameterProcessor:
                 }
                 updated_params.append(path_var_param_info)
                 param_details_map[sanitized_var_name] = path_var_param_info
-                logger.debug(
-                    f"Added missing path variable '{sanitized_var_name}' to parameters for operation '{op.operation_id}'."
-                )
+                # logger.debug(
+                #     f"Added missing path variable '{sanitized_var_name}' to parameters for operation '{op.operation_id}'."
+                # )
 
         return updated_params

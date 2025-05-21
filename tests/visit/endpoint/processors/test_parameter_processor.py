@@ -2,18 +2,18 @@
 Tests for the EndpointParameterProcessor class.
 """
 
-from typing import Dict
-from unittest.mock import MagicMock
-from unittest.mock import patch
 from pathlib import Path
+from typing import Dict
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pyopenapi_gen.context.import_collector import ImportCollector
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.http_types import HTTPMethod
 from pyopenapi_gen.ir import IROperation, IRParameter, IRRequestBody, IRSchema
 from pyopenapi_gen.visit.endpoint.processors.parameter_processor import EndpointParameterProcessor
-from pyopenapi_gen.context.import_collector import ImportCollector
 
 
 @pytest.fixture
@@ -63,10 +63,16 @@ def render_context_mock_for_params(tmp_path: Path) -> MagicMock:
 
 @pytest.fixture
 def schemas_for_params() -> Dict[str, IRSchema]:
-    return {
+    schemas_dict = {
         "MyBody": IRSchema(type="object", name="MyBody", properties={"id": IRSchema(type="integer")}),
         "StringSchema": IRSchema(type="string"),  # For direct reference if needed
     }
+    # Prepare schemas
+    for schema_obj in schemas_dict.values():
+        if schema_obj.name:
+            schema_obj.generation_name = NameSanitizer.sanitize_class_name(schema_obj.name)
+            schema_obj.final_module_stem = NameSanitizer.sanitize_module_name(schema_obj.name)
+    return schemas_dict
 
 
 class TestEndpointParameterProcessor:
