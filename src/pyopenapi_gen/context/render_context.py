@@ -367,12 +367,18 @@ class RenderContext:
                         break
 
                 if found_schema_obj:
-                    schema_class_name = found_schema_obj.name
+                    # Use the generation_name if available, fallback to name
+                    schema_class_name = found_schema_obj.generation_name or found_schema_obj.name
                     if schema_class_name is None:
                         logger.warning(f"Skipping import generation for an unnamed schema: {found_schema_obj}")
                         continue  # Skip to the next name if schema_class_name is None
-                    # NameSanitizer.sanitize_filename typically converts PascalCase to snake_case.
-                    schema_file_name_segment = NameSanitizer.sanitize_filename(schema_class_name, suffix="")
+                    
+                    # Use the final_module_stem if available, otherwise sanitize the class name
+                    if found_schema_obj.final_module_stem:
+                        schema_file_name_segment = found_schema_obj.final_module_stem
+                    else:
+                        # Fallback to sanitizing the class name
+                        schema_file_name_segment = NameSanitizer.sanitize_filename(schema_class_name, suffix="")
 
                     current_gen_pkg_base_name = self.get_current_package_name_for_generated_code()
 

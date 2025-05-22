@@ -104,7 +104,7 @@ class ParsingContext:
             for name, schema in self.parsed_schemas.items()
             if not getattr(schema, "_is_circular_ref", False)
             and not getattr(schema, "_from_unresolved_ref", False)
-            and not getattr(schema, "_max_depth_exceeded", False)
+            and not getattr(schema, "_max_depth_exceeded_marker", False)
         }
         # ---- END RESTORE ----
 

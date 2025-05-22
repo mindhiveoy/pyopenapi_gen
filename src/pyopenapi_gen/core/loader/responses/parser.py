@@ -55,7 +55,7 @@ def parse_response(
 
     for mt, mn in node.get("content", {}).items():
         if isinstance(mn, Mapping) and "$ref" in mn and mn["$ref"].startswith("#/components/schemas/"):
-            content[mt] = _parse_schema(None, mn, context)
+            content[mt] = _parse_schema(None, mn, context, allow_self_reference=False)
         elif isinstance(mn, Mapping) and "schema" in mn:
             media_schema_node = mn["schema"]
             if (
@@ -69,9 +69,11 @@ def parse_response(
                     or "oneOf" in media_schema_node
                 )
             ):
-                content[mt] = _parse_schema(parent_promo_name_for_resp_body, media_schema_node, context)
+                content[mt] = _parse_schema(
+                    parent_promo_name_for_resp_body, media_schema_node, context, allow_self_reference=False
+                )
             else:
-                content[mt] = _parse_schema(None, media_schema_node, context)
+                content[mt] = _parse_schema(None, media_schema_node, context, allow_self_reference=False)
         else:
             content[mt] = IRSchema(name=None, _from_unresolved_ref=True)
 

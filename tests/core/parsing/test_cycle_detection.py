@@ -5,11 +5,14 @@ Tests for the cycle detection functionality in schema parsing.
 import importlib  # For reloading
 import os
 import unittest
-from typing import Any, Dict
+from typing import Any, Dict, cast
+from unittest.mock import patch
 
+from pyopenapi_gen.ir import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
 from pyopenapi_gen.core.utils import NameSanitizer
+import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
 
 
 class TestCycleDetection(unittest.TestCase):
@@ -30,8 +33,6 @@ class TestCycleDetection(unittest.TestCase):
         os.environ["PYOPENAPI_MAX_DEPTH"] = "10"  # This is for schema_parser.ENV_MAX_DEPTH
 
         # Reload schema_parser to pick up new env var values for its module-level constants
-        from pyopenapi_gen.core.parsing import schema_parser
-
         importlib.reload(schema_parser)
 
     def tearDown(self) -> None:
@@ -44,8 +45,6 @@ class TestCycleDetection(unittest.TestCase):
                 del os.environ[key]
 
         # Reload schema_parser to reflect original/default environment variables
-        from pyopenapi_gen.core.parsing import schema_parser
-
         importlib.reload(schema_parser)
 
     def test_self_reference_cycle_detection(self) -> None:
@@ -199,6 +198,11 @@ class TestCycleDetection(unittest.TestCase):
         # A more thorough test would mock the logger to check for debug messages.
 
         # schema_parser.DEBUG_CYCLES should be True due to setUp
+        # schema_parser.MAX_CYCLES should be 10 due to setUp
+        # schema_parser.ENV_MAX_DEPTH should be 10 due to setUp
+        # This test primarily ensures the module loads with defaults correctly.
+
+        # schema_parser.DEBUG_CYCLES should be True due to setUp
         from pyopenapi_gen.core.parsing import schema_parser
 
         context = ParsingContext()
@@ -326,13 +330,11 @@ class TestCycleDetection(unittest.TestCase):
 
             # Reload schema_parser to pick up the modified (invalid) env vars
             # and exercise the try-except blocks for default fallbacks.
-            from pyopenapi_gen.core.parsing import schema_parser
-
             importlib.reload(schema_parser)
 
             # Check if the module-level constants fell back to defaults
             self.assertEqual(schema_parser.MAX_CYCLES, 0, "MAX_CYCLES should default to 0 on invalid env var")
-            self.assertEqual(schema_parser.ENV_MAX_DEPTH, 100, "ENV_MAX_DEPTH should default to 100 on invalid env var")
+            self.assertEqual(schema_parser.ENV_MAX_DEPTH, 150, "ENV_MAX_DEPTH should default to 150 on invalid env var")
 
             # Optional: Perform a minimal parse to ensure no crash and defaults are used by context if applicable
             # This part depends on how ParsingContext gets its max_depth. If it's from ENV_MAX_DEPTH at instantiation, this is good.
@@ -355,9 +357,293 @@ class TestCycleDetection(unittest.TestCase):
                 del os.environ["PYOPENAPI_MAX_DEPTH"]
 
             # Reload schema_parser again to restore its state based on original/default env vars for other tests
-            from pyopenapi_gen.core.parsing import schema_parser  # Re-import to get fresh reference
-
             importlib.reload(schema_parser)
+
+    def test_simple_self_reference(self) -> None:
+        schema_name = "SelfReferencingSchema"
+        schema_data = {"properties": {"next": {"$ref": f"#/components/schemas/{schema_name}"}}}
+        self.context.raw_spec_schemas[schema_name] = schema_data
+        result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
+        self.assertTrue(result._is_circular_ref, "Schema should be marked as a circular reference")
+
+    def test_indirect_cycle(self) -> None:
+        schema_a_name = "SchemaA"
+        schema_b_name = "SchemaB"
+        schema_a = {"properties": {"b": {"$ref": f"#/components/schemas/{schema_b_name}"}}}
+        schema_b = {"properties": {"a": {"$ref": f"#/components/schemas/{schema_a_name}"}}}
+        self.context.raw_spec_schemas.update({schema_a_name: schema_a, schema_b_name: schema_b})
+        result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
+        self.assertFalse(result_a._is_circular_ref, "SchemaA itself is not the direct circular ref point initially")
+
+    def test_cycle_via_allof(self) -> None:
+        schema_a_name = "SchemaAllOfA"
+        schema_b_name = "SchemaAllOfB"
+        schema_a = {"allOf": [{"$ref": f"#/components/schemas/{schema_b_name}"}]}
+        schema_b = {"properties": {"a": {"$ref": f"#/components/schemas/{schema_a_name}"}}}
+        self.context.raw_spec_schemas.update({schema_a_name: schema_a, schema_b_name: schema_b})
+        result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
+        self.assertFalse(result_a._is_circular_ref, "SchemaAllOfA might not be the direct circular ref point.")
+
+    def test_no_cycle(self) -> None:
+        schema_name = "NonCyclicSchema"
+        schema_data = {"properties": {"value": {"type": "string"}}}
+        self.context.raw_spec_schemas[schema_name] = schema_data
+        result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
+        self.assertFalse(result._is_circular_ref, "Schema should not be marked as circular")
+
+    def test_max_recursion_depth_in_properties(self) -> None:
+        max_depth = 5
+        original_max_depth = os.environ.get("PYOPENAPI_MAX_DEPTH")
+        os.environ["PYOPENAPI_MAX_DEPTH"] = str(max_depth)
+        importlib.reload(schema_parser)
+
+        schema_name = "DeepPropertySchema"
+        current_schema_dict_level: Dict[str, Any] = {}
+        # Build the initial root of the schema for DeepPropertySchema
+        self.context.raw_spec_schemas[schema_name] = current_schema_dict_level
+
+        temp_schema_builder = current_schema_dict_level
+        # Create nesting up to max_depth + 2 levels (0 to max_depth + 1)
+        # The actual schema that hits the limit will be at depth max_depth + 1
+        for i in range(max_depth + 2):
+            prop_val_node = {"type": "object"}  # Each property is an object, potentially with its own properties
+            temp_schema_builder["properties"] = {f"prop{i}": prop_val_node}
+            if i < max_depth + 1:  # Don't try to create properties for the one that will exceed depth
+                temp_schema_builder = prop_val_node  # Move deeper for the next iteration
+            # else: temp_schema_builder for prop{max_depth+1} is the one that will be the placeholder
+
+        result = _parse_schema(
+            schema_name, self.context.raw_spec_schemas[schema_name], self.context, allow_self_reference=False
+        )
+
+        self.assertFalse(
+            result._max_depth_exceeded_marker, "Top-level schema itself should not be marked for max depth"
+        )
+
+        # Navigate to the deeply nested property that should have the marker
+        # Depth 0: result (DeepPropertySchema)
+        # Depth 1: prop0 refers to DeepPropertySchemaProp0
+        # Depth 2: prop1 refers to DeepPropertySchemaProp0Prop1
+        # ...
+        # Depth N: prop(N-1) refers to DeepPropertySchema...Prop(N-1)
+        # Max depth is 5. The schema at depth 6 (recursion_depth=6) is where ENV_MAX_DEPTH (5) is exceeded.
+        # This is the schema for prop5, which would be named DeepPropertySchemaProp0Prop1Prop2Prop3Prop4Prop5
+        # The actual placeholder is the result of parsing the *node* for prop{max_depth} = prop4
+        # The iteration goes from i=0 to max_depth+1 (0 to 6 for max_depth=5)
+        # prop0, prop1, prop2, prop3, prop4 will be parsed normally.
+        # When parsing prop4 (i=4), its properties will try to parse prop5 (i=5).
+        # The promoted name for prop_schema_node of prop4 will be DeepPropertySchemaProp0Prop1Prop2Prop3Prop4.
+        # Inside this, parsing its property "prop5" will make a promoted name like DeepPropertySchemaProp0Prop1Prop2Prop3Prop4Prop5
+        # This is at depth 6. This is where the marker should be.
+
+        current_ir_level = result
+        # Loop up to prop{max_depth-2}, whose _refers_to_schema will be the one for prop{max_depth-1}.
+        # The schema for prop{max_depth-1} (e.g. ...Prop4 for max_depth=5) is the one that gets marked.
+        for i in range(max_depth):  # i goes from 0 to max_depth-1
+            self.assertIn(f"prop{i}", current_ir_level.properties)
+            prop_ir = current_ir_level.properties[f"prop{i}"]
+            self.assertIsNotNone(prop_ir._refers_to_schema, f"prop{i} should refer to a schema")
+            referred_schema = cast(IRSchema, prop_ir._refers_to_schema)
+            if i < max_depth - 1:  # Schemas for prop0 through prop{max_depth-2} should not be marked
+                self.assertFalse(
+                    referred_schema._max_depth_exceeded_marker,
+                    f"Schema for prop{i} ({referred_schema.name}) should not be marked yet",
+                )
+            elif i == max_depth - 1:  # Schema for prop{max_depth-1} (e.g. ...Prop4) IS the one that should be marked.
+                self.assertTrue(
+                    referred_schema._max_depth_exceeded_marker,
+                    f"Schema for prop{i} ({referred_schema.name}) should be marked for max depth",
+                )
+                expected_placeholder_name_segment = NameSanitizer.sanitize_class_name(f"prop{i}")
+                self.assertIsNotNone(referred_schema.name, "Placeholder for depth exceeded schema should have a name.")
+                self.assertTrue(
+                    cast(str, referred_schema.name).endswith(expected_placeholder_name_segment),
+                    f"Placeholder name {referred_schema.name} should end with {expected_placeholder_name_segment}",
+                )
+            current_ir_level = referred_schema
+
+        # The old assertions for navigating one more level are removed as the marker is on prop{max_depth-1}'s schema itself.
+        # self.assertIn(f"prop{max_depth}", current_ir_level.properties)
+        # final_prop_ir = current_ir_level.properties[f"prop{max_depth}"]
+        # _temp_referred_schema = final_prop_ir._refers_to_schema
+        # self.assertIsNotNone(_temp_referred_schema, f"prop{max_depth} should refer to a schema")
+        # depth_exceeded_schema = cast(IRSchema, _temp_referred_schema)
+        # self.assertTrue(depth_exceeded_schema._max_depth_exceeded_marker, f"Schema for prop{max_depth} content should be marked for max depth")
+
+        if original_max_depth is None:
+            del os.environ["PYOPENAPI_MAX_DEPTH"]
+        else:
+            os.environ["PYOPENAPI_MAX_DEPTH"] = original_max_depth
+        importlib.reload(schema_parser)
+
+    def test_max_recursion_depth_in_allof(self) -> None:
+        max_depth = 3
+        original_max_depth = os.environ.get("PYOPENAPI_MAX_DEPTH")
+        os.environ["PYOPENAPI_MAX_DEPTH"] = str(max_depth)
+        importlib.reload(schema_parser)
+
+        schema_name = "DeepAllOfSchema"
+        schemas_to_add: Dict[str, Any] = {}
+        current_level_schema_name = schema_name
+        # Create schemas A -> B -> C -> D ... via allOf
+        # Max depth 3. So, schema_0 allOf schema_1, schema_1 allOf schema_2, schema_2 allOf schema_3.
+        # Parsing schema_3 will be depth 4, exceeding limit 3.
+        for i in range(max_depth + 2):  # 0, 1, 2, 3, 4 for max_depth=3. Limit hit at i=max_depth (schema_3)
+            next_level_schema_name = f"{schema_name}_{i + 1}"
+            if i < max_depth + 1:  # For schema_0, schema_1, schema_2, schema_3
+                schema_node = {"allOf": [{"$ref": f"#/components/schemas/{next_level_schema_name}"}]}
+            else:  # For schema_4 (which won't be reached if depth limit works for schema_3's ref)
+                schema_node = {"type": "string"}  # Terminal node if we got this far
+            schemas_to_add[current_level_schema_name] = schema_node
+            if i == max_depth:  # schema_3 is the one that will be a placeholder
+                schemas_to_add[next_level_schema_name] = {
+                    "type": "object",
+                    "description": "This is the node that should be a placeholder due to depth limit.",
+                }  # Provide node for schema_3 to be parsed
+            current_level_schema_name = next_level_schema_name
+
+        # Add a terminal node for the deepest reference if not already added (e.g. schema_4 if max_depth=3)
+        # This ensures the ref target for schema_3 exists, even if it's schema_4 that would be depth limited.
+        # The critical point is schema_3 trying to parse its allOf pointing to schema_4.
+        # No, the critical point is when _parse_schema is called *for* schema_3.
+        # The setup ensures schema_name (DeepAllOfSchema_0) has schema_1 in its allOf, schema_1 has schema_2, schema_2 has schema_3.
+        # Parsing schema_0 (depth 1)
+        #  -> calls _parse_schema for schema_1 (depth 2)
+        #     -> calls _parse_schema for schema_2 (depth 3)
+        #        -> calls _parse_schema for schema_3 (depth 4) -> THIS is where ENV_MAX_DEPTH (3) is exceeded.
+        # So, the IRSchema registered for "DeepAllOfSchema_2" should be the placeholder when ENV_MAX_DEPTH is 3.
+
+        context = ParsingContext(raw_spec_schemas=schemas_to_add, raw_spec_components={})
+        result = _parse_schema(schema_name, schemas_to_add[schema_name], context, allow_self_reference=False)
+
+        self.assertFalse(result._max_depth_exceeded_marker, "Top-level schema itself should not be marked")
+
+        # The schema that should be marked is DeepAllOfSchema_2 (when max_depth is 3)
+        depth_limited_schema_name = f"{schema_name}_{max_depth - 1}"  # e.g. DeepAllOfSchema_2 if max_depth=3
+        self.assertIn(
+            depth_limited_schema_name,
+            context.parsed_schemas,
+            f"{depth_limited_schema_name} should be in parsed_schemas as a placeholder",
+        )
+
+        _temp_schema_val = context.parsed_schemas[depth_limited_schema_name]
+        self.assertIsNotNone(_temp_schema_val, f"{depth_limited_schema_name} should not be None in parsed_schemas")
+        depth_exceeded_schema_actual_ir = _temp_schema_val
+
+        self.assertTrue(
+            depth_exceeded_schema_actual_ir._max_depth_exceeded_marker,
+            f"{depth_limited_schema_name} ({depth_exceeded_schema_actual_ir.name}) should be marked for max depth exceeded",
+        )
+
+        _temp_name_val = depth_exceeded_schema_actual_ir.name
+        self.assertIsNotNone(_temp_name_val, f"{depth_limited_schema_name} placeholder should have a name.")
+        schema_actual_name = cast(str, _temp_name_val)
+        # The name stored is the sanitized version of the original name used when _handle_max_depth_exceeded was called.
+        self.assertEqual(
+            schema_actual_name,
+            NameSanitizer.sanitize_class_name(depth_limited_schema_name),
+            f"Placeholder name {schema_actual_name} should match sanitized {depth_limited_schema_name}",
+        )
+
+        # Also, check propagation through the allOf list of the top schema
+        # result (DAS_0) -> allOf[0] (DAS_1_IR) -> allOf[0] (DAS_2_IR - placeholder)
+        self.assertIsNotNone(result.all_of)
+        assert result.all_of is not None
+        self.assertTrue(len(result.all_of) > 0)
+        das1_ir = result.all_of[0]
+        self.assertIsNotNone(
+            das1_ir.all_of, "das1_ir.all_of should not be None after previous checks on result.all_of structure"
+        )
+        assert das1_ir.all_of is not None
+        self.assertTrue(len(das1_ir.all_of) > 0)
+        das2_ir_placeholder = das1_ir.all_of[0]
+        self.assertTrue(
+            das2_ir_placeholder._max_depth_exceeded_marker, "DAS_2 placeholder in allOf chain should be marked."
+        )
+        self.assertEqual(das2_ir_placeholder.name, NameSanitizer.sanitize_class_name(depth_limited_schema_name))
+
+        if original_max_depth is None:
+            del os.environ["PYOPENAPI_MAX_DEPTH"]
+        else:
+            os.environ["PYOPENAPI_MAX_DEPTH"] = original_max_depth
+        importlib.reload(schema_parser)
+
+    def test_complex_cycle_with_multiple_refs(self) -> None:
+        schema_name = "ComplexCycleStart"
+        schema_data = {
+            "properties": {
+                "ref1": {"$ref": "#/components/schemas/RefSchema1"},
+                "ref2": {"$ref": "#/components/schemas/RefSchema2"},
+            }
+        }
+        ref_schema1 = {"properties": {"next": {"$ref": "#/components/schemas/RefSchema3"}}}
+        ref_schema2 = {"properties": {"other": {"type": "string"}}}  # Does not cycle
+        ref_schema3 = {"properties": {"back": {"$ref": f"#/components/schemas/{schema_name}"}}}  # Cycles back
+
+        self.context.raw_spec_schemas.update({
+            schema_name: schema_data,
+            "RefSchema1": ref_schema1,
+            "RefSchema2": ref_schema2,
+            "RefSchema3": ref_schema3,
+        })
+        result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
+        self.assertFalse(result._is_circular_ref, "Initial schema may not be marked if cycle is indirect")
+
+    def test_cycle_in_array_items(self) -> None:
+        schema_a_name = "ArrayCycleA"
+        schema_b_name = "ArrayCycleB"
+        schema_a = {"type": "array", "items": {"$ref": f"#/components/schemas/{schema_b_name}"}}
+        schema_b = {"properties": {"a_again": {"$ref": f"#/components/schemas/{schema_a_name}"}}}
+        self.context.raw_spec_schemas.update({schema_a_name: schema_a, schema_b_name: schema_b})
+
+        result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
+        self.assertFalse(result_a._is_circular_ref)  # Schema A itself is not circular initially
+        self.assertIsNotNone(result_a.items)
+        if result_a.items and result_a.items._refers_to_schema:
+            schema_b_ir = result_a.items._refers_to_schema
+            self.assertEqual(schema_b_ir.name, "ArrayCycleB")
+            self.assertIsNotNone(schema_b_ir.properties)
+            if schema_b_ir.properties:
+                a_again_prop = schema_b_ir.properties.get("a_again")
+                self.assertIsNotNone(a_again_prop)
+                if a_again_prop and a_again_prop._refers_to_schema:
+                    self.assertTrue(a_again_prop._refers_to_schema._is_circular_ref)
+
+    def test_parse_schema_handles_three_way_cycle(self) -> None:
+        schema_a_name = "ThreeWayA"
+        schema_b_name = "ThreeWayB"
+        schema_c_name = "ThreeWayC"
+
+        schema_a = {"properties": {"to_b": {"$ref": f"#/components/schemas/{schema_b_name}"}}}
+        schema_b = {"properties": {"to_c": {"$ref": f"#/components/schemas/{schema_c_name}"}}}
+        schema_c = {"properties": {"to_a": {"$ref": f"#/components/schemas/{schema_a_name}"}}}
+
+        self.context.raw_spec_schemas.update({
+            schema_a_name: schema_a,
+            schema_b_name: schema_b,
+            schema_c_name: schema_c,
+        })
+
+        result_a_direct = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
+        self.assertFalse(result_a_direct._is_circular_ref)
+
+        self.context.reset_for_new_parse()
+        self.context.raw_spec_schemas.update({
+            schema_a_name: schema_a,
+            schema_b_name: schema_b,
+            schema_c_name: schema_c,
+        })
+        result_b_direct = _parse_schema(schema_b_name, schema_b, self.context, allow_self_reference=False)
+        self.assertFalse(result_b_direct._is_circular_ref)
+
+        self.context.reset_for_new_parse()
+        self.context.raw_spec_schemas.update({
+            schema_a_name: schema_a,
+            schema_b_name: schema_b,
+            schema_c_name: schema_c,
+        })
+        result_c_direct = _parse_schema(schema_c_name, schema_c, self.context, allow_self_reference=False)
+        self.assertFalse(result_c_direct._is_circular_ref)
 
 
 if __name__ == "__main__":

@@ -68,9 +68,11 @@ def parse_request_body(
                 or "oneOf" in media_schema_node
             )
         ):
-            content_map[mt] = _parse_schema(parent_promo_name_for_req_body, media_schema_node, context)
+            content_map[mt] = _parse_schema(
+                parent_promo_name_for_req_body, media_schema_node, context, allow_self_reference=False
+            )
         else:
-            content_map[mt] = _parse_schema(None, media_schema_node, context)
+            content_map[mt] = _parse_schema(None, media_schema_node, context, allow_self_reference=False)
 
     if not content_map:
         return None

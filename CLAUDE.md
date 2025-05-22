@@ -35,6 +35,9 @@ pytest tests/visit/test_model_visitor.py
 # Run tests with parallel execution (faster for large test suites)
 pytest -xvs
 
+# Run tests with xdist (distributed testing)
+pytest -n auto
+
 # Run a specific test function
 pytest tests/core/test_pagination.py::test_paginate_by_next__iterates_through_multiple_pages
 
@@ -70,6 +73,18 @@ pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my
 
 # Force overwrite existing files without diff check
 pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --force
+```
+
+## Debugging
+
+The repository includes some debug scripts:
+
+```bash
+# Debug generation process
+python debug_generate.py
+
+# Debug project-specific issues
+python debug_project.py
 ```
 
 ## Core Architecture Overview
@@ -172,6 +187,7 @@ When working on the codebase, be aware of this ongoing refactoring and ensure th
    - All code changes should have tests
    - Maintain high test coverage, especially for core components
    - Use pytest fixtures and mocks appropriately
+   - Tests are organized to mirror the package structure in the `tests/` directory
 
 3. **Version Control**:
    - Meaningful commit messages
@@ -187,3 +203,25 @@ The codebase is designed for extensibility in several areas:
 3. **Core Functionality** - Extend/replace core runtime files
 4. **Authentication Plugins** - Implement the `BaseAuth` protocol for custom authentication methods
 5. **Pagination Plugins** - Create custom pagination strategies for different API patterns
+
+## Generated Client Features
+
+The generated clients include:
+
+1. **Async-Only API**: All HTTP calls are async, using `httpx.AsyncClient` by default
+2. **Per-Tag Endpoint Grouping**: Each OpenAPI tag becomes a Python class
+3. **Typed Models**: Every schema becomes a Python dataclass with type hints
+4. **Rich Docstrings**: Endpoint methods and model fields include docstrings
+5. **Pluggable Authentication**: Built-in Bearer and custom header auth plugins
+6. **Pagination Helpers**: Async iterators for cursor/page/offset-based pagination
+7. **Error Handling**: Uniform exception hierarchy with specific aliases
+8. **Response Unwrapping**: Automatic unwrapping of common response patterns
+
+## Documentation
+
+Additional documentation files are available in the `docs/` directory:
+- `architecture.md` - Detailed architecture overview with diagrams
+- `ir_models.md` - Details of the Intermediate Representation
+- `model_visitor.md` - How model code is generated
+- `endpoint_visitor.md` - How endpoint code is generated
+- `render_context.md` - How the rendering context works

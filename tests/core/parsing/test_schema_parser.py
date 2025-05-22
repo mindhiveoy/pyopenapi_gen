@@ -56,7 +56,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         # Act
-        outer_schema_ir = _parse_schema(schema_name, openapi_node, self.context)
+        outer_schema_ir = _parse_schema(schema_name, openapi_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(outer_schema_ir, "Parsed outer schema IR should not be None")
@@ -128,7 +128,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         # Act
-        array_schema_ir = _parse_schema(array_schema_name, openapi_node, self.context)
+        array_schema_ir = _parse_schema(array_schema_name, openapi_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(array_schema_ir, "Parsed array schema IR should not be None")
@@ -219,7 +219,7 @@ class TestSchemaParser(unittest.TestCase):
         schema_name = "NoneNodeSchema"
 
         # Act
-        schema_ir = _parse_schema(schema_name, None, self.context)
+        schema_ir = _parse_schema(schema_name, None, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -260,6 +260,7 @@ class TestSchemaParser(unittest.TestCase):
             node_arg: Optional[Mapping[str, Any]],
             context_arg: ParsingContext,
             max_depth_arg: int,
+            allow_self_reference_arg: bool = False,
         ) -> IRSchema:
             if node_arg == sub_schema_node1:
                 return IRSchema(name="sub1", type="string")
@@ -270,7 +271,7 @@ class TestSchemaParser(unittest.TestCase):
         mock_parse_schema_call_any_of.side_effect = mock_recursive_parse_anyof
 
         # Act
-        schema_ir = _parse_schema(schema_name, openapi_node, self.context)
+        schema_ir = _parse_schema(schema_name, openapi_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -282,8 +283,8 @@ class TestSchemaParser(unittest.TestCase):
         self.assertEqual(schema_ir.any_of[0].type, "string")
         self.assertEqual(schema_ir.any_of[1].type, "integer")
 
-        mock_parse_schema_call_any_of.assert_any_call(None, sub_schema_node1, self.context, ANY)
-        mock_parse_schema_call_any_of.assert_any_call(None, sub_schema_node2, self.context, ANY)
+        mock_parse_schema_call_any_of.assert_any_call(None, sub_schema_node1, self.context, ANY, False)
+        mock_parse_schema_call_any_of.assert_any_call(None, sub_schema_node2, self.context, ANY, False)
 
     @patch("pyopenapi_gen.core.parsing.schema_parser._parse_schema")
     def test_parse_schema_with_one_of(self, mock_parse_schema_call_one_of: unittest.mock.MagicMock) -> None:
@@ -314,6 +315,7 @@ class TestSchemaParser(unittest.TestCase):
             node_arg: Optional[Mapping[str, Any]],
             context_arg: ParsingContext,
             max_depth_arg: int,
+            allow_self_reference_arg: bool = False,
         ) -> IRSchema:
             if node_arg == sub_schema_node1:
                 return IRSchema(name="sub_bool", type="boolean")
@@ -324,7 +326,7 @@ class TestSchemaParser(unittest.TestCase):
         mock_parse_schema_call_one_of.side_effect = mock_recursive_parse_oneof
 
         # Act
-        schema_ir = _parse_schema(schema_name, openapi_node, self.context)
+        schema_ir = _parse_schema(schema_name, openapi_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -336,8 +338,8 @@ class TestSchemaParser(unittest.TestCase):
         self.assertEqual(schema_ir.one_of[0].type, "boolean")
         self.assertEqual(schema_ir.one_of[1].type, "number")
 
-        mock_parse_schema_call_one_of.assert_any_call(None, sub_schema_node1, self.context, ANY)
-        mock_parse_schema_call_one_of.assert_any_call(None, sub_schema_node2, self.context, ANY)
+        mock_parse_schema_call_one_of.assert_any_call(None, sub_schema_node1, self.context, ANY, False)
+        mock_parse_schema_call_one_of.assert_any_call(None, sub_schema_node2, self.context, ANY, False)
 
     def test_parse_schema_with_all_of(self) -> None:
         """
@@ -365,7 +367,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         # Act
-        schema_ir = _parse_schema(schema_name, openapi_node, self.context)
+        schema_ir = _parse_schema(schema_name, openapi_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -461,7 +463,7 @@ class TestSchemaParser(unittest.TestCase):
         # Now, the call to _parse_schema *is* the re-entry.
         # The `is_cycle` flag from `context.enter_schema` (called at the start of this _parse_schema)
         # will be True.
-        schema_ir = _parse_schema(parent_schema_name, parent_node_data, self.context)
+        schema_ir = _parse_schema(parent_schema_name, parent_node_data, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -493,7 +495,7 @@ class TestSchemaParser(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(AssertionError) as context:
-            _parse_schema(schema_name, invalid_node, self.context)
+            _parse_schema(schema_name, invalid_node, self.context, allow_self_reference=False)
 
         self.assertIn("must be a Mapping", str(context.exception))
 
@@ -509,7 +511,7 @@ class TestSchemaParser(unittest.TestCase):
         empty_node: Dict[str, Any] = {}
 
         # Act
-        schema_ir = _parse_schema(schema_name, empty_node, self.context)
+        schema_ir = _parse_schema(schema_name, empty_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -530,7 +532,7 @@ class TestSchemaParser(unittest.TestCase):
         metadata_node = {"description": "A schema with only metadata", "format": "custom", "example": {"key": "value"}}
 
         # Act
-        schema_ir = _parse_schema(schema_name, metadata_node, self.context)
+        schema_ir = _parse_schema(schema_name, metadata_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -556,7 +558,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         # Act
-        schema_ir = _parse_schema(schema_name, duplicate_node, self.context)
+        schema_ir = _parse_schema(schema_name, duplicate_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -583,7 +585,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         # Act
-        schema_ir = _parse_schema(schema_name, invalid_prop_node, self.context)
+        schema_ir = _parse_schema(schema_name, invalid_prop_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -607,7 +609,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         # Act
-        schema_ir = _parse_schema(schema_name, invalid_type_node, self.context)
+        schema_ir = _parse_schema(schema_name, invalid_type_node, self.context, allow_self_reference=False)
 
         # Assert
         self.assertIsNotNone(schema_ir)
@@ -625,7 +627,9 @@ class TestSchemaParser(unittest.TestCase):
             - The referenced schema is resolved and returned.
         """
         self.context.raw_spec_schemas = {"ReferencedSchema": {"type": "string"}}
-        schema = _parse_schema("MySchema", {"$ref": "#/components/schemas/ReferencedSchema"}, self.context)
+        schema = _parse_schema(
+            "MySchema", {"$ref": "#/components/schemas/ReferencedSchema"}, self.context, allow_self_reference=False
+        )
         assert schema.name == "ReferencedSchema"
         assert schema.type == "string"
 
@@ -644,6 +648,7 @@ class TestSchemaParser(unittest.TestCase):
                 "allOf": [{"type": "object", "properties": {"name": {"type": "string"}}}],
             },
             self.context,
+            allow_self_reference=False,
         )
         assert schema.any_of is not None
         assert schema.one_of is not None
@@ -656,7 +661,7 @@ class TestSchemaParser(unittest.TestCase):
         Expected Outcome:
             - The type is extracted and set in the IRSchema.
         """
-        schema = _parse_schema("TypedSchema", {"type": "integer"}, self.context)
+        schema = _parse_schema("TypedSchema", {"type": "integer"}, self.context, allow_self_reference=False)
         assert schema.type == "integer"
 
     def test_parse_schema__property_parsing(self) -> None:
@@ -670,6 +675,7 @@ class TestSchemaParser(unittest.TestCase):
             "ObjectSchema",
             {"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"}}},
             self.context,
+            allow_self_reference=False,
         )
         assert "name" in schema.properties
         assert "age" in schema.properties
@@ -690,6 +696,7 @@ class TestSchemaParser(unittest.TestCase):
                 "description": "A finalized schema",
             },
             self.context,
+            allow_self_reference=False,
         )
         assert schema.type == "object"
         assert "name" in schema.properties
@@ -743,12 +750,12 @@ class TestSchemaParser(unittest.TestCase):
         # The initial call to _parse_schema for 'RefSchema' with 'ref_node'
         # This call is what we're testing. Inside it, if it sees $ref, it should call _parse_schema again.
         # That *second* call is what mock_parse_schema_recursive_call will catch.
-        actual_result_ir = _parse_schema(calling_schema_name, ref_node, self.context)
+        actual_result_ir = _parse_schema(calling_schema_name, ref_node, self.context, allow_self_reference=False)
 
         # Assert
         # 1. Verify the recursive call happened with the correct arguments
         mock_parse_schema_recursive_call.assert_called_once_with(
-            referenced_schema_name, actual_schema_node, self.context, None
+            referenced_schema_name, actual_schema_node, self.context, None, allow_self_reference=False
         )
 
         # 2. Verify that the result of the initial call is the result from the recursive call
@@ -786,7 +793,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         # Act: Parse the parent schema
-        parent_ir = _parse_schema(parent_schema_name, openapi_spec_dict, self.context)
+        parent_ir = _parse_schema(parent_schema_name, openapi_spec_dict, self.context, allow_self_reference=False)
 
         # Assertions for parent schema
         self.assertIsNotNone(parent_ir)

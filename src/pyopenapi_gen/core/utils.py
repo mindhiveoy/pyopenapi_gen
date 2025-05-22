@@ -15,6 +15,27 @@ T = TypeVar("T")
 
 class NameSanitizer:
     """Helper to sanitize spec names and tags into valid Python identifiers and filenames."""
+    
+    # Python built-ins and common problematic names that should be avoided in module names
+    RESERVED_NAMES = {
+        # Built-in types
+        'type', 'int', 'str', 'float', 'bool', 'list', 'dict', 'set', 'tuple', 'bytes',
+        'object', 'complex', 'frozenset', 'bytearray', 'memoryview', 'range',
+        # Built-in functions
+        'abs', 'all', 'any', 'bin', 'callable', 'chr', 'classmethod', 'compile',
+        'delattr', 'dir', 'divmod', 'enumerate', 'eval', 'exec', 'filter', 'format',
+        'getattr', 'globals', 'hasattr', 'hash', 'help', 'hex', 'id', 'input',
+        'isinstance', 'issubclass', 'iter', 'len', 'locals', 'map', 'max', 'min',
+        'next', 'oct', 'open', 'ord', 'pow', 'print', 'property', 'repr', 'reversed',
+        'round', 'setattr', 'slice', 'sorted', 'staticmethod', 'sum', 'super',
+        'vars', 'zip',
+        # Common standard library modules
+        'os', 'sys', 'json', 'time', 'datetime', 'math', 'random', 'string',
+        'collections', 'itertools', 'functools', 'typing', 'pathlib', 'logging',
+        'urllib', 'http', 'email', 'uuid', 'hashlib', 'base64', 'copy', 're',
+        # Other problematic names
+        'data', 'model', 'models', 'client', 'api', 'config', 'utils', 'helpers'
+    }
 
     @staticmethod
     def sanitize_module_name(name: str) -> str:
@@ -35,8 +56,8 @@ class NameSanitizer:
         # If it starts with a digit, prefix with underscore
         if module and module[0].isdigit():
             module = "_" + module
-        # Avoid Python keywords
-        if keyword.iskeyword(module):
+        # Avoid Python keywords and reserved names
+        if keyword.iskeyword(module) or module in NameSanitizer.RESERVED_NAMES:
             module += "_"
         return module
 
@@ -58,8 +79,8 @@ class NameSanitizer:
         # If it starts with a digit, prefix with underscore
         if cls_name[0].isdigit():  # Check after ensuring cls_name is not empty
             cls_name = "_" + cls_name
-        # Avoid Python keywords (case-insensitive)
-        if keyword.iskeyword(cls_name.lower()):
+        # Avoid Python keywords and reserved names (case-insensitive)
+        if keyword.iskeyword(cls_name.lower()) or cls_name.lower() in NameSanitizer.RESERVED_NAMES:
             cls_name += "_"
         return cls_name
 
@@ -101,8 +122,8 @@ class NameSanitizer:
         # If it starts with a digit, prefix with underscore
         if name and name[0].isdigit():
             name = "_" + name
-        # Avoid Python keywords
-        if keyword.iskeyword(name):
+        # Avoid Python keywords and reserved names
+        if keyword.iskeyword(name) or name in NameSanitizer.RESERVED_NAMES:
             name += "_"
         return name
 

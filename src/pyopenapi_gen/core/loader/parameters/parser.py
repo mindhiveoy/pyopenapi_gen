@@ -79,7 +79,11 @@ def parse_parameter(
         base_param_promo_name = f"{operation_id_for_promo}Param" if operation_id_for_promo else ""
         name_for_inline_param_schema = f"{base_param_promo_name}{NameSanitizer.sanitize_class_name(param_name)}"
 
-    schema_ir = _parse_schema(name_for_inline_param_schema, sch, context) if sch else IRSchema(name=None)
+    schema_ir = (
+        _parse_schema(name_for_inline_param_schema, sch, context, allow_self_reference=False)
+        if sch
+        else IRSchema(name=None)
+    )
 
     param = IRParameter(
         name=node["name"],

@@ -449,12 +449,14 @@ class TestParseSchemaAllOfMerging:
                 "required": ["composed_prop1", "common_prop"],
             },
         }
-        context = ParsingContext(raw_spec_schemas=raw_schemas_dict)
+        context = ParsingContext(raw_spec_schemas=raw_schemas_dict, raw_spec_components={})
 
         # Act
-        _parse_schema("BaseSchema", raw_schemas_dict["BaseSchema"], context)
-        _parse_schema("MixinSchema", raw_schemas_dict["MixinSchema"], context)
-        composed_ir_schema = _parse_schema("ComposedSchema", raw_schemas_dict["ComposedSchema"], context)
+        _parse_schema("BaseSchema", raw_schemas_dict["BaseSchema"], context, allow_self_reference=True)
+        _parse_schema("MixinSchema", raw_schemas_dict["MixinSchema"], context, allow_self_reference=True)
+        composed_ir_schema = _parse_schema(
+            "ComposedSchema", raw_schemas_dict["ComposedSchema"], context, allow_self_reference=True
+        )
 
         # Assert
         assert composed_ir_schema is not None
@@ -515,12 +517,14 @@ class TestParseSchemaAllOfMerging:
             },
             "ComposedOnlyAllOf": {"type": "object", "allOf": [{"$ref": "#/components/schemas/BaseSchema"}]},
         }
-        context = ParsingContext(raw_spec_schemas=raw_schemas_dict)
+        context = ParsingContext(raw_spec_schemas=raw_schemas_dict, raw_spec_components={})
 
-        _parse_schema("BaseSchema", raw_schemas_dict["BaseSchema"], context)
+        _parse_schema("BaseSchema", raw_schemas_dict["BaseSchema"], context, allow_self_reference=True)
 
         # Act
-        composed_ir_schema = _parse_schema("ComposedOnlyAllOf", raw_schemas_dict["ComposedOnlyAllOf"], context)
+        composed_ir_schema = _parse_schema(
+            "ComposedOnlyAllOf", raw_schemas_dict["ComposedOnlyAllOf"], context, allow_self_reference=True
+        )
 
         # Assert
         assert composed_ir_schema.name == "ComposedOnlyAllOf"
@@ -550,10 +554,12 @@ class TestParseSchemaAllOfMerging:
                 "required": ["direct_prop"],
             }
         }
-        context = ParsingContext(raw_spec_schemas=raw_schemas_dict)
+        context = ParsingContext(raw_spec_schemas=raw_schemas_dict, raw_spec_components={})
 
         # Act
-        direct_ir_schema = _parse_schema("DirectOnly", raw_schemas_dict["DirectOnly"], context)
+        direct_ir_schema = _parse_schema(
+            "DirectOnly", raw_schemas_dict["DirectOnly"], context, allow_self_reference=True
+        )
 
         # Assert
         assert direct_ir_schema.name == "DirectOnly"

@@ -901,6 +901,22 @@ pytest = ">=4.6"
 testing = ["fields", "hunter", "process-tests", "pytest-xdist", "virtualenv"]
 
 [[package]]
+name = "pytest-timeout"
+version = "1.4.2"
+description = "py.test plugin to abort hanging tests"
+optional = true
+python-versions = "*"
+groups = ["main"]
+markers = "extra == \"dev\""
+files = [
+    {file = "pytest-timeout-1.4.2.tar.gz", hash = "sha256:20b3113cf6e4e80ce2d403b6fb56e9e1b871b510259206d40ff8d609f48bda76"},
+    {file = "pytest_timeout-1.4.2-py2.py3-none-any.whl", hash = "sha256:541d7aa19b9a6b4e475c759fd6073ef43d7cdc9a92d95644c260076eb257a063"},
+]
+
+[package.dependencies]
+pytest = ">=3.6.0"
+
+[[package]]
 name = "pytest-xdist"
 version = "3.6.1"
 description = "pytest xdist plugin for distributed testing, most importantly across multiple CPUs"
@@ -1331,9 +1347,9 @@ MarkupSafe = ">=2.1.1"
 watchdog = ["watchdog (>=2.3)"]
 
 [extras]
-dev = ["black", "mypy", "pytest", "pytest-cov", "ruff"]
+dev = ["black", "mypy", "pytest", "pytest-cov", "pytest-timeout", "ruff"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0.0"
-content-hash = "e6b8b924cc27765bacec6cb082df9c4d314d5825ede22b7eb6015fac96dba090"
+content-hash = "9e1315f8fc229f33ec3a95836fb6a386e8b60cae21f4bc579edcf09d8ef91563"

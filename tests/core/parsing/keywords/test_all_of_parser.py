@@ -18,25 +18,83 @@ class TestProcessAllOf(unittest.TestCase):
         MockParseSchema = Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext], IRSchema]
 
         def side_effect_parse_schema(
-            name: Optional[str],
-            node: Optional[Mapping[str, Any]],
+            schema_name: Optional[str],
+            schema_node: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth: Optional[int] = None,
+            max_depth_override: Optional[int] = None,
+            allow_self_reference: bool = False,
         ) -> IRSchema:
-            if node is None:
-                return IRSchema(name=name)
-            props: Dict[str, IRSchema] = {}
-            reqs: Set[str] = set(node.get("required", []))
-            node_props = node.get("properties", {})
-            for p_name, p_node in node_props.items():
-                if isinstance(p_node, IRSchema):
-                    props[p_name] = p_node
-                elif isinstance(p_node, dict):
-                    props[p_name] = IRSchema(name=p_name, type=p_node.get("type", "string"))
-                else:
-                    props[p_name] = IRSchema(name=p_name, type="string")
+            if schema_node and "$ref" in schema_node:
+                ref_val = schema_node["$ref"]
+                # Simplified ref handling for mock: assume it's a local ref to a schema name
+                # and that it might have been parsed already or will be by a recursive call.
+                if ref_val.startswith("#/components/schemas/"):
+                    referred_name = ref_val.split("/")[-1]
+                    if referred_name in context.parsed_schemas:
+                        return context.parsed_schemas[referred_name]
+                    # If not parsed, create a placeholder or call recursively (simplified for now)
+                    # For this mock, we'll assume direct parsing if not found,
+                    # to avoid complex recursive mock logic unless necessary.
+                    # This part might need to call the mock_parse_schema_func itself if the referred schema is complex.
+                    # For now, let's assume it's a simple schema if not found.
+                    # Fall through to normal parsing if ref not already in parsed_schemas
+                    # This is a simplification; real parsing would fetch the referred schema definition.
+                    pass  # Allow falling through to general parsing if ref not found
 
-            return IRSchema(name=name, type=node.get("type"), properties=props, required=sorted(list(reqs)))
+            if schema_name and schema_name in context.parsed_schemas:
+                # If allow_self_reference is false (default) and we hit this,
+                # it's a cycle not allowed by the current parsing path.
+                # However, for allOf, components are usually parsed independently first.
+                return context.parsed_schemas[schema_name]
+
+            # Determine type from schema_node, default to "object" if not specified
+            schema_type = "object"  # Default if not specified or if complex (e.g. allOf, oneOf)
+            if schema_node:
+                schema_type = schema_node.get("type", "object")
+                # If 'allOf', 'oneOf', 'anyOf' is present, it's a composite type,
+                # but for individual component parsing, the 'type' field might be 'object'.
+                # The IRSchema's 'type' field will ultimately reflect the most specific type.
+
+            ir = IRSchema(name=schema_name, type=schema_type)
+            if schema_node:
+                ir.description = schema_node.get("description")
+                if "properties" in schema_node:
+                    ir.properties = {}
+                    for k, v_node in schema_node["properties"].items():
+                        prop_type = "string"  # Default property type
+                        prop_name = f"{schema_name}.{k}" if schema_name else k
+                        if isinstance(v_node, dict):
+                            prop_type = v_node.get("type", "string")
+                            # Potentially recursive call for complex properties:
+                            # For now, create a simple IRSchema for property.
+                            # A more robust mock might call self.mock_parse_schema_func here.
+                            ir.properties[k] = IRSchema(
+                                name=prop_name, type=prop_type, description=v_node.get("description")
+                            )
+                        else:  # Should not happen in valid OpenAPI
+                            ir.properties[k] = IRSchema(name=prop_name, type="string")
+
+                if "required" in schema_node:
+                    ir.required = list(set(schema_node["required"]))  # Ensure it's a list of unique strings
+
+                # Handle other keywords like 'enum', 'format', 'items' if needed for robustness
+                if "enum" in schema_node:
+                    ir.enum = schema_node["enum"]
+                if "format" in schema_node:
+                    ir.format = schema_node["format"]
+                if "items" in schema_node and isinstance(schema_node["items"], dict):  # Array items
+                    # Simplified items handling: create a basic IRSchema for item type
+                    # A more robust mock would recursively parse schema_node["items"]
+                    item_schema_node = schema_node["items"]
+                    item_type = item_schema_node.get("type", "string")
+                    item_name = f"{schema_name}.items" if schema_name else "items"
+                    ir.items = IRSchema(name=item_name, type=item_type, description=item_schema_node.get("description"))
+
+            if schema_name:
+                # Add to context.parsed_schemas only if it's a named schema being defined,
+                # not an anonymous inline schema (e.g. a property's schema).
+                context.parsed_schemas[schema_name] = ir
+            return ir
 
         self.mock_parse_schema_func.side_effect = side_effect_parse_schema
 

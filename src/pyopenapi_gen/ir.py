@@ -35,13 +35,18 @@ class IRSchema:
     is_data_wrapper: bool = False  # True if schema is a simple {{ "data": OtherSchema }} wrapper
 
     # Internal generator flags/helpers
-    _from_unresolved_ref: bool = False  # True if this IRSchema was created as a placeholder for an unresolvable $ref
+    _from_unresolved_ref: bool = field(
+        default=False, repr=False
+    )  # If this IRSchema is a placeholder for an unresolvable $ref
     _refers_to_schema: Optional[IRSchema] = (
         None  # If this schema is a reference (e.g. a promoted property), this can link to the actual definition
     )
-    _is_circular_ref: bool = False  # True if this schema was detected as part of a circular reference
-    _circular_ref_path: Optional[str] = None  # Contains the path of the circular reference if detected
-    _max_depth_exceeded: bool = False  # ADDED: True if parsing was stopped due to exceeding max depth
+    _is_circular_ref: bool = field(default=False, repr=False)  # If this IRSchema is part of a circular reference chain
+    _circular_ref_path: Optional[str] = field(default=None, repr=False)  # Path of the circular reference
+    _max_depth_exceeded_marker: bool = field(
+        default=False, repr=False
+    )  # If parsing this schema or its components exceeded max depth
+    _is_self_referential_stub: bool = field(default=False, repr=False)  # If this is a placeholder for allowed self-ref
     _is_name_derived: bool = field(
         default=False, repr=False
     )  # True if the name was derived (e.g. for promoted inline objects)

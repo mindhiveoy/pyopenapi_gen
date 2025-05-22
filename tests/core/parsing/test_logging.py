@@ -5,9 +5,16 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
-from pyopenapi_gen.core.parsing.common.ref_resolution import resolve_schema_ref
+import pyopenapi_gen.core.parsing.schema_parser as schema_parser_module
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
+
+# If schema_parser is used directly for its logger, ensure it's imported
+# For example, if tests use: with patch.object(schema_parser.logger, ... )
+# Ensure schema_parser is available. It seems schema_parser_module is intended for this.
+
+# Define a depth for tests that need it.
+depth = 2
 
 
 class TestLogging(unittest.TestCase):
@@ -196,6 +203,98 @@ class TestLogging(unittest.TestCase):
                 self.assertTrue(invalid_prop_schema._from_unresolved_ref)
                 # Check that the IRSchema for the property itself is named correctly (sanitized prop_name)
                 self.assertEqual(invalid_prop_schema.name, "Invalid")
+
+    @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
+    def test_allow_self_reference(self, mock_logger: MagicMock) -> None:
+        """Test that allow_self_reference parameter works correctly."""
+        context = ParsingContext(raw_spec_schemas={}, raw_spec_components={})
+
+        # Test with allow_self_reference=True because DeepSchema refers to itself.
+        schema = {
+            "type": "object",
+            "properties": {f"prop{i}": {"$ref": "#/components/schemas/DeepSchema"} for i in range(depth)},
+        }
+        context = ParsingContext(raw_spec_schemas={"DeepSchema": schema}, raw_spec_components={})
+        result = _parse_schema("DeepSchema", schema, context, allow_self_reference=True)
+        self.assertEqual(result.name, "DeepSchema")
+        # Verify logger calls if necessary, e.g. mock_logger.debug.assert_any_call(...)
+
+        with patch.object(schema_parser_module, "logger") as mock_logger_simple:
+            _parse_schema(
+                "SimpleSchema",
+                {"type": "object", "properties": {"name": {"type": "string"}}},
+                context,
+                allow_self_reference=False,
+            )
+            mock_logger_simple.warning.assert_not_called()
+
+        with patch.object(schema_parser_module, "logger") as mock_logger_invalid_prop:
+            _parse_schema(
+                "InvalidPropSchema",
+                {"type": "object", "properties": {123: {"type": "string"}}},
+                context,
+                allow_self_reference=False,
+            )
+            mock_logger_invalid_prop.warning.assert_called_once()
+            assert "Skipping property with invalid name '123'" in mock_logger_invalid_prop.warning.call_args[0][0]
+
+        parent_schema_name = "ParentTestSchema"
+        child_schema_name = "ChildTestSchema"
+        child_schema = {"type": "string"}
+
+        schema = {"type": "object", "properties": {"child": {"$ref": f"#/components/schemas/{child_schema_name}"}}}
+        context = ParsingContext(
+            raw_spec_schemas={parent_schema_name: schema, child_schema_name: child_schema}, raw_spec_components={}
+        )
+        # Test with allow_self_reference=True as this test might involve complex scenarios
+        result = _parse_schema(parent_schema_name, schema, context, allow_self_reference=True)
+        assert result is not None
+
+    @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
+    def test_parse_schema_with_valid_and_invalid_properties(self, mock_logger: MagicMock) -> None:
+        """Test _parse_schema logs warning for invalid property names and skips them."""
+        context = ParsingContext(raw_spec_schemas={}, raw_spec_components={})
+        _parse_schema(
+            "TestSchema",
+            {"type": "object", "properties": {"validName": {"type": "string"}, 123: {"type": "integer"}}},
+            context,
+            allow_self_reference=False,
+        )
+        mock_logger.warning.assert_called_once()
+        self.assertIn("Skipping property with invalid name '123'", mock_logger.warning.call_args[0][0])
+
+    @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
+    def test_parse_schema_ref_resolution_warning(self, mock_logger: MagicMock) -> None:
+        """Test _parse_schema logs warning for unresolvable $ref."""
+        context = ParsingContext(raw_spec_schemas={}, raw_spec_components={})
+        _parse_schema("TestSchema", {"$ref": "#/components/schemas/NonExistent"}, context, allow_self_reference=False)
+        mock_logger.warning.assert_called_once()
+        self.assertIn(
+            "Cannot resolve $ref '#/components/schemas/NonExistent' for 'TestSchema'. Returning basic IRSchema as placeholder.",
+            mock_logger.warning.call_args[0][0],
+        )
+
+    @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
+    def test_parse_property_ref_resolution_warning(self, mock_logger: MagicMock) -> None:
+        """Test _parse_schema logs warning for unresolvable $ref in a property."""
+        parent_schema_name = "ParentSchemaWithBadRef"
+        schema_data = {
+            "type": "object",
+            "properties": {"child": {"$ref": "#/components/schemas/NonExistentChild"}},
+        }
+        context = ParsingContext(raw_spec_schemas={parent_schema_name: schema_data}, raw_spec_components={})
+        _parse_schema(parent_schema_name, schema_data, context, allow_self_reference=False)
+        mock_logger.warning.assert_called()
+        # May log multiple times due to recursive parsing, check for specific call
+        found_expected_warning = False
+        for call_args in mock_logger.warning.call_args_list:
+            if (
+                f"Property 'child' in schema '{parent_schema_name}' has unresolvable $ref '#/components/schemas/NonExistentChild'. Creating placeholder."
+                in call_args[0][0]
+            ):
+                found_expected_warning = True
+                break
+        self.assertTrue(found_expected_warning, "Expected warning for unresolvable property $ref not found.")
 
 
 if __name__ == "__main__":

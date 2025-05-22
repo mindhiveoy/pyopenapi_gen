@@ -25,8 +25,12 @@ def test_schema_parser_property_required_set() -> None:
     # Create a context to parse with
     context = ParsingContext(raw_spec_schemas={schema_name: schema_node}, raw_spec_components={})
 
-    # This should not raise NameError with final_required_set
-    schema_ir = _parse_schema(schema_name, schema_node, context)
+    # Parse the schema
+    # When parsing a top-level schema that might be self-referential (like Message in this case),
+    # allow_self_reference might need to be True if the cycle detection is too aggressive otherwise.
+    # However, for this specific test, we are testing if the basic parsing creates the object.
+    # The cycle in Message -> Thread -> Message should be handled by cycle detection logic creating placeholders.
+    schema_ir = _parse_schema(schema_name, schema_node, context, allow_self_reference=False)
 
     # Verify that we got a valid schema back
     assert isinstance(schema_ir, IRSchema)

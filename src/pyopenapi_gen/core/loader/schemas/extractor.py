@@ -33,9 +33,10 @@ def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Map
 
     context = ParsingContext(raw_spec_schemas=raw_schemas, raw_spec_components=raw_components)
 
+    # Build initial IR for all schemas found in components
     for n, nd in raw_schemas.items():
         if n not in context.parsed_schemas:
-            _parse_schema(n, nd, context)
+            _parse_schema(n, nd, context, allow_self_reference=True)
 
     # Post-condition check
     assert all(n in context.parsed_schemas for n in raw_schemas), "Not all schemas were parsed"
@@ -69,9 +70,7 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
                 # Only extract complex item schemas (objects and arrays)
                 if prop_schema.items.type == "object" or prop_schema.items.type == "array":
                     # Generate a suitable name for the item schema
-                    item_schema_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{
-                        NameSanitizer.sanitize_class_name(prop_name)
-                    }Item"
+                    item_schema_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Item"
                     base_item_name = item_schema_name
                     i = 1
                     while item_schema_name in schemas or item_schema_name in new_item_schemas:
@@ -122,9 +121,7 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     for schema_name, schema in list(schemas.items()):
         for prop_name, prop_schema in list(schema.properties.items()):
             if prop_schema.enum and not prop_schema.name:
-                enum_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{
-                    NameSanitizer.sanitize_class_name(prop_name)
-                }Enum"
+                enum_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Enum"
                 base_enum_name = enum_name
                 i = 1
                 while enum_name in schemas or enum_name in new_enums:
@@ -138,7 +135,11 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
                     description=prop_schema.description or f"Enum for {schema_name}.{prop_name}",
                 )
                 new_enums[enum_name] = enum_schema
+                
+                # Update the original property to reference the extracted enum
                 prop_schema.name = enum_name
+                prop_schema.type = enum_name  # Make the property reference the enum by name
+                prop_schema.enum = None  # Clear the inline enum since it's now extracted
 
     # Update the schemas dict with the new enums
     schemas.update(new_enums)
