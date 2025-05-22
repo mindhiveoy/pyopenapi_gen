@@ -38,7 +38,7 @@ def test_models_emitter_simple(tmp_path: Path) -> None:
     result: str = "\n".join(lines)
 
     assert "from dataclasses import dataclass" in result
-    assert "id: int" in result
+    assert "id_: int" in result  # 'id' is sanitized to 'id_' because it's a Python builtin
     assert "name: str" in result
 
 
@@ -532,9 +532,9 @@ def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path)
     content = model_file.read_text()
     assert "@dataclass" in content
     assert "class ListenEventsResponse" in content
-    assert "data:" in content
+    assert "data_:" in content  # 'data' is sanitized to 'data_' because it's a Python builtin
     assert "event:" in content
-    assert "id:" in content
+    assert "id_:" in content  # 'id' is sanitized to 'id_' because it's a Python builtin
 
 
 def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
@@ -557,13 +557,13 @@ def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
     emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
     emitter.emit(spec, str(out_dir))
 
-    model_file: Path = out_dir / "models" / "config.py"
+    model_file: Path = out_dir / "models" / "config_.py"  # 'config' is sanitized to 'config_' because it's reserved
     assert model_file.exists()
     content = model_file.read_text()
     assert "from dataclasses import dataclass, field" in content
     assert "from typing import List, Optional" in content
     assert "@dataclass" in content
-    assert "class Config:" in content
+    assert "class Config_:" in content  # 'Config' is sanitized to 'Config_' because 'config' is reserved
     # Field should be Optional[List[str]] and use field(default_factory=list)
     assert "tags: Optional[List[str]] = field(default_factory=list)" in content
 
