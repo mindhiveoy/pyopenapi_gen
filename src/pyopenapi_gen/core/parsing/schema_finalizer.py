@@ -116,6 +116,7 @@ def _finalize_schema_object(
     ):
         # Named schema in context has no type, adopting type
         # schema_obj will be placed in context later, overwriting if necessary.
+        pass
 
     if schema_obj.type is None and (
         schema_obj.properties
