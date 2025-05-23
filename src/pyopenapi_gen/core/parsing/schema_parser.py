@@ -73,7 +73,8 @@ def _resolve_ref(
 
     try:  # Ensure exit_schema is called for ref_name
         # 4. Max depth check specifically for entering this ref_name
-        if context.recursion_depth > ENV_MAX_DEPTH:
+        # But skip for schemas already in parsed_schemas to avoid blocking completed schemas
+        if context.recursion_depth > ENV_MAX_DEPTH and ref_name not in context.parsed_schemas:
             return _handle_max_depth_exceeded(ref_name, context, ENV_MAX_DEPTH)
 
         # 5. Cycle check specifically for entering this ref_name
@@ -305,13 +306,27 @@ def _parse_schema(
     # Pre-conditions
     assert context is not None, "Context cannot be None for _parse_schema"
 
-    # Always call enter_schema to track depth and named cycles. This must be balanced by exit_schema.
-    is_cycle, cycle_path_str = context.enter_schema(schema_name)
+    # Check if this schema has already been parsed (including placeholders)
+    if schema_name is not None and schema_name in context.parsed_schemas:
+        existing_schema = context.parsed_schemas[schema_name]
+        # Return the existing schema (whether it's a placeholder or fully parsed)
+        return existing_schema
+
+    # Check if this schema is already in the parsing stack (called from _resolve_ref)
+    # If so, don't enter again to avoid double-entry
+    already_in_stack = schema_name is not None and schema_name in context.currently_parsing
+    
+    if not already_in_stack:
+        # Always call enter_schema to track depth and named cycles. This must be balanced by exit_schema.
+        is_cycle, cycle_path_str = context.enter_schema(schema_name)
+    else:
+        # Schema is already being parsed by caller (likely _resolve_ref), don't double-enter
+        is_cycle, cycle_path_str = False, None
 
     try:  # Ensure exit_schema is called
-        # Max depth check first, as it's a hard stop regardless of named cycles.
-        # enter_schema() increments recursion_depth, so check it immediately after.
-        if context.recursion_depth > ENV_MAX_DEPTH:
+        # Max depth check first, but only for named schemas to avoid blocking $ref resolution
+        # Anonymous schemas (schema_name=None) are often $ref nodes that need to resolve to named schemas
+        if schema_name is not None and context.recursion_depth > ENV_MAX_DEPTH:
             # _handle_max_depth_exceeded now returns the placeholder IRSchema
             return _handle_max_depth_exceeded(schema_name, context, ENV_MAX_DEPTH)
 
@@ -498,4 +513,5 @@ def _parse_schema(
         return schema_ir
 
     finally:
-        context.exit_schema(schema_name)
+        if not already_in_stack:
+            context.exit_schema(schema_name)

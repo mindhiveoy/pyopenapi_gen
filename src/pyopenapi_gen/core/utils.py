@@ -181,6 +181,14 @@ class Formatter:
         try:
             from black import FileMode, format_str
 
+            # Suppress blib2to3 debug logging that floods output during formatting
+            blib2to3_logger = logging.getLogger('blib2to3')
+            blib2to3_logger.setLevel(logging.WARNING)
+            
+            # Also suppress the driver logger specifically
+            driver_logger = logging.getLogger('blib2to3.pgen2.driver')  
+            driver_logger.setLevel(logging.WARNING)
+
             # Initialize Black formatter
             self._file_mode = FileMode()
             self._format_str = format_str
