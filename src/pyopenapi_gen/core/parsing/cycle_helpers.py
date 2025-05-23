@@ -94,9 +94,6 @@ def _handle_max_depth_exceeded(original_name: Optional[str], context: ParsingCon
     # cycle_path_for_desc = f"{path_prefix} -> MAX_DEPTH_EXCEEDED"
     description = f"[Maximum recursion depth ({max_depth}) exceeded for '{original_name or 'anonymous'}']"
     logger.warning(description)
-    
-    # Set cycle_detected flag since max depth exceeded is a form of cycle detection
-    context.cycle_detected = True
 
     placeholder_schema = IRSchema(
         name=schema_ir_name_attr,

@@ -312,16 +312,8 @@ def _parse_schema(
         # Return the existing schema (whether it's a placeholder or fully parsed)
         return existing_schema
 
-    # Check if this schema is already in the parsing stack (called from _resolve_ref)
-    # If so, don't enter again to avoid double-entry
-    already_in_stack = schema_name is not None and schema_name in context.currently_parsing
-    
-    if not already_in_stack:
-        # Always call enter_schema to track depth and named cycles. This must be balanced by exit_schema.
-        is_cycle, cycle_path_str = context.enter_schema(schema_name)
-    else:
-        # Schema is already being parsed by caller (likely _resolve_ref), don't double-enter
-        is_cycle, cycle_path_str = False, None
+    # Always call enter_schema to track depth and named cycles. This must be balanced by exit_schema.
+    is_cycle, cycle_path_str = context.enter_schema(schema_name)
 
     try:  # Ensure exit_schema is called
         # Max depth check first, but only for named schemas to avoid blocking $ref resolution
@@ -513,5 +505,4 @@ def _parse_schema(
         return schema_ir
 
     finally:
-        if not already_in_stack:
-            context.exit_schema(schema_name)
+        context.exit_schema(schema_name)
