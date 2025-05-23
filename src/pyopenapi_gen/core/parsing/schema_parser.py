@@ -12,10 +12,10 @@ from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
 
 from .context import ParsingContext
-from .cycle_helpers import _handle_cycle_detection, _handle_max_depth_exceeded
 from .keywords.all_of_parser import _process_all_of
 from .keywords.any_of_parser import _parse_any_of_schemas
 from .keywords.one_of_parser import _parse_one_of_schemas
+from .unified_cycle_detection import CycleAction
 
 # Environment variables for configurable limits, with defaults
 try:
@@ -68,44 +68,15 @@ def _resolve_ref(
             description=f"Unresolved $ref: {ref_path_str} (target not found)",
         )
 
-    # 3. Enter context for the referenced schema
-    is_cycle, cycle_path_for_ref = context.enter_schema(ref_name)
-
-    try:  # Ensure exit_schema is called for ref_name
-        # 4. Max depth check specifically for entering this ref_name
-        # But skip for schemas already in parsed_schemas to avoid blocking completed schemas
-        if context.recursion_depth > ENV_MAX_DEPTH and ref_name not in context.parsed_schemas:
-            return _handle_max_depth_exceeded(ref_name, context, ENV_MAX_DEPTH)
-
-        # 5. Cycle check specifically for entering this ref_name
-        if is_cycle:
-            assert cycle_path_for_ref is not None, "Cycle path must be populated if is_cycle is True for ref"
-            # If A refers to B, and B refers to A (or A->B->C->A):
-            # When resolving B from A, if B is already in currently_parsing (due to A itself or an earlier part of A's parse path),
-            # then it's a cycle. `allow_self_reference_for_parent` is about whether A can refer to A directly.
-            # The new `allow_self_reference` for the _parse_schema call for `ref_name` should be True if `ref_name` IS the `parent_schema_name`.
-            is_direct_self_ref_for_component = ref_name == parent_schema_name
-            return _handle_cycle_detection(
-                ref_name,
-                cycle_path_for_ref,
-                context,
-                allow_self_reference_for_parent,
-            )
-
-        # 6. Recursively parse the referenced schema node
-        # The `allow_self_reference` for this call should be true if the ref_name is the same as the parent_schema_name (direct recursion)
-        # or if the original call to parse the parent allowed self-references generally.
-        return _parse_schema(
-            ref_name,
-            ref_node,
-            context,
-            max_depth_override,
-            allow_self_reference=allow_self_reference_for_parent,
-        )
-
-    finally:
-        # 8. Exit context for the referenced schema
-        context.exit_schema(ref_name)
+    # Delegate all cycle detection and context management to _parse_schema
+    # The unified system in _parse_schema will handle all cycle detection, depth limits, and context management
+    return _parse_schema(
+        ref_name,
+        ref_node,
+        context,
+        max_depth_override,
+        allow_self_reference=allow_self_reference_for_parent,
+    )
 
 
 def _parse_composition_keywords(
@@ -306,28 +277,43 @@ def _parse_schema(
     # Pre-conditions
     assert context is not None, "Context cannot be None for _parse_schema"
 
-    # Check if this schema has already been parsed (including placeholders)
-    if schema_name is not None and schema_name in context.parsed_schemas:
-        existing_schema = context.parsed_schemas[schema_name]
-        # Return the existing schema (whether it's a placeholder or fully parsed)
-        return existing_schema
+    # Set allow_self_reference flag on unified context
+    context.unified_cycle_context.allow_self_reference = allow_self_reference
 
-    # Always call enter_schema to track depth and named cycles. This must be balanced by exit_schema.
-    is_cycle, cycle_path_str = context.enter_schema(schema_name)
+    # Use unified cycle detection system
+    detection_result = context.unified_enter_schema(schema_name)
+
+    # Handle different detection results
+    if detection_result.action == CycleAction.RETURN_EXISTING:
+        # Schema already completed - return existing
+        context.unified_exit_schema(schema_name)  # Balance the enter call
+        existing_schema = context.unified_cycle_context.parsed_schemas.get(schema_name)
+        if existing_schema:
+            return existing_schema
+        # Fallback to legacy parsed_schemas if not in unified context
+        existing_schema = context.parsed_schemas.get(schema_name)
+        if existing_schema:
+            return existing_schema
+        # If schema marked as existing but not found anywhere, it might be a state management issue
+        # Reset the state and continue with normal parsing
+        logger.warning(f"Schema '{schema_name}' marked as existing but not found - continuing with normal parsing")
+        from .unified_cycle_detection import SchemaState
+        context.unified_cycle_context.schema_states[schema_name] = SchemaState.NOT_STARTED
+        # Don't call unified_exit_schema again, continue to normal parsing
+
+    elif detection_result.action == CycleAction.RETURN_PLACEHOLDER:
+        # Schema is already a placeholder - return it
+        context.unified_exit_schema(schema_name)  # Balance the enter call
+        return detection_result.placeholder_schema or context.parsed_schemas[schema_name]
+
+    elif detection_result.action == CycleAction.CREATE_PLACEHOLDER:
+        # Cycle or depth limit detected - return the created placeholder
+        context.unified_exit_schema(schema_name)  # Balance the enter call
+        return detection_result.placeholder_schema
+
+    # If we reach here, detection_result.action == CycleAction.CONTINUE_PARSING
 
     try:  # Ensure exit_schema is called
-        # Max depth check first, but only for named schemas to avoid blocking $ref resolution
-        # Anonymous schemas (schema_name=None) are often $ref nodes that need to resolve to named schemas
-        if schema_name is not None and context.recursion_depth > ENV_MAX_DEPTH:
-            # _handle_max_depth_exceeded now returns the placeholder IRSchema
-            return _handle_max_depth_exceeded(schema_name, context, ENV_MAX_DEPTH)
-
-        if is_cycle:
-            assert schema_name is not None, "If is_cycle is True, schema_name must have been provided to enter_schema."
-            assert cycle_path_str is not None, "If is_cycle is True, cycle_path_str must be populated."
-            # _handle_cycle_detection returns the placeholder IRSchema
-            return _handle_cycle_detection(schema_name, cycle_path_str, context, allow_self_reference)
-
         if schema_node is None:
             return IRSchema(name=NameSanitizer.sanitize_class_name(schema_name) if schema_name else None)
 
@@ -342,7 +328,16 @@ def _parse_schema(
             # We want to resolve "ActualPet", but the resulting IRSchema should ideally retain the name 'Pet' if appropriate,
             # or _resolve_ref handles naming if ActualPet itself is parsed.
             # The `parent_schema_name` for _resolve_ref here is `schema_name` itself.
-            return _resolve_ref(schema_node["$ref"], schema_name, context, max_depth_override, allow_self_reference)
+            resolved_schema = _resolve_ref(
+                schema_node["$ref"], schema_name, context, max_depth_override, allow_self_reference
+            )
+
+            # Store the resolved schema under the current schema_name if it has a name
+            # This ensures that synthetic names like "ChildrenItem" are properly stored
+            if schema_name and resolved_schema:
+                context.parsed_schemas[schema_name] = resolved_schema
+
+            return resolved_schema
 
         extracted_type: Optional[str] = None
         is_nullable_from_type_field = False
@@ -505,4 +500,4 @@ def _parse_schema(
         return schema_ir
 
     finally:
-        context.exit_schema(schema_name)
+        context.unified_exit_schema(schema_name)

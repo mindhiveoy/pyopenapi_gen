@@ -68,7 +68,6 @@ class TestCycleDetection(unittest.TestCase):
         self.assertEqual(result.name, NameSanitizer.sanitize_class_name(schema_name), "Schema name should be sanitized")
         self.assertEqual(result.properties, {}, "Circular placeholder should have no properties")
 
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
     def test_mutual_reference_cycle_detection(self) -> None:
         """Test detection of mutual references between schemas."""
         schema_a_name = "SchemaA"
@@ -252,7 +251,6 @@ class TestCycleDetection(unittest.TestCase):
         # Let's check if the context has the cycle detected flag.
         self.assertTrue(self.context.cycle_detected, "Context should flag that a cycle was detected")
 
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
     def test_three_schema_cycle_detection(self) -> None:
         """Test detection of a cycle involving three schemas (A -> B -> C -> A)."""
         schema_a_name = "SchemaA_Triple"
@@ -298,20 +296,16 @@ class TestCycleDetection(unittest.TestCase):
 
         # Ensure that parsing any schema in the cycle detects the cycle overall
         # Clear context for Schema B check (except raw_spec_schemas)
-        self.context.currently_parsing.clear()
+        self.context.clear_cycle_state()
         self.context.parsed_schemas.clear()
-        self.context.recursion_depth = 0
-        self.context.cycle_detected = False
         result_b_direct = _parse_schema(schema_b_name, schema_b, self.context, allow_self_reference=False)
         self.assertTrue(self.context.cycle_detected, "Cycle should be detected when parsing B directly")
         # SchemaB itself won't be marked as circular, but some schema in the chain will detect the cycle
         self.assertEqual(result_b_direct.name, NameSanitizer.sanitize_class_name(schema_b_name))
 
-        # Clear context for Schema C check
-        self.context.currently_parsing.clear()
+        # Clear context for Schema C check  
+        self.context.clear_cycle_state()
         self.context.parsed_schemas.clear()
-        self.context.recursion_depth = 0
-        self.context.cycle_detected = False
         result_c_direct = _parse_schema(schema_c_name, schema_c, self.context, allow_self_reference=False)
         self.assertTrue(self.context.cycle_detected, "Cycle should be detected when parsing C directly")
         # SchemaC itself won't be marked as circular, but some schema in the chain will detect the cycle
@@ -364,7 +358,6 @@ class TestCycleDetection(unittest.TestCase):
         result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
         self.assertTrue(result._is_circular_ref, "Schema should be marked as a circular reference")
 
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
     def test_indirect_cycle(self) -> None:
         schema_a_name = "SchemaA"
         schema_b_name = "SchemaB"
@@ -374,7 +367,6 @@ class TestCycleDetection(unittest.TestCase):
         result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
         self.assertFalse(result_a._is_circular_ref, "SchemaA itself is not the direct circular ref point initially")
 
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
     def test_cycle_via_allof(self) -> None:
         schema_a_name = "SchemaAllOfA"
         schema_b_name = "SchemaAllOfB"
@@ -590,7 +582,6 @@ class TestCycleDetection(unittest.TestCase):
         result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
         self.assertFalse(result._is_circular_ref, "Initial schema may not be marked if cycle is indirect")
 
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
     def test_cycle_in_array_items(self) -> None:
         schema_a_name = "ArrayCycleA"
         schema_b_name = "ArrayCycleB"

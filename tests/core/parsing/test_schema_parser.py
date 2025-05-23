@@ -456,13 +456,13 @@ class TestSchemaParser(unittest.TestCase):
         # We need to simulate that `parent_schema_name` is already in `context.currently_parsing`
         # when `_parse_schema` is called for it *again* from a deeper part of the parsing of itself.
 
-        # Simulate the first entry:
-        self.context.enter_schema(parent_schema_name)
-        # current_parsing = {"ParentCycleSchema"}, recursion_depth = 1
-
+        # Simulate the first entry using unified system:
+        from pyopenapi_gen.core.parsing.unified_cycle_detection import SchemaState
+        self.context.unified_cycle_context.schema_stack.append(parent_schema_name)
+        self.context.unified_cycle_context.schema_states[parent_schema_name] = SchemaState.IN_PROGRESS
+        
         # Now, the call to _parse_schema *is* the re-entry.
-        # The `is_cycle` flag from `context.enter_schema` (called at the start of this _parse_schema)
-        # will be True.
+        # The unified cycle detection should detect the re-entry and return a placeholder
         schema_ir = _parse_schema(parent_schema_name, parent_node_data, self.context, allow_self_reference=False)
 
         # Assert
