@@ -13,7 +13,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     List,
-    Optional,
 )  # Kept Any, List, Optional, TYPE_CHECKING for __getattr__ and __dir__
 
 # Import HTTPMethod from its canonical location
@@ -43,7 +42,7 @@ __all__ = [
 ]
 
 # Semantic version of the generator core – bumped manually for now.
-__version__: str = "0.1.0"
+__version__: str = "0.6.0"
 
 
 # ---------------------------------------------------------------------------

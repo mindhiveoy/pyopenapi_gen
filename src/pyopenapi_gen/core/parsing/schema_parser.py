@@ -53,9 +53,7 @@ def _resolve_ref(
 
     # 1. Check if already parsed (fully or as a placeholder)
     if ref_name in context.parsed_schemas and not context.parsed_schemas[ref_name]._max_depth_exceeded_marker:
-        logger.debug(
-            f"Re-using already parsed schema '{ref_name}' (not a depth placeholder) from context while resolving for '{parent_schema_name or 'anonymous'}'."
-        )
+        # Re-using already parsed schema from context
         return context.parsed_schemas[ref_name]
 
     # 2. Get the raw schema node for the reference
@@ -90,7 +88,7 @@ def _resolve_ref(
                 ref_name,
                 cycle_path_for_ref,
                 context,
-                allow_self_reference_for_parent or is_direct_self_ref_for_component,
+                allow_self_reference_for_parent,
             )
 
         # 6. Recursively parse the referenced schema node
@@ -101,7 +99,7 @@ def _resolve_ref(
             ref_node,
             context,
             max_depth_override,
-            allow_self_reference=(allow_self_reference_for_parent or (ref_name == parent_schema_name)),
+            allow_self_reference=allow_self_reference_for_parent,
         )
 
     finally:

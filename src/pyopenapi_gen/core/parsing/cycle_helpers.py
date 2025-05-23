@@ -32,9 +32,7 @@ def _handle_cycle_detection(
     is_direct_self_ref = len(path_parts) == 2 and path_parts[0] == original_name and path_parts[1] == original_name
 
     if allow_self_reference and is_direct_self_ref:
-        logger.debug(
-            f"Permitted direct self-reference for {original_name}. Creating placeholder, not marking as error cycle."
-        )
+        # Permitted direct self-reference, creating placeholder without marking as error cycle
         if original_name not in context.parsed_schemas:
             # Create a basic placeholder. It will be fully populated when its real definition is parsed.
             # Key is NOT to mark _is_circular_ref = True here.

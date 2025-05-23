@@ -66,12 +66,7 @@ def _finalize_schema_object(
         if getattr(existing_schema, "_is_circular_ref", False) or getattr(
             existing_schema, "_from_unresolved_ref", False
         ):
-            logger.debug(
-                (
-                    f"_finalize_schema_object: Early return of cycle placeholder for '{name}' "
-                    f"(_is_circular_ref={getattr(existing_schema, '_is_circular_ref', None)}, id={id(existing_schema)})"
-                )
-            )
+            # Early return of cycle placeholder
             return existing_schema
 
     final_enum_values: Optional[List[Any]] = enum_node if isinstance(enum_node, list) else None
@@ -119,11 +114,7 @@ def _finalize_schema_object(
         and context.parsed_schemas[schema_obj.name].type is None
         and schema_obj.type is not None
     ):
-        logger.debug(
-            f"_finalize_schema_object: Named schema '{schema_obj.name}' in context has no type, adopting type '{
-                schema_obj.type
-            }'."
-        )
+        # Named schema in context has no type, adopting type
         # schema_obj will be placed in context later, overwriting if necessary.
 
     if schema_obj.type is None and (
@@ -134,18 +125,14 @@ def _finalize_schema_object(
             and node["_def"].get("shape")
         )
     ):
-        logger.debug(
-            f"_finalize_schema_object: Schema '{schema_obj.name or 'anonymous_inline'}' has props/ZodShape, no type; setting to 'object'."
-        )
+        # Schema has properties but no type; setting to 'object'
         schema_obj.type = "object"
 
     if name and "." in name:
         is_explicitly_simple = node.get("type") in ["string", "integer", "number", "boolean", "array"]
         is_explicitly_enum = "enum" in node
         if schema_obj.type is None and not is_explicitly_simple and not is_explicitly_enum:
-            logger.debug(
-                f"_finalize_schema_object: Inline property '{name}' lacks complex type, defaulting to 'object'."
-            )
+            # Inline property lacks complex type, defaulting to 'object'
             schema_obj.type = "object"
 
     # Update the context with the finalized schema object
@@ -156,7 +143,7 @@ def _finalize_schema_object(
             getattr(context.parsed_schemas[name], "_is_circular_ref", False)
             or getattr(context.parsed_schemas[name], "_from_unresolved_ref", False)
         ):
-            logger.debug(f"_finalize_schema_object: NOT overwriting cycle placeholder for '{name}'.")
+            # Not overwriting cycle placeholder
             pass  # Do not overwrite
         elif name not in context.parsed_schemas:
             context.parsed_schemas[name] = schema_obj
@@ -172,11 +159,7 @@ def _finalize_schema_object(
 
     if schema_obj and schema_obj.name and context.parsed_schemas.get(schema_obj.name) is not schema_obj:
         context.parsed_schemas[schema_obj.name] = schema_obj
-        logger.debug(
-            f"_finalize_schema_object: Ensured schema '{schema_obj.name}' (post-standalone-enum) is in context. _is_circular_ref={getattr(schema_obj, '_is_circular_ref', None)}"
-        )
+        # Ensured schema is in context post-standalone-enum processing
 
-    logger.debug(
-        f"_finalize_schema_object: Returning schema '{getattr(schema_obj, 'name', None)}' with _is_circular_ref={getattr(schema_obj, '_is_circular_ref', None)}"
-    )
+    # Returning finalized schema object
     return schema_obj

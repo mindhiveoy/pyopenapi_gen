@@ -98,8 +98,8 @@ class EnhancedCycleDetector:
             self.detected_cycles.append(cycle_info)
             self._mark_schemas_in_cycle(cycle_info)
             
-            logger.warning(f"ENHANCED CYCLE DETECTED: {cycle_info.cycle_path}")
-            logger.info(f"Cycle type: {cycle_info.cycle_type.value}, "
+            logger.debug(f"ENHANCED CYCLE DETECTED: {cycle_info.cycle_path}")
+            logger.debug(f"Cycle type: {cycle_info.cycle_type.value}, "
                        f"Schemas involved: {len(cycle_info.schemas_involved)}")
             
             return True, cycle_info

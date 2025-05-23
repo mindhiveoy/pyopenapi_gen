@@ -55,7 +55,7 @@ class TestCycleDetection(unittest.TestCase):
             "properties": {"name": {"type": "string"}, "self_ref": {"$ref": f"#/components/schemas/{schema_name}"}},
         }
         self.context.raw_spec_schemas = {schema_name: schema_data}
-        result = _parse_schema(schema_name, schema_data, self.context)
+        result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
 
         # Verify cycle detection
         self.assertTrue(result._is_circular_ref, "Schema should be marked as circular")
@@ -82,7 +82,7 @@ class TestCycleDetection(unittest.TestCase):
         self.context.raw_spec_schemas = {schema_a_name: schema_a, schema_b_name: schema_b}
 
         # Parse schema A
-        result_a = _parse_schema(schema_a_name, schema_a, self.context)
+        result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
 
         # Verify cycle detection
         self.assertTrue(result_a._is_circular_ref, "SchemaA should be marked as circular")
@@ -117,7 +117,7 @@ class TestCycleDetection(unittest.TestCase):
         self.context.raw_spec_schemas = {schema_a_name: schema_a, schema_b_name: schema_b}
 
         # Parse schema A
-        result_a = _parse_schema(schema_a_name, schema_a, self.context)
+        result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
 
         # Verify cycle detection
         self.assertTrue(self.context.cycle_detected, "Cycle should be detected in composition")
@@ -150,7 +150,7 @@ class TestCycleDetection(unittest.TestCase):
         }
 
         self.context.raw_spec_schemas = {schema_name: schema_data}
-        result = _parse_schema(schema_name, schema_data, self.context)
+        result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
 
         # Verify cycle detection
         self.assertTrue(result._is_circular_ref, "Schema should be marked as circular")
@@ -169,7 +169,7 @@ class TestCycleDetection(unittest.TestCase):
             current_schema = {"type": "array", "items": current_schema}
 
         self.context.raw_spec_schemas = {schema_name: current_schema}
-        result = _parse_schema(schema_name, current_schema, self.context)
+        result = _parse_schema(schema_name, current_schema, self.context, allow_self_reference=False)
 
         # Verify max depth handling
         # The 'result' (DeepSchema IR) itself may not be the circular placeholder if depth is hit in an anonymous item.
@@ -236,7 +236,7 @@ class TestCycleDetection(unittest.TestCase):
             },
         }
         self.context.raw_spec_schemas = {schema_name: schema_data}
-        result = _parse_schema(schema_name, schema_data, self.context)
+        result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
 
         # Verify cycle detection
         self.assertTrue(result._is_circular_ref, "Schema should be marked as circular due to array items cycle")
@@ -277,7 +277,7 @@ class TestCycleDetection(unittest.TestCase):
         }
 
         # Parse schema A, which should trigger the cycle detection through B and C
-        result_a = _parse_schema(schema_a_name, schema_a, self.context)
+        result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
 
         # Verify cycle detection on SchemaA_Triple
         self.assertTrue(result_a._is_circular_ref, f"{schema_a_name} should be marked as circular")
@@ -306,7 +306,7 @@ class TestCycleDetection(unittest.TestCase):
         self.context.parsed_schemas.clear()
         self.context.recursion_depth = 0
         self.context.cycle_detected = False
-        result_b_direct = _parse_schema(schema_b_name, schema_b, self.context)
+        result_b_direct = _parse_schema(schema_b_name, schema_b, self.context, allow_self_reference=False)
         self.assertTrue(result_b_direct._is_circular_ref, f"{schema_b_name} should be circular if parsed directly")
         self.assertEqual(result_b_direct.name, NameSanitizer.sanitize_class_name(schema_b_name))
 
@@ -315,7 +315,7 @@ class TestCycleDetection(unittest.TestCase):
         self.context.parsed_schemas.clear()
         self.context.recursion_depth = 0
         self.context.cycle_detected = False
-        result_c_direct = _parse_schema(schema_c_name, schema_c, self.context)
+        result_c_direct = _parse_schema(schema_c_name, schema_c, self.context, allow_self_reference=False)
         self.assertTrue(result_c_direct._is_circular_ref, f"{schema_c_name} should be circular if parsed directly")
         self.assertEqual(result_c_direct.name, NameSanitizer.sanitize_class_name(schema_c_name))
 
