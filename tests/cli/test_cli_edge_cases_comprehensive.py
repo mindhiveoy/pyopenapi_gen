@@ -78,8 +78,8 @@ class TestCLIInputValidationEdgeCases:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            # Very long path name
-            long_dir_name = "very_long_directory_name_that_exceeds_typical_limits" * 5
+            # Very long path name (but stay under filesystem limits)
+            long_dir_name = "very_long_directory_name_that_exceeds_typical_limits" * 4  # 208 chars, under 255 limit
             long_path = temp_path / long_dir_name
             long_path.mkdir(parents=True, exist_ok=True)
             
@@ -608,7 +608,7 @@ class TestCLIEdgeCaseRecovery:
             # Recovery attempt should also complete
             assert result2.exit_code in [0, 1, 2], "Recovery attempt should complete"
             
-    @patch('pyopenapi_gen.core.loader.loader.load_ir_from_spec')
+    @patch('pyopenapi_gen.generator.client_generator.load_ir_from_spec')
     def test_recovery_from_internal_errors(self, mock_load_ir: MagicMock) -> None:
         """Test CLI recovery from internal processing errors."""
         runner = CliRunner()
@@ -648,7 +648,7 @@ class TestCLIEdgeCaseRecovery:
             spec_file = Path(temp_dir) / "invalid_spec.json"
             spec_file.write_text('{"invalid": "json structure"}')
             
-            initial_files = set(temp_dir.glob("**/*"))
+            initial_files = set(Path(temp_dir).glob("**/*"))
             
             result = runner.invoke(
                 app,
@@ -661,7 +661,7 @@ class TestCLIEdgeCaseRecovery:
                 catch_exceptions=True
             )
             
-            final_files = set(temp_dir.glob("**/*"))
+            final_files = set(Path(temp_dir).glob("**/*"))
             
             # Should not leave significant temporary artifacts
             # (Some log files or cache might be acceptable)

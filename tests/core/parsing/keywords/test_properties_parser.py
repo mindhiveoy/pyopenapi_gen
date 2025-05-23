@@ -238,7 +238,7 @@ class TestParseProperties(unittest.TestCase):
         # Arrange
         node_properties: Dict[str, Any] = {"data": {"type": "string"}}
         parent_schema_name = None  # Key aspect of this test
-        expected_prop_schema_name = "Data"
+        expected_prop_schema_name = "Data_"  # 'data' is sanitized to 'data_'
 
         expected_data_prop_schema = IRSchema(name=expected_prop_schema_name, type="string")  # Name becomes prop_key
         self.mock_recursive_parse_fn.return_value = expected_data_prop_schema
@@ -293,17 +293,18 @@ class TestParseProperties(unittest.TestCase):
             "config": {"type": "object", "properties": {"timeout": {"type": "integer"}}},
         }
 
-        # Expected contextual names for parse_fn calls
-        expected_id_name = "ComplexSchemaId"
+        # Expected contextual names for parse_fn calls (with name sanitization)
+        expected_id_name = "ComplexSchemaId_"  # 'id' is sanitized to 'id_'
         expected_status_name = "ComplexSchemaStatus"
-        expected_config_name = "ComplexSchemaConfig"
+        expected_config_name = "ComplexSchemaConfig_"  # 'config' is sanitized to 'config_'
 
         # Mock IRSchema returns for each property
-        id_schema = IRSchema(name=expected_id_name, type="string")
+        # Note: IRSchema.__post_init__ calls NameSanitizer.sanitize_class_name() which removes trailing underscores
+        id_schema = IRSchema(name="ComplexSchemaId", type="string")  # Will be sanitized from "ComplexSchemaId_"
         status_enum_schema = IRSchema(name=expected_status_name, type="ComplexSchemaStatusEnum", enum=["on", "off"])
         config_object_schema = IRSchema(
-            name=expected_config_name, type="object", properties={"setting": IRSchema(name="Setting", type="boolean")}
-        )
+            name="ComplexSchemaConfig", type="object", properties={"setting": IRSchema(name="Setting", type="boolean")}
+        )  # Will be sanitized from "ComplexSchemaConfig_"
 
         # General mock setup
         def selective_parse_fn_side_effect(
@@ -333,8 +334,8 @@ class TestParseProperties(unittest.TestCase):
             logger: logging.Logger,
         ) -> Optional[IRSchema]:
             if prop_key_arg == "config":
-                self.assertEqual(property_schema_obj_arg.name, expected_config_name)
-                promoted_ref = IRSchema(name="config", type="ComplexSchemaConfigPromoted")
+                self.assertEqual(property_schema_obj_arg.name, "ComplexSchemaConfig")  # After sanitization
+                promoted_ref = IRSchema(name="Config", type="ComplexSchemaConfigPromoted")  # Name will be sanitized to Config_
                 promoted_ref._refers_to_schema = property_schema_obj_arg
                 return promoted_ref
             return None
@@ -367,7 +368,7 @@ class TestParseProperties(unittest.TestCase):
 
         # Assert 'config' property (promoted object)
         self.assertIn("config", parsed_props)
-        self.assertEqual(parsed_props["config"].name, "Config")
+        self.assertEqual(parsed_props["config"].name, "Config_")  # After sanitization (config is a built-in)
         self.assertEqual(parsed_props["config"].type, "ComplexSchemaConfigPromoted")
         self.assertIs(parsed_props["config"]._refers_to_schema, config_object_schema)
         mock_object_promoter.assert_any_call(

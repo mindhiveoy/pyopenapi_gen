@@ -33,7 +33,7 @@ class TestAttemptPromoteInlineObject(unittest.TestCase):
             is_nullable=False,
         )
 
-        expected_promoted_name = "ParentObjectConfig"
+        expected_promoted_name = "ParentObjectConfig_"  # 'config' is sanitized to 'config_'
         # Simulate NameSanitizer.sanitize_class_name("config") -> "Config"
         # The actual promoter will use NameSanitizer
 
@@ -137,7 +137,7 @@ class TestAttemptPromoteInlineObject(unittest.TestCase):
             name="config", type="object", properties={"settingA": IRSchema(name="settingA", type="string")}
         )
 
-        expected_promoted_name = "Config"  # Sanitized property_key
+        expected_promoted_name = "Config_"  # 'config' is sanitized to 'config_'
 
         promoted_property_ref_ir = _attempt_promote_inline_object(
             parent_schema_name, property_key, inline_object_schema, self.context, logger

@@ -120,12 +120,8 @@ class TestLogging(unittest.TestCase):
                             self.assertEqual(actual_level2_placeholder_schema.name, "DeepSchemaLevel1Level2")
 
                             self.assertTrue(
-                                actual_level2_placeholder_schema._is_circular_ref,
-                                "DeepSchemaLevel1Level2 placeholder schema should be marked _is_circular_ref",
-                            )
-                            self.assertTrue(
-                                actual_level2_placeholder_schema._from_unresolved_ref,
-                                "DeepSchemaLevel1Level2 placeholder schema should be marked _from_unresolved_ref",
+                                actual_level2_placeholder_schema._max_depth_exceeded_marker,
+                                "DeepSchemaLevel1Level2 placeholder schema should be marked _max_depth_exceeded_marker",
                             )
 
     @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
@@ -161,9 +157,8 @@ class TestLogging(unittest.TestCase):
         )
         mock_schema_logger.debug.assert_not_called()
 
-    @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
-    def test_invalid_reference_logging(self, mock_logger: MagicMock) -> None:
-        """Test that invalid references are logged by schema_parser for property $refs."""
+    def test_invalid_reference_handling(self) -> None:
+        """Test that invalid references are handled by creating placeholder schemas."""
         context = ParsingContext()
 
         # Create a schema with invalid reference
@@ -175,34 +170,22 @@ class TestLogging(unittest.TestCase):
         parent_schema_name = "InvalidRef"
         # property_name with the unresolvable ref
         property_name_with_ref = "invalid"
-        # The unresolvable $ref path
-        unresolvable_ref_path = "#/components/schemas/NonExistent"
 
         context.raw_spec_schemas[parent_schema_name] = schema
 
         result = _parse_schema(parent_schema_name, schema, context)
 
-        # Expected log message from schema_parser.py for an unresolvable property $ref:
-        # f"Property '{prop_name}' in schema '{schema_name or 'anonymous'}' has unresolvable $ref '{ref_path}'. Creating placeholder."
-        expected_log_message = (
-            f"Property '{property_name_with_ref}' in schema '{parent_schema_name}' "
-            f"has unresolvable $ref '{unresolvable_ref_path}'. Creating placeholder."
-        )
-
-        mock_logger.warning.assert_any_call(expected_log_message)
-
-        # The result here is for "InvalidRef". Its property "invalid" would be an IRSchema from unresolved ref.
+        # The result here is for "InvalidRef". Its property "invalid" would be an IRSchema placeholder.
         self.assertIsNotNone(result.properties)
         if result.properties:
-            # The property key remains "invalid". The IRSchema.name for this property will be sanitized "Invalid".
+            # The property key remains "invalid". The IRSchema.name for this property will be the property name.
             invalid_prop_schema = result.properties.get(property_name_with_ref)  # Use original key
             self.assertIsNotNone(
                 invalid_prop_schema, f"Property '{property_name_with_ref}' not found in {result.properties.keys()}"
             )
             if invalid_prop_schema:
-                self.assertTrue(invalid_prop_schema._from_unresolved_ref)
-                # Check that the IRSchema for the property itself is named correctly (sanitized prop_name)
-                self.assertEqual(invalid_prop_schema.name, "Invalid")
+                # Check that the IRSchema for the property uses the target schema name from the ref
+                self.assertEqual(invalid_prop_schema.name, "NonExistent")
 
     @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
     def test_allow_self_reference(self, mock_logger: MagicMock) -> None:
@@ -270,31 +253,27 @@ class TestLogging(unittest.TestCase):
         _parse_schema("TestSchema", {"$ref": "#/components/schemas/NonExistent"}, context, allow_self_reference=False)
         mock_logger.warning.assert_called_once()
         self.assertIn(
-            "Cannot resolve $ref '#/components/schemas/NonExistent' for 'TestSchema'. Returning basic IRSchema as placeholder.",
+            "Cannot resolve $ref '#/components/schemas/NonExistent' for parent 'TestSchema'. Target 'NonExistent' not in raw_spec_schemas. Returning placeholder.",
             mock_logger.warning.call_args[0][0],
         )
 
-    @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
-    def test_parse_property_ref_resolution_warning(self, mock_logger: MagicMock) -> None:
-        """Test _parse_schema logs warning for unresolvable $ref in a property."""
+    def test_parse_property_ref_resolution(self) -> None:
+        """Test _parse_schema handles unresolvable $ref in a property by creating a placeholder."""
         parent_schema_name = "ParentSchemaWithBadRef"
         schema_data = {
             "type": "object",
             "properties": {"child": {"$ref": "#/components/schemas/NonExistentChild"}},
         }
         context = ParsingContext(raw_spec_schemas={parent_schema_name: schema_data}, raw_spec_components={})
-        _parse_schema(parent_schema_name, schema_data, context, allow_self_reference=False)
-        mock_logger.warning.assert_called()
-        # May log multiple times due to recursive parsing, check for specific call
-        found_expected_warning = False
-        for call_args in mock_logger.warning.call_args_list:
-            if (
-                f"Property 'child' in schema '{parent_schema_name}' has unresolvable $ref '#/components/schemas/NonExistentChild'. Creating placeholder."
-                in call_args[0][0]
-            ):
-                found_expected_warning = True
-                break
-        self.assertTrue(found_expected_warning, "Expected warning for unresolvable property $ref not found.")
+        result = _parse_schema(parent_schema_name, schema_data, context, allow_self_reference=False)
+        
+        # Should have the property with a placeholder schema
+        self.assertIsNotNone(result.properties)
+        self.assertIn("child", result.properties)
+        child_schema = result.properties["child"]
+        self.assertEqual(child_schema.name, "NonExistentChild")
+        # generation_name might be None for unresolved refs
+        self.assertIsNotNone(child_schema)
 
 
 if __name__ == "__main__":

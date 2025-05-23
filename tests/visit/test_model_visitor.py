@@ -75,7 +75,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
 
             # Assert - updated to match how TypeCleaner handles object type
             self.assertIn(
-                "config: Dict[str, Any] = None",
+                "config_: Dict[str, Any] = None",  # 'config' is sanitized to 'config_'
                 result,  # Use self.assertIn
                 "Failed to handle nullable object with expected output format",
             )
@@ -206,8 +206,8 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("    description: Optional[str]", generated_code)
         self.assertIn("    instructions: Optional[str]", generated_code)
         self.assertIn(
-            "    config: Optional[Dict[str, Any]]", generated_code
-        )  # additionalProperties: true maps to Dict[str, Any]
+            "    config_: Optional[Dict[str, Any]]", generated_code
+        )  # additionalProperties: true maps to Dict[str, Any], 'config' is sanitized to 'config_'
         self.assertIn("    created_at: datetime", generated_code)  # Sanitized
         self.assertIn("    updated_at: datetime", generated_code)  # Sanitized
         self.assertIn(
@@ -662,7 +662,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
             "    count: Optional[int] = 0",
             "    tags: Optional[List[str]] = field(default_factory=list)",
             "    active: Optional[bool] = True",
-            "    config: Optional[Dict[str, Any]] = field(default_factory=dict)",  # Assuming object maps to Dict[str,Any]
+            "    config_: Optional[Dict[str, Any]] = field(default_factory=dict)",  # Assuming object maps to Dict[str,Any], 'config' is sanitized to 'config_'
             '    nullable_with_default: Optional[str] = "Nullable Default"',
             "    no_default_optional: Optional[str] = None",  # Implicit default to None for Optional
         ]

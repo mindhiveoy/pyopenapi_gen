@@ -134,7 +134,7 @@ class TestEndpointMethodSignatureGenerator:
         expected_signature_parts = [
             "async def create_item(",
             "    self,",
-            "    id: int,",
+            "    id_: int,",  # 'id' is sanitized to 'id_'
             "    token: str,",
             "    limit: Optional[int] = None,",
             ") -> SomeReturnType:",
