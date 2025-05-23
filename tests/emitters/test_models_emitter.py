@@ -7,7 +7,16 @@ from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
-def test_models_emitter_simple(tmp_path: Path) -> None:
+def test_models_emitter__single_object_schema__generates_module_and_init(tmp_path: Path) -> None:
+    """
+    Scenario:
+        ModelsEmitter processes a simple IRSpec with a single object schema (Pet)
+        containing basic properties (id, name).
+
+    Expected Outcome:
+        The emitter should generate a Pet model file and a models __init__.py
+        that exports the Pet class.
+    """
     # Create a simple IRSpec with one schema
     schema = IRSchema(
         name="Pet",
@@ -42,8 +51,16 @@ def test_models_emitter_simple(tmp_path: Path) -> None:
     assert "name: str" in result
 
 
-def test_models_emitter_enum(tmp_path: Path) -> None:
-    """Test enum model generation."""
+def test_models_emitter__string_enum_schema__generates_enum_class(tmp_path: Path) -> None:
+    """
+    Scenario:
+        ModelsEmitter processes an IRSpec with a string enum schema (Status)
+        containing enum values ["pending", "approved", "rejected"].
+
+    Expected Outcome:
+        The emitter should generate a Status enum class with the correct values
+        and proper Python enum structure.
+    """
     schema = IRSchema(
         name="Status",
         type="string",
@@ -75,8 +92,16 @@ def test_models_emitter_enum(tmp_path: Path) -> None:
     assert "REJECTED" in result
 
 
-def test_models_emitter_array(tmp_path: Path) -> None:
-    """Test array type generation."""
+def test_models_emitter__object_with_array_property__generates_list_type_annotation(tmp_path: Path) -> None:
+    """
+    Scenario:
+        ModelsEmitter processes an IRSpec with an object schema (PetList) that has
+        an array property containing Pet objects.
+
+    Expected Outcome:
+        The emitter should generate a PetList model with proper List[Pet] type
+        annotation for the array property.
+    """
     schema = IRSchema(
         name="PetList",
         type="object",

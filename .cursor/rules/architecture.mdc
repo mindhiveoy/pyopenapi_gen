@@ -17,6 +17,21 @@ This rule introduces the crucial classes and the overall architecture of the Pyt
   - These dataclasses represent the parsed and normalized OpenAPI spec.
   - All code generation is based on this IR, not the raw OpenAPI dict.
 
+### 1.5. **Parsing and Loading Architecture**
+- **Loader (core/loader/)**
+  - `loader.py` - Main loader orchestration
+  - `operations/` - Operation parsing (parser.py, post_processor.py, request_body.py)
+  - `parameters/` - Parameter parsing (parser.py)
+  - `responses/` - Response parsing (parser.py)
+  - `schemas/` - Schema extraction (extractor.py)
+- **Schema Parsing (core/parsing/)**
+  - `schema_parser.py` - Core schema parsing logic
+  - `unified_cycle_detection.py` - Comprehensive cycle detection system
+  - `context.py` - ParsingContext for state management
+  - `ref_resolution/` - Reference resolution helpers
+  - `keywords/` - Keyword-specific parsers (allOf, oneOf, etc.)
+  - `transformers/` - Schema transformation utilities
+
 ### 2. **Visitors**
 - **Visitor (base class)**
   - Generic base for all code generation visitors. Uses the visitor pattern to traverse IR nodes.
@@ -53,10 +68,12 @@ This rule introduces the crucial classes and the overall architecture of the Pyt
 ---
 
 ## Architectural Flow
-1. **Spec Parsing**: The OpenAPI spec is parsed and converted to IR dataclasses.
-2. **Code Generation**: Emitters use visitors to traverse the IR and generate code for models, endpoints, client, exceptions, and docs.
-3. **Helpers**: Utilities like CodeWriter and NameSanitizer ensure code quality and correctness.
-4. **Output**: Generated code is written to disk as a ready-to-use Python package.
+1. **Spec Loading**: The OpenAPI spec is loaded and validated by the loader module.
+2. **Schema Parsing**: Raw schema dictionaries are parsed into IR dataclasses using the parsing module, with unified cycle detection handling circular references.
+3. **IR Construction**: Complete IRSpec object is built with all operations, parameters, responses, and schemas.
+4. **Code Generation**: Emitters use visitors to traverse the IR and generate code for models, endpoints, client, exceptions, and docs.
+5. **Helpers**: Utilities like CodeWriter and NameSanitizer ensure code quality and correctness.
+6. **Output**: Generated code is written to disk as a ready-to-use Python package.
 
 ---
 
@@ -65,3 +82,5 @@ This rule introduces the crucial classes and the overall architecture of the Pyt
 - **Extensibility**: New emitters, visitors, or plugins can be added without modifying core logic.
 - **Strong Typing**: All IR and generated code is strongly typed.
 - **Separation of Concerns**: Parsing, code generation, and file I/O are clearly separated.
+- **Unified Cycle Detection**: A single, comprehensive system handles all circular reference scenarios consistently.
+- **Modular Parsing**: Schema parsing is broken into focused, testable components.

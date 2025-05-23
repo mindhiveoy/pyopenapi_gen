@@ -107,7 +107,6 @@ class ParsingContext:
             cycle_path_list.append(schema_name)  # Add the re-entrant schema_name to show the loop
             cycle_path_str = " -> ".join(cycle_path_list)
 
-            self.logger.warning(f"CYCLE DETECTED: {cycle_path_str}")
             return True, cycle_path_str
 
         self.currently_parsing.append(schema_name)

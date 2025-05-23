@@ -50,9 +50,6 @@ class SchemaTypeResolver:
             self.context.add_import("typing", "Any")
             return "Any"
 
-        # logger.debug(
-        #     f"[SchemaTypeResolver ID:{id(schema)}] Entry: schema.name='{schema.name}', type='{schema.type}', required={required}, resolve_alias_target={resolve_alias_target}, current_schema_context_name='{current_schema_context_name}'"
-        # )
 
         py_type_str: Optional[str] = None
 
@@ -68,9 +65,6 @@ class SchemaTypeResolver:
                 # Named resolver already handles simple aliases by returning None if they should be structurally resolved.
                 # If it returns a name, it's a direct model/enum class name.
                 # Optionality is handled by the finalizer based on the schema's own definition or usage.
-                # logger.debug(
-                #     f"[SchemaTypeResolver ID:{id(schema)}] Resolved by NamedTypeResolver (not resolving alias target) to '{py_type_str}'."
-                # )
                 return self.finalizer.finalize(py_type_str, schema, required)
 
         # If resolving alias target, or if not a directly named type above, proceed with structural resolution:
@@ -87,26 +81,17 @@ class SchemaTypeResolver:
             temp_enum_type = self.named_resolver.resolve(schema, resolve_alias_target=resolve_alias_target)
             if temp_enum_type:
                 py_type_str = temp_enum_type
-                # logger.debug(
-                #     f"[SchemaTypeResolver ID:{id(schema)}] Resolved by NamedTypeResolver (enum check) to '{py_type_str}'."
-                # )
 
         # 3. Composition types (anyOf, oneOf, allOf)
         if not py_type_str:
             py_type_str = self.composition_resolver.resolve(schema)
             if py_type_str:
-                # logger.debug(
-                #     f"[SchemaTypeResolver ID:{id(schema)}] Resolved by CompositionTypeResolver to '{py_type_str}'."
-                # )
                 pass
 
         # 4. Primitive types
         if not py_type_str:
             py_type_str = self.primitive_resolver.resolve(schema)
             if py_type_str:
-                # logger.debug(
-                #     f"[SchemaTypeResolver ID:{id(schema)}] Resolved by PrimitiveTypeResolver to '{py_type_str}'."
-                # )
                 pass
 
         # 5. Array types
@@ -117,7 +102,6 @@ class SchemaTypeResolver:
                 resolve_alias_target=resolve_alias_target,
             )
             if py_type_str:
-                # logger.debug(f"[SchemaTypeResolver ID:{id(schema)}] Resolved by ArrayTypeResolver to '{py_type_str}'.")
                 pass
 
         # 6. Object types
@@ -126,7 +110,6 @@ class SchemaTypeResolver:
                 schema, parent_schema_name_for_anon_promotion=effective_parent_context_name
             )
             if py_type_str:
-                # logger.debug(f"[SchemaTypeResolver ID:{id(schema)}] Resolved by ObjectTypeResolver to '{py_type_str}'.")
                 pass
 
         # Fallback if no type determined

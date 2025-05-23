@@ -26,7 +26,6 @@ try:
     ENV_MAX_DEPTH = int(os.environ.get("PYOPENAPI_MAX_DEPTH", "150"))  # Default 150
 except ValueError:
     ENV_MAX_DEPTH = 150  # Fallback to 150 if env var is invalid
-PYOPENAPI_DEBUG_CYCLES = os.environ.get("PYOPENAPI_DEBUG_CYCLES", "0") == "1"
 
 logger = logging.getLogger(__name__)
 
@@ -296,7 +295,6 @@ def _parse_schema(
             return existing_schema
         # If schema marked as existing but not found anywhere, it might be a state management issue
         # Reset the state and continue with normal parsing
-        logger.warning(f"Schema '{schema_name}' marked as existing but not found - continuing with normal parsing")
         from .unified_cycle_detection import SchemaState
         context.unified_cycle_context.schema_states[schema_name] = SchemaState.NOT_STARTED
         # Don't call unified_exit_schema again, continue to normal parsing

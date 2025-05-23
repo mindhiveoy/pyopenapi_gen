@@ -126,8 +126,8 @@ Write conditions in **business vocabulary**, not implementation detail.
 
 | Aspect         | Rule                                                   |
 | -------------- | ------------------------------------------------------ |
-| **Formatting** | `black` (line length 100) + `isort`                    |
-| **Linting**    | `flake8` with `flake8-bugbear` & `pylint` ≥ 9.5        |
+| **Formatting** | `black` (line length 120) + `ruff format`               |
+| **Linting**    | `ruff check` for linting and import sorting             |
 | **Typing**     | `mypy --strict` is CI-blocking                         |
 | **Naming**     | PEP 8: classes `PascalCase`, funcs `snake_case`        |
 | **Patterns**   | Prefer **dataclasses** & **enums** over raw tuples/str |
@@ -190,10 +190,10 @@ def test_deposit_increases_balance():
 
 ## 9. AI / Agent Instructions
 
-* Generated code **must include asserts and Contracts docstrings**.
-* When editing legacy code lacking contracts/tests, suggest refactor +
-  tests.
+* Generated code **should include asserts and Contracts docstrings** where appropriate.
+* When editing legacy code lacking contracts/tests, suggest refactor + tests as a separate task.
 * Prefer clear names & explicit types over brevity.
+* **Note**: The current codebase is transitioning to full Design by Contract compliance. Focus on critical business logic for contract enforcement.
 
 ---
 

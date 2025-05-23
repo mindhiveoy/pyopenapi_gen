@@ -173,7 +173,6 @@ def unified_cycle_check(
         context.cycle_detected = True  # Max depth exceeded is considered a form of cycle detection
         placeholder = create_depth_placeholder(schema_name, max_depth)
         context.parsed_schemas[schema_name] = placeholder
-        logger.warning(f"[Maximum recursion depth ({max_depth}) exceeded for '{schema_name}']")
         return CycleDetectionResult(
             True, 
             CycleType.MAX_DEPTH, 
@@ -186,9 +185,6 @@ def unified_cycle_check(
         cycle_info = analyze_cycle(schema_name, context.schema_stack)
         context.cycle_detected = True
         
-        # Log cycle detection
-        cycle_path_str = " -> ".join(cycle_info.cycle_path)
-        logger.warning(f"CYCLE DETECTED: {cycle_path_str}")
         
         # For cycles, create a placeholder for the re-entrant reference, not the original schema
         # This allows the original schema parsing to complete normally

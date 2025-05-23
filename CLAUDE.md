@@ -164,16 +164,21 @@ The process of generating a client follows these sequential steps:
 3. **Intermediate Representation (IR)** - Clean separation between schema parsing and code generation.
 4. **Emitter Pattern** - Responsible for determining what files to emit and orchestrating visitors.
 
-## Current Development Focus
+## Recent Architectural Changes
 
-The project is currently undergoing a significant refactoring of the schema parsing logic in `loader.py`, breaking it down into smaller, more focused components:
+The project has completed a major refactoring of the schema parsing and cycle detection systems:
 
-1. The refactoring follows a Test-Driven Development (TDD) approach, with unit tests written before or concurrently with implementation.
-2. The goal is to improve readability, maintainability, testability, and extensibility of the codebase.
-3. The refactoring involves extracting different aspects of schema parsing into specialized modules like `ref_resolver.py`, `all_of_merger.py`, and `inline_object_promoter.py`.
-4. A `ParsingContext` has been introduced to manage shared state during parsing.
+1. **Unified Cycle Detection**: Implemented a comprehensive, conflict-free cycle detection system in `core/parsing/unified_cycle_detection.py` that handles structural cycles, processing cycles, and depth limits consistently.
 
-When working on the codebase, be aware of this ongoing refactoring and ensure that any changes to the parsing logic align with this modular approach.
+2. **Modular Schema Parsing**: The schema parsing logic has been broken down into focused components with clear separation of concerns:
+   - `schema_parser.py` - Core schema parsing logic
+   - `ref_resolution/` - Reference resolution helpers
+   - `keywords/` - Keyword-specific parsers (allOf, oneOf, etc.)
+   - `transformers/` - Schema transformation utilities
+
+3. **Enhanced ParsingContext**: The `ParsingContext` now integrates with the unified cycle detection system while maintaining backward compatibility.
+
+The codebase now follows a more modular, testable architecture with comprehensive cycle detection and robust error handling.
 
 ## Project Standards
 

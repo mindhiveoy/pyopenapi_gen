@@ -144,10 +144,6 @@ def get_return_type(
                 if py_type.startswith(".") and not py_type.startswith(".."):
                     py_type = "models" + py_type
 
-                # Log that we inferred a return type
-                logger.info(
-                    f"Inferred return type '{py_type}' for GET operation '{op.operation_id}' at path '{op.path}'"
-                )
 
                 return (py_type, False)
 
@@ -353,7 +349,6 @@ def _infer_type_from_path(path: str, schemas: Dict[str, IRSchema]) -> Optional[I
     for candidate in candidates:
         for schema_name, schema in schemas.items():
             if schema_name == candidate or getattr(schema, "name", "") == candidate:
-                logger.info(f"Inferred response type '{candidate}' from path '{path}'")
                 return schema
 
     # Try a more generic approach if no specific match found
@@ -364,7 +359,6 @@ def _infer_type_from_path(path: str, schemas: Dict[str, IRSchema]) -> Optional[I
         if resource_name_lower in schema_name_lower and (
             "response" in schema_name_lower or "result" in schema_name_lower or "dto" in schema_name_lower
         ):
-            logger.info(f"Inferred response type '{schema_name}' from path '{path}'")
             return schema
 
     # Heuristic: if the path ends with a pluralized version of a known schema, infer list of that schema
