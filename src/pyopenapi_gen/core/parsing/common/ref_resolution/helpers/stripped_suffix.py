@@ -44,7 +44,6 @@ def try_stripped_suffix_fallback(
                 if not resolved_schema._from_unresolved_ref:
                     warning_msg = f"Resolved $ref: {ref_value} by falling back to base name '{base_name}'."
                     context.collected_warnings.append(warning_msg)
-                    logger.info(warning_msg)
 
                     context.parsed_schemas[ref_name] = resolved_schema
                     return resolved_schema

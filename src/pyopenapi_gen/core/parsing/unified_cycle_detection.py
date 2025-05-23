@@ -135,11 +135,16 @@ def create_self_ref_placeholder(schema_name: str, cycle_info: CycleInfo) -> IRSc
 def create_depth_placeholder(schema_name: str, depth: int) -> IRSchema:
     """Create a placeholder IRSchema for max depth exceeded."""
     sanitized_name = NameSanitizer.sanitize_class_name(schema_name)
+    description = f"[Maximum recursion depth ({depth}) exceeded for '{schema_name}']"
+    
+    # Import cycle_helpers to use its logging functionality
+    from .cycle_helpers import logger as cycle_helpers_logger
+    cycle_helpers_logger.warning(description)
     
     return IRSchema(
         name=sanitized_name,
         type="object",
-        description=f"[Maximum recursion depth ({depth}) exceeded for '{schema_name}']",
+        description=description,
         _max_depth_exceeded_marker=True,
     )
 

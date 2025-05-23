@@ -16,7 +16,7 @@ from pyopenapi_gen.core.utils import NameSanitizer
 
 # Create a logger for tests, can be a mock or a real one configured for testing
 logger = logging.getLogger("test_inline_enum_extractor")
-logger.setLevel(logging.DEBUG)  # Or whatever level is appropriate
+# Debug logging disabled for cleaner test output
 # To prevent logs from appearing during tests unless explicitly desired:
 # logger.addHandler(logging.NullHandler())
 
@@ -294,7 +294,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
     def setUp(self) -> None:
         self.context = ParsingContext(raw_spec_schemas={}, parsed_schemas={}, visited_refs=set())
         self.logger = logging.getLogger("test_standalone_enum_processor")
-        self.logger.setLevel(logging.DEBUG)
+        # Debug logging disabled for cleaner test output
         # self.logger.addHandler(logging.NullHandler()) # Keep logs quiet during tests
 
     def test_node_is_direct_enum__updates_schema_obj_and_context(self) -> None:

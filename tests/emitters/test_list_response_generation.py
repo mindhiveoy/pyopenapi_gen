@@ -7,19 +7,16 @@ from pyopenapi_gen.core.utils import NameSanitizer  # For consistent naming
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
-def test_list_response_model_generation(tmp_path: Path) -> None:
+def test_models_emitter__list_response_pattern__generates_proper_models_and_imports(tmp_path: Path) -> None:
     """
-    Tests the generation of models for a common list response pattern:
-    - MyItem (a simple model)
-    - PaginationMeta (another simple model)
-    - MyItemListResponse (contains List[MyItem] and PaginationMeta)
+    Scenario:
+        ModelsEmitter processes a common list response pattern with MyItem,
+        PaginationMeta, and MyItemListResponse schemas where the list response
+        contains an array of items and pagination metadata.
 
-    Ensures that:
-    1. my_item.py is generated correctly.
-    2. pagination_meta.py is generated correctly.
-    3. my_item_list_response.py is generated correctly with proper imports.
-    4. models/__init__.py is generated correctly, exporting all three models.
-    5. No spurious 'data.py' or similar is generated.
+    Expected Outcome:
+        The emitter should generate individual model files with proper imports,
+        a correctly structured __init__.py, and no spurious files like 'data.py'.
     """
     # 1. Define IRSchema objects manually
     # Analogous to #/components/schemas/MyItem

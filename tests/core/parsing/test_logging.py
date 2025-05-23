@@ -50,7 +50,7 @@ class TestLogging(unittest.TestCase):
         elif "PYOPENAPI_MAX_DEPTH" in os.environ:  # Ensure key exists before del
             del os.environ["PYOPENAPI_MAX_DEPTH"]
 
-    @patch("pyopenapi_gen.core.parsing.unified_cycle_detection.logger")
+    @patch("pyopenapi_gen.core.parsing.cycle_helpers.logger")
     def test_max_depth_exceeded_logging(self, mock_logger: MagicMock) -> None:
         """Test that exceeding maximum depth is logged."""
         # PYOPENAPI_MAX_DEPTH = "2" is set in setUp

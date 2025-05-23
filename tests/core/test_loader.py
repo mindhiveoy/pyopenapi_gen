@@ -76,7 +76,16 @@ def mock_render_context(tmp_path: Path) -> MagicMock:
     return ctx
 
 
-def test_load_ir_min_spec() -> None:
+def test_load_ir_from_spec__minimal_openapi_spec__creates_ir_with_basic_components() -> None:
+    """
+    Scenario:
+        load_ir_from_spec processes a minimal OpenAPI spec containing basic
+        components (title, version, single endpoint, single schema).
+
+    Expected Outcome:
+        The function should create an IRSpec with correct title, version,
+        and properly parsed Pet schema with required fields.
+    """
     ir = load_ir_from_spec(MIN_SPEC)
 
     assert ir.title == "Petstore"
@@ -100,12 +109,15 @@ def test_load_ir_min_spec() -> None:
     assert op.responses[0].status_code == "200"
 
 
-def test_load_ir_query_params() -> None:
+def test_load_ir_from_spec__operation_with_query_parameters__parses_params_with_types() -> None:
     """
     Scenario:
-        The OpenAPI spec defines a GET endpoint with two query parameters (start_date, end_date).
+        load_ir_from_spec processes an OpenAPI spec with a GET operation containing
+        multiple query parameters (page: integer, size: integer, filter: string).
+
     Expected Outcome:
-        The resulting IROperation contains both parameters with in_ == 'query', correct names, and required flags.
+        The IROperation should include all query parameters with correct names,
+        types, and required status properly parsed.
     """
     spec = {
         "openapi": "3.1.0",
@@ -151,12 +163,15 @@ def test_load_ir_query_params() -> None:
         assert p.schema.type == "string"
 
 
-def test_codegen_analytics_query_params(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_codegen__analytics_with_query_params__generates_params_dict(tmp_path: Path, mock_render_context: MagicMock) -> None:
     """
     Scenario:
-        The OpenAPI spec defines a GET endpoint with a path param and two query params (start_date, end_date).
+        Code generation processes an analytics endpoint with query parameters
+        (start_date, end_date) and generates endpoint method code.
+
     Expected Outcome:
-        The generated endpoint code includes both query params in the params dict, and not the path param.
+        The generated code should include a params dict containing the query
+        parameters but exclude path parameters like tenant_id.
     """
     from pyopenapi_gen.core.loader.loader import load_ir_from_spec
     from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
@@ -228,12 +243,15 @@ def test_codegen_analytics_query_params(tmp_path: Path, mock_render_context: Mag
     assert params_block.strip(), "params dict is empty, should include query params"
 
 
-def test_parse_schema_nullable_type_array() -> None:
+def test_parse_schema__nullable_type_array_format__creates_nullable_irschema() -> None:
     """
     Scenario:
-        - A schema property uses `type: ["string", "null"]`.
+        _parse_schema processes a schema property that uses OpenAPI 3.1
+        nullable type array format: type: ["string", "null"].
+
     Expected Outcome:
-        - The corresponding IRSchema in `properties` should have `type="string"` and `is_nullable=True`.
+        The corresponding IRSchema in properties should have type="string"
+        and is_nullable=True to properly represent the nullable string.
     """
     # Arrange
     spec = {
@@ -266,13 +284,15 @@ def test_parse_schema_nullable_type_array() -> None:
     assert prop_schema.any_of is None  # Ensure composition fields are not set
 
 
-def test_parse_schema_nullable_anyof() -> None:
+def test_parse_schema__nullable_anyof_schema__creates_union_with_none() -> None:
     """
     Scenario:
-        - A schema uses `anyOf` containing a reference and `{type: "null"}`.
+        _parse_schema processes a schema that uses anyOf containing
+        a reference and {type: "null"} for nullable composition.
+
     Expected Outcome:
-        - The resulting IRSchema should have `is_nullable=True`.
-        - Its `any_of` list should contain only the IRSchema for the referenced type.
+        The resulting IRSchema should have is_nullable=True and its
+        any_of list should contain only the IRSchema for the referenced type.
     """
     # Arrange
     spec = {

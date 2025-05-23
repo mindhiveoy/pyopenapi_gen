@@ -8,8 +8,16 @@ from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.helpers.endpoint_utils import _infer_type_from_path, get_return_type
 
 
-def test_infer_type_from_path() -> None:
-    """Test _infer_type_from_path helper function."""
+def test_infer_type_from_path__get_user_endpoint__returns_user_response_type() -> None:
+    """
+    Scenario:
+        infer_type_from_path processes a GET endpoint path '/users/{id}'
+        with available schema types including 'UserResponse'.
+
+    Expected Outcome:
+        The function should return 'UserResponse' as the inferred response
+        type based on the path pattern and available schemas.
+    """
     # Create test schemas
     feedback_schema = IRSchema(name="Feedback", type="object")
     feedback_response_schema = IRSchema(name="FeedbackResponse", type="object")
@@ -46,7 +54,16 @@ def test_infer_type_from_path() -> None:
     assert inferred_schema is None
 
 
-def test_get_endpoint_infers_response_type() -> None:
+def test_get_return_type__get_endpoint_with_response_schema__infers_correct_type() -> None:
+    """
+    Scenario:
+        get_return_type processes a GET operation with a defined response schema
+        and available schema types in the IR.
+
+    Expected Outcome:
+        The function should return the correct type annotation based on the
+        operation's response schema and HTTP method.
+    """
     """Test return type inference for GET endpoint with no defined response schema."""
     # Create test schemas
     feedback_schema = IRSchema(name="Feedback", type="object")
@@ -89,7 +106,16 @@ def test_get_endpoint_infers_response_type() -> None:
     assert needs_unwrap is False
 
 
-def test_get_endpoint_with_defined_response_type() -> None:
+def test_get_return_type__operation_with_explicit_response__uses_defined_type() -> None:
+    """
+    Scenario:
+        get_return_type processes an operation that has an explicitly defined
+        response schema in its 200 response.
+
+    Expected Outcome:
+        The function should use the explicitly defined response schema type
+        rather than inferring from the path or operation ID.
+    """
     """Test that inference doesn't override defined response schemas."""
     # Create test schemas
     feedback_schema = IRSchema(name="Feedback", type="object")

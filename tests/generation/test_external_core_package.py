@@ -77,17 +77,7 @@ loggers_to_debug = [
     "pyopenapi_gen.context.render_context",
     "pyopenapi_gen.visit.client_visitor",
 ]
-for logger_name in loggers_to_debug:
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
-    # Ensure handlers are not duplicated if tests run multiple times in one session
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    elif isinstance(logger.handlers[0], logging.StreamHandler):  # Check existing handler level
-        logger.handlers[0].setLevel(logging.DEBUG)
+# Debug logging disabled for cleaner test output
 
 
 @pytest.fixture

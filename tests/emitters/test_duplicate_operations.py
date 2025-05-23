@@ -34,8 +34,16 @@ def mock_render_context(tmp_path: Path) -> MagicMock:
     return ctx
 
 
-def test_deduplicate_operation_ids(tmp_path: Path, mock_render_context: MagicMock) -> None:
-    """Test the deduplication of operation IDs with the same sanitized name."""
+def test_endpoints_emitter__duplicate_operation_ids__generates_unique_method_names(tmp_path: Path, mock_render_context: MagicMock) -> None:
+    """
+    Scenario:
+        EndpointsEmitter processes operations with IDs that would result in the same
+        sanitized method name (e.g., "get_feedback" and "getFeedback").
+    
+    Expected Outcome:
+        The emitter should generate unique method names by adding suffixes
+        (e.g., "get_feedback" and "get_feedback_2").
+    """
     # Create two operations with IDs that would result in the same sanitized method name
     op1 = IROperation(
         operation_id="get_feedback",

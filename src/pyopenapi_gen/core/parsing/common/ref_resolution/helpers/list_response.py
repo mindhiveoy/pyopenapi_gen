@@ -48,7 +48,6 @@ def try_list_response_fallback(
 
     warning_msg = f"Resolved $ref: {ref_value} by falling back to LIST of base name '{base_name}'."
     context.collected_warnings.append(warning_msg)
-    logger.info(warning_msg)
 
     resolved_schema = IRSchema(name=ref_name, type="array", items=item_schema)
     context.parsed_schemas[ref_name] = resolved_schema

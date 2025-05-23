@@ -11,7 +11,16 @@ from pyopenapi_gen.core.utils import (
 )
 
 
-def test_sanitize_module_name() -> None:
+def test_sanitize_module_name__invalid_chars__creates_valid_module_name() -> None:
+    """
+    Scenario:
+        sanitize_module_name processes a string with invalid characters
+        for Python module names (spaces, hyphens, special chars).
+
+    Expected Outcome:
+        The function should return a valid Python module name with invalid
+        characters replaced or removed according to naming rules.
+    """
     # Basic conversions
     assert NameSanitizer.sanitize_module_name("Vector Databases") == "vector_databases"
     assert NameSanitizer.sanitize_module_name("  My-API.Client!! ") == "my_api_client"
@@ -20,7 +29,16 @@ def test_sanitize_module_name() -> None:
     assert NameSanitizer.sanitize_module_name("class") == "class_"
 
 
-def test_sanitize_class_name() -> None:
+def test_sanitize_class_name__invalid_chars__creates_valid_class_name() -> None:
+    """
+    Scenario:
+        sanitize_class_name processes a string with invalid characters
+        for Python class names (spaces, hyphens, special chars).
+
+    Expected Outcome:
+        The function should return a valid Python class name following
+        PascalCase convention with invalid characters handled properly.
+    """
     # PascalCase conversion
     assert NameSanitizer.sanitize_class_name("vector databases") == "VectorDatabases"
     assert NameSanitizer.sanitize_class_name("my-api_client") == "MyApiClient"
@@ -30,12 +48,30 @@ def test_sanitize_class_name() -> None:
     assert NameSanitizer.sanitize_class_name("1class") == "_1Class"
 
 
-def test_sanitize_filename() -> None:
+def test_sanitize_filename__invalid_chars__creates_valid_filename() -> None:
+    """
+    Scenario:
+        sanitize_filename processes a string with characters that are
+        invalid for filesystem filenames (special chars, spaces).
+
+    Expected Outcome:
+        The function should return a valid filename with invalid characters
+        replaced or removed while preserving readability.
+    """
     assert NameSanitizer.sanitize_filename("Test Name") == "test_name.py"
     assert NameSanitizer.sanitize_filename("AnotherExample", suffix=".py") == "another_example.py"
 
 
-def test_param_substitutor_render_path() -> None:
+def test_param_substitutor__path_with_variables__renders_formatted_path() -> None:
+    """
+    Scenario:
+        param_substitutor processes a URL path template with parameter
+        placeholders and substitutes them with formatted values.
+
+    Expected Outcome:
+        The function should return a properly formatted path string with
+        all parameter placeholders replaced with their values.
+    """
     template = "/users/{userId}/items/{itemId}"
     values = {"userId": 42, "itemId": "abc"}
     assert ParamSubstitutor.render_path(template, values) == "/users/42/items/abc"
@@ -43,7 +79,16 @@ def test_param_substitutor_render_path() -> None:
     assert ParamSubstitutor.render_path("/test/{foo}", {}) == "/test/{foo}"
 
 
-def test_kwargs_builder() -> None:
+def test_kwargs_builder__parameter_list__creates_kwargs_dict() -> None:
+    """
+    Scenario:
+        kwargs_builder processes a list of parameters with names and values
+        to create a keyword arguments dictionary.
+
+    Expected Outcome:
+        The function should return a properly formatted kwargs dictionary
+        with parameter names as keys and their values.
+    """
     # Only params
     builder = KwargsBuilder().with_params(a=1, b=None, c="x")
     assert builder.build() == {"params": {"a": 1, "c": "x"}}

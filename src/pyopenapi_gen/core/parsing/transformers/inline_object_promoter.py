@@ -103,10 +103,6 @@ def _attempt_promote_inline_object(
 
     # Corrected logger call for clarity and f-string safety
     parent_display_name = parent_schema_name or "<None>"
-    logger.info(
-        f"PROMOTED_OBJECT: Promoted inline object for property '{parent_display_name}.{property_key}' "
-        f"(original contextual name: '{original_name_of_promoted_obj}') to global schema '{chosen_global_name}'."
-    )
 
     property_ref_ir = IRSchema(
         name=property_key,

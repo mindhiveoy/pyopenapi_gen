@@ -8,7 +8,16 @@ from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.helpers.endpoint_utils import _find_resource_schema, get_return_type
 
 
-def test_find_resource_schema() -> None:
+def test_find_resource_schema__user_update_schema__returns_user_schema() -> None:
+    """
+    Scenario:
+        find_resource_schema processes an 'UpdateUser' schema name to find
+        the corresponding resource schema in available schemas.
+
+    Expected Outcome:
+        The function should return the 'User' schema by removing the 'Update'
+        prefix and finding the matching resource schema.
+    """
     """Test _find_resource_schema helper function."""
     # Create test schemas
     tenant_schema = IRSchema(name="Tenant", type="object")
@@ -36,7 +45,16 @@ def test_find_resource_schema() -> None:
     assert resource_schema is None
 
 
-def test_put_endpoint_with_update_schema_infers_resource_type() -> None:
+def test_get_return_type__put_with_update_schema__infers_resource_type() -> None:
+    """
+    Scenario:
+        get_return_type processes a PUT operation with an 'UpdateUser' request
+        body schema and finds a corresponding 'User' response schema.
+
+    Expected Outcome:
+        The function should infer that the PUT operation returns the 'User'
+        resource type based on the update schema pattern.
+    """
     """Test return type inference for PUT endpoint with Update schema."""
     # Create test schemas
     tenant_schema = IRSchema(name="Tenant", type="object")
@@ -81,7 +99,16 @@ def test_put_endpoint_with_update_schema_infers_resource_type() -> None:
     assert needs_unwrap is False
 
 
-def test_put_endpoint_with_no_matching_resource_uses_update_type() -> None:
+def test_get_return_type__put_no_matching_resource__uses_update_type() -> None:
+    """
+    Scenario:
+        get_return_type processes a PUT operation with an update schema but
+        no corresponding resource schema is found in available schemas.
+
+    Expected Outcome:
+        The function should fall back to using the update schema type as
+        the return type when no matching resource schema exists.
+    """
     """Test return type when no matching resource schema is found."""
     # Create test schema
     config_update_schema = IRSchema(name="ConfigUpdate", type="object")
@@ -124,7 +151,16 @@ def test_put_endpoint_with_no_matching_resource_uses_update_type() -> None:
     assert needs_unwrap is False
 
 
-def test_non_put_endpoint_returns_none_without_response() -> None:
+def test_get_return_type__non_put_no_response__returns_none() -> None:
+    """
+    Scenario:
+        get_return_type processes a non-PUT operation (POST) that has no
+        defined response schema or content.
+
+    Expected Outcome:
+        The function should return None indicating no specific return type
+        can be determined for operations without response schemas.
+    """
     """Test that non-PUT endpoints still return None when no response is defined."""
     # Create test schema
     user_schema = IRSchema(name="User", type="object")

@@ -85,7 +85,6 @@ class ModelsEmitter:
             init_file_path = models_dir / "__init__.py"
             with init_file_path.open("w", encoding="utf-8") as f:
                 f.write(init_content)
-            logger.info(f"Generated empty models/__init__.py at {init_file_path}")
             return str(init_file_path)
 
         # This point onwards, self.context.parsed_schemas is guaranteed to be non-None
@@ -121,7 +120,6 @@ class ModelsEmitter:
         init_file_path = models_dir / "__init__.py"
         with init_file_path.open("w", encoding="utf-8") as f:
             f.write(init_content)
-        logger.info(f"Generated models/__init__.py at {init_file_path}")
         return str(init_file_path)
 
     def emit(self, output_base_dir: Path) -> List[str]:

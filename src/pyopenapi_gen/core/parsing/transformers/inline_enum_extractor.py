@@ -237,9 +237,6 @@ def _process_standalone_inline_enum(
             counter += 1
 
         schema_obj.name = candidate_name
-        logger.info(
-            f"STANDALONE_ENUM_PROCESS: Generated more meaningful name '{schema_obj.name}' for an unnamed standalone enum."
-        )
 
     # If the name (now sanitized and potentially unique) exists in context.parsed_schemas
     # but refers to a different object, we need to ensure this schema_obj gets a unique name.

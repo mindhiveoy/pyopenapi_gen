@@ -8,7 +8,7 @@ from pyopenapi_gen.core.parsing.transformers.inline_object_promoter import _atte
 from pyopenapi_gen.core.utils import NameSanitizer
 
 logger = logging.getLogger("test_inline_object_promoter")
-logger.setLevel(logging.DEBUG)
+# Debug logging disabled for cleaner test output
 # logger.addHandler(logging.NullHandler())
 
 

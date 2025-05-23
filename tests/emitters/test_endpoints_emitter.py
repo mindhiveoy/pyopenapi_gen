@@ -39,16 +39,15 @@ def mock_render_context(tmp_path: Path) -> MagicMock:
     return ctx
 
 
-def test_endpoints_emitter_basic(tmp_path: Path, mock_render_context: MagicMock) -> None:
-    """Test the basic functionality of the EndpointsEmitter.
-
+def test_endpoints_emitter__multiple_operations_with_tags__generates_separate_tag_modules(tmp_path: Path, mock_render_context: MagicMock) -> None:
+    """
     Scenario:
-        - Create an IRSpec with operations organized by tags
-        - Use the emitter to generate endpoint modules
+        EndpointsEmitter processes an IRSpec containing operations organized by tags
+        (pets and users), with multiple operations per tag.
 
-    Expected outcome:
-        - A module should be created for each tag
-        - Each module should contain appropriate endpoint methods
+    Expected Outcome:
+        The emitter should generate separate endpoint modules for each tag,
+        with each module containing the appropriate endpoint methods for that tag.
     """
     # Create sample operations with tags
     operations = [
@@ -110,8 +109,15 @@ def test_endpoints_emitter_basic(tmp_path: Path, mock_render_context: MagicMock)
     assert "async def list_users" in users_content
 
 
-def test_endpoints_emitter_json_body(tmp_path: Path, mock_render_context: MagicMock) -> None:
-    """Test JSON body parameter support in EndpointsEmitter."""
+def test_endpoints_emitter__json_request_body__generates_body_parameter_and_json_assignment(tmp_path: Path, mock_render_context: MagicMock) -> None:
+    """
+    Scenario:
+        EndpointsEmitter processes an operation with a JSON request body.
+    
+    Expected Outcome:
+        The generated method should include a body parameter and assign
+        it to json_body for the HTTP request.
+    """
     # Define a JSON schema for the request body
     schema = IRSchema(name=None, type="object")
     request_body = IRRequestBody(required=True, content={"application/json": schema})
@@ -147,8 +153,15 @@ def test_endpoints_emitter_json_body(tmp_path: Path, mock_render_context: MagicM
     assert "json_body: Dict[str, Any] = body" in content
 
 
-def test_endpoints_emitter_multipart(tmp_path: Path, mock_render_context: MagicMock) -> None:
-    """Test multipart/form-data file upload support in EndpointsEmitter."""
+def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_assignment(tmp_path: Path, mock_render_context: MagicMock) -> None:
+    """
+    Scenario:
+        EndpointsEmitter processes an operation with a multipart/form-data request body.
+    
+    Expected Outcome:
+        The generated method should include a files parameter with proper typing
+        and assign it to files_data for the HTTP request.
+    """
     # Define a simple schema for multipart/form-data (file upload)
     schema = IRSchema(name=None, type="string")
     request_body = IRRequestBody(required=True, content={"multipart/form-data": schema})
@@ -185,8 +198,15 @@ def test_endpoints_emitter_multipart(tmp_path: Path, mock_render_context: MagicM
     assert "files_data: Dict[str, IO[Any]] = files" in content
 
 
-def test_endpoints_emitter_streaming(tmp_path: Path, mock_render_context: MagicMock) -> None:
-    """Test that streaming (binary) responses generate async iterators."""
+def test_endpoints_emitter__streaming_binary_response__generates_async_iterator_with_bytes_yield(tmp_path: Path, mock_render_context: MagicMock) -> None:
+    """
+    Scenario:
+        EndpointsEmitter processes an operation with a streaming binary response.
+    
+    Expected Outcome:
+        The generated method should return AsyncIterator[bytes] and yield
+        chunks from response.aiter_bytes().
+    """
     # Create a streaming response IR
     streaming_resp = IRResponse(
         status_code="200",
@@ -227,8 +247,16 @@ def test_endpoints_emitter_streaming(tmp_path: Path, mock_render_context: MagicM
     assert "async for chunk in iter_bytes(response):" in content
 
 
-def test_endpoints_emitter_imports(tmp_path: Path, mock_render_context: MagicMock) -> None:
-    """Test that the endpoint module has the correct import statements."""
+def test_endpoints_emitter__complex_operation_with_mixed_params__includes_required_type_imports(tmp_path: Path, mock_render_context: MagicMock) -> None:
+    """
+    Scenario:
+        EndpointsEmitter processes a complex operation with path parameters,
+        query parameters, JSON and multipart request bodies, and streaming responses.
+    
+    Expected Outcome:
+        The generated endpoint module should include all necessary type imports
+        (Any, AsyncIterator, Dict, IO, Optional).
+    """
     from pyopenapi_gen import (
         HTTPMethod,
         IROperation,

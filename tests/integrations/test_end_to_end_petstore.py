@@ -75,12 +75,15 @@ def test_petstore_integration_with_tag(tmp_path: Path) -> None:
     assert mypy_result.returncode == 0, f"mypy errors:\n{mypy_result.stdout}\n{mypy_result.stderr}"
 
 
-def test_petstore_integration_no_tag(tmp_path: Path) -> None:
+def test_petstore_client__without_tags__generates_default_endpoint_class(tmp_path: Path) -> None:
     """
     Scenario:
-        Generate client for a minimal spec with no tags and verify output files.
+        ClientGenerator processes a petstore API spec without any tags
+        specified for operations.
+
     Expected Outcome:
-        default.py endpoint is generated and contains the list_pets method.
+        The generator should create a default.py endpoint class containing
+        all untagged operations grouped together.
     """
     # Arrange
     spec_file = tmp_path / "spec.json"

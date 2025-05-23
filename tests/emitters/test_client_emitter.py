@@ -25,8 +25,16 @@ def mock_render_context() -> MagicMock:
     return ctx
 
 
-def test_client_emitter_creates_core_files(tmp_path: Path, mock_render_context: MagicMock) -> None:
-    """ClientEmitter should generate client.py with expected content."""
+def test_client_emitter__simple_api_spec__generates_client_py_with_imports(tmp_path: Path, mock_render_context: MagicMock) -> None:
+    """
+    Scenario:
+        ClientEmitter processes a simple IRSpec with basic API information
+        (title, version, servers).
+
+    Expected Outcome:
+        The emitter should generate a client.py file with the proper API client
+        class and necessary imports for the core functionality.
+    """
     out_dir = tmp_path / "out"
     # Dummy spec (not used by emitter)
     spec = IRSpec(

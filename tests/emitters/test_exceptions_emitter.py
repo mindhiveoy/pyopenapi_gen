@@ -4,7 +4,16 @@ from pyopenapi_gen import HTTPMethod, IROperation, IRResponse, IRSpec
 from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 
 
-def test_exceptions_emitter_generates_aliases(tmp_path: Path) -> None:
+def test_exceptions_emitter__numeric_response_codes__generates_error_aliases(tmp_path: Path) -> None:
+    """
+    Scenario:
+        ExceptionsEmitter processes an IRSpec containing operations with numeric
+        response codes (404, 500).
+    
+    Expected Outcome:
+        The emitter should generate exception_aliases.py with corresponding
+        Error404 and Error500 classes that inherit from appropriate base exceptions.
+    """
     # Create IR operations with numeric response codes
     resp1 = IRResponse(status_code="404", description="Not found", content={})
     resp2 = IRResponse(status_code="500", description="Server err", content={})

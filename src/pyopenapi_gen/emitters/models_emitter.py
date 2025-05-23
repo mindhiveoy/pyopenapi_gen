@@ -50,10 +50,6 @@ class ModelsEmitter:
         )
 
         file_path = models_dir / f"{schema_ir.final_module_stem}.py"
-        logger.info(
-            f"Attempting to generate model file: {file_path} for class {schema_ir.generation_name} "
-            f"(original schema name: {schema_ir.name})"
-        )
 
         self.context.set_current_file(str(file_path))
 
@@ -100,7 +96,6 @@ class ModelsEmitter:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             # logger.debug(f"Attempting to write content to {file_path}")
             file_path.write_text(file_content, encoding="utf-8")
-            logger.info(f"Successfully generated model file: {file_path} for class {schema_ir.generation_name}")
             return str(file_path)
         except OSError as e:
             logger.error(f"Error writing model file {file_path}: {e}")

@@ -17,9 +17,6 @@ from pyopenapi_gen.visit.model.model_visitor import ModelVisitor  # Updated impo
 # from pyopenapi_gen.utils.log_utils import setup_logging # This path is incorrect, removing for now
 
 # Configure logging for specific modules to DEBUG for this test class
-logging.getLogger("pyopenapi_gen.context.render_context").setLevel(logging.DEBUG)
-logging.getLogger("pyopenapi_gen.helpers.type_helper").setLevel(logging.DEBUG)
-logging.getLogger("pyopenapi_gen.context.import_collector").setLevel(logging.DEBUG)
 
 # Attempt to silence blib2to3.pgen2.driver logs
 logging.getLogger("blib2to3.pgen2.driver").setLevel(logging.WARNING)
@@ -30,15 +27,15 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # Arrange
         self.model_visitor = ModelVisitor()
 
-    def test_model_visitor_handles_openapi_31_nullable_types(self) -> None:
+    def test_model_visitor__openapi_31_nullable_types__generates_optional_annotations(self) -> None:
         """
         Scenario:
-            - Create a schema with a property that uses OpenAPI 3.1 style nullable types
-            - Generate a model using the ModelVisitor
+            ModelVisitor processes a schema with a property that uses OpenAPI 3.1
+            style nullable types (Dict with extra None parameter).
 
         Expected Outcome:
-            - The ModelVisitor should generate the model with proper Optional types
-            - Invalid None parameters should be cleaned from the type annotations
+            The ModelVisitor should generate the model with proper Optional types
+            and cleaned type annotations (invalid None parameters removed).
         """
         # Arrange
         # Create a schema with a property using a Dict with an extra None parameter
