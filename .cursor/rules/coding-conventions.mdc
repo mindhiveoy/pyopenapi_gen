@@ -1,25 +1,15 @@
 ---
-description: 
-globs: *.py
-alwaysApply: false
----
----
-
 description: >-
-Mindhive Python Coding Conventions — enforce Design-by-Contract without
-external libraries, ensure Separation of Concerns, Test-Driven
-Development, high coverage & first-class documentation. Applied to
-every `*.py` file.
-globs:
-
-* "\*\*/\*.py"
-  alwaysApply: true
-
+  Python Coding Conventions — enforce Design-by-Contract without
+  external libraries, ensure Separation of Concerns, Test-Driven
+  Development, high coverage & first-class documentation.
+globs: ["**/*.py"]
+alwaysApply: true
 ---
 
-# Mindhive Python Coding Conventions
+# Python Coding Conventions
 
-> **Purpose**
+> **Purpose**  
 > Guarantee that every line of Python in this repository is **clear,
 > maintainable, testable and rigorously specified by contract & tests**.
 

@@ -1,428 +1,155 @@
-# Python OpenAPI/Swagger Client Generator
+# PyOpenAPI Generator
 
-A modern, async-first Python client generator for OpenAPI (Swagger) specifications. This tool creates robust, ergonomic, and highly-typed Python clients that make integrating with any HTTP API seamless, safe, and developer-friendly.
-
----
+Modern, async-first Python client generator for OpenAPI specifications. Creates robust, type-safe clients that require no runtime dependencies on this generator.
 
 ## Quick Start
 
-### 1. Install
-
+### Install
 ```bash
 pip install pyopenapi-gen
 ```
 
-### 2. Generate a Client
-
+### Generate Client
 ```bash
-pyopenapi-gen gen input/openapi.yaml \
+pyopenapi-gen gen openapi.yaml \
   --project-root . \
-  --output-package pyapis.my_api_client
+  --output-package my_api_client
 ```
 
-- By default, the core package will be generated as a subpackage under your output package (e.g., `pyapis/my_api_client/core/`).
-- All imports in the generated client will use relative imports (e.g., `from .core.http_transport import ...`).
-
-#### To use a shared core package:
-
-```bash
-pyopenapi-gen gen input/openapi.yaml \
-  --project-root . \
-  --output-package pyapis.my_api_client \
-  --core-package pyapis.core
-```
-
-- Core files: `/absolute/path/to/your/project/pyapis/core/`
-- Client files: `/absolute/path/to/your/project/pyapis/my_api_client/`
-- Imports: `from pyapis.core.http_transport import ...`
-
-### 3. Use the Generated Client
-
+### Use Generated Client
 ```python
 import asyncio
-from pyapis.my_api_client.config import ClientConfig
-from pyapis.my_api_client.client import APIClient
-
-async def main():
-    config = ClientConfig(base_url="https://api.example.com", timeout=5.0)
-    # Option 1: Manual close
-    client = APIClient(config)
-    users = await client.users.listUsers(page=1, pageSize=10)
-    print(users)
-    await client.close()
-
-    # Option 2: Async context manager (recommended)
-    async with APIClient(config) as client:
-        users = await client.users.listUsers(page=1)
-        print(users)
-
-asyncio.run(main())
-```
-
-### 4. Customizing the Core Module Name/Location
-
-> **IMPORTANT:**
-> The value of `--core-package` **must match the full Python import path** to your core package as it will be imported in your project. For example, if your project is called `pyapis` and your core code is in `pyapis/core/`, you must use `--core-package pyapis.core`.
-> 
-> - If you do not set `--core-package`, the core code will be generated as a subpackage under your output package (e.g., `pyapis/my_api_client/core/`), and imports will be relative.
-> - For most real-world projects, always use the full dotted path (e.g., `pyapis.core`) for shared core scenarios.
-> 
-> **Tip:** Using `--core-package` is strongly encouraged when you are generating multiple clients that should share the same core code. This is a common pattern in backend projects that integrate with multiple external systems—each client package can import from a single, shared core implementation, reducing duplication and easing maintenance.
-
-#### Example: Shared Core in a Monorepo
-
-Suppose your project structure is:
-
-```bash
-my-monorepo/
-  pyapis/
-    core/
-    my_api_client/
-    another_client/
-```
-
-Generate the client with:
-
-```bash
-pyopenapi-gen gen input/business_swagger.json \
-  --project-root /absolute/path/to/my-monorepo \
-  --output-package pyapis.my_api_client \
-  --core-package pyapis.core
-```
-
-- Core files: `/absolute/path/to/my-monorepo/pyapis/core/`
-- Client files: `/absolute/path/to/my-monorepo/pyapis/my_api_client/`
-- Imports: `from pyapis.core.http_transport import ...`
-
-> **Note:** This approach is ideal for backend projects with multiple API integrations, as it allows all generated clients to share a single, well-maintained core implementation.
-
-#### Example: Standalone Client (Default)
-
-If you want the core code inside the client output folder (standalone client):
-
-```bash
-pyopenapi-gen gen input/business_swagger.json \
-  --project-root /absolute/path/to/my-monorepo \
-  --output-package pyapis.my_api_client
-```
-
-- Core files: `/absolute/path/to/my-monorepo/pyapis/my_api_client/core/`
-- Client files: `/absolute/path/to/my-monorepo/pyapis/my_api_client/`
-- Imports: `from .core.http_transport import ...`
-
----
-
-## Motivation
-
-Building and maintaining HTTP clients for APIs by hand is a repetitive and error-prone process, especially as APIs evolve. While OpenAPI/Swagger specs promise automation, most generators fall short in type safety, extensibility, and developer experience. This project was created to address these challenges and provide a modern Python client generator.
-
-- **Type Safety**: 100% type hints and dataclasses for all models and endpoints.
-- **Async-First**: Modern Python codebases demand async support; this generator delivers it out of the box.
-- **Modular & Extensible**: You can provide your own `http_transport.py` for custom HTTP client logic, and the generator supports pluggable authentication and pagination.
-- **IntelliSense & DX**: Rich docstrings, grouped endpoints, and strong typing for a first-class IDE experience.
-- **Minimal Dependencies**: Generated clients have ≤1 runtime dependency.
-- **Graceful Degradation**: Handles incomplete specs with actionable warnings, not cryptic errors.
-- **Testability**: Pure functions, clear boundaries, and high test coverage.
-- **Strict Error Handling**: All errors received from the API are handled by raising an exception; only successful responses are returned as strongly typed response objects.
-
----
-
-## What Kind of Client Does This Generator Create?
-
-This generator produces a Python package that is ready for production use, with a focus on async-first APIs, strong typing, and modularity. The generated client is designed to be ergonomic, extensible, and easy to integrate into any modern Python codebase.
-
-### 1. **Async-Only, Strongly-Typed Client**
-
-The generated client is built around asynchronous programming and strong typing, ensuring that all HTTP calls are non-blocking and that your code benefits from full type hints and docstrings.
-
-- **Async API**: All HTTP calls are async, using `httpx.AsyncClient` by default.
-- **Per-Tag Endpoint Grouping**: Each OpenAPI tag becomes a Python class (e.g., `UsersClient`, `JobsClient`), accessible as attributes on the main `APIClient`.
-- **Typed Models**: Every schema in the spec becomes a Python dataclass, with type hints and docstrings extracted from the spec.
-- **Rich Docstrings**: Endpoint methods and model fields include docstrings from the OpenAPI descriptions for IDE help and documentation.
-
-### 2. **Modular Structure**
-
-The generated client is organized as a real Python package, with a clear and modular structure. This makes it easy to use, extend, and maintain, whether you are integrating it into a large project or using it as a standalone client.
-
-```my_api_client/
-├── __init__.py
-├── client.py                # Main APIClient class, tag clients as attributes
-├── core/                    # All runtime dependencies (see below)
-│   ├── __init__.py          # Added __init__.py
-│   ├── config.py            # ClientConfig <-- MOVED HERE
-│   ├── http_transport.py
-│   ├── exceptions.py
-│   ├── streaming_helpers.py
-│   ├── pagination.py
-│   ├── README.md            # Added core README
-│   └── auth/
-│       ├── __init__.py      # Added __init__.py
-│       ├── base.py
-│       └── plugins.py
-├── models/
-│   ├── __init__.py          # Added __init__.py
-│   ├── <model>.py           # One file per schema, all as dataclasses
-├── endpoints/
-│   ├── __init__.py          # Added __init__.py
-│   ├── <tag>.py             # One file per tag, with async methods per operation
-└── ...
-```
-
-> **Note:** If you use a custom core name (e.g., `shared_core`), all imports will reference that folder instead of `core`.
-
-### 3. **Features at a Glance**
-
-The generator is packed with features that make the generated client powerful, flexible, and easy to use. Here are some of the highlights:
-
-- **Endpoint Grouping**: Methods are organized by OpenAPI tags for concise imports and discoverability.
-- **Pluggable Auth**: Built-in Bearer and custom header auth plugins; easy to add more.
-- **Pagination Helpers**: Async iterators for cursor/page/offset-based pagination, auto-detected from the spec.
-- **Error Handling**: Uniform exception hierarchy (`HTTPError`, `ClientError`, `ServerError`), with spec-specific aliases if defined.
-- **Response Unwrapping**: Automatically unwraps common response wrapper patterns (e.g., `{ "data": ... }`) for simpler return types.
-- **Lazy Loading**: Uses `__getattr__` for efficient imports and memory usage.
-- **Config Layering**: Configure via constructor, environment variables, or TOML config file.
-- **CLI Tooling**: One-line CLI (`pyopenapi-gen gen <spec> -o <path>`) with diff-check, force overwrite, and plugin flags.
-- **Warnings & Hints**: Actionable warnings for missing tags, operation IDs, descriptions, and more, with remediation hints.
-- **Snapshot & Integration Tests**: Generator is tested against public specs (e.g., Petstore) and includes snapshot tests for generated code.
-
-### 4. **Plugin Architecture**
-
-Extensibility is a core design goal. The generator and the generated client both support plugins for emitters, authentication, and pagination. This allows you to customize or extend functionality without modifying the core codebase.
-
-- **Emitters**: Swap or extend model, endpoint, or client emitters via plugins.
-- **Auth Plugins**: Implement the `BaseAuth` protocol to add new authentication methods.
-- **Pagination Plugins**: Provide custom pagination strategies.
-- **CLI Plugin Loading**: Pass plugins via CLI flags or wire them up in code.
-
-### 5. **Generated Client Example**
-
-Below is a minimal example of how to use a generated client in your own code. This demonstrates async usage, configuration, and calling an endpoint.
-
-```python
-import asyncio
-from my_api_client.config import ClientConfig
 from my_api_client.client import APIClient
+from my_api_client.core.config import ClientConfig
 
 async def main():
-    config = ClientConfig(base_url="https.example.com", timeout=5.0)
-    # Option 1: Async context manager (recommended)
+    config = ClientConfig(base_url="https://api.example.com")
     async with APIClient(config) as client:
-        users = await client.users.listUsers(page=1)
+        users = await client.users.list_users(page=1)
         print(users)
-
-    # Option 2: Manual close
-    client = APIClient(config)
-    users = await client.users.listUsers(page=1, pageSize=10)
-    print(users)
-    await client.close()
 
 asyncio.run(main())
 ```
 
----
+## Configuration Options
 
-## Current Limitations and Unsupported OpenAPI Features
-
-While `pyopenapi-gen` aims to provide robust support for OpenAPI 3.0 and 3.1 specifications, there are some advanced features and nuances that are not yet fully implemented or are handled with simplified conventions. Users should be aware of these areas:
-
-*   **Advanced Parameter Serialization (`style`, `explode`)**:
-    *   For query (`in: "query"`) and header (`in: "header"`) parameters, the generator currently relies on the default serialization behavior of the underlying HTTP client library (e.g., `httpx`) for array and object values.
-    *   Specific OpenAPI `style` values (e.g., `form`, `simple`, `spaceDelimited`, `pipeDelimited`) and the `explode` keyword, which control the exact serialization format, are not explicitly implemented by the generator's parameter processing logic. For example, generating a comma-separated list for `style: simple, explode: false` for an array in a header is not directly handled; the list would be passed as-is to the HTTP library.
-*   **Query Parameter Nuances**:
-    *   `allowEmptyValue`: The behavior of sending a query parameter with an empty value (e.g., `param=`) if its value is an empty string is not explicitly supported. Optional parameters with `None` value are correctly omitted.
-    *   `allowReserved`: This keyword, affecting the percent-encoding of reserved characters in query parameters, is not currently processed. Standard percent-encoding applies.
-*   **Complex `multipart/form-data` Request Bodies**:
-    *   The generator handles `multipart/form-data` primarily by looking for a parameter conventionally named `files` (expected to be `Dict[str, IO[Any]]` or similar) for file uploads.
-    *   OpenAPI allows `multipart/form-data` bodies to define multiple, distinctly typed parts, not just files. Full support for arbitrarily complex multipart schemas with mixed part types and specific per-part `Content-Type` headers is not yet implemented.
-*   **Request Body Content Type Handling**:
-    *   The generator has explicit logic for preparing body variables for common types like `application/json`, `multipart/form-data`, `application/x-www-form-urlencoded`, and binary types (via `resolved_body_type: "bytes"`).
-    *   For other specific content types (e.g., `application/xml`, `text/plain` that don't resolve to raw `bytes`), if they don't fall into the existing handled categories, the setup of a specifically named local variable for the body content might not occur unless a generic `body` parameter is used.
-*   **Parameter `default` Values**:
-    *   The OpenAPI `schema.default` keyword for parameters is not currently used by the generator to automatically supply a default value if an optional parameter is not provided by the caller. The generated method signatures may include Python default arguments if processed by `EndpointMethodSignatureGenerator`, but the core URL/argument setup doesn't inject spec-defined defaults.
-*   **Response Headers**:
-    *   Currently, the generated client methods return the deserialized response *body*. Headers from the HTTP response are not explicitly parsed or returned as part of the client method's result.
-
-We are continuously working to enhance OpenAPI specification coverage. Contributions and feedback in these areas are welcome!
-
----
-
-## CLI Usage
-
-The generator comes with a powerful CLI that makes it easy to generate clients from your OpenAPI spec. You can customize the output, enable plugins, and control overwriting behavior with simple flags.
-
+### Standalone Client (Default)
 ```bash
-pip install pyopenapi-gen
-pyopenapi-gen gen input/openapi.yaml \
+pyopenapi-gen gen openapi.yaml \
   --project-root . \
-  --output-package pyapis.my_api_client
+  --output-package my_api_client
+```
+Creates self-contained client with embedded core dependencies.
+
+### Shared Core (Multiple Clients)
+```bash
+pyopenapi-gen gen openapi.yaml \
+  --project-root . \
+  --output-package clients.api_client \
+  --core-package clients.core
+```
+Multiple clients share a single core implementation.
+
+### Additional Options
+```bash
+--force           # Overwrite without prompting
+--no-postprocess  # Skip formatting and type checking
 ```
 
-- `--project-root`: Path to the root of your Python project (can be relative or absolute; e.g., `.` or `/path/to/project`).
-- `--output-package`: Python package path for the generated client (e.g., 'pyapis.my_api_client').
-- `--core-package`: (Optional) Python package path for the core package (e.g., 'pyapis.core'). If not set, the core package will be placed under the output package.
-- `--force`: Overwrite output without diff check.
-- `--no-postprocess`: Skip post-processing (type checking, etc.)
+## Features
 
----
+✨ **Type Safety**: Full type hints and dataclass models  
+⚡ **Async-First**: Built for modern Python async/await patterns  
+🏗️ **Modular**: Pluggable authentication, pagination, and HTTP transport  
+🧠 **Smart IDE Support**: Rich docstrings and auto-completion  
+📦 **Zero Dependencies**: Generated clients are self-contained  
+🛡️ **Robust**: Graceful handling of incomplete specs  
+🎯 **Error Handling**: Structured exceptions, only successful responses returned
 
-## Authentication Plugins
+## Generated Client Structure
 
-The client supports pluggable authentication via the `BaseAuth` protocol. You can use built-in plugins or implement your own. Below are the available plugins:
+```
+my_api_client/
+├── client.py           # Main APIClient with tag-grouped methods
+├── core/               # Self-contained runtime dependencies
+│   ├── config.py       # Configuration management
+│   ├── http_transport.py # HTTP client abstraction
+│   ├── exceptions.py   # Error hierarchy
+│   └── auth/           # Authentication plugins
+├── models/             # Dataclass models from schemas
+│   └── user.py
+├── endpoints/          # Operation methods grouped by tag
+│   └── users.py
+└── __init__.py
+```
 
-> **Note:** In generated clients, import plugins from your own core module (e.g., `from .core.auth.plugins import BearerAuth`), not from `pyopenapi_gen`.
+## Client Features
 
-### BearerAuth
+- **Tag Organization**: Operations grouped by OpenAPI tags (`client.users.list_users()`)
+- **Type Safety**: Full dataclass models with type hints
+- **Async Iterators**: Auto-detected pagination patterns
+- **Rich Auth**: Bearer, API key, OAuth2, and custom strategies
+- **Error Handling**: Structured `HTTPError`, `ClientError`, `ServerError` hierarchy
+- **Response Unwrapping**: Automatic extraction of `{ "data": ... }` patterns
 
-For simple Bearer token authentication:
+## Known Limitations
 
+Some OpenAPI features have simplified implementations:
+
+- **Parameter Serialization**: Uses HTTP client defaults rather than OpenAPI `style`/`explode` directives
+- **Complex Multipart**: Basic file upload support; complex multipart schemas simplified  
+- **Response Headers**: Only response body is returned, not headers
+- **Parameter Defaults**: OpenAPI schema defaults not automatically applied to method signatures
+
+Contributions welcome to enhance OpenAPI specification coverage!
+
+### Bearer Token
 ```python
-from .core.auth.plugins import BearerAuth  # In generated client
-transport = HttpxTransport(base_url, auth=BearerAuth("your-token"))
+from .core.auth.plugins import BearerAuth
+auth = BearerAuth("your-token")
 ```
 
-### HeadersAuth
-
-For arbitrary custom headers:
-
-```python
-from .core.auth.plugins import HeadersAuth
-transport = HttpxTransport(base_url, auth=HeadersAuth({"X-API-Key": "value"}))
-```
-
-### ApiKeyAuth
-
-For API key authentication in header, query, or cookie:
-
+### API Key
 ```python
 from .core.auth.plugins import ApiKeyAuth
-# Header
-auth = ApiKeyAuth("mykey", location="header", name="X-API-Key")
-# Query
-auth = ApiKeyAuth("mykey", location="query", name="api_key")
-# Cookie
-auth = ApiKeyAuth("mykey", location="cookie", name="sessionid")
-transport = HttpxTransport(base_url, auth=auth)
+# Header, query, or cookie
+auth = ApiKeyAuth("key", location="header", name="X-API-Key")
 ```
 
-### OAuth2Auth
-
-For OAuth2 Bearer tokens, with optional auto-refresh:
-
+### OAuth2 with Refresh
 ```python
 from .core.auth.plugins import OAuth2Auth
-# Static token
-auth = OAuth2Auth("access-token")
-# With refresh callback (async)
-async def refresh_token(old_token):
-    # ... fetch new token ...
-    return "new-token"
-auth = OAuth2Auth("access-token", refresh_callback=refresh_token)
-transport = HttpxTransport(base_url, auth=auth)
+auth = OAuth2Auth("token", refresh_callback=refresh_func)
 ```
 
-### Composing Multiple Auth Plugins
-
-For advanced scenarios, you can combine multiple authentication plugins using `CompositeAuth`. This allows you to, for example, add both a Bearer token and custom headers to every request:
-
+### Custom Headers
 ```python
-from .core.auth.plugins import BearerAuth, HeadersAuth
-from .core.auth.base import CompositeAuth
-
-composite_auth = CompositeAuth(
-    BearerAuth("your-token"),
-    HeadersAuth({"X-API-Key": "value"})
-)
-transport = HttpxTransport(base_url, auth=composite_auth)
+from .core.auth.plugins import HeadersAuth
+auth = HeadersAuth({"X-Custom": "value"})
 ```
 
-Each plugin will be applied in sequence, so you can flexibly combine any number of authentication strategies.
-
-See the `.core.auth.plugins` module in your generated client for details and extension points.
-
-### Shared Core
-
-If you generate multiple clients for the same system, you can configure the generator to use a shared core module. In this case, import paths will be relative to the shared core location. See the generator options for details.
-
-> **Note:** A `README.md` file is included in the generated `core/` directory explaining client independence and shared core usage.
-
----
+### Composite Auth
+```python
+from .core.auth.base import CompositeAuth
+auth = CompositeAuth(BearerAuth("token"), HeadersAuth({"X-Key": "val"}))
+```
 
 ## Contributing
 
-We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, please follow the guidelines below to ensure a smooth process.
+Contributions welcome! Please ensure:
 
-- Fork, branch, and PR as usual.
-- All code must be Black-formatted, Ruff-clean, and 100% mypy-typed.
-- Tests must pass locally and on CI (macOS & Ubuntu, Python 3.10–3.12).
-- See the `src/pyopenapi_gen` folder for architecture and core logic.
-
-### Running Tests and Linting Locally
+- **Code Quality**: Black formatting, Ruff linting, mypy type checking
+- **Testing**: pytest with ≥90% branch coverage
+- **Compatibility**: Python 3.10-3.12 support
 
 ```bash
-# Run all tests
-pytest
-
-# Run a specific test file
-pytest tests/core/test_pagination.py
-
-# Run a specific test function
-pytest tests/core/test_pagination.py::test_paginate_by_next__iterates_through_multiple_pages
-
-# Run tests with coverage report
-pytest --cov=src --cov-report=html
-open htmlcov/index.html
-
-# Run tests with parallel execution (faster for large test suites)
-pytest -xvs
-
-# Check types with mypy
-mypy src/
-
-# Lint code with ruff
-ruff check src/
-
-# Format code with black
-black src/
+# Development setup
+pytest                    # Run tests
+mypy src/                 # Type checking  
+ruff check src/           # Linting
+black src/                # Formatting
 ```
-
-### Test Structure
-
-The test suite is organized to mirror the package structure:
-
-```
-tests/
-├── auth/              # Authentication tests
-├── cli/               # CLI command tests
-├── context/           # Rendering context tests
-├── core/              # Core functionality tests
-│   ├── parsing/       # Schema parsing tests
-│   └── writers/       # Code writer tests
-├── emitters/          # Emitter tests
-├── generation/        # End-to-end generator tests
-├── helpers/           # Utility function tests
-├── integrations/      # Integration tests with real specs
-└── visit/             # Visitor pattern tests
-```
-
-Each module in the codebase should have corresponding test coverage. When adding new features, please ensure your tests cover:
-
-1. **Happy path** - Normal operation scenarios
-2. **Edge cases** - Unusual but valid inputs
-3. **Error cases** - How the code handles invalid inputs
-
----
 
 ## License
 
-This project is licensed under the MIT License for the generator itself. Generated clients are Apache-2.0 by default, making them suitable for use in both open source and proprietary projects.
-
----
-
-## v1.0.0 Release Notes
-
-- First stable release! 🎉
-- Async-first, type-safe Python OpenAPI client generator
-- Modular plugin architecture (emitters, auth, pagination)
-- CLI for client and docs generation
-- High test coverage, Black/Ruff/mypy enforced
-- Ready for production use and PyPI distribution
+MIT License - Generated clients are Apache-2.0 by default.

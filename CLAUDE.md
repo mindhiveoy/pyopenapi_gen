@@ -4,229 +4,178 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # PyOpenAPI Generator
 
-PyOpenAPI Generator is a tool for generating Python client code from OpenAPI specifications. It creates modern, async-first, and strongly-typed Python clients.
+PyOpenAPI Generator creates modern, async-first, and strongly-typed Python clients from OpenAPI specifications. Generated clients are fully independent and require no runtime dependency on this generator.
 
 ## Development Environment
 
-### Setup and Installation
+### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/pyopenapi-gen.git
-cd pyopenapi-gen
-
-# Install dependencies with Poetry
+# Install dependencies
 poetry install
 
-# Alternatively, install in development mode with pip
+# Alternative: pip install in development mode
 pip install -e '.[dev]'
 ```
 
-### Common Commands
+### Essential Commands
 
 ```bash
-# Run all tests
-pytest
+# Testing
+pytest                    # Run all tests
+pytest -xvs               # Run with verbose output, stop on first failure
+pytest -n auto            # Run tests in parallel
+pytest --cov=src --cov-report=html  # Generate coverage report
 
-# Run specific tests
+# Code Quality
+mypy src/                 # Type checking
+ruff check src/           # Linting
+black src/                # Code formatting
+
+# Development
+python -m build           # Build package
+```
+
+### Running Specific Tests
+
+```bash
+# Single test file
 pytest tests/core/test_loader.py
-pytest tests/visit/test_model_visitor.py
 
-# Run tests with parallel execution (faster for large test suites)
-pytest -xvs
-
-# Run tests with xdist (distributed testing)
-pytest -n auto
-
-# Run a specific test function
+# Single test function  
 pytest tests/core/test_pagination.py::test_paginate_by_next__iterates_through_multiple_pages
 
-# Run tests with coverage
-pytest --cov=src --cov-report=html
-# Open coverage report
-open htmlcov/index.html
-
-# Check types
-mypy src/
-
-# Lint code
-ruff check src/
-
-# Format code
-black src/
-
-# Build the package
-python -m build
+# Tests by pattern
+pytest -k "test_cycle_detection"
 ```
 
-### CLI Usage
+### Generator CLI
 
 ```bash
-# Generate client from OpenAPI spec
-pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client
+# Basic client generation
+pyopenapi-gen gen input/openapi.yaml \
+  --project-root . \
+  --output-package pyapis.my_api_client
 
-# With shared core package
-pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --core-package pyapis.core
+# Shared core package (for multiple clients)
+pyopenapi-gen gen input/openapi.yaml \
+  --project-root . \
+  --output-package pyapis.my_api_client \
+  --core-package pyapis.core
 
-# Skip post-processing (faster but without type checking)
-pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --no-postprocess
-
-# Force overwrite existing files without diff check
-pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --force
+# Additional options
+--force           # Overwrite without diff check
+--no-postprocess  # Skip type checking (faster)
 ```
 
-## Debugging
 
-The repository includes some debug scripts:
+## Architecture
 
-```bash
-# Debug generation process
-python debug_generate.py
+The generator follows a three-stage pipeline:
 
-# Debug project-specific issues
-python debug_project.py
+1. **Loading** → Parse OpenAPI spec into Intermediate Representation (IR)
+2. **Visiting** → Transform IR into Python code using visitor pattern  
+3. **Emitting** → Write generated code to files
+
+### Generation Pipeline
+
+```
+OpenAPI Spec → IR (schemas, operations) → Python Code → Files
 ```
 
-## Core Architecture Overview
-
-PyOpenAPI Generator follows a multi-stage pipeline architecture:
-
-1. **Loading** - Parse OpenAPI spec into intermediate representation (IR)
-2. **Visiting** - Transform IR into code using visitor pattern
-3. **Emitting** - Output generated code to files
-
-The codebase is organized around these stages with clear separation of concerns.
-
-## Generation Flow
-
-The process of generating a client follows these sequential steps:
-
-1. **Load Spec**: `ClientGenerator` loads the OpenAPI spec file (YAML/JSON) into a Python dictionary.
-2. **Parse to IR**: `load_ir_from_spec` processes the dictionary, resolves references (where possible), validates structure, and builds the `IRSpec` object containing all IR nodes.
-3. **Emit Code**: `ClientGenerator` invokes the various `Emitters` (`CoreEmitter`, `ModelsEmitter`, `EndpointsEmitter`, `ClientEmitter`, etc.).
-4. **Visit & Render**: Each `Emitter` uses its corresponding `Visitor` to traverse the relevant parts of the `IRSpec`.
-5. **Generate Code**: `Visitors` use `Helpers` (like `CodeWriter`) to render Python code strings for classes, methods, etc.
-6. **Write Files**: `Emitters` write the generated code strings to the appropriate `.py` files in the specified output directory structure.
-7. **Post-process**: Optional steps like running code formatters (e.g., Ruff, Black) or type checkers (`mypy`) on the generated code.
+1. **Load**: Parse YAML/JSON spec into `IRSpec` with unified cycle detection
+2. **Visit**: Transform IR nodes into code strings using specialized visitors
+3. **Emit**: Write code to structured output directory with proper imports
+4. **Post-process**: Format and type-check generated code
 
 ## Key Components
 
-### 1. Loader (IR Generation)
+### Loader (`core/loader/` & `core/parsing/`)
+Transforms OpenAPI specs into Intermediate Representation (IR):
+- **Schema Parser**: Core parsing with unified cycle detection
+- **Reference Resolution**: Handles `$ref` links and circular dependencies  
+- **Keyword Parsers**: Specialized handlers for `allOf`, `oneOf`, `anyOf`, `properties`
+- **Transformers**: Extract inline enums, promote inline objects
 
-- `core/loader.py` - Transforms OpenAPI spec into internal IR dataclasses
-- Creates `IRSpec`, `IRSchema`, `IROperation`, etc. from raw OpenAPI JSON/YAML
-- Handles references, types, and schema relationships
-- Recently being refactored to use separate modules in `core/parsing/`:
-  - `ref_resolver.py` - Handles resolution of `$ref` references
-  - `all_of_merger.py` - Processes `allOf` schema combinations
-  - `inline_enum_extractor.py` - Extracts inline enums into standalone schemas
-  - `inline_object_promoter.py` - Promotes inline objects to top-level schemas
-  - `schema_parser.py` - Core schema parsing logic
-  - `type_parser.py` - Handles type resolution and formatting
+### Visitors (`visit/`)
+Transform IR into Python code:
+- **Model Visitor**: Generates dataclasses and enums from schemas
+- **Endpoint Visitor**: Creates async methods from operations
+- **Client Visitor**: Builds main API client class
+- **Exception Visitor**: Generates error hierarchies
 
-### 2. Visitors (Code Generation)
+### Emitters (`emitters/`)
+Write code to files with proper structure:
+- **Models Emitter**: Creates `models/` directory with schema classes
+- **Endpoints Emitter**: Creates `endpoints/` with operation methods
+- **Core Emitter**: Copies runtime dependencies to `core/`
+- **Client Emitter**: Generates main client interface
 
-- `visit/model_visitor.py` - Converts IR schemas to Python dataclasses/enums
-- `visit/endpoint_visitor.py` - Converts IR operations to Python async methods
-- `visit/client_visitor.py` - Generates the main API client class
-- `visit/endpoint_method_generator.py` - Helper for generating endpoint methods
-- `visit/exception_visitor.py` - Generates exception classes/aliases
-- `visit/docs_visitor.py` - Generates Markdown documentation
+### Supporting Systems
+- **Context** (`context/`): Manages rendering state and imports
+- **Writers** (`core/writers/`): Code formatting and output utilities
+- **Helpers** (`helpers/`): Type resolution and utility functions
 
-### 3. Emitters (File Generation)
+## Unified Cycle Detection
 
-- `emitters/models_emitter.py` - Emits model files under models/
-- `emitters/endpoints_emitter.py` - Emits endpoint client files under endpoints/
-- `emitters/core_emitter.py` - Copies runtime files into core/
-- `emitters/client_emitter.py` - Emits the main client.py file
-- `emitters/exceptions_emitter.py` - Emits exception classes
-- `emitters/docs_emitter.py` - Emits documentation files
+Critical system for handling complex schema relationships without infinite recursion:
 
-### 4. Context and Utilities
+### Detection Types
+- **Structural Cycles**: Schema reference loops (A → B → A)
+- **Self-References**: Direct self-references (A → A)
+- **Depth Limits**: Recursion depth exceeded (configurable via `PYOPENAPI_MAX_DEPTH`)
 
-- `context/render_context.py` - Manages the rendering context, imports
-- `context/import_collector.py` - Handles import management
-- `context/file_manager.py` - Manages file writing
-- `core/writers/code_writer.py` - Utility for writing Python code with proper indentation
-- `core/writers/line_writer.py` - Low-level utility for writing lines with indentation
-- `core/writers/documentation_writer.py` - Utility for writing documentation
-- `helpers/` - Utilities for type helpers, URL handling, etc.
+### Resolution Strategies
+- **Allowed Self-References**: Creates referential stubs when permitted
+- **Circular Placeholders**: Creates marked placeholders for problematic cycles
+- **Depth Placeholders**: Handles deep nesting gracefully
 
-### 5. Generator (Orchestration)
+### Implementation
+Located in `core/parsing/unified_cycle_detection.py` with schema state tracking through parsing lifecycle.
 
-- `generator/client_generator.py` - Main orchestration class that ties everything together
-- `cli.py` - Command-line interface for the generator
+## Development Standards
 
-## Design Patterns
+### Code Quality
+- **Formatting**: Black (120 char line length)
+- **Linting**: Ruff for code quality and import sorting
+- **Type Safety**: mypy strict mode with 100% coverage
+- **Compatibility**: Python 3.10-3.12
 
-1. **Visitor Pattern** - Core pattern for code generation. IR objects are visited to produce code.
-2. **Context Object** - `RenderContext` maintains state during code generation (imports, files, etc.).
-3. **Intermediate Representation (IR)** - Clean separation between schema parsing and code generation.
-4. **Emitter Pattern** - Responsible for determining what files to emit and orchestrating visitors.
+### Testing Requirements
+Follow cursor rules strictly:
+- **Framework**: pytest only (no unittest.TestCase)
+- **Naming**: `test_<unit_of_work>__<condition>__<expected_outcome>()`
+- **Documentation**: Include "Scenario:" and "Expected Outcome:" sections
+- **Structure**: Arrange/Act/Assert with clear separation
+- **Coverage**: ≥90% branch coverage
+- **Isolation**: Mock all external dependencies
 
-## Recent Architectural Changes
-
-The project has completed a major refactoring of the schema parsing and cycle detection systems:
-
-1. **Unified Cycle Detection**: Implemented a comprehensive, conflict-free cycle detection system in `core/parsing/unified_cycle_detection.py` that handles structural cycles, processing cycles, and depth limits consistently.
-
-2. **Modular Schema Parsing**: The schema parsing logic has been broken down into focused components with clear separation of concerns:
-   - `schema_parser.py` - Core schema parsing logic
-   - `ref_resolution/` - Reference resolution helpers
-   - `keywords/` - Keyword-specific parsers (allOf, oneOf, etc.)
-   - `transformers/` - Schema transformation utilities
-
-3. **Enhanced ParsingContext**: The `ParsingContext` now integrates with the unified cycle detection system while maintaining backward compatibility.
-
-The codebase now follows a more modular, testable architecture with comprehensive cycle detection and robust error handling.
-
-## Project Standards
-
-1. **Code Style**:
-   - Black for formatting with 120 character line length
-   - Ruff for linting
-   - 100% mypy type coverage with strict mode enabled
-   - Python 3.10-3.12 compatibility
-
-2. **Testing**:
-   - All code changes should have tests
-   - Maintain high test coverage, especially for core components
-   - Use pytest fixtures and mocks appropriately
-   - Tests are organized to mirror the package structure in the `tests/` directory
-
-3. **Version Control**:
-   - Meaningful commit messages
-   - Feature branches with descriptive names
-   - Pull requests with clear descriptions
-
-## Extension Points
-
-The codebase is designed for extensibility in several areas:
-
-1. **Custom Visitors** - Extend base visitors to customize code generation
-2. **Post-Processors** - Add custom post-processing steps
-3. **Core Functionality** - Extend/replace core runtime files
-4. **Authentication Plugins** - Implement the `BaseAuth` protocol for custom authentication methods
-5. **Pagination Plugins** - Create custom pagination strategies for different API patterns
+### Client Independence
+Generated clients must be completely self-contained:
+- No runtime dependency on `pyopenapi_gen`
+- All required code copied to client's `core/` module
+- Relative imports only within generated package
 
 ## Generated Client Features
 
-The generated clients include:
+- **Async-First**: All operations use `httpx.AsyncClient`
+- **Type Safety**: Full type hints and dataclass models
+- **Tag-Based Organization**: Operations grouped by OpenAPI tags
+- **Rich Documentation**: Extracted from OpenAPI descriptions
+- **Pluggable Auth**: Bearer, API key, OAuth2, and custom auth strategies
+- **Pagination Support**: Auto-detected cursor/page/offset patterns
+- **Error Handling**: Structured exception hierarchy
+- **Response Unwrapping**: Automatic extraction of common wrapper patterns
 
-1. **Async-Only API**: All HTTP calls are async, using `httpx.AsyncClient` by default
-2. **Per-Tag Endpoint Grouping**: Each OpenAPI tag becomes a Python class
-3. **Typed Models**: Every schema becomes a Python dataclass with type hints
-4. **Rich Docstrings**: Endpoint methods and model fields include docstrings
-5. **Pluggable Authentication**: Built-in Bearer and custom header auth plugins
-6. **Pagination Helpers**: Async iterators for cursor/page/offset-based pagination
-7. **Error Handling**: Uniform exception hierarchy with specific aliases
-8. **Response Unwrapping**: Automatic unwrapping of common response patterns
+## Environment Variables
 
-## Documentation
+- `PYOPENAPI_MAX_DEPTH`: Schema parsing recursion limit (default: 150)
+- `PYOPENAPI_MAX_CYCLES`: Cycle detection limit (default: 0, unlimited)
 
-Additional documentation files are available in the `docs/` directory:
-- `architecture.md` - Detailed architecture overview with diagrams
-- `ir_models.md` - Details of the Intermediate Representation
-- `model_visitor.md` - How model code is generated
-- `endpoint_visitor.md` - How endpoint code is generated
-- `render_context.md` - How the rendering context works
+## Additional Documentation
+
+See `docs/` directory for detailed guides:
+- `architecture.md` - System design and patterns
+- `ir_models.md` - Intermediate representation details  
+- `model_visitor.md` - Model code generation
+- `endpoint_visitor.md` - Endpoint code generation

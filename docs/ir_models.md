@@ -1,8 +1,24 @@
-# Intermediate Representation (IR) (`__init__.py`)
+# Intermediate Representation (IR)
 
-The Intermediate Representation (IR) is a set of Python dataclasses that provide a structured, validated, and Python-native view of the OpenAPI specification. It serves as the single source of truth for all subsequent code generation steps (Visitors and Emitters), decoupling them from the complexities and variations of the raw OpenAPI spec format.
+The IR provides a clean, typed interface between OpenAPI parsing and code generation. All visitors operate on IR objects, not raw spec dictionaries.
 
-Defines the core dataclasses (`IRSpec`, `IROperation`, `IRParameter`, `IRRequestBody`, `IRResponse`, `IRSchema`) that represent the normalized and validated OpenAPI specification.
+## Overview
+
+The IR consists of dataclasses representing normalized OpenAPI components:
+
+- **IRSpec**: Top-level specification container
+- **IROperation**: API operations with parameters, request/response
+- **IRSchema**: Type definitions (models, enums, primitives)
+- **IRParameter**: Operation parameters (query, path, header, cookie)
+- **IRRequestBody**: Request body specifications
+- **IRResponse**: Response definitions with content types
+
+## Key Benefits
+
+- **Type Safety**: Full static typing for all OpenAPI elements
+- **Normalization**: Consistent structure regardless of spec variations
+- **Validation**: Early detection of specification issues
+- **Extensibility**: Easy to add custom metadata or transformations
 
 ```mermaid
 classDiagram
