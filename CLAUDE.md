@@ -51,22 +51,81 @@ pytest -k "test_cycle_detection"
 
 ### Generator CLI
 
-```bash
-# Basic client generation
-pyopenapi-gen gen input/openapi.yaml \
-  --project-root . \
-  --output-package pyapis.my_api_client
+The CLI generates Python client code from OpenAPI specs. Understanding the project structure is crucial:
 
-# Shared core package (for multiple clients)
-pyopenapi-gen gen input/openapi.yaml \
-  --project-root . \
-  --output-package pyapis.my_api_client \
-  --core-package pyapis.core
+#### Project Structure Examples
+
+**Standard Structure:**
+```
+myproject/
+├── pyapis/
+│   ├── __init__.py
+│   └── my_api_client/    # Generated here
+└── openapi.yaml
+```
+Command: `pyopenapi-gen gen openapi.yaml --project-root . --output-package pyapis.my_api_client`
+
+**Source Layout:**
+```
+myproject/
+├── src/
+│   └── pyapis/
+│       ├── __init__.py
+│       └── business/     # Generated here
+├── openapi.yaml
+```
+Command: `pyopenapi-gen gen openapi.yaml --project-root src --output-package pyapis.business`
+
+**Multiple Clients with Shared Core:**
+```
+myproject/
+├── pyapis/
+│   ├── core/            # Shared runtime
+│   ├── client_a/        # Generated client A
+│   └── client_b/        # Generated client B
+```
+Commands:
+```bash
+# Generate first client (creates shared core)
+pyopenapi-gen gen api_a.yaml --project-root . --output-package pyapis.client_a --core-package pyapis.core
+
+# Generate second client (reuses core)
+pyopenapi-gen gen api_b.yaml --project-root . --output-package pyapis.client_b --core-package pyapis.core
+```
+
+#### CLI Options
+
+```bash
+# Basic generation
+pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client
+
+# With shared core package
+pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --core-package pyapis.core
 
 # Additional options
 --force           # Overwrite without diff check
 --no-postprocess  # Skip type checking (faster)
 ```
+
+#### Common Project Root Issues
+
+**Problem:** Imports like `from .models.user import User` instead of `from pyapis.business.models.user import User`
+
+**Solution:** Check your project structure. If you have:
+```
+myproject/
+├── pyapis/
+│   └── src/
+│       └── pyapis/
+│           └── business/  # You want code here
+```
+
+Use: `--project-root myproject/pyapis/src --output-package pyapis.business`
+
+**Not:** `--project-root myproject/pyapis --output-package pyapis.business` (creates wrong path)
+
+**Verification:** The generated code should be at: `{project-root}/{output-package-as-path}`
+- `project-root` + `pyapis.business` → `project-root/pyapis/business/`
 
 
 ## Architecture

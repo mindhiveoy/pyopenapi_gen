@@ -77,7 +77,7 @@ class ModelsEmitter:
             logger.warning("No parsed schemas found in context for generating models/__init__.py")
             # Still create an empty __init__.py with basic imports
             init_writer.write_line(
-                "from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Generic, TypeVar"
+                "from typing import List, Optional, Union, Any, Dict, Generic, TypeVar"
             )
             init_writer.write_line("from dataclasses import dataclass, field")
             init_writer.write_line("__all__ = []")
@@ -102,7 +102,7 @@ class ModelsEmitter:
             init_writer.write_line(f"from .{module_name} import {class_name}")
             all_class_names.append(class_name)
 
-        init_writer.write_line("from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Generic, TypeVar")
+        init_writer.write_line("from typing import List, Optional, Union, Any, Dict, Generic, TypeVar")
         init_writer.write_line("from dataclasses import dataclass, field")
         init_writer.write_line("")
 

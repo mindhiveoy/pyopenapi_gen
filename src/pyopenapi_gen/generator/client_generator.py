@@ -170,6 +170,7 @@ class ClientGenerator:
             package_root_for_generated_code=str(out_dir),
             overall_project_root=str(project_root),
             parsed_schemas=ir.schemas,
+            output_package_name=output_package,
         )
 
         if not force and out_dir.exists():
@@ -234,6 +235,7 @@ class ClientGenerator:
                     package_root_for_generated_code=str(tmp_out_dir_for_diff),
                     overall_project_root=str(tmp_project_root_for_diff),
                     parsed_schemas=ir.schemas,
+                    output_package_name=output_package,
                 )
                 models_emitter = ModelsEmitter(context=tmp_render_context_for_diff, parsed_schemas=ir.schemas)
                 model_files_dict = models_emitter.emit(

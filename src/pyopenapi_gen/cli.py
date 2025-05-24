@@ -33,7 +33,7 @@ def gen(
     project_root: Path = typer.Option(
         ...,
         "--project-root",
-        help="Absolute path to the root of your Python project (where your top-level package(s) live).",
+        help="Path to the directory containing your top-level Python packages. Generated code will be placed at project-root + output-package path.",
     ),
     output_package: str = typer.Option(
         ..., "--output-package", help="Python package path for the generated client (e.g., 'pyapis.my_api_client')."

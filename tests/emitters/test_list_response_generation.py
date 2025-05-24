@@ -125,9 +125,9 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
     my_item_list_response_content = my_item_list_response_file.read_text()
     assert "class MyItemListResponse:" in my_item_list_response_content
     assert "from typing import List" in my_item_list_response_content
-    assert f"from .{NameSanitizer.sanitize_module_name('MyItem')} import MyItem" in my_item_list_response_content
+    assert f"from out.models.{NameSanitizer.sanitize_module_name('MyItem')} import MyItem" in my_item_list_response_content
     assert (
-        f"from .{NameSanitizer.sanitize_module_name('PaginationMeta')} import PaginationMeta"
+        f"from out.models.{NameSanitizer.sanitize_module_name('PaginationMeta')} import PaginationMeta"
         in my_item_list_response_content
     )
     assert f"{NameSanitizer.sanitize_method_name('data')}: List[MyItem]" in my_item_list_response_content

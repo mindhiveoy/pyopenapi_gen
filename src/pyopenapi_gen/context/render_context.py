@@ -56,6 +56,8 @@ class RenderContext:
         package_root_for_generated_code: Optional[str] = None,
         overall_project_root: Optional[str] = None,
         parsed_schemas: Optional[Dict[str, IRSchema]] = None,
+        use_absolute_imports: bool = True,
+        output_package_name: Optional[str] = None,
     ) -> None:
         """
         Initialize a new RenderContext.
@@ -70,6 +72,8 @@ class RenderContext:
                                 Used as the base for resolving absolute Python import paths,
                                 especially for an external core_package.
             parsed_schemas: Optional dictionary of all parsed IRSchema objects.
+            use_absolute_imports: Whether to use absolute imports instead of relative imports for internal modules.
+            output_package_name: The full output package name (e.g., "pyapis.business") for generating absolute imports.
         """
         self.file_manager = file_manager or FileManager()
         self.import_collector = ImportCollector()
@@ -79,6 +83,8 @@ class RenderContext:
         self.package_root_for_generated_code: Optional[str] = package_root_for_generated_code
         self.overall_project_root: Optional[str] = overall_project_root or os.getcwd()
         self.parsed_schemas: Optional[Dict[str, IRSchema]] = parsed_schemas
+        self.use_absolute_imports: bool = use_absolute_imports
+        self.output_package_name: Optional[str] = output_package_name
         # Dictionary to store conditional imports, keyed by condition
         self.conditional_imports: Dict[str, Dict[str, Set[str]]] = {}
 
@@ -125,6 +131,18 @@ class RenderContext:
         """
         if not logical_module:
             return
+
+        # Fix incomplete module paths for absolute imports
+        if self.use_absolute_imports and self.output_package_name:
+            # Detect incomplete paths like "business.models.agent" that should be "pyapis.business.models.agent"
+            root_package = self.output_package_name.split('.')[0]  # "pyapis" from "pyapis.business"
+            package_suffix = '.'.join(self.output_package_name.split('.')[1:])  # "business" from "pyapis.business"
+            
+            # Check if this is an incomplete internal module path
+            if package_suffix and logical_module.startswith(f"{package_suffix}."):
+                # This is an incomplete path like "business.models.agent"
+                # Convert to complete path like "pyapis.business.models.agent"
+                logical_module = f"{root_package}.{logical_module}"
 
         # 1. Special handling for typing imports if is_typing_import is True
         if is_typing_import and logical_module == "typing" and name:
@@ -215,19 +233,29 @@ class RenderContext:
             else:  # Should not happen if current_gen_package_name_str was required for is_internal_module_candidate
                 module_relative_to_gen_pkg_root = logical_module
 
-            relative_path = self.calculate_relative_path_for_internal_module(module_relative_to_gen_pkg_root)
-
-            if relative_path:
-                if name is None:
-                    return
-                self.import_collector.add_relative_import(relative_path, name)
-                return
-            else:
+            # Check if we should use absolute imports
+            if self.use_absolute_imports:
+                # Use absolute imports for internal modules
                 if name:
                     self.import_collector.add_import(module=logical_module, name=name)
                 else:
-                    self.import_collector.add_plain_import(module=logical_module)  # Fallback plain import
+                    self.import_collector.add_plain_import(module=logical_module)
                 return
+            else:
+                # Use relative imports (original behavior)
+                relative_path = self.calculate_relative_path_for_internal_module(module_relative_to_gen_pkg_root)
+
+                if relative_path:
+                    if name is None:
+                        return
+                    self.import_collector.add_relative_import(relative_path, name)
+                    return
+                else:
+                    if name:
+                        self.import_collector.add_import(module=logical_module, name=name)
+                    else:
+                        self.import_collector.add_plain_import(module=logical_module)  # Fallback plain import
+                    return
 
         # 6. Default: External library, add as absolute.
         if name:
@@ -246,6 +274,36 @@ class RenderContext:
         """
         self.generated_modules.add(abs_module_path)
 
+    def add_conditional_import(self, condition: str, module: str, name: str) -> None:
+        """
+        Add a conditional import (e.g., under TYPE_CHECKING).
+        
+        Args:
+            condition: The condition for the import (e.g., "TYPE_CHECKING")
+            module: The module to import from
+            name: The name to import
+        """
+        # Apply the same unified import path correction logic as add_import
+        logical_module = module
+        
+        # Fix incomplete module paths for absolute imports
+        if self.use_absolute_imports and self.output_package_name:
+            # Detect incomplete paths like "business.models.agent" that should be "pyapis.business.models.agent"
+            root_package = self.output_package_name.split('.')[0]  # "pyapis" from "pyapis.business"
+            package_suffix = '.'.join(self.output_package_name.split('.')[1:])  # "business" from "pyapis.business"
+            
+            # Check if this is an incomplete internal module path
+            if package_suffix and logical_module.startswith(f"{package_suffix}."):
+                # This is an incomplete path like "business.models.agent"
+                # Convert to complete path like "pyapis.business.models.agent"
+                logical_module = f"{root_package}.{logical_module}"
+        
+        if condition not in self.conditional_imports:
+            self.conditional_imports[condition] = {}
+        if logical_module not in self.conditional_imports[condition]:
+            self.conditional_imports[condition][logical_module] = set()
+        self.conditional_imports[condition][logical_module].add(name)
+
     def render_imports(self) -> str:
         """
         Render all imports for the current file, including conditional imports.
@@ -258,8 +316,14 @@ class RenderContext:
 
         # Handle conditional imports
         conditional_imports = []
+        has_type_checking_imports = False
+        
         for condition, imports in self.conditional_imports.items():
             if imports:
+                # Check if this uses TYPE_CHECKING
+                if condition == "TYPE_CHECKING":
+                    has_type_checking_imports = True
+                
                 # Start the conditional block
                 conditional_block = [f"\nif {condition}:"]
 
@@ -269,6 +333,12 @@ class RenderContext:
                     conditional_block.append(f"    from {module} import {names_str}")
 
                 conditional_imports.append("\n".join(conditional_block))
+
+        # Add TYPE_CHECKING import if needed but not already present
+        if has_type_checking_imports and not self.import_collector.has_import("typing", "TYPE_CHECKING"):
+            self.import_collector.add_typing_import("TYPE_CHECKING")
+            # Re-generate regular imports to include TYPE_CHECKING
+            regular_imports = self.import_collector.get_formatted_imports()
 
         # Combine all imports
         all_imports = regular_imports
@@ -529,6 +599,11 @@ class RenderContext:
         Returns:
             The current package name for the generated code, or None if not set.
         """
+        # If we have the full output package name, use it for absolute imports
+        if self.output_package_name:
+            return self.output_package_name
+        
+        # Fallback to deriving from filesystem path (legacy behavior)
         return self.package_root_for_generated_code.split(os.sep)[-1] if self.package_root_for_generated_code else None
 
     def get_current_module_dot_path(self) -> str | None:

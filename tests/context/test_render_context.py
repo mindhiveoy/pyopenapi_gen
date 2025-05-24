@@ -284,10 +284,10 @@ class TestRenderContextAddImport:
         assert collector.imports == {"httpx": {"AsyncClient"}}
         assert not collector.relative_imports
 
-    def test_add_import__internal_made_relative(self, base_render_context: RenderContext, tmp_path: Path) -> None:
+    def test_add_import__internal_made_absolute_by_default(self, base_render_context: RenderContext, tmp_path: Path) -> None:
         """
         Current: /tmp_proj/pkg/endpoints/user_endpoints.py
-        Target:  pkg.models.user -> should be from ..models.user import User
+        Target:  pkg.models.user -> should be from pkg.models.user import User (absolute by default)
         Pkg root: /tmp_proj/pkg
         Project root: /tmp_proj
         """
@@ -304,7 +304,7 @@ class TestRenderContextAddImport:
         target_model_file = models_dir / "user.py"
         target_model_file.touch()  # Create the target file
 
-        # Use a fresh context configured for this specific test structure
+        # Use a fresh context configured for this specific test structure (default use_absolute_imports=True)
         context = RenderContext(
             package_root_for_generated_code=str(pkg_dir),
             overall_project_root=str(tmp_path),
@@ -319,23 +319,23 @@ class TestRenderContextAddImport:
 
         # Assert
         collector: ImportCollector = context.import_collector
-        assert not collector.imports, f"Absolute imports found: {collector.imports}"  # Should go to relative_imports
-        assert collector.relative_imports == {"..models.user": {"User"}}
+        assert collector.imports == {"pkg.models.user": {"User"}}, f"Expected absolute imports, got: {collector.imports}"
+        assert not collector.relative_imports, f"Unexpected relative imports found: {collector.relative_imports}"
 
         code_writer = CodeWriter()
         code_writer.write_line(context.render_imports())
-        expected_import_str = "from ..models.user import User"
+        expected_import_str = "from pkg.models.user import User"
         assert code_writer.get_code() == expected_import_str, (
             f"Actual: '{code_writer.get_code()}', Expected: '{expected_import_str}'"
         )
-        assert context.import_collector.has_import("..models.user", "User")
+        assert context.import_collector.has_import("pkg.models.user", "User")
 
-    def test_add_import__internal_same_dir_made_relative(
+    def test_add_import__internal_same_dir_uses_absolute_by_default(
         self, base_render_context: RenderContext, tmp_path: Path
     ) -> None:
         """
         Current: /tmp_proj/pkg/models/main_model.py
-        Target:  pkg.models.sibling_model -> should be from .sibling_model import SiblingModel
+        Target:  pkg.models.sibling_model -> should be from pkg.models.sibling_model import SiblingModel
         Pkg root: /tmp_proj/pkg
         Project root: /tmp_proj
         """
@@ -362,16 +362,16 @@ class TestRenderContextAddImport:
 
         # Assert
         collector: ImportCollector = context.import_collector
-        assert not collector.imports, f"Absolute imports found: {collector.imports}"
-        assert collector.relative_imports == {".sibling_model": {"SiblingModel"}}
+        assert collector.imports == {"pkg.models.sibling_model": {"SiblingModel"}}, f"Expected absolute imports, got: {collector.imports}"
+        assert not collector.relative_imports, f"Unexpected relative imports found: {collector.relative_imports}"
 
         code_writer = CodeWriter()
         code_writer.write_line(context.render_imports())
-        expected_import_str = "from .sibling_model import SiblingModel"
+        expected_import_str = "from pkg.models.sibling_model import SiblingModel"
         assert code_writer.get_code() == expected_import_str, (
             f"Actual: '{code_writer.get_code()}', Expected: '{expected_import_str}'"
         )
-        assert context.import_collector.has_import(".sibling_model", "SiblingModel")
+        assert context.import_collector.has_import("pkg.models.sibling_model", "SiblingModel")
 
     def test_add_import__self_import_is_skipped(self, base_render_context: RenderContext, tmp_path: Path) -> None:
         """Self-imports should be skipped."""

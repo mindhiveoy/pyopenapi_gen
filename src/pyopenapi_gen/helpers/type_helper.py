@@ -177,19 +177,26 @@ class TypeHelper:
             # Check if the target module is the current module being generated
             current_module_dot_path = context.get_current_module_dot_path()
             is_self_import = current_module_dot_path == model_module_path
+            
+            # Enhanced self-import detection: check if we're importing the same class from the same module
+            is_same_class_self_import = False
+            if context.current_file:
+                current_file_name = context.current_file
+                current_module_name = os.path.splitext(os.path.basename(current_file_name))[0]
+                target_module_name = module_name_to_import_from
+                
+                # If we're in message.py trying to import Message from message module, skip it
+                if (current_module_name == target_module_name and 
+                    class_name_to_import == target_ir_schema.generation_name):
+                    is_same_class_self_import = True
 
-            if is_self_import:
+            if is_self_import or is_same_class_self_import:
                 pass  # Explicitly do nothing, was a log statement
             else:  # Not a self-import
                 if is_circular:
                     context.add_import("typing", "TYPE_CHECKING")  # Ensure TYPE_CHECKING is imported
-                    # Properly add to the conditional_imports dictionary
-                    if "TYPE_CHECKING" not in context.conditional_imports:
-                        context.conditional_imports["TYPE_CHECKING"] = defaultdict(set)
-                    # Ensure the module key exists for the condition
-                    if model_module_path not in context.conditional_imports["TYPE_CHECKING"]:
-                        context.conditional_imports["TYPE_CHECKING"][model_module_path] = set()
-                    context.conditional_imports["TYPE_CHECKING"][model_module_path].add(class_name_to_import)
+                    # Use add_conditional_import which applies the same unified import path logic
+                    context.add_conditional_import("TYPE_CHECKING", model_module_path, class_name_to_import)
                 else:
                     # Add a normal import if it's not circular and not a self-import
                     context.add_import(model_module_path, class_name_to_import)
