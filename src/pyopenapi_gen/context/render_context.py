@@ -233,29 +233,22 @@ class RenderContext:
             else:  # Should not happen if current_gen_package_name_str was required for is_internal_module_candidate
                 module_relative_to_gen_pkg_root = logical_module
 
-            # Check if we should use absolute imports
-            if self.use_absolute_imports:
-                # Use absolute imports for internal modules
+            # For internal modules, try to use relative imports when appropriate
+            relative_path = self.calculate_relative_path_for_internal_module(module_relative_to_gen_pkg_root)
+
+            if relative_path:
+                # Use relative imports for internal modules when possible
+                if name is None:
+                    return
+                self.import_collector.add_relative_import(relative_path, name)
+                return
+            else:
+                # Fall back to absolute imports for internal modules that can't use relative paths
                 if name:
                     self.import_collector.add_import(module=logical_module, name=name)
                 else:
                     self.import_collector.add_plain_import(module=logical_module)
                 return
-            else:
-                # Use relative imports (original behavior)
-                relative_path = self.calculate_relative_path_for_internal_module(module_relative_to_gen_pkg_root)
-
-                if relative_path:
-                    if name is None:
-                        return
-                    self.import_collector.add_relative_import(relative_path, name)
-                    return
-                else:
-                    if name:
-                        self.import_collector.add_import(module=logical_module, name=name)
-                    else:
-                        self.import_collector.add_plain_import(module=logical_module)  # Fallback plain import
-                    return
 
         # 6. Default: External library, add as absolute.
         if name:

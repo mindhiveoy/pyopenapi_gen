@@ -61,19 +61,10 @@ class ClientVisitor:
             for key in sorted(tag_map)
         ]
         writer = CodeWriter()
-        # Register all endpoint client imports using context.add_import
+        # Register all endpoint client imports using relative imports (endpoints are within the same package)
         for _, class_name, module_name in tag_tuples:
-            current_gen_pkg_name = context.get_current_package_name_for_generated_code()
-            if not current_gen_pkg_name:
-                logger.error(
-                    f"[ClientVisitor] Could not determine generated package name from context. "
-                    f"Cannot form fully qualified import for endpoints.{module_name}.{class_name}"
-                )
-                # Fallback or raise error - for now, attempt direct, which might fail later in mypy
-                context.add_import(f"endpoints.{module_name}", class_name)
-            else:
-                logical_module_for_add_import = f"{current_gen_pkg_name}.endpoints.{module_name}"
-                context.add_import(logical_module_for_add_import, class_name)
+            # Use relative imports for endpoints since they're part of the same generated package
+            context.import_collector.add_relative_import(f".endpoints.{module_name}", class_name)
 
         # Register core/config/typing imports for class signature
         # Use LOGICAL import path for core components

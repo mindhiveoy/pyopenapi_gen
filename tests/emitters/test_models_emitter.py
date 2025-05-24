@@ -142,8 +142,8 @@ def test_models_emitter__object_with_array_property__generates_list_type_annotat
     assert "from typing import" in result
     assert "@dataclass" in result
     assert "class PetList:" in result
-    # Check for the item model import and type
-    assert "from out.models.pet_list_items_item import PetListItemsItem" in result
+    # Check for the item model import and type (now using relative imports)
+    assert "from .pet_list_items_item import PetListItemsItem" in result
     assert "items: Optional[List[PetListItemsItem]]" in result
 
     # Also verify the item model was created
@@ -381,7 +381,7 @@ def test_models_emitter__array_of_models_alias(tmp_path: Path) -> None:
     assert list_model_file.exists()
     list_content = list_model_file.read_text()
     assert "from typing import List, TypeAlias" in list_content  # TypeAlias for explicit alias
-    assert "from out.models.item import Item" in list_content
+    assert "from .item import Item" in list_content
     assert '__all__ = ["ItemList"]' in list_content
     assert "ItemList: TypeAlias = List[Item]" in list_content
     assert "class ItemList" not in list_content
@@ -624,7 +624,7 @@ def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> No
     assert user_file.exists()
     user_content = user_file.read_text()
     assert "from typing import Optional" in user_content
-    assert "from out.models.address import Address" in user_content
+    assert "from .address import Address" in user_content
     assert "address: Optional[Address] = None" in user_content
 
 
@@ -651,8 +651,8 @@ def test_models_emitter_union_anyof(tmp_path: Path) -> None:
     assert union_file.exists()
     union_content = union_file.read_text()
     assert "from typing import TypeAlias, Union" in union_content  # Corrected order
-    assert "from out.models.schema_a import SchemaA" in union_content
-    assert "from out.models.schema_b import SchemaB" in union_content
+    assert "from .schema_a import SchemaA" in union_content
+    assert "from .schema_b import SchemaB" in union_content
     assert '__all__ = ["MyUnion"]' in union_content
     assert "MyUnion: TypeAlias = Union[SchemaA, SchemaB]" in union_content
 
@@ -684,8 +684,8 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     assert union_file.exists()
     union_content = union_file.read_text()
     assert "from typing import Optional, TypeAlias, Union" in union_content  # Corrected order
-    assert "from out.models.schema_opt_a import SchemaOptA" in union_content
-    assert "from out.models.schema_opt_b import SchemaOptB" in union_content
+    assert "from .schema_opt_a import SchemaOptA" in union_content
+    assert "from .schema_opt_b import SchemaOptB" in union_content
     assert '__all__ = ["MyOptionalUnion"]' in union_content
     # The alias itself should be Union, Optional wrapping is for where it's USED if the property is optional,
     # or if the alias schema itself is_nullable.
@@ -700,7 +700,7 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     # Optional import may not be present if MyOptionalUnion is the only source of optionality
     # and it handles its own Optional declaration internally.
     # assert "from typing import Optional" in container_content  # For the field
-    assert "from out.models.my_optional_union import MyOptionalUnion" in container_content
+    assert "from .my_optional_union import MyOptionalUnion" in container_content
     # The field 'payload' uses MyOptionalUnion. Since MyOptionalUnion alias is already Optional,
     # it should not be double-wrapped.
     assert "payload: MyOptionalUnion = None" in container_content
