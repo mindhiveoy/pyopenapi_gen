@@ -1,8 +1,7 @@
-import pytest
-from typing import Any, Union
-from typing import Dict, List
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, call, patch
 
+import pytest
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -267,7 +266,7 @@ class TestEndpointUrlArgsGenerator:
 
         # Assert that "headers: Dict[str, Any] = {" was NOT called
         for call_args, _ in code_writer_mock.write_line.call_args_list:
-            assert not "headers: Dict[str, Any] = {" in call_args[0]
+            assert "headers: Dict[str, Any] = {" not in call_args[0]
 
         # It will write lines for json_body setup due to op.request_body and primary_content_type being json
         code_writer_mock.write_line.assert_any_call(

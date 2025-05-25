@@ -6,7 +6,7 @@ turning them into convenient async iterators that automatically handle
 fetching subsequent pages.
 """
 
-from typing import AsyncIterator, Callable, Any, Dict, Awaitable
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict
 
 
 def paginate_by_next(

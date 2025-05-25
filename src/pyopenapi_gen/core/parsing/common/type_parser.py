@@ -9,7 +9,7 @@ from typing import (
     List,
     Optional,
     Tuple,
-)  # Changed from list to List for older Python compatibility if needed, but list is fine for 3.9+
+)
 
 # Note: IRSchema is not needed here as this function doesn't construct it.
 

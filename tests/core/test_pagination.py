@@ -2,13 +2,10 @@
 Tests for the pagination module that provides utilities for paginated API endpoints.
 """
 
-import asyncio
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List
 from unittest.mock import AsyncMock
 
 import pytest
-import pytest_asyncio
-
 from pyopenapi_gen.core.pagination import paginate_by_next
 
 
@@ -149,10 +146,10 @@ async def test_paginate_by_next__updates_next_token_between_calls() -> None:
         {"items": [{"id": 2}], "next": "token2"},
         {"items": [{"id": 3}], "next": None},
     ]
-    
+
     # Track the calls to verify parameters
     calls: List[Dict[str, Any]] = []
-    
+
     async def fetch_page_side_effect(**kwargs: Any) -> Dict[str, Any]:
         calls.append(kwargs.copy())
         if len(calls) == 1:
@@ -204,10 +201,10 @@ def test_paginate_by_next__returns_async_iterator() -> None:
         The return value can be used with async for
     """
     mock_fetch = AsyncMock(return_value={"items": [], "next": None})
-    
+
     # Get the iterator but don't run it
     iterator = paginate_by_next(mock_fetch)
-    
+
     # Verify it has the expected async iterator methods
     assert hasattr(iterator, "__aiter__")
     assert hasattr(iterator, "__anext__")

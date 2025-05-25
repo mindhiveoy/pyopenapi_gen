@@ -6,7 +6,6 @@ import subprocess
 import os
 from pathlib import Path
 from typing import Iterator
-import logging
 import re
 import json
 

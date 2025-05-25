@@ -5,26 +5,20 @@ This module tests edge cases that occur when different components of the system
 interact, including complex real-world scenarios and integration points.
 """
 
-import pytest
-import tempfile
 import json
+import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import patch, MagicMock
 
-from pyopenapi_gen.ir import IRSchema, IRSpec, IROperation
-from pyopenapi_gen.core.loader.loader import load_ir_from_spec
-from pyopenapi_gen.core.parsing.context import ParsingContext
-from pyopenapi_gen.core.utils import NameSanitizer
-from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
-from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
+import pytest
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.loader.loader import load_ir_from_spec
+from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 from pyopenapi_gen.generator.client_generator import ClientGenerator
 
 
 class TestComplexSchemaInteractions:
     """Test complex interactions between different schema types and patterns."""
-    
+
     def test_deeply_nested_composition_schemas(self) -> None:
         """Test deeply nested allOf/anyOf/oneOf compositions."""
         complex_composition_spec = {
@@ -62,7 +56,7 @@ class TestComplexSchemaInteractions:
                                         }
                                     },
                                     {
-                                        "type": "object", 
+                                        "type": "object",
                                         "properties": {
                                             "option_b": {"type": "boolean"}
                                         }
@@ -95,15 +89,15 @@ class TestComplexSchemaInteractions:
                 }
             }
         }
-        
+
         result = load_ir_from_spec(complex_composition_spec)
         assert result is not None
         assert len(result.schemas) >= 4
-        
+
         # Should handle the complex composition without errors
         ultra_complex = result.schemas.get("UltraComplexSchema")
         assert ultra_complex is not None
-        
+
     def test_circular_references_in_compositions(self) -> None:
         """Test circular references within composition schemas."""
         circular_composition_spec = {
@@ -148,11 +142,11 @@ class TestComplexSchemaInteractions:
                 }
             }
         }
-        
+
         result = load_ir_from_spec(circular_composition_spec)
         assert result is not None
         # Should handle circular references in compositions gracefully
-        
+
     def test_arrays_with_complex_item_schemas(self) -> None:
         """Test arrays with complex item definitions."""
         array_complexity_spec = {
@@ -205,7 +199,7 @@ class TestComplexSchemaInteractions:
                 }
             }
         }
-        
+
         result = load_ir_from_spec(array_complexity_spec)
         assert result is not None
         assert len(result.schemas) >= 3
@@ -213,7 +207,7 @@ class TestComplexSchemaInteractions:
 
 class TestNameCollisionEdgeCases:
     """Test edge cases around name collisions and resolution."""
-    
+
     def test_massive_name_collision_scenario(self) -> None:
         """Test handling of many schemas with names that would collide."""
         collision_spec = {
@@ -224,7 +218,7 @@ class TestNameCollisionEdgeCases:
                 "schemas": {}
             }
         }
-        
+
         # Create many schemas with colliding names
         collision_patterns = [
             "User", "user", "USER", "User_", "User__", "_User", "__User__",
@@ -233,7 +227,7 @@ class TestNameCollisionEdgeCases:
             "User-Model", "User_Model", "User.Model", "User@Model",
             "UserType", "user_type", "USER_TYPE", "UserType_", "_UserType"
         ]
-        
+
         for i, name in enumerate(collision_patterns):
             collision_spec["components"]["schemas"][name] = {
                 "type": "object",
@@ -242,10 +236,10 @@ class TestNameCollisionEdgeCases:
                     f"field_{i}": {"type": "string"}
                 }
             }
-        
+
         result = load_ir_from_spec(collision_spec)
         assert result is not None
-        
+
         # After refactoring, inline properties are extracted as separate schemas:
         # - 27 original object schemas
         # - 1 Id_ schema (from all "id" properties, reused since identical)
@@ -253,11 +247,11 @@ class TestNameCollisionEdgeCases:
         # Total: 27 + 1 + 27 = 55 schemas
         expected_schema_count = len(collision_patterns) + 1 + len(collision_patterns)
         assert len(result.schemas) == expected_schema_count
-        
+
         # At the parsing level, we expect duplicate names since collision resolution
         # happens during code generation in the emitter, not during parsing.
         # However, we can test that collision resolution works by running the emitter.
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             context = RenderContext(
                 overall_project_root=temp_dir,
@@ -265,10 +259,10 @@ class TestNameCollisionEdgeCases:
                 core_package_name="test_core",
                 parsed_schemas=result.schemas
             )
-            
+
             emitter = ModelsEmitter(context=context, parsed_schemas=result.schemas)
             emitter.emit(result, temp_dir)
-            
+
             # After emitter runs collision resolution, all generation_names should be unique
             generation_names = set()
             for schema in result.schemas.values():
@@ -277,25 +271,25 @@ class TestNameCollisionEdgeCases:
                         f"Duplicate generation_name after collision resolution: {schema.generation_name}"
                     )
                     generation_names.add(schema.generation_name)
-            
+
             # Verify models directory was created with files
             models_dir = Path(temp_dir) / "models"
             if models_dir.exists():
                 model_files = list(models_dir.glob("*.py"))
                 # Should have generated files for object schemas (not all 55 schemas generate files)
                 assert len(model_files) >= 10  # At least some files should be generated
-            
+
     def test_collision_with_python_builtins_and_keywords(self) -> None:
         """Test collisions with Python builtins and keywords."""
         builtin_collision_spec = {
-            "openapi": "3.1.0", 
+            "openapi": "3.1.0",
             "info": {"title": "Builtin Collision API", "version": "1.0.0"},
             "paths": {},
             "components": {
                 "schemas": {}
             }
         }
-        
+
         # Names that would collide with Python builtins/keywords
         problematic_names = [
             "type", "int", "str", "list", "dict", "set", "tuple", "bool",
@@ -305,7 +299,7 @@ class TestNameCollisionEdgeCases:
             "print", "len", "max", "min", "sum", "abs", "all", "any",
             "id", "input", "open", "file", "exec", "eval", "compile"
         ]
-        
+
         for name in problematic_names:
             builtin_collision_spec["components"]["schemas"][name] = {
                 "type": "object",
@@ -313,10 +307,10 @@ class TestNameCollisionEdgeCases:
                     "value": {"type": "string"}
                 }
             }
-        
+
         result = load_ir_from_spec(builtin_collision_spec)
         assert result is not None
-        
+
         # All schemas should be properly sanitized
         for schema_name, schema in result.schemas.items():
             sanitized_name = schema.name
@@ -326,7 +320,7 @@ class TestNameCollisionEdgeCases:
 
 class TestRealWorldComplexityScenarios:
     """Test scenarios based on real-world API complexity."""
-    
+
     def test_large_scale_microservice_spec(self) -> None:
         """Test a large spec resembling a microservice architecture."""
         microservice_spec = {
@@ -337,12 +331,12 @@ class TestRealWorldComplexityScenarios:
                 "schemas": {}
             }
         }
-        
+
         # Create schemas for different domains
         domains = ["User", "Product", "Order", "Payment", "Inventory", "Shipping"]
         operations = ["Create", "Update", "Delete", "List", "Get"]
         types = ["Request", "Response", "Data", "Meta", "Error"]
-        
+
         schema_count = 0
         for domain in domains:
             for operation in operations:
@@ -362,7 +356,7 @@ class TestRealWorldComplexityScenarios:
                         }
                     }
                     schema_count += 1
-        
+
         # Add cross-references between domains
         microservice_spec["components"]["schemas"]["OrderCreateData"]["properties"]["user"] = {
             "$ref": "#/components/schemas/UserCreateData"
@@ -371,10 +365,10 @@ class TestRealWorldComplexityScenarios:
             "type": "array",
             "items": {"$ref": "#/components/schemas/ProductCreateData"}
         }
-        
+
         result = load_ir_from_spec(microservice_spec)
         assert result is not None
-        
+
         # After refactoring, inline properties are extracted as separate schemas:
         # - 150 original object schemas
         # - 1 shared 'id' schema (string)
@@ -385,7 +379,7 @@ class TestRealWorldComplexityScenarios:
         # Total: ~308 schemas
         expected_min_schemas = schema_count * 2  # At least double due to inline extraction
         assert len(result.schemas) >= expected_min_schemas
-        
+
     def test_api_with_many_optional_and_required_fields(self) -> None:
         """Test API with complex required/optional field patterns."""
         complex_fields_spec = {
@@ -402,7 +396,7 @@ class TestRealWorldComplexityScenarios:
                             "id": {"type": "integer"},
                             "name": {"type": "string"},
                             "critical_field": {"type": "string"},
-                            
+
                             # Optional fields with various types
                             "optional_string": {"type": "string"},
                             "optional_integer": {"type": "integer"},
@@ -422,7 +416,7 @@ class TestRealWorldComplexityScenarios:
                                 "type": "string",
                                 "enum": ["option1", "option2", "option3"]
                             },
-                            
+
                             # Fields with complex constraints
                             "constrained_string": {
                                 "type": "string",
@@ -455,10 +449,10 @@ class TestRealWorldComplexityScenarios:
                 }
             }
         }
-        
+
         result = load_ir_from_spec(complex_fields_spec)
         assert result is not None
-        
+
         complex_entity = result.schemas.get("ComplexEntity")
         assert complex_entity is not None
         assert sorted(complex_entity.required) == sorted(["id", "name", "critical_field"])
@@ -468,7 +462,7 @@ class TestRealWorldComplexityScenarios:
 
 class TestErrorHandlingIntegration:
     """Test error handling across component integration points."""
-    
+
     def test_cascading_error_recovery(self) -> None:
         """Test recovery from cascading errors across components."""
         error_prone_spec = {
@@ -526,7 +520,7 @@ class TestErrorHandlingIntegration:
                 }
             }
         }
-        
+
         # Should handle missing references gracefully
         result = load_ir_from_spec(error_prone_spec)
         assert result is not None
@@ -534,7 +528,7 @@ class TestErrorHandlingIntegration:
         assert "ValidSchema" in result.schemas
         # Should have operations even with some invalid references
         assert len(result.operations) >= 1
-        
+
     def test_partial_code_generation_with_errors(self) -> None:
         """Test that code generation continues even with some problematic schemas."""
         mixed_spec = {
@@ -564,25 +558,25 @@ class TestErrorHandlingIntegration:
                 }
             }
         }
-        
+
         result = load_ir_from_spec(mixed_spec)
         assert result is not None
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             context = RenderContext(
                 overall_project_root=temp_dir,
                 package_root_for_generated_code=temp_dir,
                 core_package_name="test_core"
             )
-            
+
             emitter = ModelsEmitter(context=context, parsed_schemas=result.schemas)
-            
+
             # Should generate code for valid schemas even if some are problematic
             emitter.emit(result, temp_dir)
-            
+
             models_dir = Path(temp_dir) / "models"
             assert models_dir.exists()
-            
+
             # Should have files for valid schemas
             generated_files = list(models_dir.glob("*.py"))
             assert len(generated_files) >= 2  # At least for ValidSchema1 and ValidSchema2
@@ -590,7 +584,7 @@ class TestErrorHandlingIntegration:
 
 class TestMemoryAndPerformanceEdgeCases:
     """Test memory usage and performance edge cases."""
-    
+
     def test_memory_efficiency_with_duplicate_schemas(self) -> None:
         """Test memory efficiency when many schemas are very similar."""
         duplicate_heavy_spec = {
@@ -601,7 +595,7 @@ class TestMemoryAndPerformanceEdgeCases:
                 "schemas": {}
             }
         }
-        
+
         # Create many very similar schemas (testing memory efficiency)
         base_schema = {
             "type": "object",
@@ -618,16 +612,16 @@ class TestMemoryAndPerformanceEdgeCases:
                 }
             }
         }
-        
+
         # Create 200 nearly identical schemas
         for i in range(200):
             schema_copy = json.loads(json.dumps(base_schema))  # Deep copy
             schema_copy["properties"][f"unique_field_{i}"] = {"type": "string"}
             duplicate_heavy_spec["components"]["schemas"][f"SimilarSchema{i}"] = schema_copy
-        
+
         result = load_ir_from_spec(duplicate_heavy_spec)
         assert result is not None
-        
+
         # After refactoring, inline properties are extracted as separate schemas:
         # - 200 original object schemas
         # - 4 shared property schemas (id, name, description, created_at, updated_at)
@@ -636,11 +630,11 @@ class TestMemoryAndPerformanceEdgeCases:
         # Total: ~604-605 schemas
         expected_min_schemas = 200 * 3  # At least triple due to inline extraction
         assert len(result.schemas) >= expected_min_schemas
-        
+
     def test_processing_time_with_complex_references(self) -> None:
         """Test processing time with complex reference patterns."""
         import time
-        
+
         complex_ref_spec = {
             "openapi": "3.1.0",
             "info": {"title": "Complex Reference API", "version": "1.0.0"},
@@ -649,7 +643,7 @@ class TestMemoryAndPerformanceEdgeCases:
                 "schemas": {}
             }
         }
-        
+
         # Create a web of interconnected references
         schema_count = 100
         for i in range(schema_count):
@@ -660,24 +654,24 @@ class TestMemoryAndPerformanceEdgeCases:
                     "name": {"type": "string"}
                 }
             }
-            
+
             # Add references to other schemas
             for j in range(min(5, schema_count)):  # Reference up to 5 other schemas
                 ref_target = (i + j + 1) % schema_count
                 schema["properties"][f"ref_{j}"] = {
                     "$ref": f"#/components/schemas/RefSchema{ref_target}"
                 }
-            
+
             complex_ref_spec["components"]["schemas"][f"RefSchema{i}"] = schema
-        
+
         start_time = time.time()
         result = load_ir_from_spec(complex_ref_spec)
         end_time = time.time()
-        
+
         processing_time = end_time - start_time
         assert processing_time < 10.0, f"Processing took {processing_time:.2f}s, should be under 10s"
         assert result is not None
-        
+
         # After refactoring, inline properties are extracted as separate schemas:
         # - 100 original object schemas
         # - Shared property schemas (id, name)
@@ -689,7 +683,7 @@ class TestMemoryAndPerformanceEdgeCases:
 
 class TestCodeGenerationIntegrationEdgeCases:
     """Test edge cases in complete code generation pipeline."""
-    
+
     def test_full_client_generation_with_edge_cases(self) -> None:
         """Test complete client generation with various edge cases."""
         edge_case_api_spec = {
@@ -749,14 +743,14 @@ class TestCodeGenerationIntegrationEdgeCases:
                 }
             }
         }
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             # Write spec to temporary file
             import json
             spec_file = Path(temp_dir) / "test_spec.json"
             with open(spec_file, 'w') as f:
                 json.dump(edge_case_api_spec, f)
-            
+
             # Should generate complete client without errors
             generator = ClientGenerator(verbose=False)
             generator.generate(
@@ -764,16 +758,16 @@ class TestCodeGenerationIntegrationEdgeCases:
                 project_root=Path(temp_dir),
                 output_package="edge_case_client"
             )
-            
+
             # Verify basic structure was created
             client_dir = Path(temp_dir) / "edge_case_client"
             assert client_dir.exists()
-            
-            models_dir = client_dir / "models" 
+
+            models_dir = client_dir / "models"
             if models_dir.exists():
                 model_files = list(models_dir.glob("*.py"))
                 assert len(model_files) >= 2  # User and UserPreferences
-                
+
     def test_import_resolution_with_name_collisions(self) -> None:
         """Test import resolution when there are name collisions."""
         collision_spec = {
@@ -798,20 +792,20 @@ class TestCodeGenerationIntegrationEdgeCases:
                 }
             }
         }
-        
+
         result = load_ir_from_spec(collision_spec)
         assert result is not None
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             context = RenderContext(
                 overall_project_root=temp_dir,
                 package_root_for_generated_code=temp_dir,
                 core_package_name="test_core"
             )
-            
+
             emitter = ModelsEmitter(context=context, parsed_schemas=result.schemas)
             emitter.emit(result, temp_dir)
-            
+
             # Should generate files with properly resolved imports
             models_dir = Path(temp_dir) / "models"
             if models_dir.exists():

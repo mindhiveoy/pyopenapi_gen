@@ -15,7 +15,7 @@ T = TypeVar("T")
 
 class NameSanitizer:
     """Helper to sanitize spec names and tags into valid Python identifiers and filenames."""
-    
+
     # Python built-ins and common problematic names that should be avoided in module names
     RESERVED_NAMES = {
         # Built-in types
@@ -184,9 +184,9 @@ class Formatter:
             # Suppress blib2to3 debug logging that floods output during formatting
             blib2to3_logger = logging.getLogger('blib2to3')
             blib2to3_logger.setLevel(logging.WARNING)
-            
+
             # Also suppress the driver logger specifically
-            driver_logger = logging.getLogger('blib2to3.pgen2.driver')  
+            driver_logger = logging.getLogger('blib2to3.pgen2.driver')
             driver_logger.setLevel(logging.WARNING)
 
             # Initialize Black formatter

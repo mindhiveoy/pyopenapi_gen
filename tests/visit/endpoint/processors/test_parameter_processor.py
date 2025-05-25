@@ -7,7 +7,6 @@ from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pyopenapi_gen.context.import_collector import ImportCollector
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -57,6 +56,7 @@ def render_context_mock_for_params(tmp_path: Path) -> MagicMock:
     mock_context.calculate_relative_path_for_internal_module = MagicMock(
         return_value=None
     )  # Simplifies if we don't test relative import generation here
+    mock_context.current_file = None  # Add current_file attribute for self-reference detection
 
     return mock_context
 

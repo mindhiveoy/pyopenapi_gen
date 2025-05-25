@@ -144,7 +144,6 @@ def get_return_type(
                 if py_type.startswith(".") and not py_type.startswith(".."):
                     py_type = "models" + py_type
 
-
                 return (py_type, False)
 
     # Default behavior for non-PUT operations or when inferring the return type fails

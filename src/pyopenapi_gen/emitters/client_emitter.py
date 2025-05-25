@@ -1,6 +1,4 @@
-import os
 import traceback
-from typing import Optional
 from pathlib import Path
 
 from pyopenapi_gen import IRSpec

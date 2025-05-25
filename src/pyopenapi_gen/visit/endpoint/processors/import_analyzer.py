@@ -5,7 +5,7 @@ Helper class for analyzing an IROperation and registering necessary imports.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, IO  # IO for multipart type hint
+from typing import TYPE_CHECKING, Any, Dict, Optional  # IO for multipart type hint
 
 # Necessary helpers for type analysis
 from pyopenapi_gen.helpers.endpoint_utils import (
@@ -15,7 +15,7 @@ from pyopenapi_gen.helpers.endpoint_utils import (
 )
 
 if TYPE_CHECKING:
-    from pyopenapi_gen import IROperation, IRParameter  # IRParameter for op.parameters type hint
+    from pyopenapi_gen import IROperation  # IRParameter for op.parameters type hint
     from pyopenapi_gen.context.render_context import RenderContext
 
 logger = logging.getLogger(__name__)

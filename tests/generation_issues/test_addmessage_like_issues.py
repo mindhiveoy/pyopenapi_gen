@@ -1,10 +1,10 @@
-import pytest
-import tempfile
-import shutil
-from pathlib import Path
 import ast
-from typing import Generator, List
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Generator
 
+import pytest
 from pyopenapi_gen.generator.client_generator import ClientGenerator, GenerationError
 
 # Absolute path to the root of the pyopenapi_gen project itself
@@ -94,9 +94,17 @@ def test_generate_types_for_addmessage_like_scenario(temp_project_dir: Path) -> 
         # Recursive fields should use forward string references
         assert find_field_annotation_in_class(entry_class_node, "related_entries") == "Optional[List['Entry']]"
         assert find_field_annotation_in_class(entry_class_node, "parent_entry") == "Optional['Entry']"
-    except AssertionError:
+    except AssertionError as e:
         # Entry schema might have no properties due to cycle detection issues
         # This is a known limitation - just verify the class exists
+        print(f"DEBUG: AssertionError during field checks: {e}")
+        # Let's see what fields actually exist
+        for node in entry_class_node.body:
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                field_name = node.target.id
+                if node.annotation:
+                    annotation = ast.unparse(node.annotation).strip()
+                    print(f"DEBUG: Field '{field_name}' has annotation: {annotation}")
         pass
 
     # Check the EntrySpecificRole enum

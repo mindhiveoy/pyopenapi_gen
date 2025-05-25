@@ -1,15 +1,15 @@
-import os
 import logging
-from typing import Dict, List, Optional, Tuple, Any, Set
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
-from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRSpec
+from pyopenapi_gen import IROperation, IRParameter, IRRequestBody
 from pyopenapi_gen.context.render_context import RenderContext
 
 logger = logging.getLogger(__name__)
 
-from ..core.utils import Formatter, NameSanitizer
 from pyopenapi_gen.visit.endpoint.endpoint_visitor import EndpointVisitor
+
+from ..core.utils import Formatter, NameSanitizer
 
 # Basic OpenAPI schema to Python type mapping for parameters
 PARAM_TYPE_MAPPING = {

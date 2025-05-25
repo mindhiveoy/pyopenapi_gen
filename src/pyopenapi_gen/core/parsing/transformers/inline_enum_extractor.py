@@ -8,8 +8,8 @@ import logging
 from typing import Any, Mapping, Optional
 
 from .... import IRSchema
-from ..context import ParsingContext
 from ...utils import NameSanitizer
+from ..context import ParsingContext
 
 
 def _extract_enum_from_property_node(

@@ -2,16 +2,16 @@
 Tests for TypeHelper methods that support type conversion and cleaning.
 """
 
-import re
-from typing import Any, Dict, List, Optional, Union, Tuple
-from pathlib import Path
 import sys
-
-import pytest
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock
 
+import pytest
 from pyopenapi_gen import IRSchema
+from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.helpers.type_helper import TypeHelper
 from pyopenapi_gen.helpers.type_resolution.array_resolver import ArrayTypeResolver
 from pyopenapi_gen.helpers.type_resolution.composition_resolver import CompositionTypeResolver
@@ -20,8 +20,6 @@ from pyopenapi_gen.helpers.type_resolution.named_resolver import NamedTypeResolv
 from pyopenapi_gen.helpers.type_resolution.object_resolver import ObjectTypeResolver
 from pyopenapi_gen.helpers.type_resolution.primitive_resolver import PrimitiveTypeResolver
 from pyopenapi_gen.helpers.type_resolution.resolver import SchemaTypeResolver
-from pyopenapi_gen.context.file_manager import FileManager
-from pyopenapi_gen.core.utils import NameSanitizer
 
 
 class TestTypeHelperCleanTypeParameters:

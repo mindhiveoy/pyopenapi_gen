@@ -135,7 +135,7 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
                     description=prop_schema.description or f"Enum for {schema_name}.{prop_name}",
                 )
                 new_enums[enum_name] = enum_schema
-                
+
                 # Update the original property to reference the extracted enum
                 prop_schema.name = enum_name
                 prop_schema.type = enum_name  # Make the property reference the enum by name

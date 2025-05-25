@@ -2,15 +2,14 @@
 Tests for the EndpointDocstringGenerator class.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from pyopenapi_gen.ir import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
-from pyopenapi_gen.http_types import HTTPMethod
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
+from pyopenapi_gen.http_types import HTTPMethod
+from pyopenapi_gen.ir import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
 from pyopenapi_gen.visit.endpoint.generators.docstring_generator import EndpointDocstringGenerator
 
 

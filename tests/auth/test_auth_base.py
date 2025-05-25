@@ -1,7 +1,5 @@
 import inspect
-from typing import Any, Dict
-
-import pytest
+from typing import Any
 
 from pyopenapi_gen.core.auth.base import BaseAuth
 

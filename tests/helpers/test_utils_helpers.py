@@ -1,7 +1,5 @@
 import sys
 
-from pytest import MonkeyPatch
-
 from pyopenapi_gen.context.import_collector import ImportCollector
 from pyopenapi_gen.core.utils import (
     Formatter,
@@ -9,6 +7,7 @@ from pyopenapi_gen.core.utils import (
     NameSanitizer,
     ParamSubstitutor,
 )
+from pytest import MonkeyPatch
 
 
 def test_sanitize_module_name__invalid_chars__creates_valid_module_name() -> None:

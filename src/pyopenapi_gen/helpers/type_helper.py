@@ -3,11 +3,9 @@
 import logging
 import os
 from typing import Dict, Optional, Set
-from collections import defaultdict
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
-from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 from pyopenapi_gen.helpers.type_resolution.resolver import SchemaTypeResolver
 
@@ -141,7 +139,8 @@ class TypeHelper:
             target_ir_schema = all_schemas.get(schema.type)
             if not target_ir_schema:
                 logger.error(
-                    f"Schema '{schema.type}' referenced by '{parent_schema_name}' not found in all_schemas. This should not happen."
+                    f"Schema '{schema.type}' referenced by '{parent_schema_name}' not found in all_schemas. "
+                    "This should not happen."
                 )
                 context.add_import("typing", "Any")
                 return "Any"  # Fallback, though this indicates a deeper issue
@@ -177,16 +176,16 @@ class TypeHelper:
             # Check if the target module is the current module being generated
             current_module_dot_path = context.get_current_module_dot_path()
             is_self_import = current_module_dot_path == model_module_path
-            
+
             # Enhanced self-import detection: check if we're importing the same class from the same module
             is_same_class_self_import = False
             if context.current_file:
                 current_file_name = context.current_file
                 current_module_name = os.path.splitext(os.path.basename(current_file_name))[0]
                 target_module_name = module_name_to_import_from
-                
+
                 # If we're in message.py trying to import Message from message module, skip it
-                if (current_module_name == target_module_name and 
+                if (current_module_name == target_module_name and
                     class_name_to_import == target_ir_schema.generation_name):
                     is_same_class_self_import = True
 
@@ -202,7 +201,13 @@ class TypeHelper:
                     context.add_import(model_module_path, class_name_to_import)
 
             resolved_type_str = class_name_to_import
-            return TypeFinalizer(context, all_schemas).finalize(resolved_type_str, schema, required)
+            final_type = TypeFinalizer(context, all_schemas).finalize(resolved_type_str, schema, required)
+
+            # For self-references within the same class, quote the entire final type expression
+            if is_same_class_self_import:
+                final_type = f'"{final_type}"'
+
+            return final_type
 
         resolver = SchemaTypeResolver(context=context, all_schemas=all_schemas)
 

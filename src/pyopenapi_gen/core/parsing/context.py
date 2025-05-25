@@ -37,49 +37,49 @@ class ParsingContext:
     def __post_init__(self) -> None:
         # Initialize logger for the context instance if needed, or rely on module logger
         self.logger = logger  # or logging.getLogger(f"{__name__}.ParsingContext")
-        
+
         # Initialize unified cycle detection context
         # Import here to avoid circular imports
         from .unified_cycle_detection import UnifiedCycleContext
-        
+
         # Get max depth from environment or default
         max_depth = int(os.environ.get("PYOPENAPI_MAX_DEPTH", 150))
-        
+
         self.unified_cycle_context = UnifiedCycleContext(
             parsed_schemas=self.parsed_schemas,  # Share the same parsed_schemas dict
             max_depth=max_depth
         )
-    
+
     def unified_enter_schema(self, schema_name: Optional[str]) -> Any:
         """Enter schema using unified cycle detection system."""
         from .unified_cycle_detection import unified_enter_schema
-        
+
         result = unified_enter_schema(schema_name, self.unified_cycle_context)
-        
+
         # Update legacy fields for backward compatibility
         self.recursion_depth = self.unified_cycle_context.recursion_depth
         self.cycle_detected = self.unified_cycle_context.cycle_detected
         self.currently_parsing = self.unified_cycle_context.schema_stack.copy()
-        
+
         return result
-    
+
     def unified_exit_schema(self, schema_name: Optional[str]) -> None:
         """Exit schema using unified cycle detection system."""
         from .unified_cycle_detection import unified_exit_schema
-        
+
         unified_exit_schema(schema_name, self.unified_cycle_context)
-        
+
         # Update legacy fields for backward compatibility
         self.recursion_depth = self.unified_cycle_context.recursion_depth
         self.currently_parsing = self.unified_cycle_context.schema_stack.copy()
-    
+
     def clear_cycle_state(self) -> None:
         """Clear both legacy and unified cycle detection state."""
         # Clear legacy state
         self.currently_parsing.clear()
         self.recursion_depth = 0
         self.cycle_detected = False
-        
+
         # Clear unified context state
         self.unified_cycle_context.schema_stack.clear()
         self.unified_cycle_context.schema_states.clear()

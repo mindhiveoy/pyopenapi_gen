@@ -296,7 +296,7 @@ class TypeCleaner:
     def _remove_none_from_lists(cls, type_str: str) -> str:
         """Remove None parameters from List types."""
         # Special case for the OpenAPI 3.1 common pattern with List[Type, None]
-        if ", None]" in type_str and not "Union[" in type_str.split(", None]")[0]:
+        if ", None]" in type_str and "Union[" not in type_str.split(", None]")[0]:
             type_str = re.sub(r"List\[([^,\[\]]+),\s*None\]", r"List[\1]", type_str)
 
         # Special case for complex nested List pattern in OpenAPI 3.1

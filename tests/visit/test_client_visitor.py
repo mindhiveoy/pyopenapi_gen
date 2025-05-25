@@ -3,14 +3,11 @@ Tests for the ClientVisitor which generates the main API client class.
 """
 
 import re
-from typing import Any, Dict, List, Optional
 
-import pytest
-
-from pyopenapi_gen import IRSpec, IROperation
+from pyopenapi_gen import IROperation, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
-from pyopenapi_gen.visit.client_visitor import ClientVisitor
 from pyopenapi_gen.http_types import HTTPMethod  # Import for method type
+from pyopenapi_gen.visit.client_visitor import ClientVisitor
 
 
 class TestClientVisitor:
@@ -27,7 +24,7 @@ class TestClientVisitor:
         )
         # Set a current file to collect imports properly
         self.context.set_current_file("/tmp/test_app/client.py")
-    
+
     def test_visit__generates_api_client_class(self) -> None:
         """
         Scenario:
@@ -48,7 +45,7 @@ class TestClientVisitor:
 
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Verify basic structure
         assert "class APIClient:" in result
         assert "__init__" in result
@@ -57,7 +54,7 @@ class TestClientVisitor:
         assert "async def close(self)" in result
         assert "async def __aenter__" in result
         assert "async def __aexit__" in result
-        
+
         # Set a current file to collect imports properly
         self.context.set_current_file("/tmp/test_app/client.py")
 
@@ -65,7 +62,7 @@ class TestClientVisitor:
         # We'll just check that required classes are present in the generated code
         assert "HttpTransport" in result
         assert "ClientConfig" in result
-    
+
     def test_visit__generates_properties_for_all_tags(self) -> None:
         """
         Scenario:
@@ -109,7 +106,7 @@ class TestClientVisitor:
                 responses=[],
             ),
         ]
-        
+
         # Create a spec with these operations
         spec = IRSpec(
             title="Test API",
@@ -117,25 +114,25 @@ class TestClientVisitor:
             description="Test API description",
             operations=operations
         )
-        
+
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Verify property method for each tag
         assert "def users(self)" in result
         assert "def orders(self)" in result
         assert "def products(self)" in result
-        
+
         # Verify lazy initialization for each client
         assert "self._users: Optional[UsersClient] = None" in result
         assert "self._orders: Optional[OrdersClient] = None" in result
         assert "self._products: Optional[ProductsClient] = None" in result
-        
+
         # Verify tag imports are present in the generated code
         assert "UsersClient" in result
         assert "OrdersClient" in result
         assert "ProductsClient" in result
-    
+
     def test_visit__handles_operations_with_no_tags(self) -> None:
         """
         Scenario:
@@ -168,7 +165,7 @@ class TestClientVisitor:
                 responses=[],
             ),
         ]
-        
+
         # Create a spec with these operations
         spec = IRSpec(
             title="Test API",
@@ -176,17 +173,17 @@ class TestClientVisitor:
             description="Test API description",
             operations=operations
         )
-        
+
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Verify default tag property is generated
         assert "def default(self)" in result
         assert "self._default: Optional[DefaultClient] = None" in result
-        
+
         # Verify default tag import is present in the generated code
         assert "DefaultClient" in result
-    
+
     def test_visit__handles_multiple_operations_with_same_tag(self) -> None:
         """
         Scenario:
@@ -230,7 +227,7 @@ class TestClientVisitor:
                 responses=[],
             ),
         ]
-        
+
         # Create a spec with these operations
         spec = IRSpec(
             title="Test API",
@@ -238,17 +235,17 @@ class TestClientVisitor:
             description="Test API description",
             operations=operations
         )
-        
+
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Count occurrences of the 'users' property method
         users_property_matches = re.findall(r"def\s+users\s*\(", result)
         assert len(users_property_matches) == 1
 
         # Check for initialization - use more flexible pattern
         assert "self._users:" in result
-    
+
     def test_visit__normalizes_tag_names(self) -> None:
         """
         Scenario:
@@ -292,7 +289,7 @@ class TestClientVisitor:
                 responses=[],
             ),
         ]
-        
+
         # Create a spec with these operations
         spec = IRSpec(
             title="Test API",
@@ -300,20 +297,20 @@ class TestClientVisitor:
             description="Test API description",
             operations=operations
         )
-        
+
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Verify normalized property names
         assert "def tag_with_hyphens(self)" in result
         assert "def tag_with_spaces(self)" in result
         assert "_123_numeric_prefix" in result
-        
+
         # Verify appropriate class names are in the generated code
         assert "TagWithHyphensClient" in result
         assert "TagWithSpacesClient" in result
         assert "_123NumericPrefixClient" in result
-    
+
     def test_visit__generates_docstring_with_api_info(self) -> None:
         """
         Scenario:
@@ -328,17 +325,17 @@ class TestClientVisitor:
             description="This is a test API\nwith multiple lines\nof description.",
             operations=[]
         )
-        
+
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Verify docstring contains API information
         assert '"""' in result  # Has docstring
         assert "Test API (version 2.1.0)" in result
         assert "This is a test API" in result
         assert "with multiple lines" in result
         assert "of description." in result
-    
+
     def test_visit__generates_request_and_close_methods(self) -> None:
         """
         Scenario:
@@ -353,19 +350,19 @@ class TestClientVisitor:
             description="Test API",
             operations=[]
         )
-        
+
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Verify request method
         assert "async def request(self, method: str, url: str, **kwargs: Any) -> Any:" in result
         assert "return await self.transport.request(method, url, **kwargs)" in result
-        
+
         # Verify close method
         assert "async def close(self) -> None:" in result
         assert "if hasattr(self.transport, 'close'):" in result
         assert "await self.transport.close()" in result
-    
+
     def test_visit__generates_async_context_manager_methods(self) -> None:
         """
         Scenario:
@@ -380,16 +377,16 @@ class TestClientVisitor:
             description="Test API",
             operations=[]
         )
-        
+
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
-        
+
         # Verify __aenter__ method
         assert "async def __aenter__(self) -> 'APIClient':" in result
         assert "if hasattr(self.transport, '__aenter__'):" in result
         assert "await self.transport.__aenter__()" in result
         assert "return self" in result
-        
+
         # Verify __aexit__ method
         assert "async def __aexit__(" in result
         assert "exc_type: type[BaseException] | None" in result

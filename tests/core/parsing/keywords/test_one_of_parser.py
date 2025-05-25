@@ -3,7 +3,7 @@ Tests for the _parse_one_of_schemas helper function in keywords.one_of_parser.
 """
 
 import unittest
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, List, Mapping, Optional
 from unittest.mock import MagicMock
 
 from pyopenapi_gen import IRSchema

@@ -266,7 +266,7 @@ class TestLogging(unittest.TestCase):
         }
         context = ParsingContext(raw_spec_schemas={parent_schema_name: schema_data}, raw_spec_components={})
         result = _parse_schema(parent_schema_name, schema_data, context, allow_self_reference=False)
-        
+
         # Should have the property with a placeholder schema
         self.assertIsNotNone(result.properties)
         self.assertIn("child", result.properties)

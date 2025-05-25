@@ -1,5 +1,5 @@
 import unittest
-from typing import Any, Callable, Dict, Mapping, Optional, Set, cast
+from typing import Any, Callable, Dict, Mapping, Optional, cast
 from unittest.mock import MagicMock
 
 from pyopenapi_gen import IRSchema

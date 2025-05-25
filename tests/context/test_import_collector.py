@@ -1,7 +1,6 @@
 from typing import Dict, List, Optional, Tuple
 
 import pytest
-
 from pyopenapi_gen.context.import_collector import ImportCollector, _is_stdlib, make_relative_import
 
 

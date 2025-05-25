@@ -13,8 +13,9 @@ from typing import (
     TYPE_CHECKING,
     Any,
     List,
-)  # Kept Any, List, Optional, TYPE_CHECKING for __getattr__ and __dir__
+)
 
+# Kept Any, List, Optional, TYPE_CHECKING for __getattr__ and __dir__
 # Import HTTPMethod from its canonical location
 from .http_types import HTTPMethod
 

@@ -460,7 +460,7 @@ class TestSchemaParser(unittest.TestCase):
         from pyopenapi_gen.core.parsing.unified_cycle_detection import SchemaState
         self.context.unified_cycle_context.schema_stack.append(parent_schema_name)
         self.context.unified_cycle_context.schema_states[parent_schema_name] = SchemaState.IN_PROGRESS
-        
+
         # Now, the call to _parse_schema *is* the re-entry.
         # The unified cycle detection should detect the re-entry and return a placeholder
         schema_ir = _parse_schema(parent_schema_name, parent_node_data, self.context, allow_self_reference=False)

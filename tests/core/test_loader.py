@@ -4,7 +4,6 @@ from typing import Any, Dict
 from unittest.mock import MagicMock
 
 import pytest
-
 from pyopenapi_gen import HTTPMethod
 from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext

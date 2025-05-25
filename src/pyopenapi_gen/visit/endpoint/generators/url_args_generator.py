@@ -8,11 +8,11 @@ import logging
 import re  # For _build_url_with_path_vars
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.core.utils import NameSanitizer
+from pyopenapi_gen.core.writers.code_writer import CodeWriter
 
 if TYPE_CHECKING:
-    from pyopenapi_gen import IROperation, IRParameter  # IRParameter might be needed for op.parameters access
+    from pyopenapi_gen import IROperation  # IRParameter might be needed for op.parameters access
     from pyopenapi_gen.context.render_context import RenderContext
 
 logger = logging.getLogger(__name__)

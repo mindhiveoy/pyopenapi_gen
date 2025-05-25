@@ -1,15 +1,14 @@
 """Test handling of duplicate operation IDs."""
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema, IRSpec
+from pyopenapi_gen import IROperation, IRResponse, IRSchema, IRSpec
+from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 from pyopenapi_gen.http_types import HTTPMethod
-from pyopenapi_gen.context.file_manager import FileManager
 
 
 @pytest.fixture

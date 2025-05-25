@@ -6,15 +6,13 @@ import importlib  # For reloading
 import os
 import unittest
 from typing import Any, Dict, cast
-from unittest.mock import patch
 
+import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
 import pytest
-
-from pyopenapi_gen.ir import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
 from pyopenapi_gen.core.utils import NameSanitizer
-import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
+from pyopenapi_gen.ir import IRSchema
 
 
 class TestCycleDetection(unittest.TestCase):
@@ -89,7 +87,7 @@ class TestCycleDetection(unittest.TestCase):
         # Verify cycle detection - context should detect the cycle overall
         self.assertTrue(self.context.cycle_detected, "Cycle should be detected overall")
         # SchemaA itself is not marked as circular because it doesn't directly self-reference
-        # The cycle is detected when SchemaB references SchemaA (which is already being parsed)  
+        # The cycle is detected when SchemaB references SchemaA (which is already being parsed)
         self.assertFalse(result_a._is_circular_ref, "SchemaA should not be marked as circular (no direct self-ref)")
         self.assertFalse(result_a._from_unresolved_ref, "SchemaA should not be marked as unresolved")
         self.assertEqual(
@@ -203,7 +201,6 @@ class TestCycleDetection(unittest.TestCase):
         # This test primarily ensures the module loads with defaults correctly.
 
         # schema_parser.DEBUG_CYCLES should be True due to setUp
-        from pyopenapi_gen.core.parsing import schema_parser
 
         context = ParsingContext()
         schema_name = "TestSchemaEnvEffect"
@@ -279,7 +276,7 @@ class TestCycleDetection(unittest.TestCase):
         # Parse schema A, which should trigger the cycle detection through B and C
         result_a = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
 
-        # Verify cycle detection - context should detect the cycle overall  
+        # Verify cycle detection - context should detect the cycle overall
         self.assertTrue(self.context.cycle_detected, "Cycle should be detected in three-way cycle")
         # SchemaA_Triple itself is not marked as circular because it doesn't directly self-reference
         # The cycle is detected when one of the schemas in the chain references back to an already-parsing schema
@@ -303,7 +300,7 @@ class TestCycleDetection(unittest.TestCase):
         # SchemaB itself won't be marked as circular, but some schema in the chain will detect the cycle
         self.assertEqual(result_b_direct.name, NameSanitizer.sanitize_class_name(schema_b_name))
 
-        # Clear context for Schema C check  
+        # Clear context for Schema C check
         self.context.clear_cycle_state()
         self.context.parsed_schemas.clear()
         result_c_direct = _parse_schema(schema_c_name, schema_c, self.context, allow_self_reference=False)

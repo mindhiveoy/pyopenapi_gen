@@ -1,8 +1,8 @@
 """Resolves IRSchema to Python object types (classes, dicts)."""
 
 import logging
-from typing import TYPE_CHECKING, Dict, Optional
 import os
+from typing import TYPE_CHECKING, Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext

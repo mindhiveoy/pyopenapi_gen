@@ -8,9 +8,16 @@ PyOpenAPI Generator creates modern, async-first, and strongly-typed Python clien
 
 ## Development Environment
 
+**IMPORTANT: This project uses a virtual environment at `.venv/`. Always activate it before running any commands.**
+
 ### Setup
 
 ```bash
+# Activate virtual environment (REQUIRED for all operations)
+source .venv/bin/activate  # On macOS/Linux
+# or
+.venv\Scripts\activate     # On Windows
+
 # Install dependencies
 poetry install
 
@@ -19,6 +26,8 @@ pip install -e '.[dev]'
 ```
 
 ### Essential Commands
+
+**Note: Always run `source .venv/bin/activate` first!**
 
 ```bash
 # Testing

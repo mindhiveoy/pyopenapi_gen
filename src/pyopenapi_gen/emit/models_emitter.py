@@ -1,11 +1,10 @@
 import logging
-import os
 from pathlib import Path
 from typing import List, Optional
 
 from pyopenapi_gen.context.render_context import RenderContext
-from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.core.utils import NameSanitizer
+from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.ir import IRSchema
 from pyopenapi_gen.visit.model.model_visitor import ModelVisitor
 

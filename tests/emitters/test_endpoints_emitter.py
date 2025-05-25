@@ -2,7 +2,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from pyopenapi_gen import (
     HTTPMethod,
     IROperation,
@@ -36,6 +35,7 @@ def mock_render_context(tmp_path: Path) -> MagicMock:
     ctx.overall_project_root = str(tmp_path)
     ctx.parsed_schemas = {}
     ctx.core_package_name = "test_client.core"
+    ctx.current_file = None  # Add current_file attribute for self-reference detection
     return ctx
 
 

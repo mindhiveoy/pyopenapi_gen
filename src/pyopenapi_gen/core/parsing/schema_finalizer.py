@@ -4,7 +4,6 @@ Finalization an IRSchema object during OpenAPI parsing.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Set, Union
 
 from pyopenapi_gen import IRSchema

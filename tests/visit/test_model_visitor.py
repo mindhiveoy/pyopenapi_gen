@@ -665,7 +665,6 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         ]
 
         # Normalize whitespace in generated code for comparison flexibility
-        import re
 
         normalized_generated_code = "\n".join(line.strip() for line in generated_code.splitlines())
 

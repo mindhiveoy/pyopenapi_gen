@@ -3,9 +3,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from pyopenapi_gen import IRSpec
+from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
-from pyopenapi_gen.context.file_manager import FileManager
 
 
 @pytest.fixture

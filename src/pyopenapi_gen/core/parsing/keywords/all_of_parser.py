@@ -9,6 +9,7 @@ import os
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 
 from pyopenapi_gen import IRSchema
+
 from ..context import ParsingContext
 
 ENV_MAX_DEPTH = int(os.environ.get("PYOPENAPI_MAX_DEPTH", "100"))

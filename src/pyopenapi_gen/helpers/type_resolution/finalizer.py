@@ -1,7 +1,8 @@
 """Finalizes and cleans Python type strings."""
 
 import logging
-from typing import Dict, Optional as TypingOptional  # Alias to avoid clash
+from typing import Dict  # Alias to avoid clash
+from typing import Optional as TypingOptional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext

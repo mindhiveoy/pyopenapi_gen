@@ -12,7 +12,6 @@ from pyopenapi_gen.core.utils import NameSanitizer
 # # Ensure there's a handler if running in some environments
 # if not properties_logger.handlers:
 #    properties_logger.addHandler(logging.StreamHandler())
-
 from ..context import ParsingContext
 from ..transformers.inline_object_promoter import _attempt_promote_inline_object
 

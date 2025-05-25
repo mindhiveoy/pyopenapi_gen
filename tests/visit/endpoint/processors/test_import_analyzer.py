@@ -1,13 +1,14 @@
 from typing import Any, Dict
 from unittest.mock import (
     MagicMock,
-)  # Alias to avoid conflict if pytest.patch is used elsewhere, though not in this file
+)
+
+# Alias to avoid conflict if pytest.patch is used elsewhere, though not in this file
 from unittest.mock import (
     patch as unittest_patch,
 )
 
 import pytest
-
 from pyopenapi_gen.context.render_context import RenderContext
 
 # Assuming endpoint_utils is in pyopenapi_gen.helpers

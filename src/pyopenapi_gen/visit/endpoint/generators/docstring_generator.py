@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import logging
 import textwrap  # For _wrap_docstring logic
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
 from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_request_body_type, get_return_type
 
 if TYPE_CHECKING:
-    from pyopenapi_gen import IROperation, IRParameter, IRRequestBody
+    from pyopenapi_gen import IROperation
     from pyopenapi_gen.context.render_context import RenderContext
 
 logger = logging.getLogger(__name__)

@@ -4,11 +4,9 @@ Tests for the FileManager which handles file operations during code generation.
 
 import os
 import tempfile
-from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import mock_open, patch
 
 import pytest
-
 from pyopenapi_gen.context.file_manager import FileManager
 
 

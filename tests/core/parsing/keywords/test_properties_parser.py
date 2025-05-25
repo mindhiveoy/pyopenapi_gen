@@ -2,9 +2,9 @@
 Tests for the _parse_properties helper function in keywords.properties_parser.
 """
 
-import unittest
 import logging
-from typing import Any, Callable, Dict, List, Mapping, Optional
+import unittest
+from typing import Any, Callable, Dict, Mapping, Optional
 from unittest.mock import MagicMock, patch
 
 from pyopenapi_gen import IRSchema

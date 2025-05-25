@@ -1,7 +1,6 @@
 from typing import Any, Dict, Mapping
 
 import yaml
-
 from pyopenapi_gen import IRSchema
 
 # Assuming build_schemas is the correct entry point for parsing schemas
@@ -185,7 +184,7 @@ def test_parse_list_response_schema_to_ir() -> None:
     assert "meta" in my_item_list_response_ir.properties
     assert my_item_list_response_ir.required == ["data", "meta"]
 
-    # Validate 'data' property in MyItemListResponse 
+    # Validate 'data' property in MyItemListResponse
     # Note: 'data' is now promoted to a schema reference due to name sanitization
     data_property_ir = my_item_list_response_ir.properties["data"]
     assert data_property_ir.type == "Data_"  # 'data' is sanitized and promoted

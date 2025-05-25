@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Set
 
-
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
 
@@ -137,7 +136,7 @@ class RenderContext:
             # Detect incomplete paths like "business.models.agent" that should be "pyapis.business.models.agent"
             root_package = self.output_package_name.split('.')[0]  # "pyapis" from "pyapis.business"
             package_suffix = '.'.join(self.output_package_name.split('.')[1:])  # "business" from "pyapis.business"
-            
+
             # Check if this is an incomplete internal module path
             if package_suffix and logical_module.startswith(f"{package_suffix}."):
                 # This is an incomplete path like "business.models.agent"
@@ -278,19 +277,19 @@ class RenderContext:
         """
         # Apply the same unified import path correction logic as add_import
         logical_module = module
-        
+
         # Fix incomplete module paths for absolute imports
         if self.use_absolute_imports and self.output_package_name:
             # Detect incomplete paths like "business.models.agent" that should be "pyapis.business.models.agent"
             root_package = self.output_package_name.split('.')[0]  # "pyapis" from "pyapis.business"
             package_suffix = '.'.join(self.output_package_name.split('.')[1:])  # "business" from "pyapis.business"
-            
+
             # Check if this is an incomplete internal module path
             if package_suffix and logical_module.startswith(f"{package_suffix}."):
                 # This is an incomplete path like "business.models.agent"
                 # Convert to complete path like "pyapis.business.models.agent"
                 logical_module = f"{root_package}.{logical_module}"
-        
+
         if condition not in self.conditional_imports:
             self.conditional_imports[condition] = {}
         if logical_module not in self.conditional_imports[condition]:
@@ -310,13 +309,13 @@ class RenderContext:
         # Handle conditional imports
         conditional_imports = []
         has_type_checking_imports = False
-        
+
         for condition, imports in self.conditional_imports.items():
             if imports:
                 # Check if this uses TYPE_CHECKING
                 if condition == "TYPE_CHECKING":
                     has_type_checking_imports = True
-                
+
                 # Start the conditional block
                 conditional_block = [f"\nif {condition}:"]
 
@@ -435,7 +434,7 @@ class RenderContext:
                     if schema_class_name is None:
                         logger.warning(f"Skipping import generation for an unnamed schema: {found_schema_obj}")
                         continue  # Skip to the next name if schema_class_name is None
-                    
+
                     # Use the final_module_stem if available, otherwise sanitize the class name
                     if found_schema_obj.final_module_stem:
                         schema_file_name_segment = found_schema_obj.final_module_stem
@@ -595,7 +594,7 @@ class RenderContext:
         # If we have the full output package name, use it for absolute imports
         if self.output_package_name:
             return self.output_package_name
-        
+
         # Fallback to deriving from filesystem path (legacy behavior)
         return self.package_root_for_generated_code.split(os.sep)[-1] if self.package_root_for_generated_code else None
 

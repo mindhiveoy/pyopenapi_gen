@@ -2,16 +2,16 @@
 Generates Python code for dataclasses from IRSchema objects.
 """
 
-import logging
 import json
+import logging
 from typing import Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
 from pyopenapi_gen.helpers.type_helper import TypeHelper
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
-from pyopenapi_gen.core.utils import NameSanitizer
 
 logger = logging.getLogger(__name__)
 

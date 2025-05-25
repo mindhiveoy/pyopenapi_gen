@@ -4,9 +4,10 @@ Parser for 'anyOf' keyword in OpenAPI schemas.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional
 
 from pyopenapi_gen import IRSchema  # Main IR model
+
 from ..context import ParsingContext  # Context object - MOVED
 
 if TYPE_CHECKING:

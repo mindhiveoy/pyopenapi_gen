@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import yaml
-
 from pyopenapi_gen import load_ir_from_spec
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.emitters.core_emitter import CoreEmitter

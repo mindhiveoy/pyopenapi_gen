@@ -1,12 +1,11 @@
 """Tests for improved schema naming."""
 
 import logging
-from unittest.mock import MagicMock, patch
 import re
-from typing import Dict, Any
+from typing import Any, Dict
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.transformers.inline_enum_extractor import (

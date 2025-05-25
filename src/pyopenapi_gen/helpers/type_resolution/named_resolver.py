@@ -18,14 +18,56 @@ class NamedTypeResolver:
         self.context = context
         self.all_schemas = all_schemas
 
+    def _is_self_reference(self, target_module_name: str, target_class_name: str) -> bool:
+        """Check if the target class is the same as the one currently being generated."""
+        if not self.context.current_file:
+            return False
+
+        # Extract current module name from the file path
+        current_file_name = self.context.current_file
+        current_module_name = os.path.splitext(os.path.basename(current_file_name))[0]
+
+        # For self-reference detection, we need to check if:
+        # 1. The target module name matches the current module name
+        # 2. The target class name is likely the class being defined in this file
+        #
+        # The target_class_name should match the class being generated in the current file
+        # For example, if we're in tree_node.py generating TreeNode class, and we're trying
+        # to reference TreeNode, then this is a self-reference
+        return (current_module_name == target_module_name and
+                self._class_being_generated_matches(target_class_name))
+
+    def _class_being_generated_matches(self, target_class_name: str) -> bool:
+        """Check if the target class name matches what's being generated in the current file."""
+        # This is a simple heuristic: if the file is tree_node.py, we expect TreeNode class
+        # More sophisticated logic could be added by tracking what class is currently being generated
+        if not self.context.current_file:
+            return False
+
+        current_file_name = self.context.current_file
+        current_module_name = os.path.splitext(os.path.basename(current_file_name))[0]
+
+        # Convert module name to expected class name (snake_case to PascalCase)
+        expected_class_name = self._module_name_to_class_name(current_module_name)
+
+        return target_class_name == expected_class_name
+
+    def _module_name_to_class_name(self, module_name: str) -> str:
+        """Convert module name (snake_case) to class name (PascalCase)."""
+        # Convert snake_case to PascalCase
+        # tree_node -> TreeNode
+        # message -> Message
+        parts = module_name.split('_')
+        return ''.join(word.capitalize() for word in parts)
+
     def resolve(self, schema: IRSchema, resolve_alias_target: bool = False) -> Optional[str]:
         """
         Resolves an IRSchema that refers to a named model/enum, or an inline named enum.
 
         Args:
             schema: The IRSchema to resolve.
-            resolve_alias_target: If true, the resolver should return the Python type string for the *target* of an alias.
-                                 If false, it should return the alias name itself (for type hinting).
+            resolve_alias_target: If true, the resolver should return the Python type string for the
+                                 *target* of an alias. If false, it should return the alias name itself.
 
         Returns:
             A Python type string for the resolved schema, e.g., "MyModel", "Optional[MyModel]".
@@ -55,8 +97,16 @@ class NamedTypeResolver:
             name_to_add = class_name_for_ref
 
             if not resolve_alias_target:
-                self.context.add_import(logical_module=key_to_check, name=name_to_add)
-                return name_to_add
+                # Check for self-reference: if we're generating the same class that we're trying to import
+                is_self_reference = self._is_self_reference(module_name_for_ref, class_name_for_ref)
+
+                if is_self_reference:
+                    # For self-references, don't add import and return quoted type name
+                    return f'"{name_to_add}"'
+                else:
+                    # For external references, add import and return unquoted type name
+                    self.context.add_import(logical_module=key_to_check, name=name_to_add)
+                    return name_to_add
             else:
                 # self.resolve_alias_target is TRUE. We are trying to find the *actual underlying type*
                 # of 'ref_schema' for use in an alias definition (e.g., MyStringAlias: TypeAlias = str).
@@ -91,7 +141,8 @@ class NamedTypeResolver:
                     # e.g. MyDataAlias = DataObject. Here, DataObject is the target.
                     # The AliasGenerator will then generate "MyDataAlias: TypeAlias = DataObject".
                     # It needs "DataObject" as the string.
-                    # The import for DataObject will be handled by TypeHelper when generating that alias file itself, using the regular non-alias-target path.
+                    # The import for DataObject will be handled by TypeHelper when generating that alias
+                    # file itself, using the regular non-alias-target path.
 
                     self.context.add_import(logical_module=key_to_check, name=name_to_add)
                     return name_to_add  # Return name_to_add

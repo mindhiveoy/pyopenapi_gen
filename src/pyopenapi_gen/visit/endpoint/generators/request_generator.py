@@ -5,7 +5,7 @@ Helper class for generating the HTTP request call for an endpoint method.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 

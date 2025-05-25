@@ -5,8 +5,7 @@ Tests for the EndpointVisitor class.
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from pyopenapi_gen import IROperation, IRResponse
+from pyopenapi_gen import IROperation
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod

@@ -2,7 +2,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Union
-import os
 
 SUCCESS_LINE = "Success: no issues found in 1 source file"
 

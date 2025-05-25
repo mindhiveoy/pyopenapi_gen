@@ -4,9 +4,10 @@ Parser for 'oneOf' keyword in OpenAPI schemas.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional
 
 from pyopenapi_gen import IRSchema
+
 from ..context import ParsingContext
 
 if TYPE_CHECKING:
