@@ -41,7 +41,8 @@ def _resolve_ref(
     ref_name_parts = ref_path_str.split("/")
     if not (ref_name_parts and ref_name_parts[-1]):
         logger.warning(
-            f"Malformed $ref path '{ref_path_str}' encountered while parsing parent '{parent_schema_name or 'anonymous'}'."
+            f"Malformed $ref path '{ref_path_str}' encountered while parsing "
+            f"parent '{parent_schema_name or 'anonymous'}'."
         )
         return IRSchema(
             name=None,  # Anonymous placeholder for a bad ref
@@ -59,7 +60,8 @@ def _resolve_ref(
     ref_node = context.raw_spec_schemas.get(ref_name)
     if ref_node is None:
         logger.warning(
-            f"Cannot resolve $ref '{ref_path_str}' for parent '{parent_schema_name or 'anonymous'}'. Target '{ref_name}' not in raw_spec_schemas. Returning placeholder."
+            f"Cannot resolve $ref '{ref_path_str}' for parent '{parent_schema_name or 'anonymous'}'. "
+            f"Target '{ref_name}' not in raw_spec_schemas. Returning placeholder."
         )
         return IRSchema(
             name=NameSanitizer.sanitize_class_name(ref_name),
@@ -96,7 +98,8 @@ def _parse_composition_keywords(
             - max_depth >= 0
             - parse_fn is a callable for parsing schemas
         Post-conditions:
-            - Returns a tuple of (any_of_schemas, one_of_schemas, all_of_components, properties, required_fields, is_nullable)
+            - Returns a tuple of (any_of_schemas, one_of_schemas, all_of_components,
+              properties, required_fields, is_nullable)
     """
     any_of_schemas: Optional[List[IRSchema]] = None
     one_of_schemas: Optional[List[IRSchema]] = None
@@ -193,8 +196,27 @@ def _parse_properties(
             else:
                 # Directly parse other inline types (string, number, array of simple types, etc.)
                 # or objects that are not being promoted (e.g. if parent_schema_name is None)
-                # Use a sanitized version of prop_name as context name for this sub-parse if no better name exists.
+
+                # Check if this is a simple primitive type that might conflict with existing schemas
+                is_simple_primitive = (
+                    isinstance(prop_schema_node, Mapping) and
+                    prop_schema_node.get("type") in ["string", "integer", "number", "boolean"] and
+                    "$ref" not in prop_schema_node and
+                    "properties" not in prop_schema_node and
+                    "allOf" not in prop_schema_node and
+                    "anyOf" not in prop_schema_node and
+                    "oneOf" not in prop_schema_node and
+                    "items" not in prop_schema_node
+                )
+
+                # Use a sanitized version of prop_name as context name for this sub-parse
                 prop_context_name = NameSanitizer.sanitize_class_name(prop_name)
+
+                # For simple primitives, check if there's a naming conflict with existing schemas
+                if is_simple_primitive and prop_context_name in context.parsed_schemas:
+                    # There's a naming conflict - use a unique name to avoid confusion
+                    prop_context_name = f"_primitive_{prop_name}_{id(prop_schema_node)}"
+
                 parsed_prop_schema_ir = _parse_schema(
                     prop_context_name,  # Contextual name for this sub-parse
                     prop_schema_node,  # type: ignore
@@ -226,7 +248,8 @@ def _parse_properties(
 
                     property_holder_ir = IRSchema(
                         name=prop_name,  # The actual property name
-                        type=parsed_prop_schema_ir.name,  # Type is the name of the (potentially registered) anonymous schema
+                        # Type is the name of the (potentially registered) anonymous schema
+                        type=parsed_prop_schema_ir.name,
                         description=prop_schema_node.get("description", parsed_prop_schema_ir.description),  # type: ignore
                         is_nullable=prop_is_nullable,
                         default=prop_schema_node.get("default"),  # type: ignore
@@ -323,7 +346,8 @@ def _parse_schema(
         if "$ref" in schema_node:
             # schema_name is the original name we are trying to parse (e.g., 'Pet')
             # schema_node is {"$ref": "#/components/schemas/ActualPet"}
-            # We want to resolve "ActualPet", but the resulting IRSchema should ideally retain the name 'Pet' if appropriate,
+            # We want to resolve "ActualPet", but the resulting IRSchema should ideally
+            # retain the name 'Pet' if appropriate,
             # or _resolve_ref handles naming if ActualPet itself is parsed.
             # The `parent_schema_name` for _resolve_ref here is `schema_name` itself.
             resolved_schema = _resolve_ref(

@@ -187,9 +187,11 @@ class TestCycleDetection(unittest.TestCase):
         # self.assertIn("MAX_DEPTH_EXCEEDED", result._circular_ref_path, "Cycle path should indicate max depth")
 
     def test_environment_variable_effects(self) -> None:
-        """Test that environment variables like DEBUG_CYCLES are processed without error.
-        ENV_MAX_DEPTH is tested more specifically in test_max_recursion_depth and test_invalid_env_vars_fallback_to_defaults.
-        MAX_CYCLES is currently not used by the core parsing logic for cycle limits.
+        """
+        Test that environment variables like DEBUG_CYCLES are processed without error.
+        ENV_MAX_DEPTH is tested more specifically in test_max_recursion_depth and
+        test_invalid_env_vars_fallback_to_defaults. MAX_CYCLES is currently not used by the core parsing
+        logic for cycle limits.
         """
         # PYOPENAPI_DEBUG_CYCLES is set to "1" in setUp, and schema_parser is reloaded.
         # This test primarily ensures that this setup doesn't cause errors and parsing proceeds.
@@ -243,7 +245,9 @@ class TestCycleDetection(unittest.TestCase):
         self.assertIn(schema_name, result._circular_ref_path, "Cycle path should include original schema name")
         self.assertEqual(result.name, NameSanitizer.sanitize_class_name(schema_name), "Schema name should be sanitized")
         # The properties might be empty or contain 'name' depending on when cycle is detected
-        # For this specific case, where the cycle is in 'items', the top-level properties might parse before cycle is fully established.
+        # For this specific case, where the cycle is in 'items', the top-level properties might parse before cycle is
+        # fully established.
+        #
         # However, the IRSchema for 'children'->'items' should be the circular placeholder.
         # Let's check if the context has the cycle detected flag.
         self.assertTrue(self.context.cycle_detected, "Context should flag that a cycle was detected")
@@ -280,7 +284,9 @@ class TestCycleDetection(unittest.TestCase):
         self.assertTrue(self.context.cycle_detected, "Cycle should be detected in three-way cycle")
         # SchemaA_Triple itself is not marked as circular because it doesn't directly self-reference
         # The cycle is detected when one of the schemas in the chain references back to an already-parsing schema
-        self.assertFalse(result_a._is_circular_ref, f"{schema_a_name} should not be marked as circular (no direct self-ref)")
+        self.assertFalse(
+            result_a._is_circular_ref, f"{schema_a_name} should not be marked as circular (no direct self-ref)"
+        )
         self.assertFalse(result_a._from_unresolved_ref, f"{schema_a_name} should not be marked as unresolved")
         self.assertEqual(
             result_a.name, NameSanitizer.sanitize_class_name(schema_a_name), "Schema name should be sanitized"
@@ -326,12 +332,13 @@ class TestCycleDetection(unittest.TestCase):
             self.assertEqual(schema_parser.ENV_MAX_DEPTH, 150, "ENV_MAX_DEPTH should default to 150 on invalid env var")
 
             # Optional: Perform a minimal parse to ensure no crash and defaults are used by context if applicable
-            # This part depends on how ParsingContext gets its max_depth. If it's from ENV_MAX_DEPTH at instantiation, this is good.
-            # If schema_parser.ENV_MAX_DEPTH is passed to ParsingContext or _parse_schema, then checking the module var is sufficient.
-            # Based on current code, ParsingContext does not directly use ENV_MAX_DEPTH from schema_parser module after import.
-            # The _parse_schema function *does* use context.max_depth, which is initialized in ParsingContext.
-            # The test for max_recursion_depth already covers the behavior when context.max_depth is hit.
-            # This test primarily ensures the module loads with defaults correctly.
+            # This part depends on how ParsingContext gets its max_depth. If it's from ENV_MAX_DEPTH at instantiation,
+            # this is good.
+            # If schema_parser.ENV_MAX_DEPTH is passed to ParsingContext or _parse_schema, then checking the module var
+            # is sufficient. Based on current code, ParsingContext does not directly use ENV_MAX_DEPTH from
+            # schema_parser module after import. The _parse_schema function *does* use context.max_depth, which is
+            # initialized in ParsingContext. The test for max_recursion_depth already covers the behavior when
+            # context.max_depth is hit. This test primarily ensures the module loads with defaults correctly.
 
         finally:
             # Restore original environment variables
@@ -422,7 +429,8 @@ class TestCycleDetection(unittest.TestCase):
         # prop0, prop1, prop2, prop3, prop4 will be parsed normally.
         # When parsing prop4 (i=4), its properties will try to parse prop5 (i=5).
         # The promoted name for prop_schema_node of prop4 will be DeepPropertySchemaProp0Prop1Prop2Prop3Prop4.
-        # Inside this, parsing its property "prop5" will make a promoted name like DeepPropertySchemaProp0Prop1Prop2Prop3Prop4Prop5
+        # Inside this, parsing its property "prop5" will make a promoted name like
+        # DeepPropertySchemaProp0Prop1Prop2Prop3Prop4Prop5
         # This is at depth 6. This is where the marker should be.
 
         current_ir_level = result
@@ -451,13 +459,15 @@ class TestCycleDetection(unittest.TestCase):
                 )
             current_ir_level = referred_schema
 
-        # The old assertions for navigating one more level are removed as the marker is on prop{max_depth-1}'s schema itself.
+        # The old assertions for navigating one more level are removed as the marker is on prop{max_depth-1}'s schema
+        # itself.
         # self.assertIn(f"prop{max_depth}", current_ir_level.properties)
         # final_prop_ir = current_ir_level.properties[f"prop{max_depth}"]
         # _temp_referred_schema = final_prop_ir._refers_to_schema
         # self.assertIsNotNone(_temp_referred_schema, f"prop{max_depth} should refer to a schema")
         # depth_exceeded_schema = cast(IRSchema, _temp_referred_schema)
-        # self.assertTrue(depth_exceeded_schema._max_depth_exceeded_marker, f"Schema for prop{max_depth} content should be marked for max depth")
+        # self.assertTrue(depth_exceeded_schema._max_depth_exceeded_marker, f"Schema for prop{max_depth} content should
+        # be marked for max depth")
 
         if original_max_depth is None:
             del os.environ["PYOPENAPI_MAX_DEPTH"]

@@ -175,17 +175,3 @@ def test_write_file__creates_parent_directories() -> None:
 
                 # Verify ensure_dir was called with parent directory path
                 mock_ensure_dir.assert_called_once_with(parent_dir)
-
-
-@pytest.mark.skip(reason="Requires complex mocking of file operations")
-def test_write_file__logs_debug_information() -> None:
-    """
-    Scenario:
-        Calling write_file should log debug information
-    Expected Outcome:
-        Debug log is written with file path and first 10 lines of content
-    """
-    # This test would verify that the debugging log is written correctly,
-    # but since it requires complex mocking and the functionality is not critical
-    # to the core operation, we're skipping it for now
-    pass

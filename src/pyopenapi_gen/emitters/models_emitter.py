@@ -242,7 +242,13 @@ class ModelsEmitter:
             class_suffix = 1
             while final_class_name in assigned_class_names:
                 class_suffix += 1
-                final_class_name = f"{base_class_name}{class_suffix}"
+                # Handle reserved names that already have trailing underscores
+                # Instead of "Email_2", we want "Email2"
+                if base_class_name.endswith('_'):
+                    # Remove trailing underscore and append number
+                    final_class_name = f"{base_class_name[:-1]}{class_suffix}"
+                else:
+                    final_class_name = f"{base_class_name}{class_suffix}"
             assigned_class_names.add(final_class_name)
             schema_for_naming.generation_name = final_class_name
             # logger.debug(f"Resolved class name for original '{original_schema_name}': '{final_class_name}'")
