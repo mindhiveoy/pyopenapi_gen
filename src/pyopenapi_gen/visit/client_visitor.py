@@ -127,7 +127,8 @@ class ClientVisitor:
         writer.indent()
         writer.write_line("self.config = config")
         writer.write_line(
-            "self.transport = transport if transport is not None else HttpxTransport(str(config.base_url), config.timeout)"
+            "self.transport = transport if transport is not None else "
+            "HttpxTransport(str(config.base_url), config.timeout)"
         )
         writer.write_line("self._base_url: str = str(self.config.base_url)")
         # Initialize private fields for each tag client

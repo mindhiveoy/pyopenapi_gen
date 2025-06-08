@@ -59,7 +59,8 @@ def _parse_properties(
         if parent_schema_name:
             # Ensure parent_schema_name is also sanitized if it's part of the name
             # This is implicitly handled if parent_schema_name comes from an IRSchema.name already.
-            # For direct use, ensure it's PascalCase for consistency, though _parse_schema currently doesn't re-sanitize it.
+            # For direct use, ensure it's PascalCase for consistency,
+            # though _parse_schema currently doesn't re-sanitize it.
             # Assuming parent_schema_name is already a valid schema name (e.g. "ParentSchema")
             prop_schema_context_name = f"{parent_schema_name}{sanitized_prop_key_for_name}"
         else:

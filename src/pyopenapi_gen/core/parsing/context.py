@@ -135,7 +135,8 @@ class ParsingContext:
                     pass  # Should not happen if it was in the list.
             # If schema_name is None, or (it's not None and not in currently_parsing), do nothing to currently_parsing.
             # The latter case could be if exit_schema is called for a schema_name that wasn't pushed
-            # (e.g., after yielding a placeholder, where the original enter_schema didn't add it because it was already a cycle).
+            # (e.g., after yielding a placeholder, where the original enter_schema
+            # didn't add it because it was already a cycle).
 
     def reset_for_new_parse(self) -> None:
         self.recursion_depth = 0

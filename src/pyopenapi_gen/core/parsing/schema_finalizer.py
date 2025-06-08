@@ -147,7 +147,8 @@ def _finalize_schema_object(
             pass  # Do not overwrite
         elif name not in context.parsed_schemas:
             context.parsed_schemas[name] = schema_obj
-        # If name is in context and is already a full schema, and schema_obj is also full, current one is considered fresher.
+        # If name is in context and is already a full schema, and schema_obj is also full,
+        # current one is considered fresher.
         elif not (
             getattr(context.parsed_schemas[name], "_is_circular_ref", False)
             or getattr(context.parsed_schemas[name], "_from_unresolved_ref", False)

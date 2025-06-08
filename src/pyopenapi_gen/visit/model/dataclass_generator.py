@@ -52,7 +52,8 @@ class DataclassGenerator:
                 - ``ps`` is not None.
                 - ``context`` is not None.
             Post-conditions:
-                - Returns a valid Python default value string (e.g., "None", "field(default_factory=list)", "\"abc\"") or None.
+                - Returns a valid Python default value string
+                  (e.g., "None", "field(default_factory=list)", "\"abc\"") or None.
         """
         assert ps is not None, "Property schema (ps) cannot be None."
         assert context is not None, "RenderContext cannot be None."

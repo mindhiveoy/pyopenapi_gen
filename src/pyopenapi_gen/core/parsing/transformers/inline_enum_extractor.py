@@ -275,7 +275,8 @@ def _process_standalone_inline_enum(
         )
     elif not schema_obj.name:
         logger.warning(
-            "STANDALONE_ENUM_UNNAMED: Processed a standalone enum but it ended up without a name. This might be an issue."
+            "STANDALONE_ENUM_UNNAMED: Processed a standalone enum but it ended up "
+            "without a name. This might be an issue."
         )
 
     return schema_obj
