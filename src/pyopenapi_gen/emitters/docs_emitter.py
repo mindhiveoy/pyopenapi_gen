@@ -21,8 +21,8 @@ DOCS_TAG_TEMPLATE = """# {tag} Operations
 
 DOCS_OPERATION_TEMPLATE = """### {operation_id}
 
-**Method:** `{method}`  
-**Path:** `{path}`  
+**Method:** `{method}`
+**Path:** `{path}`
 
 {description}
 """

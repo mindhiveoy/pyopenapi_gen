@@ -219,7 +219,8 @@ class ModelsEmitter:
         # A schema created by extraction (e.g. PetListItemsItem) will have a .name.
 
         # logger.debug(
-        #     f"ModelsEmitter: Schemas considered for naming/de-collision (pre-filter): { {k: v.name for k, v in all_schemas_for_generation.items()} }"
+        #     f"ModelsEmitter: Schemas considered for naming/de-collision (pre-filter): "
+        #     f"{ {k: v.name for k, v in all_schemas_for_generation.items()} }"
         # )
 
         # Filter out only the most basic primitive schemas to reduce clutter
@@ -266,7 +267,8 @@ class ModelsEmitter:
         )
 
         # logger.debug(
-        #     f"ModelsEmitter: Schemas to actually de-collide (post-filter by s.name): {[s.name for s in schemas_to_name_decollision]}"
+        #     f"ModelsEmitter: Schemas to actually de-collide (post-filter by s.name): "
+        #     f"{[s.name for s in schemas_to_name_decollision]}"
         # )
 
         for schema_for_naming in schemas_to_name_decollision:  # Use the comprehensive list
@@ -306,7 +308,8 @@ class ModelsEmitter:
             assigned_module_stems.add(final_module_stem)
             schema_for_naming.final_module_stem = final_module_stem
             # logger.debug(
-            #     f"Resolved module stem for original '{original_schema_name}' (class '{final_class_name}'): '{final_module_stem}'"
+            #     f"Resolved module stem for original '{original_schema_name}' "
+            #     f"(class '{final_class_name}'): '{final_module_stem}'"
             # )
         # --- End of Name de-collision ---
 
@@ -322,7 +325,8 @@ class ModelsEmitter:
             rounds += 1
             something_processed_this_round = False
             # logger.debug(
-            #     f"ModelsEmitter: Starting processing round {rounds}. Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}"
+            #     f"ModelsEmitter: Starting processing round {rounds}. "
+            #     f"Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}"
             # )
 
             for schema_key in all_schema_keys_to_emit:
