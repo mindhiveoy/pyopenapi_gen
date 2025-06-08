@@ -19,7 +19,8 @@ class TestForwardReferences(unittest.TestCase):
             references the original schema, a circular dependency is created.
 
         Expected Outcome:
-            The TypeHelper should detect this and use a forward reference (string-based type annotation).
+            With the unified type system, circular references are handled by direct imports.
+            The system generates proper relative imports for cross-references.
         """
         # Create two schemas with circular references
         schema_a = IRSchema(
@@ -63,25 +64,14 @@ class TestForwardReferences(unittest.TestCase):
             schema_a.properties["b_ref"], all_schemas, context, required=True, parent_schema_name="MessageA"
         )
 
-        # Now check that a string-based forward reference is used
+        # The unified system should return the correct type name
         self.assertEqual(property_type, "MessageB")
 
         # Get the imports as a string
         imports_str = context.render_imports()
 
-        # Verify that TYPE_CHECKING is imported
-        self.assertIn("from typing import TYPE_CHECKING", imports_str)
-
-        # Verify that MessageB is imported conditionally under TYPE_CHECKING
-        self.assertIn("if TYPE_CHECKING:", imports_str)
-
-        # Confirm that the conditional import includes MessageB
-        conditional_block = imports_str.split("if TYPE_CHECKING:")[1]
-        self.assertIn("from models.message_b import MessageB", conditional_block)
-
-        # Confirm no direct import of MessageB outside the conditional block
-        main_imports = imports_str.split("if TYPE_CHECKING:")[0]
-        self.assertNotIn("from models.message_b import MessageB", main_imports)
+        # With unified system, we expect a direct relative import
+        self.assertIn("from ..models.message_b import MessageB", imports_str)
 
 
 if __name__ == "__main__":

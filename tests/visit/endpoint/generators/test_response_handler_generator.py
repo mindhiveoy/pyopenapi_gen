@@ -49,8 +49,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.core_package_name = "test_client.core"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("Item", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="Item",
         ) as mock_get_return_type:
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -89,8 +89,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.core_package_name = "test_client.core"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("None", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="None",
         ) as mock_get_return_type:
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -194,8 +194,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.core_package_name = "test_client.core"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("Any", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="Any",
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -235,8 +235,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.core_package_name = "test_client.core"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("Any", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="Any",
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -281,8 +281,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "DefaultSuccessData"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("DefaultSuccessData", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="DefaultSuccessData",
         ) as mock_get_return_type:
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -333,8 +333,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "SuccessData"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("SuccessData", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="SuccessData",
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -388,8 +388,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
         with (
             unittest.mock.patch(
-                "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-                return_value=("PrimaryDefault", False),
+                "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+                return_value="PrimaryDefault",
             ),
             unittest.mock.patch(
                 "pyopenapi_gen.visit.endpoint.generators.response_handler_generator._get_primary_response",
@@ -418,6 +418,13 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         """
         schema_a = IRSchema(type="object", name="ModelA", properties={"id": IRSchema(type="string")})
         schema_b = IRSchema(type="object", name="ModelB", properties={"value": IRSchema(type="integer")})
+        
+        # Set generation_name so they're recognized as named schemas
+        schema_a.generation_name = "ModelA"
+        schema_b.generation_name = "ModelB"
+
+        # Provide schemas to the generator
+        self.generator = EndpointResponseHandlerGenerator(schemas={"ModelA": schema_a, "ModelB": schema_b})
 
         operation = IROperation(
             operation_id="op_multi_2xx",
@@ -442,8 +449,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = sanitize_side_effect
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("ModelA", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="ModelA",
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -494,8 +501,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.core_package_name = "test_client.core"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("AsyncIterator[bytes]", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="AsyncIterator[bytes]",
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -544,8 +551,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "EventData"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("AsyncIterator[EventData]", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="AsyncIterator[EventData]",
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -599,8 +606,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("Union[ModelA, ModelB]", False),
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="Union[ModelA, ModelB]",
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -633,7 +640,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         """
         Scenario: Op returns 200 OK, type is Union[ModelA, ModelB], and needs_unwrap is True.
                   Assume ModelA is parsed successfully first.
-        Expected Outcome: Multi-line extraction for ModelA (due to unwrap) is generated in the 'try' block.
+        Expected Outcome: With unified service, simple cast behavior for Union types (no manual unwrapping).
         """
         schema_a = IRSchema(type="object", name="ModelA")
         schema_b = IRSchema(type="object", name="ModelB")
@@ -651,8 +658,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("Union[ModelA, ModelB]", True),  # needs_unwrap = True
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="Union[ModelA, ModelB]",  # unified service handles unwrapping internally
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -661,20 +668,20 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
         self.assertIn("if response.status_code == 200:", written_code_union)
         self.assertIn("try:", written_code_union)
-        # Check for ModelA unwrap logic
-        self.assertIn("raw_data = response.json().get('data')", written_lines_stripped_union)
-        self.assertIn("if raw_data is None:", written_lines_stripped_union)
-        self.assertIn(
-            "raise ValueError(\"Expected 'data' key in response but found None\")", written_lines_stripped_union
-        )
-        self.assertIn("return_value = cast(ModelA, raw_data)", written_lines_stripped_union)
-        self.assertIn("return return_value", written_lines_stripped_union)
+        # With unified service, no manual unwrapping should be generated for union types
+        self.assertIn("return cast(ModelA, response.json())", written_lines_stripped_union)
         self.assertIn("except Exception:", written_code_union)
+        self.assertIn("return cast(ModelB, response.json())", written_lines_stripped_union)
+        
+        # Ensure no unwrapping code is generated (unified service handles it)
+        self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped_union)
+        self.assertNotIn("return_value = cast(ModelA, raw_data)", written_lines_stripped_union)
+        self.assertNotIn("return return_value", written_lines_stripped_union)
 
     def test_generate_response_handling_simple_type_with_unwrap(self) -> None:
         """
-        Scenario: Op returns 200 OK, type is ModelC, and needs_unwrap is True.
-        Expected Outcome: Multi-line extraction for ModelC (due to unwrap) is generated.
+        Scenario: Op returns 200 OK, type is ModelC. With unified service, unwrapping is handled internally.
+        Expected Outcome: Simple cast for ModelC is generated (no manual unwrapping).
         """
         schema_c = IRSchema(type="object", name="ModelC")
         operation = IROperation(
@@ -691,8 +698,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "ModelC"
 
         with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type",
-            return_value=("ModelC", True),  # needs_unwrap = True
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
+            return_value="ModelC",  # unified service handles unwrapping internally
         ):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
 
@@ -700,12 +707,11 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         written_lines_stripped = [c[0][0].strip() for c in self.code_writer_mock.write_line.call_args_list]
 
         self.assertIn("if response.status_code == 200:", written_code)
-        self.assertIn("raw_data = response.json().get('data')", written_lines_stripped)
-        self.assertIn("if raw_data is None:", written_lines_stripped)
-        self.assertIn("raise ValueError(\"Expected 'data' key in response but found None\")", written_lines_stripped)
-        self.assertIn("return cast(ModelC, raw_data)", written_lines_stripped)
-
-        # Ensure these are directly written, not via a temp 'return_value' as in Union
+        # With unified service, no manual unwrapping should be generated
+        self.assertIn("return cast(ModelC, response.json())", written_lines_stripped)
+        
+        # Ensure no unwrapping code is generated (unified service handles it)
+        self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped)
         self.assertNotIn("return_value = cast(ModelC, raw_data)", written_code)
         self.assertNotIn("return return_value", written_code)
 

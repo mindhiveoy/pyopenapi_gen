@@ -73,7 +73,7 @@ class TestEndpointMethodSignatureGenerator:
         ordered_params_from_processor: List[Dict[str, Any]] = []
 
         with patch(
-            "pyopenapi_gen.visit.endpoint.generators.signature_generator.get_return_type", return_value=("None", False)
+            "pyopenapi_gen.visit.endpoint.generators.signature_generator.get_return_type_unified", return_value="None"
         ):
             generator.generate_signature(
                 writer, op_for_sig_basic, render_context_mock_for_sig, ordered_params_from_processor
@@ -114,9 +114,9 @@ class TestEndpointMethodSignatureGenerator:
 
         with (
             patch(
-                "pyopenapi_gen.visit.endpoint.generators.signature_generator.get_return_type",
-                return_value=("SomeReturnType", False),
-            ) as mock_get_return,
+                "pyopenapi_gen.visit.endpoint.generators.signature_generator.get_return_type_unified",
+                return_value="SomeReturnType",
+            ) as mock_get_return_unified,
             patch("pyopenapi_gen.visit.endpoint.generators.signature_generator.get_param_type") as mock_get_param_type,
         ):
             mock_get_param_type.side_effect = lambda param_spec, ctx, schemas_dict: {

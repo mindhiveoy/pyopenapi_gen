@@ -4,6 +4,7 @@ from typing import Any
 from pyopenapi_gen import IROperation
 from pyopenapi_gen.helpers.endpoint_utils import (
     get_return_type,
+    get_return_type_unified,
 )
 
 from ...context.render_context import RenderContext
@@ -90,8 +91,9 @@ class EndpointVisitor(Visitor[IROperation, str]):
         # Check if this is a streaming response (either at op level or in schema)
         is_streaming = any(getattr(resp, "stream", False) for resp in op.responses if resp.status_code.startswith("2"))
 
-        # Get the primary Python type for the operation's success response
-        return_type, should_unwrap = get_return_type(op, context, self.schemas)
+        # Get the primary Python type for the operation's success response using unified service
+        return_type = get_return_type_unified(op, context, self.schemas)
+        should_unwrap = False  # Unified service handles unwrapping internally
 
         # Determine the summary description (for docstring)
         success_resp = next((r for r in op.responses if r.status_code.startswith("2")), None)

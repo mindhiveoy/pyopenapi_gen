@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
-from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_request_body_type, get_return_type
+from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_request_body_type, get_return_type_unified
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation
@@ -75,7 +75,7 @@ class EndpointDocstringGenerator:
             else:  # Fallback for other types like application/octet-stream
                 args.append(("bytes_content", "bytes", body_desc + f" ({primary_content_type})"))
 
-        return_type, _ = get_return_type(op, context, self.schemas)
+        return_type = get_return_type_unified(op, context, self.schemas)
         response_desc = None
         # Prioritize 2xx success codes for the main response description
         for code in ("200", "201", "202", "default"):  # Include default as it might be the success response

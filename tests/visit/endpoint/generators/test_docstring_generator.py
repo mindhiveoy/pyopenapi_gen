@@ -126,7 +126,7 @@ class TestEndpointDocstringGenerator:
                     return "MyInputBody"
             return "Any"
 
-        mock_main_return_type = ("MySuccessOutput", False)
+        mock_main_return_type = "MySuccessOutput"
 
         with (
             patch(
@@ -138,9 +138,9 @@ class TestEndpointDocstringGenerator:
                 side_effect=mock_get_request_body_type,
             ) as patched_get_req_body_type,
             patch(
-                "pyopenapi_gen.visit.endpoint.generators.docstring_generator.get_return_type",
+                "pyopenapi_gen.visit.endpoint.generators.docstring_generator.get_return_type_unified",
                 return_value=mock_main_return_type,
-            ) as patched_get_return_type,
+            ) as patched_get_return_type_unified,
         ):
             # Act
             generator.generate_docstring(
@@ -194,7 +194,7 @@ class TestEndpointDocstringGenerator:
             patched_get_req_body_type.assert_called_once_with(
                 op_for_docstring.request_body, render_context_mock_for_docstring, schemas_for_docstring
             )
-        patched_get_return_type.assert_called_once_with(
+        patched_get_return_type_unified.assert_called_once_with(
             op_for_docstring, render_context_mock_for_docstring, schemas_for_docstring
         )
 

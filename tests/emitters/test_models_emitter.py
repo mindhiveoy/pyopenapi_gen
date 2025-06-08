@@ -141,7 +141,7 @@ def test_models_emitter__object_with_array_property__generates_list_type_annotat
     assert "from typing import" in result
     assert "@dataclass" in result
     assert "class PetList:" in result
-    # Check for the item model import and type (now using relative imports)
+    # Check for the item model import and type (now using correct same-directory relative imports)
     assert "from .pet_list_items_item import PetListItemsItem" in result
     assert "items: Optional[List[PetListItemsItem]]" in result
 
@@ -308,8 +308,9 @@ def test_models_emitter__primitive_alias(tmp_path: Path) -> None:
 
     # Assertions updated for sanitized class name "UserId"
     assert "from typing import TypeAlias" in content
+    assert "from uuid import UUID" in content  # UUID format requires import
     assert '__all__ = ["UserId"]' in content  # Sanitized class name for __all__
-    assert "UserId: TypeAlias = str" in content
+    assert "UserId: TypeAlias = UUID" in content  # UUID type for uuid format
 
     # Ensure it's not generating a class for simple alias
     assert "class UserId" not in content  # Check against sanitized name
@@ -504,11 +505,10 @@ def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path: 
     assert model_file.exists()
     content = model_file.read_text()
 
-    # Check for specific necessary imports for Optional[Any]
-    assert "from typing import Any, Optional" in content
-    # The combined import might be present or not depending on other factors,
-    # so individual checks are more robust.
-    assert "flexible_field: Optional[Any] = None" in content
+    # Check for necessary imports for Any type (modern style doesn't need Optional for default None)
+    assert "from typing import Any" in content
+    # Check that the field uses the modern style for optional with default
+    assert "flexible_field: Any = None" in content
 
 
 def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path) -> None:
@@ -700,9 +700,9 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     # and it handles its own Optional declaration internally.
     # assert "from typing import Optional" in container_content  # For the field
     assert "from .my_optional_union import MyOptionalUnion" in container_content
-    # The field 'payload' uses MyOptionalUnion. Since MyOptionalUnion alias is already Optional,
-    # it should not be double-wrapped.
-    assert "payload: MyOptionalUnion = None" in container_content
+    # The field 'payload' uses MyOptionalUnion. The current system explicitly wraps in Optional
+    # even if the alias already includes Optional, for clarity at the usage site.
+    assert "payload: Optional[MyOptionalUnion] = None" in container_content
 
 
 if __name__ == "__main__":

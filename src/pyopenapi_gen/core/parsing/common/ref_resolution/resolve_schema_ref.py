@@ -78,9 +78,9 @@ def resolve_schema_ref(
     # logger.debug(f"Parsing new schema '{actual_schema_name}'")
     schema = parse_new_schema(actual_schema_name, dict(referenced_node_data), context, max_depth, _parse_schema)
 
-    # Ensure we maintain the original reference name
+    # Store the schema under the requested reference name if different
+    # Don't mutate the original schema name to avoid affecting other references
     if schema.name != ref_name:
-        schema.name = ref_name
         context.parsed_schemas[ref_name] = schema
 
     return schema

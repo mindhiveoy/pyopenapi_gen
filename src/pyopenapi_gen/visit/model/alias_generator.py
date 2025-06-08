@@ -10,6 +10,7 @@ from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
 from pyopenapi_gen.helpers.type_helper import TypeHelper
+from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ class AliasGenerator:
         assert renderer is not None, "PythonConstructRenderer cannot be None"
         self.renderer = renderer
         self.all_schemas = all_schemas if all_schemas is not None else {}
+        self.type_service = UnifiedTypeService(self.all_schemas)
 
     def generate(
         self,
@@ -63,8 +65,8 @@ class AliasGenerator:
         assert context is not None, "RenderContext cannot be None."
 
         alias_name = NameSanitizer.sanitize_class_name(base_name)
-        target_type = TypeHelper.get_python_type_for_schema(
-            schema, self.all_schemas, context, required=True, resolve_alias_target=True
+        target_type = self.type_service.resolve_schema_type(
+            schema, context, required=True, resolve_underlying=True
         )
         target_type = TypeFinalizer(context)._clean_type(target_type)
 

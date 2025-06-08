@@ -11,9 +11,10 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.helpers.endpoint_utils import (
     _get_primary_response,
-    get_return_type,
+    get_return_type_unified,
     get_type_for_specific_response,  # Added new helper
 )
+from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation, IRResponse
@@ -163,7 +164,18 @@ class EndpointResponseHandlerGenerator:
             is_first_condition = False
             writer.indent()
             # This is the return_type for the *entire operation*, based on its primary success response
-            return_type_for_op, needs_unwrap_for_op = get_return_type(op, context, self.schemas)
+            # First try the fallback method for backward compatibility
+            return_type_for_op = get_return_type_unified(op, context, self.schemas)
+            needs_unwrap_for_op = False  # Default to False
+            
+            # If we have proper schemas, try to get unwrapping information from unified service
+            if self.schemas and hasattr(list(self.schemas.values())[0] if self.schemas else None, 'type'):
+                try:
+                    type_service = UnifiedTypeService(self.schemas)
+                    return_type_for_op, needs_unwrap_for_op = type_service.resolve_operation_response_with_unwrap_info(op, context)
+                except Exception:
+                    # Fall back to the original approach if there's an issue
+                    needs_unwrap_for_op = False
 
             # If get_return_type determined a specific type (not "None"),
             # we should attempt to parse the response accordingly. This handles cases
@@ -212,9 +224,10 @@ class EndpointResponseHandlerGenerator:
                 default_return_type_str = "None"
                 default_needs_unwrap = False
                 if resp_ir.content:
-                    # If 'default' is primary success, get_return_type(op,...) might give its type.
+                    # If 'default' is primary success, get_return_type_unified(op,...) might give its type.
                     # We use the operation's global/primary return type if default has content.
-                    op_global_return_type, op_global_needs_unwrap = get_return_type(op, context, self.schemas)
+                    op_global_return_type = get_return_type_unified(op, context, self.schemas)
+                    op_global_needs_unwrap = False  # Unified service handles unwrapping internally
                     # Only use this if the global type is not 'None', otherwise keep default_return_type_str as 'None'.
                     if op_global_return_type != "None":
                         default_return_type_str = op_global_return_type
@@ -345,8 +358,6 @@ class EndpointResponseHandlerGenerator:
 
             if (
                 extraction_code_str == "sse_json_stream_marker"
-                or "Dict[str, Any]" in return_type
-                or "dict" in return_type.lower()
             ):  # SSE handling
                 context.add_plain_import("json")
                 context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_sse_events_text")

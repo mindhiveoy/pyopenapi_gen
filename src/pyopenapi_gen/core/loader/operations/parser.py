@@ -111,6 +111,22 @@ def parse_operations(
                     ):
                         ref_name = rn_node["$ref"].split("/")[-1]
                         resp_node_resolved = raw_responses.get(ref_name, {}) or rn_node
+                    elif (
+                        isinstance(rn_node, Mapping)
+                        and "$ref" in rn_node
+                        and isinstance(rn_node.get("$ref"), str)
+                        and rn_node["$ref"].startswith("#/components/schemas/")
+                    ):
+                        # Handle direct schema references in responses
+                        # Convert schema reference to a response with content
+                        resp_node_resolved = {
+                            "description": f"Response with {rn_node['$ref'].split('/')[-1]} schema",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": rn_node["$ref"]}
+                                }
+                            }
+                        }
                     else:
                         resp_node_resolved = rn_node
                     resps.append(parse_response(sc, resp_node_resolved, context, operation_id_for_promo=operation_id))

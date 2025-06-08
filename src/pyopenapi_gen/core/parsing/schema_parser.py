@@ -395,7 +395,14 @@ def _parse_schema(
 
             # Store the resolved schema under the current schema_name if it has a name
             # This ensures that synthetic names like "ChildrenItem" are properly stored
-            if schema_name and resolved_schema:
+            # However, don't create duplicate entries for pure references to existing schemas
+            if (schema_name and resolved_schema and 
+                resolved_schema.name and  # Resolved schema has a real name
+                resolved_schema.name != schema_name and  # Different from synthetic name
+                resolved_schema.name in context.parsed_schemas):  # Already exists in context
+                # This is a pure reference to an existing schema, don't create duplicate
+                pass
+            elif schema_name and resolved_schema and schema_name not in context.parsed_schemas:
                 context.parsed_schemas[schema_name] = resolved_schema
 
             return resolved_schema
@@ -546,9 +553,6 @@ def _parse_schema(
 
             if existing_in_context._is_circular_ref and existing_in_context is not schema_ir:
                 return existing_in_context
-
-        if schema_name:
-            context.parsed_schemas[schema_name] = schema_ir
 
         if schema_name and not schema_ir._from_unresolved_ref and not schema_ir._max_depth_exceeded_marker:
             context.parsed_schemas[schema_name] = schema_ir

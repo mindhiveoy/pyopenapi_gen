@@ -11,7 +11,7 @@ from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 
 # Import necessary helpers from endpoint_utils if they were used directly or indirectly
-from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_return_type  # Added
+from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_return_type_unified  # Added
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation
@@ -38,7 +38,7 @@ class EndpointMethodSignatureGenerator:
         for p_info in ordered_params:  # Renamed p to p_info to avoid conflict if IRParameter is named p
             context.add_typing_imports_for_type(p_info["type"])
 
-        return_type, _ = get_return_type(op, context, self.schemas)
+        return_type = get_return_type_unified(op, context, self.schemas)
         context.add_typing_imports_for_type(return_type)
 
         # Check if AsyncIterator is in return_type or any parameter type

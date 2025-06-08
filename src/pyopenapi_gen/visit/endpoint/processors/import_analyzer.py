@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional  # IO for multipart type h
 from pyopenapi_gen.helpers.endpoint_utils import (
     get_param_type,
     get_request_body_type,
-    get_return_type,
+    get_return_type_unified,
 )
 
 if TYPE_CHECKING:
@@ -60,7 +60,7 @@ class EndpointImportAnalyzer:
             if body_param_type:
                 context.add_typing_imports_for_type(body_param_type)
 
-        return_type, _ = get_return_type(op, context, self.schemas)
+        return_type = get_return_type_unified(op, context, self.schemas)
         context.add_typing_imports_for_type(return_type)
 
         # Check for AsyncIterator in return type or parameter types

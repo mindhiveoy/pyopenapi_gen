@@ -72,9 +72,9 @@ class TestEndpointImportAnalyzer:
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("SuccessResponse", False),
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="SuccessResponse",
+            ) as mock_get_return_type_unified,
         ):
             # Act
             import_analyzer.analyze_and_register_imports(operation, render_context_mock)
@@ -85,7 +85,7 @@ class TestEndpointImportAnalyzer:
             mock_get_param_type.assert_any_call(param1, render_context_mock, schemas_mock)
             render_context_mock.add_typing_imports_for_type.assert_any_call("str")  # For param
 
-            mock_get_return_type.assert_called_once_with(operation, render_context_mock, schemas_mock)
+            mock_get_return_type_unified.assert_called_once_with(operation, render_context_mock, schemas_mock)
             # For return type "SuccessResponse"
             render_context_mock.add_typing_imports_for_type.assert_any_call("SuccessResponse")
             # Total calls to add_typing_imports_for_type depends on how many distinct types are processed
@@ -126,9 +126,9 @@ class TestEndpointImportAnalyzer:
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,  # Parameters list is empty, so this won't be called in param loop
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("None", True),  # Assuming 204 No Content means None return type
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="None",  # Assuming 204 No Content means None return type
+            ) as mock_get_return_type_unified,
         ):
             # Act
             import_analyzer.analyze_and_register_imports(operation, render_context_mock)
@@ -142,7 +142,7 @@ class TestEndpointImportAnalyzer:
             render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, IO[Any]]")
 
             # Return type import
-            mock_get_return_type.assert_called_once_with(operation, render_context_mock, schemas_mock)
+            mock_get_return_type_unified.assert_called_once_with(operation, render_context_mock, schemas_mock)
             render_context_mock.add_typing_imports_for_type.assert_any_call("None")
 
             # get_param_type should be called 0 times in param loop (empty params) + 0 times in async check (empty params)
@@ -182,9 +182,9 @@ class TestEndpointImportAnalyzer:
                 return_value="MyJsonPayload",
             ) as mock_get_request_body_type,
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("None", True),
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="None",
+            ) as mock_get_return_type_unified,
         ):
             # Act
             import_analyzer.analyze_and_register_imports(operation, render_context_mock)
@@ -228,9 +228,9 @@ class TestEndpointImportAnalyzer:
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("None", True),
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="None",
+            ) as mock_get_return_type_unified,
         ):
             # Act
             import_analyzer.analyze_and_register_imports(operation, render_context_mock)
@@ -278,9 +278,9 @@ class TestEndpointImportAnalyzer:
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("None", True),
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="None",
+            ) as mock_get_return_type_unified,
             # get_request_body_type is NOT called in this path
         ):
             # Act
@@ -326,9 +326,9 @@ class TestEndpointImportAnalyzer:
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_request_body_type"
             ) as mock_get_request_body_type,  # Should not be called
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("None", True),
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="None",
+            ) as mock_get_return_type_unified,
         ):
             # Act
             import_analyzer.analyze_and_register_imports(operation, render_context_mock)
@@ -380,9 +380,9 @@ class TestEndpointImportAnalyzer:
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
             ) as mock_get_param_type,
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("AsyncIterator[DataItem]", False),  # Return type includes AsyncIterator
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="AsyncIterator[DataItem]",  # Return type includes AsyncIterator
+            ) as mock_get_return_type_unified,
         ):
             # Act
             import_analyzer.analyze_and_register_imports(operation, render_context_mock)
@@ -430,9 +430,9 @@ class TestEndpointImportAnalyzer:
                 side_effect=mock_get_param_type_side_effect,
             ) as mock_get_param_type,
             unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type",
-                return_value=("SimpleResponse", False),  # Return type does NOT include AsyncIterator
-            ) as mock_get_return_type,
+                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
+                return_value="SimpleResponse",  # Return type does NOT include AsyncIterator
+            ) as mock_get_return_type_unified,
         ):
             # Act
             import_analyzer.analyze_and_register_imports(operation, render_context_mock)

@@ -12,6 +12,7 @@ from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
 from pyopenapi_gen.helpers.type_helper import TypeHelper
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
+from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class DataclassGenerator:
         assert renderer is not None, "PythonConstructRenderer cannot be None."
         self.renderer = renderer
         self.all_schemas = all_schemas if all_schemas is not None else {}
+        self.type_service = UnifiedTypeService(self.all_schemas)
 
     def _get_field_default(self, ps: IRSchema, context: RenderContext) -> Optional[str]:
         """
@@ -120,8 +122,8 @@ class DataclassGenerator:
             field_name_for_array_content = "items"
             assert schema.items is not None, "Schema items must be present for array type dataclass field."
 
-            list_item_py_type = TypeHelper.get_python_type_for_schema(
-                schema.items, self.all_schemas, context, required=True
+            list_item_py_type = self.type_service.resolve_schema_type(
+                schema.items, context, required=True
             )
             list_item_py_type = TypeFinalizer(context)._clean_type(list_item_py_type)
             field_type_str = f"List[{list_item_py_type}]"
@@ -162,13 +164,10 @@ class DataclassGenerator:
                 # Sanitize the property name for use as a Python attribute
                 field_name = NameSanitizer.sanitize_method_name(prop_name)
 
-                py_type = TypeHelper.get_python_type_for_schema(
+                py_type = self.type_service.resolve_schema_type(
                     prop_schema,
-                    self.all_schemas,
                     context,
-                    required=is_required,
-                    resolve_alias_target=False,
-                    parent_schema_name=schema.name,
+                    required=is_required
                 )
                 py_type = TypeFinalizer(context)._clean_type(py_type)
 

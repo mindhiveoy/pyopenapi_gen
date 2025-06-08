@@ -659,8 +659,8 @@ class TestArrayTypeResolver:  # Renamed class
             ({"$ref": "#/components/schemas/MyEnum"}, "List[MyEnum]", ["List"]),
             (
                 {"type": "object", "properties": {"key": {"type": "string"}}},
-                "List[TestArrayItem]",
-                ["List"],
+                "List[Dict[str, Any]]",
+                ["List", "Dict", "Any"],
             ),
             ({"type": "object"}, "List[Dict[str, Any]]", ["List", "Dict", "Any"]),
             ({"type": "array", "items": {"type": "string"}}, "List[List[str]]", ["List"]),
@@ -1153,7 +1153,7 @@ class TestObjectTypeResolver:  # Renamed class
                 "additional_props_schema_ref_model",
                 {"type": "object", "additional_properties": {"$ref": "#/components/schemas/ReferencedModel"}},
                 "Dict[str, ReferencedModel]",
-                ["Dict"],
+                ["Dict", ("..models.referenced_model", "ReferencedModel")],
             ),
             # 4. Anonymous object, no properties, no explicit additionalProperties (should default to Dict[str, Any])
             ("anon_obj_no_props_no_add_props", {"type": "object"}, "Dict[str, Any]", ["Dict", "Any"]),
@@ -1485,7 +1485,7 @@ class TestTypeHelperModelToModelImports:
         expected_class_name_b = NameSanitizer.sanitize_class_name(schema_b_name)
         assert returned_type_str == expected_class_name_b
 
-        # Assert import
+        # Assert import (unified system uses relative imports)
         expected_relative_module = f".{schema_b_module_name}"
         assert context.import_collector.has_import(expected_relative_module, expected_class_name_b), (
             f"Expected import 'from {expected_relative_module} import {expected_class_name_b}' not found. "
@@ -1558,7 +1558,7 @@ class TestTypeHelperModelToModelImports:
         expected_class_name_b = NameSanitizer.sanitize_class_name(schema_b_name)
         assert returned_type_str == f"Optional[{expected_class_name_b}]"
 
-        # Assert import for SchemaB
+        # Assert import for SchemaB (unified system uses relative imports)
         expected_relative_module_b = f".{schema_b_module_name}"
         assert context.import_collector.has_import(expected_relative_module_b, expected_class_name_b), (
             f"Expected SchemaB import 'from {expected_relative_module_b} import {expected_class_name_b}' not found."
