@@ -222,8 +222,45 @@ class ModelsEmitter:
         #     f"ModelsEmitter: Schemas considered for naming/de-collision (pre-filter): { {k: v.name for k, v in all_schemas_for_generation.items()} }"
         # )
 
+        # Filter out only the most basic primitive schemas to reduce clutter
+        # Be conservative to avoid breaking existing functionality
+        def should_generate_file(schema: IRSchema) -> bool:
+            """Determine if a schema should get its own generated file."""
+            if not schema.name or not schema.name.strip():
+                return False
+            
+            # Only filter out the most basic primitive type aliases with very common names
+            # that are clearly just artifacts of the parsing process
+            is_basic_primitive_artifact = (
+                schema.type in ["string", "integer", "number", "boolean"] and 
+                not schema.enum and 
+                not schema.properties and
+                not schema.any_of and
+                not schema.one_of and
+                not schema.all_of and
+                not schema.description and
+                # Only filter very common property names that are likely artifacts
+                schema.name.lower() in ["id", "name", "text", "content", "value", "type", "status"] and
+                # And only if the schema name ends with underscore (indicating sanitization)
+                schema.name.endswith("_")
+            )
+            
+            if is_basic_primitive_artifact:
+                return False
+            
+            return True
+
+        # Filter the main schemas dict to only include schemas that should generate files
+        filtered_schemas_for_generation = {
+            k: v for k, v in all_schemas_for_generation.items() 
+            if should_generate_file(v)
+        }
+        
+        # Update the main reference to use filtered schemas
+        all_schemas_for_generation = filtered_schemas_for_generation
+        
         schemas_to_name_decollision = sorted(
-            [s for s in all_schemas_for_generation.values() if s.name and s.name.strip()],  # Added s.name.strip()
+            [s for s in all_schemas_for_generation.values()],
             key=lambda s: s.name,  # type: ignore
         )
 

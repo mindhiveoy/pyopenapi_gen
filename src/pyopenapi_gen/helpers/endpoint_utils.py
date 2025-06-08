@@ -162,9 +162,24 @@ def get_return_type(
 
     if isinstance(schema, IRSchema) and getattr(schema, "type", None) == "object" and hasattr(schema, "properties"):
         properties = schema.properties
-        if len(properties) == 1 and "data" in properties:
+        # Check for both "data" and sanitized field names like "data_"
+        # This handles cases where field names get sanitized due to Python reserved words
+        data_field_candidates = ["data"]
+        if len(properties) == 1:
+            # If there's only one property, check if it could be a sanitized "data" field
+            for prop_name in properties.keys():
+                if prop_name.startswith("data") and prop_name.endswith("_"):
+                    data_field_candidates.append(prop_name)
+        
+        data_field_name = None
+        for candidate in data_field_candidates:
+            if candidate in properties:
+                data_field_name = candidate
+                break
+        
+        if len(properties) == 1 and data_field_name:
             should_unwrap = True
-            data_schema = properties["data"]
+            data_schema = properties[data_field_name]
             # Get the original wrapper type string BEFORE potentially unwrapping
             wrapper_type_str = TypeHelper.get_python_type_for_schema(schema, schemas, context, required=True)
             if wrapper_type_str and wrapper_type_str != "Any" and "." in wrapper_type_str:

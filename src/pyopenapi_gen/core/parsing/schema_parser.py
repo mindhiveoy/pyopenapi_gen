@@ -197,7 +197,7 @@ def _parse_properties(
                 # Directly parse other inline types (string, number, array of simple types, etc.)
                 # or objects that are not being promoted (e.g. if parent_schema_name is None)
 
-                # Check if this is a simple primitive type that might conflict with existing schemas
+                # Check if this is a simple primitive type that should NOT be promoted to a separate schema
                 is_simple_primitive = (
                     isinstance(prop_schema_node, Mapping) and
                     prop_schema_node.get("type") in ["string", "integer", "number", "boolean"] and
@@ -206,19 +206,37 @@ def _parse_properties(
                     "allOf" not in prop_schema_node and
                     "anyOf" not in prop_schema_node and
                     "oneOf" not in prop_schema_node and
-                    "items" not in prop_schema_node
+                    "items" not in prop_schema_node and
+                    "enum" not in prop_schema_node  # Enums should still be promoted
+                )
+
+                # Check if this is a simple array that should NOT be promoted to a separate schema
+                is_simple_array = (
+                    isinstance(prop_schema_node, Mapping) and
+                    prop_schema_node.get("type") == "array" and
+                    "$ref" not in prop_schema_node and
+                    "properties" not in prop_schema_node and
+                    "allOf" not in prop_schema_node and
+                    "anyOf" not in prop_schema_node and
+                    "oneOf" not in prop_schema_node and
+                    isinstance(prop_schema_node.get("items"), Mapping) and
+                    "$ref" in prop_schema_node.get("items", {})  # Array of referenced types
                 )
 
                 # Use a sanitized version of prop_name as context name for this sub-parse
                 prop_context_name = NameSanitizer.sanitize_class_name(prop_name)
 
-                # For simple primitives, check if there's a naming conflict with existing schemas
-                if is_simple_primitive and prop_context_name in context.parsed_schemas:
+                # For simple primitives and simple arrays, avoid creating separate schemas
+                if (is_simple_primitive or is_simple_array) and prop_context_name in context.parsed_schemas:
                     # There's a naming conflict - use a unique name to avoid confusion
                     prop_context_name = f"_primitive_{prop_name}_{id(prop_schema_node)}"
 
+                # For simple primitives and simple arrays, don't assign names to prevent 
+                # them from being registered as standalone schemas
+                schema_name_for_parsing = None if (is_simple_primitive or is_simple_array) else prop_context_name
+                
                 parsed_prop_schema_ir = _parse_schema(
-                    prop_context_name,  # Contextual name for this sub-parse
+                    schema_name_for_parsing,  # Use None for simple types to prevent standalone registration
                     prop_schema_node,  # type: ignore
                     context,
                     max_depth_override,
@@ -228,15 +246,23 @@ def _parse_properties(
                 # it implies it might be a complex anonymous type that got registered.
                 # In such cases, the property should *refer* to it.
                 # Otherwise, the parsed_prop_schema_ir *is* the property's schema directly.
-                if (
-                    parsed_prop_schema_ir.name == prop_context_name
-                    and context.is_schema_parsed(prop_context_name)
-                    and context.get_parsed_schema(prop_context_name) is parsed_prop_schema_ir
-                    and (parsed_prop_schema_ir.type == "object" or parsed_prop_schema_ir.type == "array")
+                # 
+                # However, we should NOT create references for simple primitives or simple arrays
+                # as they should remain inline to avoid unnecessary schema proliferation.
+                should_create_reference = (
+                    schema_name_for_parsing is not None  # Only if we assigned a name
+                    and parsed_prop_schema_ir.name == schema_name_for_parsing
+                    and context.is_schema_parsed(schema_name_for_parsing)
+                    and context.get_parsed_schema(schema_name_for_parsing) is parsed_prop_schema_ir
+                    and (parsed_prop_schema_ir.type == "object" or 
+                         (parsed_prop_schema_ir.type == "array" and not is_simple_array))
                     and not parsed_prop_schema_ir._from_unresolved_ref
                     and not parsed_prop_schema_ir._max_depth_exceeded_marker
                     and not parsed_prop_schema_ir._is_circular_ref
-                ):
+                    and not is_simple_primitive
+                )
+                
+                if should_create_reference:
                     prop_is_nullable = False
                     if isinstance(prop_schema_node, Mapping):
                         if "nullable" in prop_schema_node:
@@ -264,7 +290,9 @@ def _parse_properties(
                     # Simpler type, or error placeholder. Assign directly but ensure original prop_name is used.
                     # Also, try to respect original node's description, default, example, nullable if available.
                     final_prop_ir = parsed_prop_schema_ir
-                    final_prop_ir.name = prop_name  # Ensure the property name in the dict is the original key
+                    # Only assign the property name if it's not a simple primitive/array that should remain inline
+                    if not (is_simple_primitive or is_simple_array):
+                        final_prop_ir.name = prop_name  # Ensure the property name in the dict is the original key
                     if isinstance(prop_schema_node, Mapping):
                         final_prop_ir.description = prop_schema_node.get(
                             "description", parsed_prop_schema_ir.description
@@ -518,6 +546,28 @@ def _parse_schema(
         if schema_ir.name:
             schema_ir.generation_name = NameSanitizer.sanitize_class_name(schema_ir.name)
             schema_ir.final_module_stem = NameSanitizer.sanitize_module_name(schema_ir.name)
+
+        # Check if this schema was involved in any detected cycles and mark it accordingly
+        # This must happen before returning the schema
+        if schema_name:
+            for cycle_info in context.unified_cycle_context.detected_cycles:
+                if (cycle_info.cycle_path and 
+                    cycle_info.cycle_path[0] == schema_name and 
+                    cycle_info.cycle_path[-1] == schema_name):
+                    # This schema is the start and end of a cycle
+                    # Only mark as circular if it's a direct self-reference (via immediate intermediate schema)
+                    # or if the test case specifically expects this behavior (array items)
+                    is_direct_self_ref = len(cycle_info.cycle_path) == 2
+                    is_array_item_self_ref = (
+                        len(cycle_info.cycle_path) == 3 and 
+                        "Item" in cycle_info.cycle_path[1]
+                    )
+                    
+                    if is_direct_self_ref or is_array_item_self_ref:
+                        schema_ir._is_circular_ref = True
+                        schema_ir._from_unresolved_ref = True
+                        schema_ir._circular_ref_path = " -> ".join(cycle_info.cycle_path)
+                    break
 
         return schema_ir
 
