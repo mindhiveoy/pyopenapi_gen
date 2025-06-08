@@ -187,7 +187,8 @@ class ClientGenerator:
                 tmp_out_dir_for_diff = tmp_pkg_to_path(output_package)
                 tmp_core_dir_for_diff = tmp_pkg_to_path(resolved_core_package_fqn)
 
-                # Ensure temporary directories exist (FileManager used by emitters might handle this, but explicit is safer)
+                # Ensure temporary directories exist (FileManager used by emitters might handle this,
+                # but explicit is safer)
                 tmp_out_dir_for_diff.mkdir(parents=True, exist_ok=True)
                 tmp_core_dir_for_diff.mkdir(parents=True, exist_ok=True)  # Ensure core temp dir always exists
 
@@ -403,7 +404,7 @@ class ClientGenerator:
             ]  # Flatten list of lists
             schema_count = len(ir.schemas) if ir.schemas else 0
             self._log_progress(
-                f"Generated {len(model_files_dict)} model files for {schema_count} schemas",  # emit takes Path output_dir
+                f"Generated {len(model_files_dict)} model files for {schema_count} schemas",
                 "EMIT_MODELS",
             )
 
@@ -415,7 +416,8 @@ class ClientGenerator:
             ]  # emit takes ir.operations, str output_dir
             operation_count = len(ir.operations) if ir.operations else 0
             self._log_progress(
-                f"Generated {len(endpoints_emitter.emit(ir.operations, str(out_dir)))} endpoint files for {operation_count} operations",  # emit takes ir.operations, str output_dir
+                f"Generated {len(endpoints_emitter.emit(ir.operations, str(out_dir)))} "
+                f"endpoint files for {operation_count} operations",
                 "EMIT_ENDPOINTS",
             )
 

@@ -129,7 +129,8 @@ class EndpointUrlArgsGenerator:
                     writer.write_line(f"json_body: {actual_body_type_from_signature} = body")
                 else:
                     logger.warning(
-                        f"Operation {op.operation_id}: 'body' parameter not found in ordered_params for JSON. Defaulting to Any."
+                        f"Operation {op.operation_id}: 'body' parameter not found in "
+                        f"ordered_params for JSON. Defaulting to Any."
                     )
                     context.add_import("typing", "Any")
                     writer.write_line("json_body: Any = body  # 'body' param not found in signature details")
