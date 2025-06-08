@@ -454,7 +454,8 @@ class RenderContext:
                         if current_rendering_module_logical_path != model_module_logical_path:
                             self.add_import(logical_module=model_module_logical_path, name=schema_class_name)
                         # else:
-                        #     logger.debug(f"Skipping import of {schema_class_name} from {model_module_logical_path} as it's the current module.")
+                        #     logger.debug(f"Skipping import of {schema_class_name} from "
+                        #                  f"{model_module_logical_path} as it's the current module.")
                         continue  # Successfully handled (or skipped self-import) as a model import
                     else:
                         logger.warning(

@@ -28,7 +28,11 @@ class EndpointUrlArgsGenerator:
         """Builds the f-string for URL construction, substituting path variables."""
         # Ensure m.group(1) is treated as a string for NameSanitizer
         # Build the URL f-string by substituting path variables
-        formatted_path = re.sub(r"{([^}]+)}", lambda m: f"{{{NameSanitizer.sanitize_method_name(str(m.group(1)))}}}", path)
+        formatted_path = re.sub(
+            r"{([^}]+)}",
+            lambda m: f"{{{NameSanitizer.sanitize_method_name(str(m.group(1)))}}}",
+            path
+        )
         return f'f"{{self.base_url}}{formatted_path}"'
 
     def _write_query_params(
@@ -51,7 +55,8 @@ class EndpointUrlArgsGenerator:
             else:
                 # Using dict unpacking for conditional parameters
                 writer.write_line(
-                    f'    **({{"{original_param_name}": {param_var_name}}} if {param_var_name} is not None else {{}}){line_end}'
+                    f'    **({{"{original_param_name}": {param_var_name}}} '
+                    f'if {param_var_name} is not None else {{}}){line_end}'
                 )
 
     def _write_header_params(
@@ -77,7 +82,8 @@ class EndpointUrlArgsGenerator:
                 # This assumes that if an optional header parameter is None, it should not be sent.
                 # If specific behavior (e.g. empty string) is needed for None, logic would adjust.
                 writer.write_line(
-                    f'    **({{"{original_header_name}": {param_var_name}}} if {param_var_name} is not None else {{}}){line_end}'
+                    f'    **({{"{original_header_name}": {param_var_name}}} '
+                    f'if {param_var_name} is not None else {{}}){line_end}'
                 )
 
     def generate_url_and_args(

@@ -185,7 +185,8 @@ class EnumGenerator:
             values.append((unique_member_name, member_value))
 
         # logger.debug(
-        #     f"EnumGenerator: Preparing to render enum '{enum_class_name}' with base type '{base_type}' and members: {values}."
+        #     f"EnumGenerator: Preparing to render enum '{enum_class_name}' "
+        #     f"with base type '{base_type}' and members: {values}."
         # )
         rendered_code = self.renderer.render_enum(
             enum_name=enum_class_name,  # Pass the original base_name; renderer handles class name sanitization

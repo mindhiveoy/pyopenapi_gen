@@ -179,7 +179,9 @@ def _parse_properties(
                     name=prop_name,  # The actual property name
                     type=promoted_ir_schema.name,  # Type is the name of the promoted schema
                     description=promoted_ir_schema.description or prop_schema_node.get("description"),  # type: ignore
-                    is_nullable=prop_schema_node.get("nullable", False) or promoted_ir_schema.is_nullable,  # type: ignore
+                    is_nullable=(
+                        prop_schema_node.get("nullable", False) or promoted_ir_schema.is_nullable
+                    ),  # type: ignore
                     _refers_to_schema=promoted_ir_schema,
                     default=prop_schema_node.get("default"),  # type: ignore
                     example=prop_schema_node.get("example"),  # type: ignore
