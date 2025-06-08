@@ -4,12 +4,11 @@ from typing import Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody
 from pyopenapi_gen.context.render_context import RenderContext
-
-logger = logging.getLogger(__name__)
-
 from pyopenapi_gen.visit.endpoint.endpoint_visitor import EndpointVisitor
 
 from ..core.utils import Formatter, NameSanitizer
+
+logger = logging.getLogger(__name__)
 
 # Basic OpenAPI schema to Python type mapping for parameters
 PARAM_TYPE_MAPPING = {
