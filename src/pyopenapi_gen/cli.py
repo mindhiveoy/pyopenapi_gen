@@ -41,7 +41,10 @@ def gen(
     project_root: Path = typer.Option(
         ...,
         "--project-root",
-        help="Path to the directory containing your top-level Python packages. Generated code will be placed at project-root + output-package path.",
+        help=(
+            "Path to the directory containing your top-level Python packages. "
+            "Generated code will be placed at project-root + output-package path."
+        ),
     ),
     output_package: str = typer.Option(
         ..., "--output-package", help="Python package path for the generated client (e.g., 'pyapis.my_api_client')."
@@ -51,7 +54,10 @@ def gen(
     core_package: Optional[str] = typer.Option(
         None,
         "--core-package",
-        help="Python package path for the core package (e.g., 'pyapis.core'). If not set, defaults to <output-package>.core.",
+        help=(
+            "Python package path for the core package (e.g., 'pyapis.core'). "
+            "If not set, defaults to <output-package>.core."
+        ),
     ),
 ) -> None:
     """

@@ -25,12 +25,14 @@ def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSch
     for param in op.parameters:
         py_type = get_param_type(param, context, schemas)
         default = None if param.required else "None"
-        params.append({
-            "name": NameSanitizer.sanitize_method_name(param.name),
-            "type": py_type,
-            "default": default,
-            "required": param.required,
-        })
+        params.append(
+            {
+                "name": NameSanitizer.sanitize_method_name(param.name),
+                "type": py_type,
+                "default": default,
+                "required": param.required,
+            }
+        )
     return params
 
 
@@ -170,13 +172,13 @@ def get_return_type(
             for prop_name in properties.keys():
                 if prop_name.startswith("data") and prop_name.endswith("_"):
                     data_field_candidates.append(prop_name)
-        
+
         data_field_name = None
         for candidate in data_field_candidates:
             if candidate in properties:
                 data_field_name = candidate
                 break
-        
+
         if len(properties) == 1 and data_field_name:
             should_unwrap = True
             data_schema = properties[data_field_name]
@@ -489,12 +491,14 @@ def merge_params_with_model_fields(
             if py_type.startswith(".") and not py_type.startswith(".."):
                 py_type = "models" + py_type
 
-            merged_params.append({
-                "name": sanitized_name,
-                "type": py_type,
-                "default": None,
-                "required": True,
-            })
+            merged_params.append(
+                {
+                    "name": sanitized_name,
+                    "type": py_type,
+                    "default": None,
+                    "required": True,
+                }
+            )
     return merged_params
 
 

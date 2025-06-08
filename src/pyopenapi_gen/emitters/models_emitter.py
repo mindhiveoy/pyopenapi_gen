@@ -42,12 +42,12 @@ class ModelsEmitter:
         # )
 
         # Assert that de-collided names have been set by the emit() method's preprocessing.
-        assert schema_ir.generation_name is not None, (
-            f"Schema '{schema_ir.name}' must have generation_name set before file generation."
-        )
-        assert schema_ir.final_module_stem is not None, (
-            f"Schema '{schema_ir.name}' must have final_module_stem set before file generation."
-        )
+        assert (
+            schema_ir.generation_name is not None
+        ), f"Schema '{schema_ir.name}' must have generation_name set before file generation."
+        assert (
+            schema_ir.final_module_stem is not None
+        ), f"Schema '{schema_ir.name}' must have final_module_stem set before file generation."
 
         file_path = models_dir / f"{schema_ir.final_module_stem}.py"
 
@@ -119,12 +119,12 @@ class ModelsEmitter:
 
         for s_schema in sorted_schemas_for_init:
             # These should have been set in the emit() preprocessing step.
-            assert s_schema.generation_name is not None, (
-                f"Schema '{s_schema.name}' missing generation_name in __init__ generation."
-            )
-            assert s_schema.final_module_stem is not None, (
-                f"Schema '{s_schema.name}' missing final_module_stem in __init__ generation."
-            )
+            assert (
+                s_schema.generation_name is not None
+            ), f"Schema '{s_schema.name}' missing generation_name in __init__ generation."
+            assert (
+                s_schema.final_module_stem is not None
+            ), f"Schema '{s_schema.name}' missing final_module_stem in __init__ generation."
 
             if s_schema._from_unresolved_ref:  # Check this flag if it's relevant
                 # logger.debug(
@@ -228,37 +228,38 @@ class ModelsEmitter:
             """Determine if a schema should get its own generated file."""
             if not schema.name or not schema.name.strip():
                 return False
-            
+
             # Only filter out the most basic primitive type aliases with very common names
             # that are clearly just artifacts of the parsing process
             is_basic_primitive_artifact = (
-                schema.type in ["string", "integer", "number", "boolean"] and 
-                not schema.enum and 
-                not schema.properties and
-                not schema.any_of and
-                not schema.one_of and
-                not schema.all_of and
-                not schema.description and
+                schema.type in ["string", "integer", "number", "boolean"]
+                and not schema.enum
+                and not schema.properties
+                and not schema.any_of
+                and not schema.one_of
+                and not schema.all_of
+                and not schema.description
+                and
                 # Only filter very common property names that are likely artifacts
-                schema.name.lower() in ["id", "name", "text", "content", "value", "type", "status"] and
+                schema.name.lower() in ["id", "name", "text", "content", "value", "type", "status"]
+                and
                 # And only if the schema name ends with underscore (indicating sanitization)
                 schema.name.endswith("_")
             )
-            
+
             if is_basic_primitive_artifact:
                 return False
-            
+
             return True
 
         # Filter the main schemas dict to only include schemas that should generate files
         filtered_schemas_for_generation = {
-            k: v for k, v in all_schemas_for_generation.items() 
-            if should_generate_file(v)
+            k: v for k, v in all_schemas_for_generation.items() if should_generate_file(v)
         }
-        
+
         # Update the main reference to use filtered schemas
         all_schemas_for_generation = filtered_schemas_for_generation
-        
+
         schemas_to_name_decollision = sorted(
             [s for s in all_schemas_for_generation.values()],
             key=lambda s: s.name,  # type: ignore
@@ -281,7 +282,7 @@ class ModelsEmitter:
                 class_suffix += 1
                 # Handle reserved names that already have trailing underscores
                 # Instead of "Email_2", we want "Email2"
-                if base_class_name.endswith('_'):
+                if base_class_name.endswith("_"):
                     # Remove trailing underscore and append number
                     final_class_name = f"{base_class_name[:-1]}{class_suffix}"
                 else:
@@ -351,7 +352,8 @@ class ModelsEmitter:
                 if not schema_ir.generation_name or not schema_ir.final_module_stem:
                     logger.error(
                         f"Schema '{schema_ir.name}' (original key '{schema_key}') is missing de-collided names. "
-                        f"GenName: {schema_ir.generation_name}, ModStem: {schema_ir.final_module_stem}. Skipping file gen. IR: {schema_ir}"
+                        f"GenName: {schema_ir.generation_name}, "
+                        f"ModStem: {schema_ir.final_module_stem}. Skipping file gen. IR: {schema_ir}"
                     )
                     processed_schema_original_keys.add(schema_key)
                     something_processed_this_round = True
@@ -363,7 +365,8 @@ class ModelsEmitter:
                     generated_files.append(file_path_str)
                     processed_schema_original_keys.add(schema_key)
                     something_processed_this_round = True
-                # If file_path_str is None, it means an error occurred, but we still mark as processed to avoid infinite loop.
+                # If file_path_str is None, it means an error occurred,
+                # but we still mark as processed to avoid infinite loop.
                 elif schema_ir.name:  # Only mark as processed if it was a schema we attempted to generate
                     processed_schema_original_keys.add(schema_key)
                     something_processed_this_round = True  # Also count this as processed for loop termination
@@ -374,13 +377,15 @@ class ModelsEmitter:
                 logger.warning(
                     f"ModelsEmitter: No schemas processed in round {rounds}, but not all schemas are done. "
                     f"Processed: {len(processed_schema_original_keys)}/{len(all_schema_keys_to_emit)}. "
-                    f"Remaining: {set(all_schema_keys_to_emit) - processed_schema_original_keys}. Breaking to avoid infinite loop."
+                    f"Remaining: {set(all_schema_keys_to_emit) - processed_schema_original_keys}. "
+                    f"Breaking to avoid infinite loop."
                 )
                 # Process any remaining ones that were not touched, to ensure they are marked as "processed"
                 for schema_key_rem in set(all_schema_keys_to_emit) - processed_schema_original_keys:
                     s_rem = all_schemas_for_generation.get(schema_key_rem)
                     logger.error(
-                        f"Force marking remaining schema '{s_rem.name if s_rem else schema_key_rem}' as processed due to loop break."
+                        f"Force marking remaining schema "
+                        f"'{s_rem.name if s_rem else schema_key_rem}' as processed due to loop break."
                     )
                     processed_schema_original_keys.add(schema_key_rem)
                 break

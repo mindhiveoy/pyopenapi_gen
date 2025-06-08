@@ -41,7 +41,8 @@ class ObjectTypeResolver:
             counter += 1
             if counter > 10:  # Safety break
                 logger.error(
-                    f"[ObjectTypeResolver._promote] Could not find unique name for base '{potential_new_name}' after 10 tries."
+                    f"[ObjectTypeResolver._promote] Could not find unique name "
+                    f"for base '{potential_new_name}' after 10 tries."
                 )
                 return None
 
@@ -102,7 +103,8 @@ class ObjectTypeResolver:
                             return promoted_name
                     # Fallback for unpromoted anonymous object with properties
                     logger.warning(
-                        f"[ObjectTypeResolver] Anonymous object with properties not promoted. -> Dict[str, Any]. Schema: {schema}"
+                        f"[ObjectTypeResolver] Anonymous object with properties not promoted. "
+                        f"-> Dict[str, Any]. Schema: {schema}"
                     )
                     self.context.add_import("typing", "Dict")
                     self.context.add_import("typing", "Any")
@@ -111,12 +113,12 @@ class ObjectTypeResolver:
                     # If this named object is a component schema, ensure it's imported.
                     if schema.name and schema.name in self.all_schemas:
                         actual_schema_def = self.all_schemas[schema.name]
-                        assert actual_schema_def.generation_name is not None, (
-                            f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have generation_name."
-                        )
-                        assert actual_schema_def.final_module_stem is not None, (
-                            f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have final_module_stem."
-                        )
+                        assert (
+                            actual_schema_def.generation_name is not None
+                        ), f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have generation_name."
+                        assert (
+                            actual_schema_def.final_module_stem is not None
+                        ), f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have final_module_stem."
 
                         class_name_to_use = actual_schema_def.generation_name
                         module_stem_to_use = actual_schema_def.final_module_stem
@@ -158,12 +160,12 @@ class ObjectTypeResolver:
                     schema.name and schema.name in self.all_schemas
                 ):  # Named object, no properties, AND it's a known component
                     actual_schema_def = self.all_schemas[schema.name]
-                    assert actual_schema_def.generation_name is not None, (
-                        f"Actual schema (no props) '{actual_schema_def.name}' for '{schema.name}' must have generation_name."
-                    )
-                    assert actual_schema_def.final_module_stem is not None, (
-                        f"Actual schema (no props) '{actual_schema_def.name}' for '{schema.name}' must have final_module_stem."
-                    )
+                    assert (
+                        actual_schema_def.generation_name is not None
+                    ), f"Actual schema (no props) '{actual_schema_def.name}' for '{schema.name}' must have generation_name."
+                    assert (
+                        actual_schema_def.final_module_stem is not None
+                    ), f"Actual schema (no props) '{actual_schema_def.name}' for '{schema.name}' must have final_module_stem."
 
                     class_name_to_use = actual_schema_def.generation_name
                     module_stem_to_use = actual_schema_def.final_module_stem

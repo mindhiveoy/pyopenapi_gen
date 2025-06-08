@@ -145,12 +145,12 @@ class TypeHelper:
                 context.add_import("typing", "Any")
                 return "Any"  # Fallback, though this indicates a deeper issue
 
-            assert target_ir_schema.generation_name is not None, (
-                f"Target schema '{target_ir_schema.name}' must have generation_name set."
-            )
-            assert target_ir_schema.final_module_stem is not None, (
-                f"Target schema '{target_ir_schema.name}' must have final_module_stem set."
-            )
+            assert (
+                target_ir_schema.generation_name is not None
+            ), f"Target schema '{target_ir_schema.name}' must have generation_name set."
+            assert (
+                target_ir_schema.final_module_stem is not None
+            ), f"Target schema '{target_ir_schema.name}' must have final_module_stem set."
 
             class_name_to_import = target_ir_schema.generation_name
             module_name_to_import_from = target_ir_schema.final_module_stem
@@ -185,8 +185,10 @@ class TypeHelper:
                 target_module_name = module_name_to_import_from
 
                 # If we're in message.py trying to import Message from message module, skip it
-                if (current_module_name == target_module_name and
-                    class_name_to_import == target_ir_schema.generation_name):
+                if (
+                    current_module_name == target_module_name
+                    and class_name_to_import == target_ir_schema.generation_name
+                ):
                     is_same_class_self_import = True
 
             if is_self_import or is_same_class_self_import:

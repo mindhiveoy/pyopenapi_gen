@@ -199,28 +199,28 @@ def _parse_properties(
 
                 # Check if this is a simple primitive type that should NOT be promoted to a separate schema
                 is_simple_primitive = (
-                    isinstance(prop_schema_node, Mapping) and
-                    prop_schema_node.get("type") in ["string", "integer", "number", "boolean"] and
-                    "$ref" not in prop_schema_node and
-                    "properties" not in prop_schema_node and
-                    "allOf" not in prop_schema_node and
-                    "anyOf" not in prop_schema_node and
-                    "oneOf" not in prop_schema_node and
-                    "items" not in prop_schema_node and
-                    "enum" not in prop_schema_node  # Enums should still be promoted
+                    isinstance(prop_schema_node, Mapping)
+                    and prop_schema_node.get("type") in ["string", "integer", "number", "boolean"]
+                    and "$ref" not in prop_schema_node
+                    and "properties" not in prop_schema_node
+                    and "allOf" not in prop_schema_node
+                    and "anyOf" not in prop_schema_node
+                    and "oneOf" not in prop_schema_node
+                    and "items" not in prop_schema_node
+                    and "enum" not in prop_schema_node  # Enums should still be promoted
                 )
 
                 # Check if this is a simple array that should NOT be promoted to a separate schema
                 is_simple_array = (
-                    isinstance(prop_schema_node, Mapping) and
-                    prop_schema_node.get("type") == "array" and
-                    "$ref" not in prop_schema_node and
-                    "properties" not in prop_schema_node and
-                    "allOf" not in prop_schema_node and
-                    "anyOf" not in prop_schema_node and
-                    "oneOf" not in prop_schema_node and
-                    isinstance(prop_schema_node.get("items"), Mapping) and
-                    "$ref" in prop_schema_node.get("items", {})  # Array of referenced types
+                    isinstance(prop_schema_node, Mapping)
+                    and prop_schema_node.get("type") == "array"
+                    and "$ref" not in prop_schema_node
+                    and "properties" not in prop_schema_node
+                    and "allOf" not in prop_schema_node
+                    and "anyOf" not in prop_schema_node
+                    and "oneOf" not in prop_schema_node
+                    and isinstance(prop_schema_node.get("items"), Mapping)
+                    and "$ref" in prop_schema_node.get("items", {})  # Array of referenced types
                 )
 
                 # Use a sanitized version of prop_name as context name for this sub-parse
@@ -231,10 +231,10 @@ def _parse_properties(
                     # There's a naming conflict - use a unique name to avoid confusion
                     prop_context_name = f"_primitive_{prop_name}_{id(prop_schema_node)}"
 
-                # For simple primitives and simple arrays, don't assign names to prevent 
+                # For simple primitives and simple arrays, don't assign names to prevent
                 # them from being registered as standalone schemas
                 schema_name_for_parsing = None if (is_simple_primitive or is_simple_array) else prop_context_name
-                
+
                 parsed_prop_schema_ir = _parse_schema(
                     schema_name_for_parsing,  # Use None for simple types to prevent standalone registration
                     prop_schema_node,  # type: ignore
@@ -246,7 +246,7 @@ def _parse_properties(
                 # it implies it might be a complex anonymous type that got registered.
                 # In such cases, the property should *refer* to it.
                 # Otherwise, the parsed_prop_schema_ir *is* the property's schema directly.
-                # 
+                #
                 # However, we should NOT create references for simple primitives or simple arrays
                 # as they should remain inline to avoid unnecessary schema proliferation.
                 should_create_reference = (
@@ -254,14 +254,16 @@ def _parse_properties(
                     and parsed_prop_schema_ir.name == schema_name_for_parsing
                     and context.is_schema_parsed(schema_name_for_parsing)
                     and context.get_parsed_schema(schema_name_for_parsing) is parsed_prop_schema_ir
-                    and (parsed_prop_schema_ir.type == "object" or 
-                         (parsed_prop_schema_ir.type == "array" and not is_simple_array))
+                    and (
+                        parsed_prop_schema_ir.type == "object"
+                        or (parsed_prop_schema_ir.type == "array" and not is_simple_array)
+                    )
                     and not parsed_prop_schema_ir._from_unresolved_ref
                     and not parsed_prop_schema_ir._max_depth_exceeded_marker
                     and not parsed_prop_schema_ir._is_circular_ref
                     and not is_simple_primitive
                 )
-                
+
                 if should_create_reference:
                     prop_is_nullable = False
                     if isinstance(prop_schema_node, Mapping):
@@ -346,6 +348,7 @@ def _parse_schema(
         # If schema marked as existing but not found anywhere, it might be a state management issue
         # Reset the state and continue with normal parsing
         from .unified_cycle_detection import SchemaState
+
         context.unified_cycle_context.schema_states[schema_name] = SchemaState.NOT_STARTED
         # Don't call unified_exit_schema again, continue to normal parsing
 
@@ -365,9 +368,9 @@ def _parse_schema(
         if schema_node is None:
             return IRSchema(name=NameSanitizer.sanitize_class_name(schema_name) if schema_name else None)
 
-        assert isinstance(schema_node, Mapping), (
-            f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
-        )
+        assert isinstance(
+            schema_node, Mapping
+        ), f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
 
         # If the current schema_node itself is a $ref, resolve it.
         if "$ref" in schema_node:
@@ -550,18 +553,17 @@ def _parse_schema(
         # This must happen before returning the schema
         if schema_name:
             for cycle_info in context.unified_cycle_context.detected_cycles:
-                if (cycle_info.cycle_path and 
-                    cycle_info.cycle_path[0] == schema_name and 
-                    cycle_info.cycle_path[-1] == schema_name):
+                if (
+                    cycle_info.cycle_path
+                    and cycle_info.cycle_path[0] == schema_name
+                    and cycle_info.cycle_path[-1] == schema_name
+                ):
                     # This schema is the start and end of a cycle
                     # Only mark as circular if it's a direct self-reference (via immediate intermediate schema)
                     # or if the test case specifically expects this behavior (array items)
                     is_direct_self_ref = len(cycle_info.cycle_path) == 2
-                    is_array_item_self_ref = (
-                        len(cycle_info.cycle_path) == 3 and 
-                        "Item" in cycle_info.cycle_path[1]
-                    )
-                    
+                    is_array_item_self_ref = len(cycle_info.cycle_path) == 3 and "Item" in cycle_info.cycle_path[1]
+
                     if is_direct_self_ref or is_array_item_self_ref:
                         schema_ir._is_circular_ref = True
                         schema_ir._from_unresolved_ref = True

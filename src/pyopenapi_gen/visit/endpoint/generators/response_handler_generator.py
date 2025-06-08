@@ -125,10 +125,9 @@ class EndpointResponseHandlerGenerator:
         is_primary_actually_success = False
         if primary_success_ir:  # Explicit check for None to help linter
             is_2xx = primary_success_ir.status_code.startswith("2")
-            is_default_with_content = (
-                primary_success_ir.status_code == "default"
-                and bool(primary_success_ir.content)  # Ensure this part is boolean
-            )
+            is_default_with_content = primary_success_ir.status_code == "default" and bool(
+                primary_success_ir.content
+            )  # Ensure this part is boolean
             is_primary_actually_success = is_2xx or is_default_with_content
 
         # Determine if the primary success response will be handled by the first dedicated block

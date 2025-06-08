@@ -17,21 +17,21 @@ def paginate_by_next(
 ) -> AsyncIterator[Any]:
     """
     Create an async iterator that yields items from paginated API responses.
-    
+
     This function creates a paginator that automatically handles fetching
     subsequent pages of results by using a "next page token" pattern. It calls
     the provided `fetch_page` function repeatedly with the given parameters,
     updating the next token parameter between calls.
-    
+
     Args:
         fetch_page: Async function to fetch a page of results
         items_key: The key in the response dict where items are located (default: "items")
         next_key: The key in the response dict for the next page token (default: "next")
         **params: Initial parameters to pass to fetch_page
-        
+
     Returns:
         An AsyncIterator that yields individual items from all pages
-        
+
     Example:
         ```python
         async def fetch_users_page(page_token=None, limit=100):
@@ -39,9 +39,9 @@ def paginate_by_next(
             if page_token:
                 url += f"&page_token={page_token}"
             return await http_client.get(url)
-            
-        async for user in paginate_by_next(fetch_users_page, 
-                                          items_key="users", 
+
+        async for user in paginate_by_next(fetch_users_page,
+                                          items_key="users",
                                           next_key="page_token",
                                           limit=50):
             print(user["name"])

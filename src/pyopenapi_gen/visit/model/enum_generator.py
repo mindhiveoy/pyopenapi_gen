@@ -58,8 +58,11 @@ class EnumGenerator:
         if not re.match(r"^[A-Z_]", sanitized_member_name.upper()):
             sanitized_member_name = f"MEMBER_{sanitized_member_name}"
 
-        assert sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()), (
-            f"Generated string enum member name '{sanitized_member_name}' is not a valid Python identifier from value '{value}'."
+        assert sanitized_member_name and re.match(
+            r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()
+        ), (
+            f"Generated string enum member name '{sanitized_member_name}' "
+            f"is not a valid Python identifier from value '{value}'."
         )
         return sanitized_member_name
 
@@ -104,8 +107,11 @@ class EnumGenerator:
             if not sanitized_member_name:  # Should be impossible
                 sanitized_member_name = f"ENUM_MEMBER_UNKNOWN_{abs(int_value_for_fallback)}"
 
-        assert sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()), (
-            f"Generated integer enum member name '{sanitized_member_name}' is not a valid Python identifier from value '{value}'."
+        assert sanitized_member_name and re.match(
+            r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()
+        ), (
+            f"Generated integer enum member name '{sanitized_member_name}' "
+            f"is not a valid Python identifier from value '{value}'."
         )
         return sanitized_member_name
 
@@ -160,7 +166,8 @@ class EnumGenerator:
                     actual_int_value = int(val_from_spec)
                 except (ValueError, TypeError):
                     logger.warning(
-                        f"EnumGenerator: Could not convert enum value '{val_from_spec}' to int for schema '{schema.name}'. Using value 0."
+                        f"EnumGenerator: Could not convert enum value '{val_from_spec}' "
+                        f"to int for schema '{schema.name}'. Using value 0."
                     )
                     actual_int_value = 0  # Fallback value
                 member_value = actual_int_value
@@ -189,8 +196,8 @@ class EnumGenerator:
         )
 
         assert rendered_code.strip(), "Generated enum code cannot be empty."
-        assert "enum" in context.import_collector.imports and "Enum" in context.import_collector.imports["enum"], (
-            "Enum import was not added to context by renderer."
-        )
+        assert (
+            "enum" in context.import_collector.imports and "Enum" in context.import_collector.imports["enum"]
+        ), "Enum import was not added to context by renderer."
 
         return rendered_code

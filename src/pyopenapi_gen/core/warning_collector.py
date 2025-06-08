@@ -19,7 +19,7 @@ __all__ = ["WarningReport", "WarningCollector"]
 class WarningReport:
     """
     Structured warning with a code, human-readable message, and remediation hint.
-    
+
     Attributes:
         code: A machine-readable warning code (e.g., "missing_tags")
         message: A human-readable description of the warning
@@ -34,11 +34,11 @@ class WarningReport:
 class WarningCollector:
     """
     Collects warnings about missing or incomplete information in an IRSpec.
-    
+
     This class analyzes an IRSpec object and identifies potential issues or
     missing information that might lead to lower quality generated code or
     documentation. It provides actionable warnings with hints for improvement.
-    
+
     Attributes:
         warnings: List of collected WarningReport objects
     """
@@ -50,14 +50,14 @@ class WarningCollector:
     def collect(self, spec: IRSpec) -> List[WarningReport]:
         """
         Analyze an IRSpec and collect warnings about potential issues.
-        
+
         This method traverses the IRSpec and checks for common issues like
         missing tags, descriptions, or other metadata that would improve
         the quality of the generated code.
-        
+
         Args:
             spec: The IRSpec object to analyze
-            
+
         Returns:
             A list of WarningReport objects describing identified issues
         """

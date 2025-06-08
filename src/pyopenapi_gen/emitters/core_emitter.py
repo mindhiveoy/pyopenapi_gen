@@ -164,7 +164,8 @@ class CoreEmitter:
             generated_files.append(readme_dst)
         except FileNotFoundError:
             print(
-                f"Warning: Could not find core README template {CORE_README_TEMPLATE_FILENAME} in {CORE_README_TEMPLATE_MODULE}. Skipping."
+                f"Warning: Could not find core README template {CORE_README_TEMPLATE_FILENAME} "
+                f"in {CORE_README_TEMPLATE_MODULE}. Skipping."
             )
 
         # Generate config.py from template inside the actual core directory

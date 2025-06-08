@@ -44,7 +44,9 @@ class SchemaTypeResolver:
         """
         if schema is None:
             logger.warning(
-                f"[SchemaTypeResolver ID:None] Input schema is None. Defaulting to 'Any'. Context: required={required}, resolve_alias_target={resolve_alias_target}, current_schema_context_name={current_schema_context_name}"
+                f"[SchemaTypeResolver ID:None] Input schema is None. Defaulting to 'Any'. "
+                f"Context: required={required}, resolve_alias_target={resolve_alias_target}, "
+                f"current_schema_context_name={current_schema_context_name}"
             )
             self.context.add_import("typing", "Any")
             return "Any"
@@ -60,7 +62,8 @@ class SchemaTypeResolver:
         if not resolve_alias_target:
             py_type_str = self.named_resolver.resolve(schema, resolve_alias_target=resolve_alias_target)
             if py_type_str:
-                # Named resolver already handles simple aliases by returning None if they should be structurally resolved.
+                # Named resolver already handles simple aliases by returning None
+                # if they should be structurally resolved.
                 # If it returns a name, it's a direct model/enum class name.
                 # Optionality is handled by the finalizer based on the schema's own definition or usage.
                 return self.finalizer.finalize(py_type_str, schema, required)
@@ -68,14 +71,16 @@ class SchemaTypeResolver:
         # If resolving alias target, or if not a directly named type above, proceed with structural resolution:
 
         # 2. Enums (again, in case it's an unnamed enum or simple alias that named_resolver skipped)
-        # NamedTypeResolver.resolve handles named enums, unnamed enums (returns base type), and simple aliases (returns None)
+        # NamedTypeResolver.resolve handles named enums, unnamed enums (returns base type),
+        # and simple aliases (returns None)
         # This re-check might seem redundant but covers cases where resolve_alias_target=True for a named enum,
         # or for unnamed enums if the first path (not resolve_alias_target) was skipped.
         # Essentially, if `schema.enum` is present, we try `named_resolver` regardless of `resolve_alias_target` now.
         if schema.enum:
             # When resolve_alias_target is true, we still want the name if it is a named enum.
             # If it's an unnamed enum, it gives base type.
-            # If it's a named alias TO an enum, this path is tricky. Current named_resolver gives the alias name or None.
+            # If it's a named alias TO an enum, this path is tricky.
+            # Current named_resolver gives the alias name or None.
             temp_enum_type = self.named_resolver.resolve(schema, resolve_alias_target=resolve_alias_target)
             if temp_enum_type:
                 py_type_str = temp_enum_type

@@ -144,12 +144,14 @@ class DataclassGenerator:
             elif not field_description:
                 field_description = "A list of items."
 
-            fields_data.append((
-                field_name_for_array_content,
-                final_field_type_str,
-                array_items_field_default_expr,
-                field_description,
-            ))
+            fields_data.append(
+                (
+                    field_name_for_array_content,
+                    final_field_type_str,
+                    array_items_field_default_expr,
+                    field_description,
+                )
+            )
         elif schema.properties:
             sorted_props = sorted(schema.properties.items(), key=lambda item: (item[0] not in schema.required, item[0]))
 
@@ -195,8 +197,8 @@ class DataclassGenerator:
             and "dataclass" in context.import_collector.imports["dataclasses"]
         ), "dataclass import was not added to context by renderer."
         if "default_factory" in rendered_code:  # Check for field import if factory is used
-            assert "field" in context.import_collector.imports.get("dataclasses", set()), (
-                "'field' import from dataclasses missing when default_factory is used."
-            )
+            assert "field" in context.import_collector.imports.get(
+                "dataclasses", set()
+            ), "'field' import from dataclasses missing when default_factory is used."
 
         return rendered_code

@@ -50,7 +50,8 @@ class AliasGenerator:
                 - ``schema`` is not None and ``schema.name`` is not None.
                 - ``base_name`` is a non-empty string.
                 - ``context`` is not None.
-                - The schema should logically represent a type alias (e.g., not have properties if it's not an array of anonymous objects).
+                - The schema should logically represent a type alias
+                  (e.g., not have properties if it's not an array of anonymous objects).
             Post-conditions:
                 - Returns a non-empty string containing valid Python code for a type alias.
                 - ``TypeAlias`` is imported in the context if not already present.

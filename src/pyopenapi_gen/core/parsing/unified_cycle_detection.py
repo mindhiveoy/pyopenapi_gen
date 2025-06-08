@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class SchemaState(Enum):
     """States a schema can be in during parsing."""
+
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -30,6 +31,7 @@ class SchemaState(Enum):
 
 class CycleType(Enum):
     """Types of cycles that can be detected."""
+
     STRUCTURAL = "structural"  # Schema references form a loop
     SELF_REFERENCE = "self_reference"  # Schema directly references itself
     MAX_DEPTH = "max_depth"  # Recursion depth limit exceeded
@@ -37,6 +39,7 @@ class CycleType(Enum):
 
 class CycleAction(Enum):
     """Actions to take when cycle is detected."""
+
     CONTINUE_PARSING = "continue"  # No cycle or allowed cycle
     RETURN_PLACEHOLDER = "placeholder"  # Return pre-made placeholder
     CREATE_PLACEHOLDER = "create"  # Create new placeholder
@@ -46,6 +49,7 @@ class CycleAction(Enum):
 @dataclass
 class CycleInfo:
     """Information about a detected cycle."""
+
     schema_name: str
     cycle_path: List[str]
     cycle_type: CycleType
@@ -56,6 +60,7 @@ class CycleInfo:
 @dataclass
 class CycleDetectionResult:
     """Result of cycle detection check."""
+
     is_cycle: bool
     cycle_type: Optional[CycleType]
     action: CycleAction
@@ -101,7 +106,7 @@ def analyze_cycle(schema_name: str, schema_stack: List[str]) -> CycleInfo:
         cycle_path=cycle_path,
         cycle_type=cycle_type,
         is_direct_self_reference=is_direct_self_reference,
-        depth_when_detected=len(schema_stack)
+        depth_when_detected=len(schema_stack),
     )
 
 
@@ -139,6 +144,7 @@ def create_depth_placeholder(schema_name: str, depth: int) -> IRSchema:
 
     # Import cycle_helpers to use its logging functionality
     from .cycle_helpers import logger as cycle_helpers_logger
+
     cycle_helpers_logger.warning(description)
 
     return IRSchema(
@@ -149,10 +155,7 @@ def create_depth_placeholder(schema_name: str, depth: int) -> IRSchema:
     )
 
 
-def unified_cycle_check(
-    schema_name: Optional[str],
-    context: UnifiedCycleContext
-) -> CycleDetectionResult:
+def unified_cycle_check(schema_name: Optional[str], context: UnifiedCycleContext) -> CycleDetectionResult:
     """Unified cycle detection that handles all cases."""
 
     if schema_name is None:
@@ -166,11 +169,16 @@ def unified_cycle_check(
         return CycleDetectionResult(False, None, CycleAction.RETURN_EXISTING)
 
     # 2. If already a placeholder, reuse it
-    if current_state in [SchemaState.PLACEHOLDER_CYCLE, SchemaState.PLACEHOLDER_DEPTH, SchemaState.PLACEHOLDER_SELF_REF]:
+    if current_state in [
+        SchemaState.PLACEHOLDER_CYCLE,
+        SchemaState.PLACEHOLDER_DEPTH,
+        SchemaState.PLACEHOLDER_SELF_REF,
+    ]:
         return CycleDetectionResult(True, None, CycleAction.RETURN_PLACEHOLDER)
 
     # 3. Check depth limit BEFORE checking cycles (dynamically check environment)
     import os
+
     max_depth = int(os.environ.get("PYOPENAPI_MAX_DEPTH", context.max_depth))
     if context.recursion_depth > max_depth:
         context.depth_exceeded_schemas.add(schema_name)
@@ -179,10 +187,7 @@ def unified_cycle_check(
         placeholder = create_depth_placeholder(schema_name, max_depth)
         context.parsed_schemas[schema_name] = placeholder
         return CycleDetectionResult(
-            True,
-            CycleType.MAX_DEPTH,
-            CycleAction.CREATE_PLACEHOLDER,
-            placeholder_schema=placeholder
+            True, CycleType.MAX_DEPTH, CycleAction.CREATE_PLACEHOLDER, placeholder_schema=placeholder
         )
 
     # 4. Check for structural cycle
@@ -206,27 +211,29 @@ def unified_cycle_check(
 
         # Determine storage policy based on cycle characteristics
         is_synthetic_schema = schema_name and (
-            "Item" in schema_name or  # Array item schemas
-            "Property" in schema_name  # Property schemas
+            "Item" in schema_name or "Property" in schema_name  # Array item schemas  # Property schemas
         )
 
         # Check for specific known patterns
         cycle_path_str = " -> ".join(cycle_info.cycle_path)
         is_direct_array_self_ref = (
-            "Children" in cycle_path_str and "ChildrenItem" in cycle_path_str and
-            cycle_info.cycle_path[0] == cycle_info.cycle_path[-1]
+            "Children" in cycle_path_str
+            and "ChildrenItem" in cycle_path_str
+            and cycle_info.cycle_path[0] == cycle_info.cycle_path[-1]
         )
         is_nested_property_self_ref = (
-            any(name.startswith(schema_name) and name != schema_name and not name.endswith("Item")
-                for name in cycle_info.cycle_path) and
-            cycle_info.cycle_path[0] == cycle_info.cycle_path[-1]
+            any(
+                name.startswith(schema_name) and name != schema_name and not name.endswith("Item")
+                for name in cycle_info.cycle_path
+            )
+            and cycle_info.cycle_path[0] == cycle_info.cycle_path[-1]
         )
 
         should_store_placeholder = (
-            is_synthetic_schema or
-            cycle_info.is_direct_self_reference or
-            is_direct_array_self_ref or
-            is_nested_property_self_ref
+            is_synthetic_schema
+            or cycle_info.is_direct_self_reference
+            or is_direct_array_self_ref
+            or is_nested_property_self_ref
         )
 
         if should_store_placeholder:
@@ -240,10 +247,14 @@ def unified_cycle_check(
         # Don't mark the original schema as a placeholder - just return the placeholder for this reference
         return CycleDetectionResult(
             True,
-            cycle_info.cycle_type if not (context.allow_self_reference and cycle_info.is_direct_self_reference) else CycleType.SELF_REFERENCE,
+            (
+                cycle_info.cycle_type
+                if not (context.allow_self_reference and cycle_info.is_direct_self_reference)
+                else CycleType.SELF_REFERENCE
+            ),
             CycleAction.CREATE_PLACEHOLDER,
             cycle_info=cycle_info,
-            placeholder_schema=placeholder
+            placeholder_schema=placeholder,
         )
 
     # 5. No cycle detected - proceed with parsing

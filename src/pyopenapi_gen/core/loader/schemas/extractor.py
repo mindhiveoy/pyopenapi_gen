@@ -70,14 +70,14 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
                 # Only extract complex item schemas (objects and arrays), not simple primitives or references
                 items_schema = prop_schema.items
                 is_complex_item = (
-                    items_schema.type == "object" or 
-                    items_schema.type == "array" or
-                    items_schema.properties or
-                    items_schema.any_of or
-                    items_schema.one_of or
-                    items_schema.all_of
+                    items_schema.type == "object"
+                    or items_schema.type == "array"
+                    or items_schema.properties
+                    or items_schema.any_of
+                    or items_schema.one_of
+                    or items_schema.all_of
                 )
-                
+
                 if is_complex_item:
                     # Generate a descriptive name for the item schema using content-aware naming
                     # For arrays of complex objects, use the pattern: {Parent}{Property}Item
@@ -85,16 +85,22 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
                     if prop_name.lower() in ["data", "items", "results", "content"]:
                         # For generic wrapper properties, try to derive name from the item type or parent
                         if items_schema.type == "object" and schema_name.endswith("Response"):
-                            # Pattern: MessageBatchResponse.data -> MessageItem  
+                            # Pattern: MessageBatchResponse.data -> MessageItem
                             base_name = schema_name.replace("Response", "").replace("List", "")
                             item_schema_name = f"{base_name}Item"
                         else:
                             # Fallback to standard pattern
-                            item_schema_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Item"
+                            item_schema_name = (
+                                f"{NameSanitizer.sanitize_class_name(schema_name)}"
+                                f"{NameSanitizer.sanitize_class_name(prop_name)}Item"
+                            )
                     else:
                         # Standard pattern for named properties
-                        item_schema_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Item"
-                    
+                        item_schema_name = (
+                            f"{NameSanitizer.sanitize_class_name(schema_name)}"
+                            f"{NameSanitizer.sanitize_class_name(prop_name)}Item"
+                        )
+
                     base_item_name = item_schema_name
                     i = 1
                     while item_schema_name in schemas or item_schema_name in new_item_schemas:
@@ -145,7 +151,10 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     for schema_name, schema in list(schemas.items()):
         for prop_name, prop_schema in list(schema.properties.items()):
             if prop_schema.enum and not prop_schema.name:
-                enum_name = f"{NameSanitizer.sanitize_class_name(schema_name)}{NameSanitizer.sanitize_class_name(prop_name)}Enum"
+                enum_name = (
+                    f"{NameSanitizer.sanitize_class_name(schema_name)}"
+                    f"{NameSanitizer.sanitize_class_name(prop_name)}Enum"
+                )
                 base_enum_name = enum_name
                 i = 1
                 while enum_name in schemas or enum_name in new_enums:

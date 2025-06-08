@@ -34,8 +34,7 @@ class NamedTypeResolver:
         # The target_class_name should match the class being generated in the current file
         # For example, if we're in tree_node.py generating TreeNode class, and we're trying
         # to reference TreeNode, then this is a self-reference
-        return (current_module_name == target_module_name and
-                self._class_being_generated_matches(target_class_name))
+        return current_module_name == target_module_name and self._class_being_generated_matches(target_class_name)
 
     def _class_being_generated_matches(self, target_class_name: str) -> bool:
         """Check if the target class name matches what's being generated in the current file."""
@@ -57,8 +56,8 @@ class NamedTypeResolver:
         # Convert snake_case to PascalCase
         # tree_node -> TreeNode
         # message -> Message
-        parts = module_name.split('_')
-        return ''.join(word.capitalize() for word in parts)
+        parts = module_name.split("_")
+        return "".join(word.capitalize() for word in parts)
 
     def resolve(self, schema: IRSchema, resolve_alias_target: bool = False) -> Optional[str]:
         """
@@ -79,12 +78,12 @@ class NamedTypeResolver:
             assert ref_schema.name is not None, f"Schema '{schema.name}' resolved to ref_schema with None name."
 
             # NEW: Use generation_name and final_module_stem from the referenced schema
-            assert ref_schema.generation_name is not None, (
-                f"Referenced schema '{ref_schema.name}' must have generation_name set."
-            )
-            assert ref_schema.final_module_stem is not None, (
-                f"Referenced schema '{ref_schema.name}' must have final_module_stem set."
-            )
+            assert (
+                ref_schema.generation_name is not None
+            ), f"Referenced schema '{ref_schema.name}' must have generation_name set."
+            assert (
+                ref_schema.final_module_stem is not None
+            ), f"Referenced schema '{ref_schema.name}' must have final_module_stem set."
 
             class_name_for_ref = ref_schema.generation_name
             module_name_for_ref = ref_schema.final_module_stem

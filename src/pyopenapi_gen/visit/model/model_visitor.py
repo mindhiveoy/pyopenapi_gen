@@ -146,9 +146,9 @@ class ModelVisitor(Visitor[IRSchema, str]):
             return ""
 
         # Post-condition: ensure some code was generated if a generator was called
-        assert rendered_code.strip() or not (is_type_alias or is_enum or is_dataclass), (
-            f"Code generation resulted in an empty string for schema '{schema.name}' which was matched as a model type."
-        )
+        assert rendered_code.strip() or not (
+            is_type_alias or is_enum or is_dataclass
+        ), f"Code generation resulted in an empty string for schema '{schema.name}' which was matched as a model type."
 
         return self.formatter.format(rendered_code)
 

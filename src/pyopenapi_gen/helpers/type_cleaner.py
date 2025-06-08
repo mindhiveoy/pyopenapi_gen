@@ -83,9 +83,23 @@ class TypeCleaner:
             # OpenAPI 3.1 special case - this needs to be kept as is
             "List[Union[Dict[str, Any], None]]": "List[Union[Dict[str, Any], None]]",
             # The complex nested type test case
-            "Union[Dict[str, List[Dict[str, Any, None], None]], List[Union[Dict[str, Any, None], str, None]], Optional[Dict[str, Union[str, int, None], None]]]": "Union[Dict[str, List[Dict[str, Any]]], List[Union[Dict[str, Any], str, None]], Optional[Dict[str, Union[str, int, None]]]]",
+            (
+                "Union[Dict[str, List[Dict[str, Any, None], None]], "
+                "List[Union[Dict[str, Any, None], str, None]], "
+                "Optional[Dict[str, Union[str, int, None], None]]]"
+            ): (
+                "Union[Dict[str, List[Dict[str, Any]]], "
+                "List[Union[Dict[str, Any], str, None]], "
+                "Optional[Dict[str, Union[str, int, None]]]]"
+            ),
             # Real-world case from EmbeddingFlat
-            "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]": "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None]], Optional[Any], bool, float, str]",
+            (
+                "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
+                "Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]"
+            ): (
+                "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
+                "Optional[Any], bool, float, str, None]], Optional[Any], bool, float, str]"
+            ),
         }
 
         if type_str in special_cases:
@@ -93,8 +107,8 @@ class TypeCleaner:
 
         # Special case for the real-world case in a different format
         if (
-            "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None], None]"
-            in type_str
+            "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
+            "Optional[Any], bool, float, str, None], None]" in type_str
             and "Optional[Any], bool, float, str]" in type_str
         ):
             return (
@@ -256,13 +270,15 @@ class TypeCleaner:
             # Only one parameter provided for Dict, assume it's the key, value defaults to Any.
             cleaned_key_type = cls.clean_type_parameters(params[0])
             logger.warning(
-                f"TypeCleaner: Dict '{type_str}' had only one param. Defaulting value to Any: Dict[{cleaned_key_type}, Any]"
+                f"TypeCleaner: Dict '{type_str}' had only one param. "
+                f"Defaulting value to Any: Dict[{cleaned_key_type}, Any]"
             )
             return f"Dict[{cleaned_key_type}, Any]"
         else:
             # No parameters found after split, or content was empty but not caught.
             logger.warning(
-                f"TypeCleaner: Dict '{type_str}' content '{content}' yielded no/insufficient parameters. Defaulting to Dict[Any, Any]."
+                f"TypeCleaner: Dict '{type_str}' content '{content}' "
+                f"yielded no/insufficient parameters. Defaulting to Dict[Any, Any]."
             )
             return "Dict[Any, Any]"
 
@@ -288,7 +304,8 @@ class TypeCleaner:
             return f"Optional[{cleaned_param}]"
         else:
             logger.warning(
-                f"TypeCleaner: Optional '{type_str}' content '{content}' yielded no parameters. Defaulting to Optional[Any]."
+                f"TypeCleaner: Optional '{type_str}' content '{content}' "
+                f"yielded no parameters. Defaulting to Optional[Any]."
             )
             return "Optional[Any]"
 

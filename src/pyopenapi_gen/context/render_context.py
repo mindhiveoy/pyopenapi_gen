@@ -134,8 +134,8 @@ class RenderContext:
         # Fix incomplete module paths for absolute imports
         if self.use_absolute_imports and self.output_package_name:
             # Detect incomplete paths like "business.models.agent" that should be "pyapis.business.models.agent"
-            root_package = self.output_package_name.split('.')[0]  # "pyapis" from "pyapis.business"
-            package_suffix = '.'.join(self.output_package_name.split('.')[1:])  # "business" from "pyapis.business"
+            root_package = self.output_package_name.split(".")[0]  # "pyapis" from "pyapis.business"
+            package_suffix = ".".join(self.output_package_name.split(".")[1:])  # "business" from "pyapis.business"
 
             # Check if this is an incomplete internal module path
             if package_suffix and logical_module.startswith(f"{package_suffix}."):
@@ -269,7 +269,7 @@ class RenderContext:
     def add_conditional_import(self, condition: str, module: str, name: str) -> None:
         """
         Add a conditional import (e.g., under TYPE_CHECKING).
-        
+
         Args:
             condition: The condition for the import (e.g., "TYPE_CHECKING")
             module: The module to import from
@@ -281,8 +281,8 @@ class RenderContext:
         # Fix incomplete module paths for absolute imports
         if self.use_absolute_imports and self.output_package_name:
             # Detect incomplete paths like "business.models.agent" that should be "pyapis.business.models.agent"
-            root_package = self.output_package_name.split('.')[0]  # "pyapis" from "pyapis.business"
-            package_suffix = '.'.join(self.output_package_name.split('.')[1:])  # "business" from "pyapis.business"
+            root_package = self.output_package_name.split(".")[0]  # "pyapis" from "pyapis.business"
+            package_suffix = ".".join(self.output_package_name.split(".")[1:])  # "business" from "pyapis.business"
 
             # Check if this is an incomplete internal module path
             if package_suffix and logical_module.startswith(f"{package_suffix}."):

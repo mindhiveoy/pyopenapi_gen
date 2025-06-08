@@ -149,7 +149,8 @@ class EndpointsEmitter:
         current_parsed_schemas = self.context.parsed_schemas
         if current_parsed_schemas is None:
             logger.warning(
-                "[EndpointsEmitter] RenderContext.parsed_schemas was None. Defaulting to empty dict for EndpointVisitor."
+                "[EndpointsEmitter] RenderContext.parsed_schemas was None. "
+                "Defaulting to empty dict for EndpointVisitor."
             )
             current_parsed_schemas = {}  # Default to empty dict if None
 
