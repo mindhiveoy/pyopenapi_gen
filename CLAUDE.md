@@ -56,6 +56,12 @@ pytest tests/core/test_pagination.py::test_paginate_by_next__iterates_through_mu
 
 # Tests by pattern
 pytest -k "test_cycle_detection"
+
+# Coverage with HTML report (opens in browser)
+make coverage-html
+
+# Coverage with missing lines shown
+pytest --cov=src --cov-report=term-missing
 ```
 
 ### Generator CLI
@@ -211,12 +217,15 @@ Located in `core/parsing/unified_cycle_detection.py` with schema state tracking 
 
 ### Testing Requirements
 Follow cursor rules strictly:
-- **Framework**: pytest only (no unittest.TestCase)
+- **Framework**: pytest only (no unittest.TestCase)  
 - **Naming**: `test_<unit_of_work>__<condition>__<expected_outcome>()`
-- **Documentation**: Include "Scenario:" and "Expected Outcome:" sections
-- **Structure**: Arrange/Act/Assert with clear separation
-- **Coverage**: ≥90% branch coverage
-- **Isolation**: Mock all external dependencies
+- **Documentation**: Include "Scenario:" and "Expected Outcome:" sections in docstrings
+- **Structure**: Arrange/Act/Assert with clear separation and comments
+- **Coverage**: ≥90% branch coverage enforced
+- **Isolation**: Mock all external dependencies with unittest.mock
+- **Assertions**: Use plain `assert` statements (pytest style)
+- **Exceptions**: Use `pytest.raises` context manager for expected exceptions
+- **Parameterization**: Use `pytest.mark.parametrize` for multiple test variations
 
 ### Client Independence
 Generated clients must be completely self-contained:
@@ -247,3 +256,9 @@ See `docs/` directory for detailed guides:
 - `ir_models.md` - Intermediate representation details  
 - `model_visitor.md` - Model code generation
 - `endpoint_visitor.md` - Endpoint code generation
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
