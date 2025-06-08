@@ -169,7 +169,7 @@ def _parse_properties(
                 promoted_schema_name = f"{parent_schema_name}{NameSanitizer.sanitize_class_name(prop_name)}"
                 promoted_ir_schema = _parse_schema(
                     promoted_schema_name,
-                    prop_schema_node,  # type: ignore
+                    prop_schema_node,
                     context,
                     max_depth_override,
                     allow_self_reference,
@@ -178,13 +178,13 @@ def _parse_properties(
                 property_ref_ir = IRSchema(
                     name=prop_name,  # The actual property name
                     type=promoted_ir_schema.name,  # Type is the name of the promoted schema
-                    description=promoted_ir_schema.description or prop_schema_node.get("description"),  # type: ignore
+                    description=promoted_ir_schema.description or prop_schema_node.get("description"),
                     is_nullable=(
                         prop_schema_node.get("nullable", False) or promoted_ir_schema.is_nullable
-                    ),  # type: ignore
+                    ),
                     _refers_to_schema=promoted_ir_schema,
-                    default=prop_schema_node.get("default"),  # type: ignore
-                    example=prop_schema_node.get("example"),  # type: ignore
+                    default=prop_schema_node.get("default"),
+                    example=prop_schema_node.get("example"),
                 )
                 parsed_props[prop_name] = property_ref_ir
                 # Add the newly created promoted schema to parsed_schemas if it's not a placeholder from error/cycle
@@ -239,7 +239,7 @@ def _parse_properties(
 
                 parsed_prop_schema_ir = _parse_schema(
                     schema_name_for_parsing,  # Use None for simple types to prevent standalone registration
-                    prop_schema_node,  # type: ignore
+                    prop_schema_node,
                     context,
                     max_depth_override,
                     allow_self_reference,
@@ -280,11 +280,11 @@ def _parse_properties(
                         name=prop_name,  # The actual property name
                         # Type is the name of the (potentially registered) anonymous schema
                         type=parsed_prop_schema_ir.name,
-                        description=prop_schema_node.get("description", parsed_prop_schema_ir.description),  # type: ignore
+                        description=prop_schema_node.get("description", parsed_prop_schema_ir.description),
                         is_nullable=prop_is_nullable,
-                        default=prop_schema_node.get("default"),  # type: ignore
-                        example=prop_schema_node.get("example"),  # type: ignore
-                        enum=prop_schema_node.get("enum") if not parsed_prop_schema_ir.enum else None,  # type: ignore
+                        default=prop_schema_node.get("default"),
+                        example=prop_schema_node.get("example"),
+                        enum=prop_schema_node.get("enum") if not parsed_prop_schema_ir.enum else None,
                         items=parsed_prop_schema_ir.items if parsed_prop_schema_ir.type == "array" else None,
                         format=parsed_prop_schema_ir.format,
                         _refers_to_schema=parsed_prop_schema_ir,
@@ -340,24 +340,31 @@ def _parse_schema(
     if detection_result.action == CycleAction.RETURN_EXISTING:
         # Schema already completed - return existing
         context.unified_exit_schema(schema_name)  # Balance the enter call
-        existing_schema = context.unified_cycle_context.parsed_schemas.get(schema_name)
-        if existing_schema:
-            return existing_schema
-        # Fallback to legacy parsed_schemas if not in unified context
-        existing_schema = context.parsed_schemas.get(schema_name)
-        if existing_schema:
-            return existing_schema
-        # If schema marked as existing but not found anywhere, it might be a state management issue
-        # Reset the state and continue with normal parsing
-        from .unified_cycle_detection import SchemaState
+        if schema_name:
+            existing_schema = context.unified_cycle_context.parsed_schemas.get(schema_name)
+            if existing_schema:
+                return existing_schema
+            # Fallback to legacy parsed_schemas if not in unified context
+            existing_schema = context.parsed_schemas.get(schema_name)
+            if existing_schema:
+                return existing_schema
+            # If schema marked as existing but not found anywhere, it might be a state management issue
+            # Reset the state and continue with normal parsing
+            from .unified_cycle_detection import SchemaState
 
-        context.unified_cycle_context.schema_states[schema_name] = SchemaState.NOT_STARTED
+            context.unified_cycle_context.schema_states[schema_name] = SchemaState.NOT_STARTED
         # Don't call unified_exit_schema again, continue to normal parsing
 
     elif detection_result.action == CycleAction.RETURN_PLACEHOLDER:
         # Schema is already a placeholder - return it
         context.unified_exit_schema(schema_name)  # Balance the enter call
-        return detection_result.placeholder_schema or context.parsed_schemas[schema_name]
+        if detection_result.placeholder_schema:
+            return detection_result.placeholder_schema
+        elif schema_name and schema_name in context.parsed_schemas:
+            return context.parsed_schemas[schema_name]
+        else:
+            # Fallback to empty schema
+            return IRSchema(name=NameSanitizer.sanitize_class_name(schema_name) if schema_name else None)
 
     elif detection_result.action == CycleAction.CREATE_PLACEHOLDER:
         # Cycle or depth limit detected - return the created placeholder
