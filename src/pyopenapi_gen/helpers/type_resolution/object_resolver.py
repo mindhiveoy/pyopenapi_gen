@@ -152,7 +152,9 @@ class ObjectTypeResolver:
                         # For safety, use schema.name if it's not in all_schemas (might be a freshly promoted name)
                         class_name_to_use = NameSanitizer.sanitize_class_name(schema.name)
                         logger.warning(
-                            f"[ObjectTypeResolver] Named object '{schema.name}' not in all_schemas, using its own name '{class_name_to_use}'. This might occur for locally promoted anonymous objects."
+                            f"[ObjectTypeResolver] Named object '{schema.name}' not in all_schemas, "
+                            f"using its own name '{class_name_to_use}'. "
+                            f"This might occur for locally promoted anonymous objects."
                         )
                         return class_name_to_use
             else:  # Object has NO properties
@@ -162,10 +164,16 @@ class ObjectTypeResolver:
                     actual_schema_def = self.all_schemas[schema.name]
                     assert (
                         actual_schema_def.generation_name is not None
-                    ), f"Actual schema (no props) '{actual_schema_def.name}' for '{schema.name}' must have generation_name."
+                    ), (
+                        f"Actual schema (no props) '{actual_schema_def.name}' "
+                        f"for '{schema.name}' must have generation_name."
+                    )
                     assert (
                         actual_schema_def.final_module_stem is not None
-                    ), f"Actual schema (no props) '{actual_schema_def.name}' for '{schema.name}' must have final_module_stem."
+                    ), (
+                        f"Actual schema (no props) '{actual_schema_def.name}' "
+                        f"for '{schema.name}' must have final_module_stem."
+                    )
 
                     class_name_to_use = actual_schema_def.generation_name
                     module_stem_to_use = actual_schema_def.final_module_stem

@@ -22,7 +22,8 @@ class TypeFinalizer:
         """Wraps with Optional if needed, cleans the type string, and ensures typing imports."""
         if py_type is None:
             logger.warning(
-                f"[TypeFinalizer] Received None as py_type for schema '{schema.name or 'anonymous'}'. Defaulting to 'Any'."
+                f"[TypeFinalizer] Received None as py_type for schema "
+                f"'{schema.name or 'anonymous'}'. Defaulting to 'Any'."
             )
             self.context.add_import("typing", "Any")
             py_type = "Any"

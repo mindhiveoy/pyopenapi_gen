@@ -81,12 +81,16 @@ def _parse_properties(
         if promoted_ir is not None:
             properties_map[prop_key] = promoted_ir
             logger.debug(
-                f"Added promoted '{prop_key}' (name: {getattr(promoted_ir, 'name', 'N/A')}) to properties_map for '{parent_schema_name}'"
+                f"Added promoted '{prop_key}' (name: {getattr(promoted_ir, 'name', 'N/A')}) "
+                f"to properties_map for '{parent_schema_name}'"
             )
         else:
             properties_map[prop_key] = prop_schema_ir
             logger.debug(
-                f"Added original '{prop_key}' (name: {getattr(prop_schema_ir, 'name', 'N/A')}, type: {getattr(prop_schema_ir, 'type', 'N/A')}, circular: {getattr(prop_schema_ir, '_is_circular_ref', 'N/A')}) to properties_map for '{parent_schema_name}'"
+                f"Added original '{prop_key}' (name: {getattr(prop_schema_ir, 'name', 'N/A')}, "
+                f"type: {getattr(prop_schema_ir, 'type', 'N/A')}, "
+                f"circular: {getattr(prop_schema_ir, '_is_circular_ref', 'N/A')}) "
+                f"to properties_map for '{parent_schema_name}'"
             )
 
     logger.debug(f"_parse_properties FINALLY returning for parent '{parent_schema_name}': {properties_map}")
