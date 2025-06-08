@@ -290,9 +290,8 @@ def _parse_properties(
                     # Simpler type, or error placeholder. Assign directly but ensure original prop_name is used.
                     # Also, try to respect original node's description, default, example, nullable if available.
                     final_prop_ir = parsed_prop_schema_ir
-                    # Only assign the property name if it's not a simple primitive/array that should remain inline
-                    if not (is_simple_primitive or is_simple_array):
-                        final_prop_ir.name = prop_name  # Ensure the property name in the dict is the original key
+                    # Always assign the property name - this is the property's name in the parent object
+                    final_prop_ir.name = prop_name
                     if isinstance(prop_schema_node, Mapping):
                         final_prop_ir.description = prop_schema_node.get(
                             "description", parsed_prop_schema_ir.description
