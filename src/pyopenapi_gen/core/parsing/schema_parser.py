@@ -359,7 +359,8 @@ def _parse_schema(
         # Schema is already a placeholder - return it
         context.unified_exit_schema(schema_name)  # Balance the enter call
         if detection_result.placeholder_schema:
-            return detection_result.placeholder_schema
+            placeholder: IRSchema = detection_result.placeholder_schema
+            return placeholder
         elif schema_name and schema_name in context.parsed_schemas:
             return context.parsed_schemas[schema_name]
         else:
@@ -369,7 +370,8 @@ def _parse_schema(
     elif detection_result.action == CycleAction.CREATE_PLACEHOLDER:
         # Cycle or depth limit detected - return the created placeholder
         context.unified_exit_schema(schema_name)  # Balance the enter call
-        return detection_result.placeholder_schema
+        created_placeholder: IRSchema = detection_result.placeholder_schema
+        return created_placeholder
 
     # If we reach here, detection_result.action == CycleAction.CONTINUE_PARSING
 
