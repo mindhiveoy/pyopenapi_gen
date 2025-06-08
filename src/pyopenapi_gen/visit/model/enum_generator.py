@@ -58,9 +58,7 @@ class EnumGenerator:
         if not re.match(r"^[A-Z_]", sanitized_member_name.upper()):
             sanitized_member_name = f"MEMBER_{sanitized_member_name}"
 
-        assert sanitized_member_name and re.match(
-            r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()
-        ), (
+        assert sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()), (
             f"Generated string enum member name '{sanitized_member_name}' "
             f"is not a valid Python identifier from value '{value}'."
         )
@@ -107,9 +105,7 @@ class EnumGenerator:
             if not sanitized_member_name:  # Should be impossible
                 sanitized_member_name = f"ENUM_MEMBER_UNKNOWN_{abs(int_value_for_fallback)}"
 
-        assert sanitized_member_name and re.match(
-            r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()
-        ), (
+        assert sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()), (
             f"Generated integer enum member name '{sanitized_member_name}' "
             f"is not a valid Python identifier from value '{value}'."
         )

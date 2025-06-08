@@ -162,15 +162,11 @@ class ObjectTypeResolver:
                     schema.name and schema.name in self.all_schemas
                 ):  # Named object, no properties, AND it's a known component
                     actual_schema_def = self.all_schemas[schema.name]
-                    assert (
-                        actual_schema_def.generation_name is not None
-                    ), (
+                    assert actual_schema_def.generation_name is not None, (
                         f"Actual schema (no props) '{actual_schema_def.name}' "
                         f"for '{schema.name}' must have generation_name."
                     )
-                    assert (
-                        actual_schema_def.final_module_stem is not None
-                    ), (
+                    assert actual_schema_def.final_module_stem is not None, (
                         f"Actual schema (no props) '{actual_schema_def.name}' "
                         f"for '{schema.name}' must have final_module_stem."
                     )
