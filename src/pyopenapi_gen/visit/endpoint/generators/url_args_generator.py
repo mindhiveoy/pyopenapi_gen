@@ -27,7 +27,9 @@ class EndpointUrlArgsGenerator:
     def _build_url_with_path_vars(self, path: str) -> str:
         """Builds the f-string for URL construction, substituting path variables."""
         # Ensure m.group(1) is treated as a string for NameSanitizer
-        return f'f"{{self.base_url}}{re.sub(r"{([^}]+)}", lambda m: f"{{{NameSanitizer.sanitize_method_name(str(m.group(1)))}}}", path)}"'
+        # Build the URL f-string by substituting path variables
+        formatted_path = re.sub(r"{([^}]+)}", lambda m: f"{{{NameSanitizer.sanitize_method_name(str(m.group(1)))}}}", path)
+        return f'f"{{self.base_url}}{formatted_path}"'
 
     def _write_query_params(
         self, writer: CodeWriter, op: IROperation, ordered_params: List[Dict[str, Any]], context: RenderContext

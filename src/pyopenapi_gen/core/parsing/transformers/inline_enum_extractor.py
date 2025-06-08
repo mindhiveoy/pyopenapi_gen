@@ -178,7 +178,8 @@ def _process_standalone_inline_enum(
         return schema_obj
 
     logger.debug(
-        f"STANDALONE_ENUM_CHECK: Processing node for '{schema_name or schema_obj.name or 'anonymous_schema'}' for direct enum properties."
+        f"STANDALONE_ENUM_CHECK: Processing node for "
+        f"'{schema_name or schema_obj.name or 'anonymous_schema'}' for direct enum properties."
     )
 
     # Ensure basic enum properties are on schema_obj if not already there from initial _parse_schema pass
@@ -264,14 +265,16 @@ def _process_standalone_inline_enum(
     if schema_obj.name and schema_obj.name not in context.parsed_schemas:
         context.parsed_schemas[schema_obj.name] = schema_obj
         logger.debug(
-            f"STANDALONE_ENUM_FINALIZED: Added/updated schema '{schema_obj.name}' in context after processing as standalone enum."
+            f"STANDALONE_ENUM_FINALIZED: Added/updated schema '{schema_obj.name}' "
+            f"in context after processing as standalone enum."
         )
     elif schema_obj.name and context.parsed_schemas[schema_obj.name] is not schema_obj:
         # This case should ideally be caught by the renaming logic above.
         # If we are here, it means a schema with this name exists, but it's not our schema_obj.
         # This indicates a problem if schema_obj was supposed to be *the* definition for that name.
         logger.error(
-            f"STANDALONE_ENUM_ERROR: Schema '{schema_obj.name}' exists in context but is not the current schema_obj. This is unexpected."
+            f"STANDALONE_ENUM_ERROR: Schema '{schema_obj.name}' exists in context "
+            f"but is not the current schema_obj. This is unexpected."
         )
     elif not schema_obj.name:
         logger.warning(

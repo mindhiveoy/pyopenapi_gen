@@ -202,7 +202,8 @@ class ClientVisitor:
         context.add_typing_imports_for_type("BaseException | None")
         context.add_typing_imports_for_type("object | None")
         writer.write_line(
-            "async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None) -> None:"
+            "async def __aexit__(self, exc_type: type[BaseException] | None, "
+            "exc_val: BaseException | None, exc_tb: object | None) -> None:"
         )
         writer.indent()
         writer.write_line('"""Exit the async context manager, ensuring transport is closed."""')

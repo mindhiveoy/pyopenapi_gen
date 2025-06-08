@@ -229,7 +229,9 @@ class EndpointResponseHandlerGenerator:
                 else:  # Default implies error or no content
                     context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
                     writer.write_line(
-                        f'raise HTTPError(response=response, message="Default error: {resp_ir.description or "Unknown default error"}", status_code=response.status_code)'
+                        f'raise HTTPError(response=response, '
+                        f'message="Default error: {resp_ir.description or "Unknown default error"}", '
+                        f'status_code=response.status_code)'
                     )
                 writer.dedent()
                 continue  # Handled default, move to next

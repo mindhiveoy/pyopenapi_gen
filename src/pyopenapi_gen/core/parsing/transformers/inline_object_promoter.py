@@ -22,7 +22,8 @@ def _attempt_promote_inline_object(
     logger.debug(
         f"PROMO_ATTEMPT: parent='{parent_schema_name}', prop_key='{property_key}', "
         f"prop_schema_name='{property_schema_obj.name}', prop_schema_type='{property_schema_obj.type}', "
-        f"prop_is_enum='{property_schema_obj.enum is not None}', prop_is_ref='{property_schema_obj._from_unresolved_ref}'"
+        f"prop_is_enum='{property_schema_obj.enum is not None}', "
+        f"prop_is_ref='{property_schema_obj._from_unresolved_ref}'"
     )
     """
     Checks if a given property's schema (`property_schema_obj`) represents an inline object
@@ -43,7 +44,8 @@ def _attempt_promote_inline_object(
     """
     if property_schema_obj.type != "object":
         logger.debug(
-            f"PROMO_SKIP: parent='{parent_schema_name}', prop_key='{property_key}' not promoted, type is '{property_schema_obj.type}', not 'object'."
+            f"PROMO_SKIP: parent='{parent_schema_name}', prop_key='{property_key}' "
+            f"not promoted, type is '{property_schema_obj.type}', not 'object'."
         )
         return None
 
