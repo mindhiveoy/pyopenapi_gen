@@ -479,8 +479,9 @@ def _parse_schema(
                 item_schema_name_for_recursive_parse = NameSanitizer.sanitize_class_name(f"{base_name_for_item}Item")
 
                 # Ensure unique names for anonymous array items to avoid schema overwrites
-                if not schema_name:  # Only for anonymous arrays
-                    counter = 1
+                # Only check for collision if this specific name already exists
+                if not schema_name and item_schema_name_for_recursive_parse in context.parsed_schemas:
+                    counter = 2  # Start from 2 since original is 1
                     original_name = item_schema_name_for_recursive_parse
                     while item_schema_name_for_recursive_parse in context.parsed_schemas:
                         item_schema_name_for_recursive_parse = f"{original_name}{counter}"
@@ -538,8 +539,9 @@ def _parse_schema(
             )
 
             # Ensure unique names for anonymous array items to avoid schema overwrites
-            if not schema_name:  # Only for anonymous arrays
-                counter = 1
+            # Only check for collision if this specific name already exists
+            if not schema_name and item_schema_context_name_for_reparse in context.parsed_schemas:
+                counter = 2  # Start from 2 since original is 1
                 original_name = item_schema_context_name_for_reparse
                 while item_schema_context_name_for_reparse in context.parsed_schemas:
                     item_schema_context_name_for_reparse = f"{original_name}{counter}"

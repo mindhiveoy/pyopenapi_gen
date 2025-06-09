@@ -154,75 +154,201 @@ Use: `--project-root myproject/pyapis/src --output-package pyapis.business`
 
 ## Architecture
 
-The generator follows a three-stage pipeline:
+### Why This Architecture?
+Modern OpenAPI specifications contain complex schemas with circular references, deep nesting, and intricate type relationships. Traditional code generators struggle with these complexities, often producing broken code or failing entirely. This architecture was designed to handle enterprise-grade OpenAPI specs reliably while generating production-ready, type-safe Python clients.
 
-1. **Loading** → Parse OpenAPI spec into Intermediate Representation (IR)
-2. **Visiting** → Transform IR into Python code using visitor pattern  
-3. **Emitting** → Write generated code to files
+### What Is the Architecture?
+The generator implements a sophisticated three-stage pipeline with unified type resolution and advanced cycle detection. Each stage has distinct responsibilities and clean interfaces, enabling robust processing of complex schemas while maintaining code quality.
 
-### Generation Pipeline
-
+```mermaid
+graph TD
+    A[OpenAPI Spec] --> B[Loading Stage]
+    B --> C[Intermediate Representation]
+    C --> D[Unified Type Resolution]
+    D --> E[Visiting Stage]
+    E --> F[Python Code AST]
+    F --> G[Emitting Stage]
+    G --> H[Generated Files]
+    H --> I[Post-Processing]
+    I --> J[Final Client Package]
+    
+    B --> K[Schema Parser]
+    B --> L[Cycle Detection]
+    B --> M[Reference Resolution]
+    
+    E --> N[Model Visitor]
+    E --> O[Endpoint Visitor]
+    E --> P[Client Visitor]
+    
+    G --> Q[Models Emitter]
+    G --> R[Endpoints Emitter]
+    G --> S[Core Emitter]
 ```
-OpenAPI Spec → IR (schemas, operations) → Python Code → Files
-```
 
-1. **Load**: Parse YAML/JSON spec into `IRSpec` with unified cycle detection
-2. **Visit**: Transform IR nodes into code strings using specialized visitors
-3. **Emit**: Write code to structured output directory with proper imports
-4. **Post-process**: Format and type-check generated code
+### How the Architecture Works
+
+#### Stage 1: Loading (Parse & Normalize)
+1. **Parse**: YAML/JSON spec into structured data
+2. **Detect Cycles**: Identify circular references and deep nesting
+3. **Resolve References**: Handle `$ref` links across the specification
+4. **Create IR**: Build normalized `IRSpec` with all schemas and operations
+
+#### Stage 2: Visiting (Transform & Generate)
+1. **Type Resolution**: Convert IR schemas to Python types via `UnifiedTypeService`
+2. **Code Generation**: Transform IR nodes into Python code strings
+3. **Import Management**: Track and resolve all necessary imports
+4. **Template Rendering**: Apply Jinja2 templates for consistent code structure
+
+#### Stage 3: Emitting (Write & Organize)
+1. **Structure Creation**: Build proper package directory structure
+2. **File Writing**: Write generated code to appropriate modules
+3. **Import Resolution**: Ensure all imports are correctly formatted
+4. **Post-Processing**: Apply formatting (Black) and type checking (mypy)
 
 ## Key Components
 
-### Loader (`core/loader/` & `core/parsing/`)
-Transforms OpenAPI specs into Intermediate Representation (IR):
+### Why These Components?
+Complex OpenAPI specifications require specialized handling at each stage. Breaking the system into focused components allows for clear separation of concerns, easier testing, and maintainable code. Each component has a specific responsibility and well-defined interfaces.
+
+### What Are the Components?
+
+```mermaid
+graph TB
+    subgraph "Loading & Parsing"
+        A[Schema Parser] --> B[Reference Resolver]
+        B --> C[Cycle Detector]
+        C --> D[Keyword Parsers]
+    end
+    
+    subgraph "Type Resolution"
+        E[UnifiedTypeService] --> F[Schema Resolver]
+        E --> G[Response Resolver]
+        E --> H[Reference Resolver]
+    end
+    
+    subgraph "Code Generation"
+        I[Model Visitor] --> J[Endpoint Visitor]
+        J --> K[Client Visitor]
+        K --> L[Exception Visitor]
+    end
+    
+    subgraph "File Output"
+        M[Models Emitter] --> N[Endpoints Emitter]
+        N --> O[Core Emitter]
+        O --> P[Client Emitter]
+    end
+    
+    D --> E
+    E --> I
+    L --> M
+```
+
+### How the Components Work
+
+#### Unified Type Resolution (`types/`) ⭐ NEW ARCHITECTURE
+**Why**: Previous type resolution was scattered across multiple files, making it hard to test and maintain. The unified system provides a single source of truth for all type conversions.
+
+**What**: Enterprise-grade, centralized type resolution with clean architecture:
+- **Contracts** (`contracts/`): Protocols and interfaces defining type resolution contracts
+- **Resolvers** (`resolvers/`): Core resolution logic for schemas, responses, and references  
+- **Services** (`services/`): High-level orchestration with `UnifiedTypeService`
+
+**How**: Uses dependency injection and protocol-based design for comprehensive testing and extensibility.
+
+#### Loader & Parser (`core/loader/` & `core/parsing/`)
+**Why**: OpenAPI specs contain complex nested structures, circular references, and various schema patterns that need careful parsing.
+
+**What**: Transforms OpenAPI specs into normalized Intermediate Representation (IR):
 - **Schema Parser**: Core parsing with unified cycle detection
 - **Reference Resolution**: Handles `$ref` links and circular dependencies  
 - **Keyword Parsers**: Specialized handlers for `allOf`, `oneOf`, `anyOf`, `properties`
 - **Transformers**: Extract inline enums, promote inline objects
 
-### Visitors (`visit/`)
-Transform IR into Python code:
+**How**: Multi-pass parsing with state tracking and cycle detection to build clean IR models.
+
+#### Visitors (`visit/`)
+**Why**: Different parts of the generated client (models, endpoints, exceptions) require different code generation strategies.
+
+**What**: Transform IR into Python code using the visitor pattern:
 - **Model Visitor**: Generates dataclasses and enums from schemas
 - **Endpoint Visitor**: Creates async methods from operations
 - **Client Visitor**: Builds main API client class
 - **Exception Visitor**: Generates error hierarchies
 
-### Emitters (`emitters/`)
-Write code to files with proper structure:
+**How**: Each visitor specializes in one aspect of code generation, using templates and the unified type system.
+
+#### Emitters (`emitters/`)
+**Why**: Generated code must be properly organized into packages with correct imports and structure.
+
+**What**: Write code to files with proper package structure:
 - **Models Emitter**: Creates `models/` directory with schema classes
 - **Endpoints Emitter**: Creates `endpoints/` with operation methods
 - **Core Emitter**: Copies runtime dependencies to `core/`
 - **Client Emitter**: Generates main client interface
 
-### Unified Type Resolution (`types/`)
-**⭐ NEW ARCHITECTURE**: Enterprise-grade, centralized type resolution system:
-- **Contracts** (`contracts/`): Protocols and interfaces for clean architecture
-- **Resolvers** (`resolvers/`): Core resolution logic for schemas, responses, and references  
-- **Services** (`services/`): High-level orchestration with `UnifiedTypeService`
-- **Benefits**: Dependency injection, comprehensive testing, single source of truth
-- **Migration**: Replaces scattered `TypeHelper` usage across codebase
+**How**: Orchestrates file writing, import resolution, and package structure creation.
 
-### Supporting Systems
-- **Context** (`context/`): Manages rendering state and imports
+#### Supporting Systems
+- **Context** (`context/`): Manages rendering state and imports across generation
 - **Writers** (`core/writers/`): Code formatting and output utilities
-- **Helpers** (`helpers/`): Legacy type resolution (delegates to unified system)
+- **Helpers** (`helpers/`): Legacy type resolution (now delegates to unified system)
 
 ## Unified Cycle Detection
 
-Critical system for handling complex schema relationships without infinite recursion:
+### Why Cycle Detection?
+OpenAPI specifications often contain circular references where Schema A references Schema B, which references back to Schema A. Without proper handling, this causes infinite recursion during code generation, resulting in stack overflow errors or infinite loops. Enterprise APIs commonly have these patterns in their data models.
 
-### Detection Types
-- **Structural Cycles**: Schema reference loops (A → B → A)
-- **Self-References**: Direct self-references (A → A)
+### What Is Cycle Detection?
+A sophisticated system that identifies and resolves circular dependencies in schema relationships while preserving the intended data structure. It tracks schema states throughout the parsing lifecycle and applies different resolution strategies based on the type of cycle detected.
+
+```mermaid
+graph TD
+    A[Schema A] --> B[Schema B]
+    B --> C[Schema C]
+    C --> A
+    
+    D[Direct Self-Reference] --> D
+    
+    E[Deep Nesting] --> F[Level 1]
+    F --> G[Level 2]
+    G --> H[...]
+    H --> I[Level N > MAX_DEPTH]
+    
+    subgraph "Detection Types"
+        J[Structural Cycles]
+        K[Self-References]
+        L[Depth Limits]
+    end
+    
+    subgraph "Resolution Strategies"
+        M[Forward References]
+        N[Placeholder Types]
+        O[Depth Cutoffs]
+    end
+    
+    J --> M
+    K --> N
+    L --> O
+```
+
+### How Cycle Detection Works
+
+#### Detection Types
+- **Structural Cycles**: Schema reference loops (A → B → C → A)
+- **Self-References**: Direct self-references (User → User)
 - **Depth Limits**: Recursion depth exceeded (configurable via `PYOPENAPI_MAX_DEPTH`)
 
-### Resolution Strategies
-- **Allowed Self-References**: Creates referential stubs when permitted
-- **Circular Placeholders**: Creates marked placeholders for problematic cycles
-- **Depth Placeholders**: Handles deep nesting gracefully
+#### Resolution Strategies
+- **Forward References**: Uses Python string annotations `"ClassName"` for forward declarations
+- **Placeholder Types**: Creates marked placeholders for problematic circular dependencies
+- **Depth Cutoffs**: Handles deep nesting gracefully with configurable limits
 
-### Implementation
-Located in `core/parsing/unified_cycle_detection.py` with schema state tracking through parsing lifecycle.
+#### Implementation Details
+Located in `core/parsing/unified_cycle_detection.py` with:
+- Schema state tracking through parsing lifecycle
+- Configurable depth limits (default: 150 levels)
+- Multiple placeholder strategies for different cycle types
+- Integration with the unified type resolution system
 
 ## Development Standards
 
@@ -252,27 +378,86 @@ Generated clients must be completely self-contained:
 
 ## Generated Client Features
 
-### Modern Python Architecture
+### Why These Features?
+Modern APIs require sophisticated clients that handle async operations, complex authentication, pagination, and error scenarios gracefully. Developers need type-safe, well-documented clients that integrate seamlessly with their development workflow and provide excellent IDE support.
+
+### What Features Are Generated?
+Production-ready Python clients with enterprise-grade capabilities, designed for modern async/await patterns and comprehensive type safety.
+
+```mermaid
+graph TB
+    subgraph "Client Architecture"
+        A[Main Client] --> B[Authentication Layer]
+        A --> C[HTTP Transport]
+        A --> D[Operation Endpoints]
+    end
+    
+    subgraph "Type System"
+        E[Dataclass Models] --> F[Enum Types]
+        F --> G[Union Types]
+        G --> H[Generic Collections]
+    end
+    
+    subgraph "Advanced Features"
+        I[Async Pagination] --> J[Response Unwrapping]
+        J --> K[Error Handling]
+        K --> L[Streaming Support]
+    end
+    
+    subgraph "Developer Experience"
+        M[IDE Autocomplete] --> N[Type Checking]
+        N --> O[Rich Documentation]
+        O --> P[Tag Organization]
+    end
+    
+    A --> E
+    D --> I
+    B --> M
+```
+
+### How the Generated Clients Work
+
+#### Modern Python Architecture
+**Why**: APIs need to handle concurrent requests efficiently, and Python's async/await provides the best performance for I/O-bound operations.
+
+**What**: 
 - **Async-First**: All operations use `httpx.AsyncClient` for modern async/await patterns
 - **Type Safety**: Complete type hints and dataclass models with mypy compatibility
 - **Zero Dependencies**: Generated clients require no runtime dependency on this generator
 
-### Developer Experience
+**How**: Uses async context managers, typed dataclasses, and self-contained runtime code.
+
+#### Developer Experience
+**Why**: Developers spend significant time navigating APIs, and good tooling dramatically improves productivity.
+
+**What**:
 - **Tag-Based Organization**: Operations grouped by OpenAPI tags for intuitive navigation
 - **Rich Documentation**: Extracted from OpenAPI descriptions with proper formatting
 - **IDE Support**: Full autocomplete and type checking in modern IDEs
 
-### Advanced Features
+**How**: Generates structured modules with comprehensive docstrings and type annotations.
+
+#### Advanced Features
+**Why**: Production APIs require sophisticated features like pagination, authentication, and error handling.
+
+**What**:
 - **Pluggable Auth**: Bearer, API key, OAuth2, and custom authentication strategies
 - **Smart Pagination**: Auto-detected cursor/page/offset patterns with async iteration
 - **Error Handling**: Structured exception hierarchy with meaningful error messages
 - **Response Unwrapping**: Automatic extraction of `data` fields from wrapper responses
 - **Streaming Support**: Built-in support for streaming responses and downloads
 
-### Production Ready
+**How**: Implements auth plugins, async iterators, custom exception classes, and response processors.
+
+#### Production Ready
+**Why**: Generated clients must work reliably in production environments without external dependencies.
+
+**What**:
 - **Client Independence**: Completely self-contained with copied runtime dependencies
 - **Shared Core Support**: Multiple clients can share common runtime components
 - **Post-Processing**: Generated code is automatically formatted and type-checked
+
+**How**: Copies all required runtime code, supports shared core packages, and runs quality checks.
 
 ## Environment Variables
 
@@ -384,6 +569,29 @@ pyopenapi-gen gen spec_with_cycles.yaml --verbose --project-root . --output-pack
 
 # Generated code will include forward references and placeholders for cycles
 ```
+
+# Documentation Standards
+
+## Universal Documentation Conventions
+These standards apply to ALL documentation in this project and should be followed consistently:
+
+### 1. Mermaid Diagrams for Logic Visualization
+- Always use mermaid diagrams to visualize complex logic, workflows, and system relationships
+- Include diagrams before diving into implementation details
+- Make abstract concepts concrete through visual representation
+
+### 2. Chapter Structure: Why → What → How
+- **Why**: Start with the purpose, motivation, and context
+- **What**: Explain what the component/feature/system does  
+- **How**: Then provide implementation details, code examples, and technical specifics
+
+### 3. Progressive Information Architecture
+- Orientation before implementation
+- Context before code
+- Understanding before examples
+- Visual aids before bullet lists
+
+These principles ensure readers understand the reasoning and context before getting into technical details, making documentation more accessible and effective.
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
