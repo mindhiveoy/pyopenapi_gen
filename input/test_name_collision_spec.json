@@ -1,0 +1,121 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Name Collision Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/get-foo-bar": {
+      "get": {
+        "summary": "Gets Foo-Bar",
+        "operationId": "getFooBarModel",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Foo-Bar"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-foobar": {
+      "get": {
+        "summary": "Gets FooBar",
+        "operationId": "getFooBar",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FooBar"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-user-lowercase": {
+      "get": {
+        "summary": "Gets user",
+        "operationId": "getUserLowercase",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/user"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-user-uppercase": {
+      "get": {
+        "summary": "Gets User",
+        "operationId": "getUserUppercase",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Foo-Bar": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID for Foo-Bar"
+          }
+        }
+      },
+      "FooBar": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for FooBar"
+          }
+        }
+      },
+      "user": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "ID for user"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "user_name": {
+            "type": "string",
+            "description": "Name for User"
+          }
+        }
+      }
+    }
+  }
+}

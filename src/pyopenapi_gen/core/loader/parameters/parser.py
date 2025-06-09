@@ -79,11 +79,32 @@ def parse_parameter(
         base_param_promo_name = f"{operation_id_for_promo}Param" if operation_id_for_promo else ""
         name_for_inline_param_schema = f"{base_param_promo_name}{NameSanitizer.sanitize_class_name(param_name)}"
 
-    schema_ir = (
-        _parse_schema(name_for_inline_param_schema, sch, context, allow_self_reference=False)
-        if sch
-        else IRSchema(name=None)
-    )
+    # For parameters, we want to avoid creating complex schemas for simple enum arrays
+    # Check if this is a simple enum array and handle it specially
+    if (
+        sch
+        and isinstance(sch, Mapping)
+        and sch.get("type") == "array"
+        and "items" in sch
+        and isinstance(sch["items"], Mapping)
+        and sch["items"].get("type") == "string"
+        and "enum" in sch["items"]
+        and "$ref" not in sch["items"]
+    ):
+        # This is an array of string enums - for parameters, we can treat this as List[str]
+        # rather than creating complex named schemas
+        schema_ir = IRSchema(
+            name=None,
+            type="array",
+            items=IRSchema(name=None, type="string", enum=sch["items"]["enum"]),
+            description=sch.get("description"),
+        )
+    else:
+        schema_ir = (
+            _parse_schema(name_for_inline_param_schema, sch, context, allow_self_reference=False)
+            if sch
+            else IRSchema(name=None)
+        )
 
     param = IRParameter(
         name=node["name"],

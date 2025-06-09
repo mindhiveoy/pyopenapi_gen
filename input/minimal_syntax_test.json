@@ -1,0 +1,120 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Minimal Return Type Test Spec",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/string": {
+      "get": {
+        "operationId": "getString",
+        "summary": "Returns a string",
+        "responses": {
+          "200": {
+            "description": "A plain string response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bytes": {
+      "get": {
+        "operationId": "getBytes",
+        "summary": "Returns raw bytes",
+        "responses": {
+          "200": {
+            "description": "Raw byte stream",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/none": {
+      "get": {
+        "operationId": "getNone",
+        "summary": "Returns nothing",
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        }
+      }
+    },
+    "/model": {
+      "get": {
+        "operationId": "getModel",
+        "summary": "Returns a SimpleModel",
+        "responses": {
+          "200": {
+            "description": "A SimpleModel object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/union": {
+      "get": {
+        "operationId": "getUnion",
+        "summary": "Returns a Union type",
+        "responses": {
+          "200": {
+            "description": "Either SimpleModel or a generic dictionary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SimpleModel"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SimpleModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      }
+    }
+  }
+}

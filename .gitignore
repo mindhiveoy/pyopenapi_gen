@@ -6,8 +6,6 @@ __pycache__/
 # C extensions
 *.so
 
-input/
-
 # Distribution / packaging
 .Python
 build/
@@ -175,10 +173,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-
 .DS_Store
 
 generated/
+generated_*
 
 tests/out
 

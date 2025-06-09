@@ -396,10 +396,13 @@ def _parse_schema(
             # Store the resolved schema under the current schema_name if it has a name
             # This ensures that synthetic names like "ChildrenItem" are properly stored
             # However, don't create duplicate entries for pure references to existing schemas
-            if (schema_name and resolved_schema and 
-                resolved_schema.name and  # Resolved schema has a real name
-                resolved_schema.name != schema_name and  # Different from synthetic name
-                resolved_schema.name in context.parsed_schemas):  # Already exists in context
+            if (
+                schema_name
+                and resolved_schema
+                and resolved_schema.name  # Resolved schema has a real name
+                and resolved_schema.name != schema_name  # Different from synthetic name
+                and resolved_schema.name in context.parsed_schemas
+            ):  # Already exists in context
                 # This is a pure reference to an existing schema, don't create duplicate
                 pass
             elif schema_name and resolved_schema and schema_name not in context.parsed_schemas:
@@ -475,6 +478,14 @@ def _parse_schema(
                 base_name_for_item = schema_name or "AnonymousArray"
                 item_schema_name_for_recursive_parse = NameSanitizer.sanitize_class_name(f"{base_name_for_item}Item")
 
+                # Ensure unique names for anonymous array items to avoid schema overwrites
+                if not schema_name:  # Only for anonymous arrays
+                    counter = 1
+                    original_name = item_schema_name_for_recursive_parse
+                    while item_schema_name_for_recursive_parse in context.parsed_schemas:
+                        item_schema_name_for_recursive_parse = f"{original_name}{counter}"
+                        counter += 1
+
                 actual_item_ir = _parse_schema(
                     item_schema_name_for_recursive_parse, items_node, context, max_depth_override, allow_self_reference
                 )
@@ -525,6 +536,14 @@ def _parse_schema(
             item_schema_context_name_for_reparse = NameSanitizer.sanitize_class_name(
                 f"{base_name_for_reparse_item}Item"
             )
+
+            # Ensure unique names for anonymous array items to avoid schema overwrites
+            if not schema_name:  # Only for anonymous arrays
+                counter = 1
+                original_name = item_schema_context_name_for_reparse
+                while item_schema_context_name_for_reparse in context.parsed_schemas:
+                    item_schema_context_name_for_reparse = f"{original_name}{counter}"
+                    counter += 1
 
             direct_reparsed_item_ir = _parse_schema(
                 item_schema_context_name_for_reparse, raw_items_node, context, max_depth_override, allow_self_reference
