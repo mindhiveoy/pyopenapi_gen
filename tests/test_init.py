@@ -1,6 +1,5 @@
 """Tests for __init__ module."""
 
-
 import pytest
 
 
