@@ -2262,14 +2262,14 @@ telegram = ["requests"]
 
 [[package]]
 name = "typer"
-version = "0.15.1"
+version = "0.14.0"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "typer-0.15.1-py3-none-any.whl", hash = "sha256:7994fb7b8155b64d3402518560648446072864beefd44aa2dc36972a5972e847"},
-    {file = "typer-0.15.1.tar.gz", hash = "sha256:a0588c0a7fa68a1978a069818657778f86abe6ff5ea6abf472f940a08bfe4f0a"},
+    {file = "typer-0.14.0-py3-none-any.whl", hash = "sha256:f476233a25770ab3e7b2eebf7c68f3bc702031681a008b20167573a4b7018f09"},
+    {file = "typer-0.14.0.tar.gz", hash = "sha256:af58f737f8d0c0c37b9f955a6d39000b9ff97813afcbeef56af5e37cf743b45a"},
 ]
 
 [package.dependencies]
@@ -2353,9 +2353,9 @@ MarkupSafe = ">=2.1.1"
 watchdog = ["watchdog (>=2.3)"]
 
 [extras]
-dev = ["bandit", "black", "mypy", "pytest", "pytest-asyncio", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "safety", "types-pyyaml", "types-toml"]
+dev = ["bandit", "black", "httpx", "mypy", "pytest", "pytest-asyncio", "pytest-cov", "pytest-timeout", "pytest-xdist", "ruff", "safety", "types-pyyaml", "types-toml"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0.0"
-content-hash = "0e1628779b69b5fefefadcd648cd938634cdb3fb1f9e7414b2bed94a7a55aaee"
+content-hash = "6425c92fb166dc7e9a957e0b3a3b43d49f366bce22c85fe4f1b2cdf5c74b5030"
