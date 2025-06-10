@@ -93,9 +93,24 @@ class ModelsEmitter:
         file_content = f"{imports_str}\n\n{rendered_model_str}"
 
         try:
+            # Ensure parent directory exists with more defensive handling
             file_path.parent.mkdir(parents=True, exist_ok=True)
-            # logger.debug(f"Attempting to write content to {file_path}")
-            file_path.write_text(file_content, encoding="utf-8")
+            
+            # Verify the directory was actually created before writing
+            if not file_path.parent.exists():
+                logger.error(f"Failed to create directory {file_path.parent}")
+                return None
+            
+            # Write with atomic operation to prevent partial writes
+            temp_file = file_path.with_suffix('.tmp')
+            temp_file.write_text(file_content, encoding="utf-8")
+            temp_file.rename(file_path)
+            
+            # Verify the file was actually written
+            if not file_path.exists():
+                logger.error(f"File {file_path} was not created successfully")
+                return None
+                
             return str(file_path)
         except OSError as e:
             logger.error(f"Error writing model file {file_path}: {e}")
