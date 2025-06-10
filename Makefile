@@ -26,6 +26,9 @@ quality: format-check lint typecheck security test
 
 # Testing commands
 test:
+	# Run problematic tests in serial first
+	poetry run pytest tests/emitters/test_models_emitter.py::test_models_emitter__single_object_schema__generates_module_and_init tests/emitters/test_models_emitter.py::test_models_emitter__string_enum_schema__generates_enum_class tests/emitters/test_models_emitter.py::test_models_emitter_datetime tests/emitters/test_models_emitter.py::test_models_emitter_empty_schema --timeout=120 -v
+	# Run all tests with coverage including the ones we just ran
 	poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
 test-no-cov:

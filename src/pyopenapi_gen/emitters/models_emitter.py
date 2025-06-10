@@ -111,9 +111,12 @@ class ModelsEmitter:
                 logger.error(f"File {file_path} was not created successfully")
                 return None
 
+            logger.debug(f"Successfully created model file: {file_path}")
             return str(file_path)
-        except OSError as e:
+        except Exception as e:
             logger.error(f"Error writing model file {file_path}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
     def _generate_init_py_content(self) -> str:  # Removed generated_files_paths, models_dir args
