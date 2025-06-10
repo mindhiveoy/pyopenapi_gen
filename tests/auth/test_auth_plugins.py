@@ -115,7 +115,8 @@ async def test_oauth2_auth__simple_token__sets_bearer_header() -> None:
 async def test_oauth2_auth__refresh_callback__updates_token() -> None:
     """
     Scenario:
-        OAuth2Auth is used with a refresh_callback that returns a new token. The plugin should update the token and use it.
+        OAuth2Auth is used with a refresh_callback that returns a new token.
+        The plugin should update the token and use it.
     Expected Outcome:
         The Authorization header is set to the new token after refresh.
     """

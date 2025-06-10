@@ -1,3 +1,4 @@
+import tempfile
 import traceback
 from pathlib import Path
 
@@ -21,7 +22,7 @@ class ClientEmitter:
         self.context = context
 
     def emit(self, spec: IRSpec, output_dir_str: str) -> list[str]:
-        error_log = "/tmp/pyopenapi_gen_error.log"
+        error_log = Path(tempfile.gettempdir()) / "pyopenapi_gen_error.log"
         generated_files = []
         try:
             output_dir_abs = Path(output_dir_str)
