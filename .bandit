@@ -1,0 +1,8 @@
+[bandit]
+# Configuration for Bandit security scanner
+
+# Skip assert warnings - these are acceptable in a code generation tool
+skips = B101
+
+# Skip hardcoded temp directory warning for debug logging
+exclude_dirs = /tmp

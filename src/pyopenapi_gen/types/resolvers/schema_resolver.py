@@ -131,7 +131,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 hasattr(context.render_context, "add_import")
             ):
                 current_file = context.render_context.current_file
-        except:
+        except (AttributeError, TypeError):
             # If anything goes wrong with attribute access, assume not a self-reference
             current_file = None
 

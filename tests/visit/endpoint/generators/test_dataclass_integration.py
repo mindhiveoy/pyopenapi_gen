@@ -260,22 +260,22 @@ class TestEndpointMethodGeneratorDataclassIntegration:
         expected_generated_code = '''
 async def create_user(self, body: CreateUserRequest) -> CreateUserResponse:
     """Create a new user.
-    
+
     Args:
         body: User data to create
-        
+
     Returns:
         CreateUserResponse: The created user data
-        
+
     Raises:
         HTTPError: If the request fails
     """
     url = f"{self.base_url}/users"
-    
+
     json_body: CreateUserRequest = DataclassSerializer.serialize(body)
-    
+
     response = await self._transport.request("POST", url, json=json_body)
-    
+
     if response.status_code == 201:
         return CreateUserResponse.model_validate(response.json())
     else:

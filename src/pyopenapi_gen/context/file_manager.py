@@ -6,6 +6,7 @@ generated Python code to files, with appropriate logging for debugging.
 """
 
 import os
+import tempfile
 
 
 class FileManager:
@@ -30,7 +31,8 @@ class FileManager:
         self.ensure_dir(os.path.dirname(path))
 
         # Log the file path and first 10 lines of content for debugging
-        with open("/tmp/pyopenapi_gen_file_write_debug.log", "a") as debug_log:
+        debug_log_path = os.path.join(tempfile.gettempdir(), "pyopenapi_gen_file_write_debug.log")
+        with open(debug_log_path, "a") as debug_log:
             debug_log.write(f"WRITE FILE: {path}\n")
             for line in content.splitlines()[:10]:
                 debug_log.write(line + "\n")
