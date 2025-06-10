@@ -2,6 +2,7 @@ import typing
 
 import httpx
 import pytest
+
 from pyopenapi_gen.core.http_transport import HttpxTransport
 
 

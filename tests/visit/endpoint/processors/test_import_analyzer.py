@@ -9,6 +9,7 @@ from unittest.mock import (
 )
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 
 # Assuming endpoint_utils is in pyopenapi_gen.helpers

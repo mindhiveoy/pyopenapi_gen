@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from pyopenapi_gen.generator.client_generator import ClientGenerator, GenerationError
 
 

@@ -335,7 +335,9 @@ class TestParseProperties(unittest.TestCase):
         ) -> Optional[IRSchema]:
             if prop_key_arg == "config":
                 self.assertEqual(property_schema_obj_arg.name, "ComplexSchemaConfig")  # After sanitization
-                promoted_ref = IRSchema(name="Config", type="ComplexSchemaConfigPromoted")  # Name will be sanitized to Config_
+                promoted_ref = IRSchema(
+                    name="Config", type="ComplexSchemaConfigPromoted"
+                )  # Name will be sanitized to Config_
                 promoted_ref._refers_to_schema = property_schema_obj_arg
                 return promoted_ref
             return None

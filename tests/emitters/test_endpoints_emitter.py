@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen import (
     HTTPMethod,
     IROperation,
@@ -39,7 +40,9 @@ def mock_render_context(tmp_path: Path) -> MagicMock:
     return ctx
 
 
-def test_endpoints_emitter__multiple_operations_with_tags__generates_separate_tag_modules(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_endpoints_emitter__multiple_operations_with_tags__generates_separate_tag_modules(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         EndpointsEmitter processes an IRSpec containing operations organized by tags
@@ -109,11 +112,13 @@ def test_endpoints_emitter__multiple_operations_with_tags__generates_separate_ta
     assert "async def list_users" in users_content
 
 
-def test_endpoints_emitter__json_request_body__generates_body_parameter_and_json_assignment(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_endpoints_emitter__json_request_body__generates_body_parameter_and_json_assignment(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         EndpointsEmitter processes an operation with a JSON request body.
-    
+
     Expected Outcome:
         The generated method should include a body parameter and assign
         it to json_body for the HTTP request.
@@ -153,11 +158,13 @@ def test_endpoints_emitter__json_request_body__generates_body_parameter_and_json
     assert "json_body: Dict[str, Any] = DataclassSerializer.serialize(body)" in content
 
 
-def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_assignment(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_assignment(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         EndpointsEmitter processes an operation with a multipart/form-data request body.
-    
+
     Expected Outcome:
         The generated method should include a files parameter with proper typing
         and assign it to files_data for the HTTP request.
@@ -198,11 +205,13 @@ def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_a
     assert "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)" in content
 
 
-def test_endpoints_emitter__streaming_binary_response__generates_async_iterator_with_bytes_yield(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_endpoints_emitter__streaming_binary_response__generates_async_iterator_with_bytes_yield(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         EndpointsEmitter processes an operation with a streaming binary response.
-    
+
     Expected Outcome:
         The generated method should return AsyncIterator[bytes] and yield
         chunks from response.aiter_bytes().
@@ -247,12 +256,14 @@ def test_endpoints_emitter__streaming_binary_response__generates_async_iterator_
     assert "async for chunk in iter_bytes(response):" in content
 
 
-def test_endpoints_emitter__complex_operation_with_mixed_params__includes_required_type_imports(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_endpoints_emitter__complex_operation_with_mixed_params__includes_required_type_imports(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         EndpointsEmitter processes a complex operation with path parameters,
         query parameters, JSON and multipart request bodies, and streaming responses.
-    
+
     Expected Outcome:
         The generated endpoint module should include all necessary type imports
         (Any, AsyncIterator, Dict, IO, Optional).
@@ -563,9 +574,9 @@ def test_endpoints_emitter__tag_deduplication__single_client_and_import(
     # __all__ should reference DataSourcesClient (PascalCase)
     assert '"DataSourcesClient"' in text, "__all__ should reference DataSourcesClient"
     # Only one import from data_sources module should exist, importing DataSourcesClient
-    assert text.count("from .data_sources import DataSourcesClient") == 1, (
-        "Only one import from data_sources module should exist"
-    )
+    assert (
+        text.count("from .data_sources import DataSourcesClient") == 1
+    ), "Only one import from data_sources module should exist"
 
 
 def test_endpoints_emitter__streaming_inline_object_schema__yields_model(

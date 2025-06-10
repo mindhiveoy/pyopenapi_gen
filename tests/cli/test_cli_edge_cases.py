@@ -1,7 +1,8 @@
 from pathlib import Path
 
-from pyopenapi_gen.cli import app
 from typer.testing import CliRunner
+
+from pyopenapi_gen.cli import app
 
 # Minimal spec for code generation
 MIN_SPEC = {
@@ -47,7 +48,9 @@ def test_gen_with_docs_flag_does_not_break(tmp_path: Path) -> None:
     # Test the CLI using subprocess to avoid Typer testing issues
     result = subprocess.run(
         [
-            sys.executable, "-m", "pyopenapi_gen.cli",
+            sys.executable,
+            "-m",
+            "pyopenapi_gen.cli",
             "gen",
             str(spec_file),
             "--project-root",
@@ -61,13 +64,15 @@ def test_gen_with_docs_flag_does_not_break(tmp_path: Path) -> None:
     )
 
     # Check that it fails with non-zero exit code
-    assert result.returncode != 0, f"Expected non-zero exit code, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
+    assert (
+        result.returncode != 0
+    ), f"Expected non-zero exit code, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
 
     # Check for error message indicating invalid option
     error_output = result.stderr
-    assert ("No such option" in error_output or "Usage:" in error_output or "unrecognized arguments" in error_output), (
-        f"Expected error message about invalid option, got: {error_output}"
-    )
+    assert (
+        "No such option" in error_output or "Usage:" in error_output or "unrecognized arguments" in error_output
+    ), f"Expected error message about invalid option, got: {error_output}"
 
 
 def test_cli_no_args_shows_help_and_exits_cleanly() -> None:
@@ -88,10 +93,14 @@ def test_cli_no_args_shows_help_and_exits_cleanly() -> None:
     )
 
     # CLI should show help and exit cleanly (exit code 0)
-    assert result.returncode == 0, f"Expected exit code 0, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"Expected exit code 0, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
 
     # Check for help content
     output = result.stdout + result.stderr  # Help might go to either stdout or stderr
     assert "Usage:" in output, f"Expected 'Usage:' in output, got: {output}"
-    assert "PyOpenAPI Generator CLI" in output or "COMMAND" in output, f"Expected CLI description or COMMAND in output, got: {output}"
+    assert (
+        "PyOpenAPI Generator CLI" in output or "COMMAND" in output
+    ), f"Expected CLI description or COMMAND in output, got: {output}"
     assert "Missing command" not in output, f"Should not have 'Missing command' error, got: {output}"

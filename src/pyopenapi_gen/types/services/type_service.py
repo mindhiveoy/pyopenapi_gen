@@ -6,7 +6,6 @@ from typing import Dict, Optional
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 
-from ..contracts.protocols import TypeContext
 from ..contracts.types import ResolvedType
 from ..resolvers import OpenAPIReferenceResolver, OpenAPIResponseResolver, OpenAPISchemaResolver
 

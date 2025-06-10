@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen import IROperation, IRResponse, IRSchema, IRSpec
 from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext
@@ -33,12 +34,14 @@ def mock_render_context(tmp_path: Path) -> MagicMock:
     return ctx
 
 
-def test_endpoints_emitter__duplicate_operation_ids__generates_unique_method_names(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_endpoints_emitter__duplicate_operation_ids__generates_unique_method_names(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         EndpointsEmitter processes operations with IDs that would result in the same
         sanitized method name (e.g., "get_feedback" and "getFeedback").
-    
+
     Expected Outcome:
         The emitter should generate unique method names by adding suffixes
         (e.g., "get_feedback" and "get_feedback_2").

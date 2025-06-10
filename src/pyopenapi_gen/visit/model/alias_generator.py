@@ -9,9 +9,8 @@ from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
-from pyopenapi_gen.helpers.type_helper import TypeHelper
-from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
+from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
 logger = logging.getLogger(__name__)
 

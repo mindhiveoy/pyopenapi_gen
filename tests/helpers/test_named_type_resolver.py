@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -71,9 +72,9 @@ class TestNamedTypeResolver:
         expected_class_name_to_import = "ChildSchema"
 
         relative_imports_collected = render_context.import_collector.relative_imports
-        assert expected_module_import_path in relative_imports_collected, (
-            f"Module '{expected_module_import_path}' not found in relative imports. Found: {list(relative_imports_collected.keys())}"
-        )
-        assert expected_class_name_to_import in relative_imports_collected[expected_module_import_path], (
-            f"Class '{expected_class_name_to_import}' not found for module '{expected_module_import_path}'. Found: {relative_imports_collected[expected_module_import_path]}"
-        )
+        assert (
+            expected_module_import_path in relative_imports_collected
+        ), f"Module '{expected_module_import_path}' not found in relative imports. Found: {list(relative_imports_collected.keys())}"
+        assert (
+            expected_class_name_to_import in relative_imports_collected[expected_module_import_path]
+        ), f"Class '{expected_class_name_to_import}' not found for module '{expected_module_import_path}'. Found: {relative_imports_collected[expected_module_import_path]}"

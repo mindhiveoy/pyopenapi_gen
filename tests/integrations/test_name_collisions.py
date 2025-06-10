@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -91,13 +92,13 @@ def test_name_collision_generation(tmp_path: Path) -> None:
     # Example: foo_bar.py and foo_bar_2.py (or similar for user)
     # These assertions will FAIL until collision handling is implemented
     assert (models_path / f"{expected_raw_module_foo}.py").exists(), "Expected base model file foo_bar.py not found"
-    assert (models_path / f"{expected_raw_module_foo}_2.py").exists(), (
-        "Expected collision-handled model file foo_bar_2.py not found"
-    )
+    assert (
+        models_path / f"{expected_raw_module_foo}_2.py"
+    ).exists(), "Expected collision-handled model file foo_bar_2.py not found"
     assert (models_path / f"{expected_raw_module_user}.py").exists(), "Expected base model file user.py not found"
-    assert (models_path / f"{expected_raw_module_user}_2.py").exists(), (
-        "Expected collision-handled model file user_2.py not found"
-    )
+    assert (
+        models_path / f"{expected_raw_module_user}_2.py"
+    ).exists(), "Expected collision-handled model file user_2.py not found"
 
     # Check __init__.py for exports (names will depend on class name sanitization strategy)
     # e.g., from .foo_bar import FooBar; from .foo_bar_2 import FooBar2
@@ -128,11 +129,13 @@ def test_name_collision_generation(tmp_path: Path) -> None:
     env = os.environ.copy()
     # Adjust PYTHONPATH to include the root of the generated package and the project's src
     src_dir_path = project_root_dir / "src"
-    env["PYTHONPATH"] = os.pathsep.join([
-        str(tmp_path.resolve()),  # Root of generated client 'collision_client'
-        str(src_dir_path.resolve()),  # Project src for pyopenapi_gen itself if needed by generated core utils
-        env.get("PYTHONPATH", ""),
-    ])
+    env["PYTHONPATH"] = os.pathsep.join(
+        [
+            str(tmp_path.resolve()),  # Root of generated client 'collision_client'
+            str(src_dir_path.resolve()),  # Project src for pyopenapi_gen itself if needed by generated core utils
+            env.get("PYTHONPATH", ""),
+        ]
+    )
 
     packages_to_check = [output_package.split(".")[0]]  # e.g., ['collision_client']
 
@@ -155,6 +158,6 @@ def test_name_collision_generation(tmp_path: Path) -> None:
     mypy_output_content = f"Mypy STDOUT:\n{mypy_result.stdout}\n\nMypy STDERR:\n{mypy_result.stderr}"
     Path(mypy_output_filename).write_text(mypy_output_content, encoding="utf-8")
 
-    assert mypy_result.returncode == 0, (
-        f"mypy errors (see full output in {mypy_output_filename.relative_to(project_root_dir)}):\n{mypy_output_content}"
-    )
+    assert (
+        mypy_result.returncode == 0
+    ), f"mypy errors (see full output in {mypy_output_filename.relative_to(project_root_dir)}):\n{mypy_output_content}"

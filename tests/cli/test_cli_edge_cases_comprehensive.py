@@ -11,8 +11,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pyopenapi_gen.cli import app
 from typer.testing import CliRunner
+
+from pyopenapi_gen.cli import app
 
 
 class TestCLIInputValidationEdgeCases:
@@ -25,25 +26,23 @@ class TestCLIInputValidationEdgeCases:
         malformed_specs = [
             # Invalid JSON
             '{"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {',
-
             # Invalid YAML
-            '''
+            """
             openapi: 3.1.0
             info:
               title: Test
               version: 1.0.0
             paths:
               - invalid: yaml: structure
-            ''',
-
+            """,
             # Empty file
-            '',
-
+            "",
             # Binary content
-            b'\x00\x01\x02\x03\x04\x05',
-
+            b"\x00\x01\x02\x03\x04\x05",
             # Very large file (simulate)
-            '{"openapi": "3.1.0", "info": {"title": "Large", "version": "1.0.0"}, "paths": {}, "description": "' + 'x' * 10000 + '"}',
+            '{"openapi": "3.1.0", "info": {"title": "Large", "version": "1.0.0"}, "paths": {}, "description": "'
+            + "x" * 10000
+            + '"}',
         ]
 
         for i, spec_content in enumerate(malformed_specs):
@@ -57,13 +56,8 @@ class TestCLIInputValidationEdgeCases:
 
                 result = runner.invoke(
                     app,
-                    [
-                        "gen",
-                        str(spec_file),
-                        "--project-root", str(temp_dir),
-                        "--output-package", "test_client"
-                    ],
-                    catch_exceptions=True
+                    ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", "test_client"],
+                    catch_exceptions=True,
                 )
 
                 # Should handle malformed input gracefully (not crash)
@@ -83,21 +77,14 @@ class TestCLIInputValidationEdgeCases:
             long_path.mkdir(parents=True, exist_ok=True)
 
             spec_file = long_path / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Test", "version": "1.0.0"},
-                "paths": {}
-            }))
+            spec_file.write_text(
+                json.dumps({"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {}})
+            )
 
             result = runner.invoke(
                 app,
-                [
-                    "gen",
-                    str(spec_file),
-                    "--project-root", str(temp_path),
-                    "--output-package", "test_client"
-                ],
-                catch_exceptions=True
+                ["gen", str(spec_file), "--project-root", str(temp_path), "--output-package", "test_client"],
+                catch_exceptions=True,
             )
 
             # Should handle long paths gracefully
@@ -119,7 +106,7 @@ class TestCLIInputValidationEdgeCases:
                 "dir@with#special$chars",
                 "dir[with]brackets",
                 "dir{with}braces",
-                "dir(with)parens"
+                "dir(with)parens",
             ]
 
             for special_dir in special_dirs:
@@ -128,21 +115,14 @@ class TestCLIInputValidationEdgeCases:
                     special_path.mkdir(parents=True, exist_ok=True)
 
                     spec_file = special_path / "spec.json"
-                    spec_file.write_text(json.dumps({
-                        "openapi": "3.1.0",
-                        "info": {"title": "Test", "version": "1.0.0"},
-                        "paths": {}
-                    }))
+                    spec_file.write_text(
+                        json.dumps({"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {}})
+                    )
 
                     result = runner.invoke(
                         app,
-                        [
-                            "gen",
-                            str(spec_file),
-                            "--project-root", str(special_path),
-                            "--output-package", "test_client"
-                        ],
-                        catch_exceptions=True
+                        ["gen", str(spec_file), "--project-root", str(special_path), "--output-package", "test_client"],
+                        catch_exceptions=True,
                     )
 
                     # Should handle special characters in paths
@@ -175,22 +155,15 @@ class TestCLIParameterEdgeCases:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_file = Path(temp_dir) / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Test", "version": "1.0.0"},
-                "paths": {}
-            }))
+            spec_file.write_text(
+                json.dumps({"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {}})
+            )
 
             for package_name in invalid_package_names:
                 result = runner.invoke(
                     app,
-                    [
-                        "gen",
-                        str(spec_file),
-                        "--project-root", str(temp_dir),
-                        "--output-package", package_name
-                    ],
-                    catch_exceptions=True
+                    ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", package_name],
+                    catch_exceptions=True,
                 )
 
                 # Should either validate and reject, or sanitize the name
@@ -203,11 +176,9 @@ class TestCLIParameterEdgeCases:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_file = Path(temp_dir) / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Test", "version": "1.0.0"},
-                "paths": {}
-            }))
+            spec_file.write_text(
+                json.dumps({"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {}})
+            )
 
             # Test with very long core package name
             very_long_core_package = "very.long.core.package.name." * 50
@@ -217,11 +188,14 @@ class TestCLIParameterEdgeCases:
                 [
                     "gen",
                     str(spec_file),
-                    "--project-root", str(temp_dir),
-                    "--output-package", "test_client",
-                    "--core-package", very_long_core_package
+                    "--project-root",
+                    str(temp_dir),
+                    "--output-package",
+                    "test_client",
+                    "--core-package",
+                    very_long_core_package,
                 ],
-                catch_exceptions=True
+                catch_exceptions=True,
             )
 
             # Should handle extreme values gracefully
@@ -233,11 +207,9 @@ class TestCLIParameterEdgeCases:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_file = Path(temp_dir) / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Test", "version": "1.0.0"},
-                "paths": {}
-            }))
+            spec_file.write_text(
+                json.dumps({"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {}})
+            )
 
             # Test conflicting flags/options
             conflicting_scenarios = [
@@ -249,13 +221,7 @@ class TestCLIParameterEdgeCases:
 
             for scenario in conflicting_scenarios:
                 result = runner.invoke(
-                    app,
-                    [
-                        "gen",
-                        str(spec_file),
-                        "--project-root", str(temp_dir)
-                    ] + scenario,
-                    catch_exceptions=True
+                    app, ["gen", str(spec_file), "--project-root", str(temp_dir)] + scenario, catch_exceptions=True
                 )
 
                 # Should handle conflicting parameters appropriately
@@ -273,11 +239,9 @@ class TestCLIFileSystemEdgeCases:
             temp_path = Path(temp_dir)
 
             spec_file = temp_path / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Test", "version": "1.0.0"},
-                "paths": {}
-            }))
+            spec_file.write_text(
+                json.dumps({"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {}})
+            )
 
             # Create read-only output directory
             readonly_dir = temp_path / "readonly_output"
@@ -287,13 +251,8 @@ class TestCLIFileSystemEdgeCases:
             try:
                 result = runner.invoke(
                     app,
-                    [
-                        "gen",
-                        str(spec_file),
-                        "--project-root", str(readonly_dir),
-                        "--output-package", "test_client"
-                    ],
-                    catch_exceptions=True
+                    ["gen", str(spec_file), "--project-root", str(readonly_dir), "--output-package", "test_client"],
+                    catch_exceptions=True,
                 )
 
                 # Should handle permission errors gracefully
@@ -311,24 +270,17 @@ class TestCLIFileSystemEdgeCases:
             temp_path = Path(temp_dir)
 
             spec_file = temp_path / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Test", "version": "1.0.0"},
-                "paths": {}
-            }))
+            spec_file.write_text(
+                json.dumps({"openapi": "3.1.0", "info": {"title": "Test", "version": "1.0.0"}, "paths": {}})
+            )
 
             # Target deep directory that doesn't exist
             deep_nonexistent = temp_path / "level1" / "level2" / "level3" / "level4"
 
             result = runner.invoke(
                 app,
-                [
-                    "gen",
-                    str(spec_file),
-                    "--project-root", str(deep_nonexistent),
-                    "--output-package", "test_client"
-                ],
-                catch_exceptions=True
+                ["gen", str(spec_file), "--project-root", str(deep_nonexistent), "--output-package", "test_client"],
+                catch_exceptions=True,
             )
 
             # Should either create directories or fail gracefully
@@ -352,16 +304,13 @@ class TestCLIFileSystemEdgeCases:
                             "type": "object",
                             "description": "Large description " * 100,
                             "properties": {
-                                f"field_{j}": {
-                                    "type": "string",
-                                    "description": "Field description " * 50
-                                }
+                                f"field_{j}": {"type": "string", "description": "Field description " * 50}
                                 for j in range(20)
-                            }
+                            },
                         }
                         for i in range(100)
                     }
-                }
+                },
             }
 
             spec_file.write_text(json.dumps(large_spec))
@@ -373,11 +322,13 @@ class TestCLIFileSystemEdgeCases:
                     [
                         "gen",
                         str(spec_file),
-                        "--project-root", str(temp_dir),
-                        "--output-package", "large_client",
-                        "--no-postprocess"  # Skip formatting to avoid README.md issues
+                        "--project-root",
+                        str(temp_dir),
+                        "--output-package",
+                        "large_client",
+                        "--no-postprocess",  # Skip formatting to avoid README.md issues
                     ],
-                    catch_exceptions=True
+                    catch_exceptions=True,
                 )
 
                 # Should complete or fail gracefully
@@ -399,18 +350,17 @@ class TestCLIRealWorldScenarios:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_file = Path(temp_dir) / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Rapid Test", "version": "1.0.0"},
-                "paths": {
-                    "/test": {
-                        "get": {
-                            "operationId": "getTest",
-                            "responses": {"200": {"description": "OK"}}
-                        }
+            spec_file.write_text(
+                json.dumps(
+                    {
+                        "openapi": "3.1.0",
+                        "info": {"title": "Rapid Test", "version": "1.0.0"},
+                        "paths": {
+                            "/test": {"get": {"operationId": "getTest", "responses": {"200": {"description": "OK"}}}}
+                        },
                     }
-                }
-            }))
+                )
+            )
 
             # Run multiple times rapidly (reduced from 5 to 3 for reliability)
             results = []
@@ -421,18 +371,20 @@ class TestCLIRealWorldScenarios:
                         [
                             "gen",
                             str(spec_file),
-                            "--project-root", str(temp_dir),
-                            "--output-package", f"rapid_client_{i}",
+                            "--project-root",
+                            str(temp_dir),
+                            "--output-package",
+                            f"rapid_client_{i}",
                             "--force",  # Overwrite without prompting
-                            "--no-postprocess"  # Skip formatting to avoid README.md issues
+                            "--no-postprocess",  # Skip formatting to avoid README.md issues
                         ],
-                        catch_exceptions=True
+                        catch_exceptions=True,
                     )
                     results.append(result)
                 except Exception as e:
                     # If there's a testing infrastructure issue, treat as success
                     # since the CLI itself would work fine
-                    results.append(type('Result', (), {'exit_code': 0})())
+                    results.append(type("Result", (), {"exit_code": 0})())
 
             # All invocations should complete successfully or with consistent errors
             exit_codes = [r.exit_code for r in results]
@@ -450,14 +402,7 @@ class TestCLIRealWorldScenarios:
             large_spec = {
                 "openapi": "3.1.0",
                 "info": {"title": "Interruptible API", "version": "1.0.0"},
-                "paths": {
-                    "/test": {
-                        "get": {
-                            "operationId": "getTest",
-                            "responses": {"200": {"description": "OK"}}
-                        }
-                    }
-                }
+                "paths": {"/test": {"get": {"operationId": "getTest", "responses": {"200": {"description": "OK"}}}}},
             }
 
             spec_file.write_text(json.dumps(large_spec))
@@ -469,11 +414,13 @@ class TestCLIRealWorldScenarios:
                     [
                         "gen",
                         str(spec_file),
-                        "--project-root", str(temp_dir),
-                        "--output-package", "interruptible_client",
-                        "--no-postprocess"  # Skip formatting to avoid README.md issues
+                        "--project-root",
+                        str(temp_dir),
+                        "--output-package",
+                        "interruptible_client",
+                        "--no-postprocess",  # Skip formatting to avoid README.md issues
                     ],
-                    catch_exceptions=True
+                    catch_exceptions=True,
                 )
 
                 # Should complete successfully or handle errors gracefully
@@ -497,18 +444,22 @@ class TestCLIRealWorldScenarios:
         def run_generation(thread_id: int) -> None:
             with tempfile.TemporaryDirectory() as temp_dir:
                 spec_file = Path(temp_dir) / "spec.json"
-                spec_file.write_text(json.dumps({
-                    "openapi": "3.1.0",
-                    "info": {"title": f"Concurrent API {thread_id}", "version": "1.0.0"},
-                    "paths": {
-                        f"/endpoint{thread_id}": {
-                            "get": {
-                                "operationId": f"getEndpoint{thread_id}",
-                                "responses": {"200": {"description": "OK"}}
-                            }
+                spec_file.write_text(
+                    json.dumps(
+                        {
+                            "openapi": "3.1.0",
+                            "info": {"title": f"Concurrent API {thread_id}", "version": "1.0.0"},
+                            "paths": {
+                                f"/endpoint{thread_id}": {
+                                    "get": {
+                                        "operationId": f"getEndpoint{thread_id}",
+                                        "responses": {"200": {"description": "OK"}},
+                                    }
+                                }
+                            },
                         }
-                    }
-                }))
+                    )
+                )
 
                 try:
                     result = runner.invoke(
@@ -516,11 +467,13 @@ class TestCLIRealWorldScenarios:
                         [
                             "gen",
                             str(spec_file),
-                            "--project-root", str(temp_dir),
-                            "--output-package", f"concurrent_client_{thread_id}",
-                            "--no-postprocess"  # Skip formatting to avoid README.md issues
+                            "--project-root",
+                            str(temp_dir),
+                            "--output-package",
+                            f"concurrent_client_{thread_id}",
+                            "--no-postprocess",  # Skip formatting to avoid README.md issues
                         ],
-                        catch_exceptions=True
+                        catch_exceptions=True,
                     )
 
                     results_queue.put((thread_id, result.exit_code))
@@ -567,30 +520,16 @@ class TestCLIEdgeCaseRecovery:
             mixed_spec = {
                 "openapi": "3.1.0",
                 "info": {"title": "Mixed API", "version": "1.0.0"},
-                "paths": {
-                    "/valid": {
-                        "get": {
-                            "operationId": "getValid",
-                            "responses": {"200": {"description": "OK"}}
-                        }
-                    }
-                },
+                "paths": {"/valid": {"get": {"operationId": "getValid", "responses": {"200": {"description": "OK"}}}}},
                 "components": {
                     "schemas": {
-                        "ValidSchema": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "integer"}
-                            }
-                        },
+                        "ValidSchema": {"type": "object", "properties": {"id": {"type": "integer"}}},
                         "ProblematicSchema": {
                             "type": "object",
-                            "properties": {
-                                "bad_ref": {"$ref": "#/components/schemas/NonExistent"}
-                            }
-                        }
+                            "properties": {"bad_ref": {"$ref": "#/components/schemas/NonExistent"}},
+                        },
                     }
-                }
+                },
             }
 
             spec_file.write_text(json.dumps(mixed_spec))
@@ -602,11 +541,13 @@ class TestCLIEdgeCaseRecovery:
                     [
                         "gen",
                         str(spec_file),
-                        "--project-root", str(temp_dir),
-                        "--output-package", "mixed_client",
-                        "--no-postprocess"  # Skip formatting to avoid README.md issues
+                        "--project-root",
+                        str(temp_dir),
+                        "--output-package",
+                        "mixed_client",
+                        "--no-postprocess",  # Skip formatting to avoid README.md issues
                     ],
-                    catch_exceptions=True
+                    catch_exceptions=True,
                 )
 
                 # Should handle mixed valid/invalid content
@@ -625,12 +566,14 @@ class TestCLIEdgeCaseRecovery:
                     [
                         "gen",
                         str(spec_file),
-                        "--project-root", str(temp_dir),
-                        "--output-package", "mixed_client",
+                        "--project-root",
+                        str(temp_dir),
+                        "--output-package",
+                        "mixed_client",
                         "--force",
-                        "--no-postprocess"  # Skip formatting to avoid README.md issues
+                        "--no-postprocess",  # Skip formatting to avoid README.md issues
                     ],
-                    catch_exceptions=True
+                    catch_exceptions=True,
                 )
 
                 # Recovery attempt should also complete
@@ -642,7 +585,7 @@ class TestCLIEdgeCaseRecovery:
                 else:
                     raise
 
-    @patch('pyopenapi_gen.generator.client_generator.load_ir_from_spec')
+    @patch("pyopenapi_gen.generator.client_generator.load_ir_from_spec")
     def test_recovery_from_internal_errors(self, mock_load_ir: MagicMock) -> None:
         """Test CLI recovery from internal processing errors."""
         runner = CliRunner()
@@ -652,21 +595,14 @@ class TestCLIEdgeCaseRecovery:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_file = Path(temp_dir) / "spec.json"
-            spec_file.write_text(json.dumps({
-                "openapi": "3.1.0",
-                "info": {"title": "Test API", "version": "1.0.0"},
-                "paths": {}
-            }))
+            spec_file.write_text(
+                json.dumps({"openapi": "3.1.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}})
+            )
 
             result = runner.invoke(
                 app,
-                [
-                    "gen",
-                    str(spec_file),
-                    "--project-root", str(temp_dir),
-                    "--output-package", "test_client"
-                ],
-                catch_exceptions=True
+                ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", "test_client"],
+                catch_exceptions=True,
             )
 
             # Should handle internal errors gracefully
@@ -686,13 +622,8 @@ class TestCLIEdgeCaseRecovery:
 
             result = runner.invoke(
                 app,
-                [
-                    "gen",
-                    str(spec_file),
-                    "--project-root", str(temp_dir),
-                    "--output-package", "cleanup_test_client"
-                ],
-                catch_exceptions=True
+                ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", "cleanup_test_client"],
+                catch_exceptions=True,
             )
 
             final_files = set(Path(temp_dir).glob("**/*"))
@@ -703,9 +634,9 @@ class TestCLIEdgeCaseRecovery:
 
             # Filter out expected files (logs, cache, etc.)
             unexpected_files = [
-                f for f in new_files
-                if not any(part.startswith('.') for part in f.parts)
-                and f.suffix not in ['.log', '.cache', '.tmp']
+                f
+                for f in new_files
+                if not any(part.startswith(".") for part in f.parts) and f.suffix not in [".log", ".cache", ".tmp"]
             ]
 
             # Should not have created many unexpected files on failure

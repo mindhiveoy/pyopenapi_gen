@@ -206,10 +206,10 @@ class TestExtractPrimaryTypeAndNullability:
         # Assert
         assert actual_type == expected_type, f"[{test_id}] Type mismatch"
         assert actual_nullable == expected_nullable, f"[{test_id}] Nullability mismatch"
-        assert len(actual_warnings) == expected_warnings_count, (
-            f"[{test_id}] Warnings count mismatch. Got: {actual_warnings}"
-        )
+        assert (
+            len(actual_warnings) == expected_warnings_count
+        ), f"[{test_id}] Warnings count mismatch. Got: {actual_warnings}"
         if expected_warning_substring:
-            assert any(expected_warning_substring.lower() in warning.lower() for warning in actual_warnings), (
-                f"[{test_id}] Expected warning substring '{expected_warning_substring}' not found in {actual_warnings}"
-            )
+            assert any(
+                expected_warning_substring.lower() in warning.lower() for warning in actual_warnings
+            ), f"[{test_id}] Expected warning substring '{expected_warning_substring}' not found in {actual_warnings}"

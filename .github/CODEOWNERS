@@ -1,0 +1,30 @@
+# Global owners
+* @pyopenapi-team
+
+# Core library code
+/src/pyopenapi_gen/core/ @pyopenapi-team
+/src/pyopenapi_gen/types/ @pyopenapi-team
+
+# Code generation and visitors
+/src/pyopenapi_gen/visit/ @pyopenapi-team
+/src/pyopenapi_gen/emitters/ @pyopenapi-team
+
+# CLI and main interface
+/src/pyopenapi_gen/cli.py @pyopenapi-team
+/src/pyopenapi_gen/__main__.py @pyopenapi-team
+
+# Configuration and project files
+/pyproject.toml @pyopenapi-team
+/CLAUDE.md @pyopenapi-team
+/README.md @pyopenapi-team
+
+# GitHub workflows and automation
+/.github/ @pyopenapi-team
+
+# Tests require review for critical areas
+/tests/core/ @pyopenapi-team
+/tests/integrations/ @pyopenapi-team
+/tests/generation/ @pyopenapi-team
+
+# Documentation
+/docs/ @pyopenapi-team

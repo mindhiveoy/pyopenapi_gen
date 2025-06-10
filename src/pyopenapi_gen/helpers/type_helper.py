@@ -1,13 +1,10 @@
 """Helper functions for determining Python types and managing related imports from IRSchema."""
 
 import logging
-import os
 from typing import Dict, Optional, Set
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
-from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
-from pyopenapi_gen.helpers.type_resolution.resolver import SchemaTypeResolver
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
 logger = logging.getLogger(__name__)

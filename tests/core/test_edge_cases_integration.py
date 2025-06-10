@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
@@ -27,21 +28,11 @@ class TestComplexSchemaInteractions:
             "paths": {},
             "components": {
                 "schemas": {
-                    "BaseSchema": {
-                        "type": "object",
-                        "properties": {
-                            "base_field": {"type": "string"}
-                        }
-                    },
+                    "BaseSchema": {"type": "object", "properties": {"base_field": {"type": "string"}}},
                     "MiddleSchema": {
                         "allOf": [
                             {"$ref": "#/components/schemas/BaseSchema"},
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "middle_field": {"type": "integer"}
-                                }
-                            }
+                            {"type": "object", "properties": {"middle_field": {"type": "integer"}}},
                         ]
                     },
                     "ComplexSchema": {
@@ -49,20 +40,10 @@ class TestComplexSchemaInteractions:
                             {"$ref": "#/components/schemas/MiddleSchema"},
                             {
                                 "oneOf": [
-                                    {
-                                        "type": "object",
-                                        "properties": {
-                                            "option_a": {"type": "string"}
-                                        }
-                                    },
-                                    {
-                                        "type": "object",
-                                        "properties": {
-                                            "option_b": {"type": "boolean"}
-                                        }
-                                    }
+                                    {"type": "object", "properties": {"option_a": {"type": "string"}}},
+                                    {"type": "object", "properties": {"option_b": {"type": "boolean"}}},
                                 ]
-                            }
+                            },
                         ]
                     },
                     "UltraComplexSchema": {
@@ -77,17 +58,17 @@ class TestComplexSchemaInteractions:
                                                 "oneOf": [
                                                     {"type": "string"},
                                                     {"type": "integer"},
-                                                    {"$ref": "#/components/schemas/BaseSchema"}
+                                                    {"$ref": "#/components/schemas/BaseSchema"},
                                                 ]
                                             }
-                                        }
+                                        },
                                     }
                                 ]
-                            }
+                            },
                         ]
-                    }
+                    },
                 }
-            }
+            },
         }
 
         result = load_ir_from_spec(complex_composition_spec)
@@ -108,39 +89,24 @@ class TestComplexSchemaInteractions:
                 "schemas": {
                     "CircularA": {
                         "allOf": [
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "field_a": {"type": "string"}
-                                }
-                            },
-                            {"$ref": "#/components/schemas/CircularB"}
+                            {"type": "object", "properties": {"field_a": {"type": "string"}}},
+                            {"$ref": "#/components/schemas/CircularB"},
                         ]
                     },
                     "CircularB": {
                         "anyOf": [
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "field_b": {"type": "integer"}
-                                }
-                            },
-                            {"$ref": "#/components/schemas/CircularC"}
+                            {"type": "object", "properties": {"field_b": {"type": "integer"}}},
+                            {"$ref": "#/components/schemas/CircularC"},
                         ]
                     },
                     "CircularC": {
                         "oneOf": [
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "field_c": {"type": "boolean"}
-                                }
-                            },
-                            {"$ref": "#/components/schemas/CircularA"}
+                            {"type": "object", "properties": {"field_c": {"type": "boolean"}}},
+                            {"$ref": "#/components/schemas/CircularA"},
                         ]
-                    }
+                    },
                 }
-            }
+            },
         }
 
         result = load_ir_from_spec(circular_composition_spec)
@@ -157,47 +123,28 @@ class TestComplexSchemaInteractions:
                 "schemas": {
                     "ArrayOfArrays": {
                         "type": "array",
-                        "items": {
-                            "type": "array",
-                            "items": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            }
-                        }
+                        "items": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
                     },
                     "ArrayOfComplexObjects": {
                         "type": "array",
                         "items": {
                             "allOf": [
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {"type": "integer"}
-                                    }
-                                },
+                                {"type": "object", "properties": {"id": {"type": "integer"}}},
                                 {
                                     "anyOf": [
-                                        {
-                                            "properties": {
-                                                "type_a": {"type": "string"}
-                                            }
-                                        },
-                                        {
-                                            "properties": {
-                                                "type_b": {"type": "boolean"}
-                                            }
-                                        }
+                                        {"properties": {"type_a": {"type": "string"}}},
+                                        {"properties": {"type_b": {"type": "boolean"}}},
                                     ]
-                                }
+                                },
                             ]
-                        }
+                        },
                     },
                     "ArrayWithSelfReference": {
                         "type": "array",
-                        "items": {"$ref": "#/components/schemas/ArrayWithSelfReference"}
-                    }
+                        "items": {"$ref": "#/components/schemas/ArrayWithSelfReference"},
+                    },
                 }
-            }
+            },
         }
 
         result = load_ir_from_spec(array_complexity_spec)
@@ -214,27 +161,44 @@ class TestNameCollisionEdgeCases:
             "openapi": "3.1.0",
             "info": {"title": "Name Collision API", "version": "1.0.0"},
             "paths": {},
-            "components": {
-                "schemas": {}
-            }
+            "components": {"schemas": {}},
         }
 
         # Create many schemas with colliding names
         collision_patterns = [
-            "User", "user", "USER", "User_", "User__", "_User", "__User__",
-            "UserModel", "UserSchema", "UserData", "UserInfo", "UserDetails",
-            "User1", "User2", "User3", "User01", "User02", "User03",
-            "User-Model", "User_Model", "User.Model", "User@Model",
-            "UserType", "user_type", "USER_TYPE", "UserType_", "_UserType"
+            "User",
+            "user",
+            "USER",
+            "User_",
+            "User__",
+            "_User",
+            "__User__",
+            "UserModel",
+            "UserSchema",
+            "UserData",
+            "UserInfo",
+            "UserDetails",
+            "User1",
+            "User2",
+            "User3",
+            "User01",
+            "User02",
+            "User03",
+            "User-Model",
+            "User_Model",
+            "User.Model",
+            "User@Model",
+            "UserType",
+            "user_type",
+            "USER_TYPE",
+            "UserType_",
+            "_UserType",
         ]
 
         for i, name in enumerate(collision_patterns):
             collision_spec["components"]["schemas"][name] = {
                 "type": "object",
-                "properties": {
-                    "id": {"type": "integer"},
-                    f"field_{i}": {"type": "string"}
-                }
+                "properties": {"id": {"type": "integer"}, f"field_{i}": {"type": "string"}},
             }
 
         result = load_ir_from_spec(collision_spec)
@@ -243,25 +207,29 @@ class TestNameCollisionEdgeCases:
         # With unified system, primitive properties remain as properties (not extracted as schemas)
         # We should have roughly the same number of schemas as collision patterns,
         # but some may have been deduplicated due to name sanitization
-        
+
         # Basic sanity checks - should have schemas for the main object types
         assert len(result.schemas) >= len(collision_patterns) // 2, "Should have reasonable number of schemas"
         assert len(result.schemas) <= len(collision_patterns) + 10, "Should not have excessive schemas"
-        
+
         # Verify that major object schemas exist (allowing for name sanitization)
         found_schemas = 0
         for pattern in collision_patterns:
             # Find schemas that could represent this pattern (accounting for name sanitization)
             sanitized_name = pattern.replace("-", "_").replace(".", "_").replace("@", "_")
             for schema_name in result.schemas:
-                if (schema_name == pattern or 
-                    schema_name == sanitized_name or
-                    schema_name.lower().replace("_", "") == pattern.lower().replace("_", "")):
+                if (
+                    schema_name == pattern
+                    or schema_name == sanitized_name
+                    or schema_name.lower().replace("_", "") == pattern.lower().replace("_", "")
+                ):
                     found_schemas += 1
                     break
-        
+
         # Should find most of the patterns (some may be deduplicated)
-        assert found_schemas >= len(collision_patterns) // 2, f"Should find most collision patterns, found {found_schemas} out of {len(collision_patterns)}"
+        assert (
+            found_schemas >= len(collision_patterns) // 2
+        ), f"Should find most collision patterns, found {found_schemas} out of {len(collision_patterns)}"
 
         # At the parsing level, we expect duplicate names since collision resolution
         # happens during code generation in the emitter, not during parsing.
@@ -272,7 +240,7 @@ class TestNameCollisionEdgeCases:
                 overall_project_root=temp_dir,
                 package_root_for_generated_code=temp_dir,
                 core_package_name="test_core",
-                parsed_schemas=result.schemas
+                parsed_schemas=result.schemas,
             )
 
             emitter = ModelsEmitter(context=context, parsed_schemas=result.schemas)
@@ -281,10 +249,10 @@ class TestNameCollisionEdgeCases:
             # After emitter runs collision resolution, all generation_names should be unique
             generation_names = set()
             for schema in result.schemas.values():
-                if hasattr(schema, 'generation_name') and schema.generation_name:
-                    assert schema.generation_name not in generation_names, (
-                        f"Duplicate generation_name after collision resolution: {schema.generation_name}"
-                    )
+                if hasattr(schema, "generation_name") and schema.generation_name:
+                    assert (
+                        schema.generation_name not in generation_names
+                    ), f"Duplicate generation_name after collision resolution: {schema.generation_name}"
                     generation_names.add(schema.generation_name)
 
             # Verify models directory was created with files
@@ -300,27 +268,61 @@ class TestNameCollisionEdgeCases:
             "openapi": "3.1.0",
             "info": {"title": "Builtin Collision API", "version": "1.0.0"},
             "paths": {},
-            "components": {
-                "schemas": {}
-            }
+            "components": {"schemas": {}},
         }
 
         # Names that would collide with Python builtins/keywords
         problematic_names = [
-            "type", "int", "str", "list", "dict", "set", "tuple", "bool",
-            "object", "float", "complex", "bytes", "bytearray", "range",
-            "class", "def", "if", "else", "for", "while", "try", "except",
-            "import", "from", "as", "with", "lambda", "return", "yield",
-            "print", "len", "max", "min", "sum", "abs", "all", "any",
-            "id", "input", "open", "file", "exec", "eval", "compile"
+            "type",
+            "int",
+            "str",
+            "list",
+            "dict",
+            "set",
+            "tuple",
+            "bool",
+            "object",
+            "float",
+            "complex",
+            "bytes",
+            "bytearray",
+            "range",
+            "class",
+            "def",
+            "if",
+            "else",
+            "for",
+            "while",
+            "try",
+            "except",
+            "import",
+            "from",
+            "as",
+            "with",
+            "lambda",
+            "return",
+            "yield",
+            "print",
+            "len",
+            "max",
+            "min",
+            "sum",
+            "abs",
+            "all",
+            "any",
+            "id",
+            "input",
+            "open",
+            "file",
+            "exec",
+            "eval",
+            "compile",
         ]
 
         for name in problematic_names:
             builtin_collision_spec["components"]["schemas"][name] = {
                 "type": "object",
-                "properties": {
-                    "value": {"type": "string"}
-                }
+                "properties": {"value": {"type": "string"}},
             }
 
         result = load_ir_from_spec(builtin_collision_spec)
@@ -342,9 +344,7 @@ class TestRealWorldComplexityScenarios:
             "openapi": "3.1.0",
             "info": {"title": "Microservice API", "version": "1.0.0"},
             "paths": {},
-            "components": {
-                "schemas": {}
-            }
+            "components": {"schemas": {}},
         }
 
         # Create schemas for different domains
@@ -364,11 +364,9 @@ class TestRealWorldComplexityScenarios:
                             "timestamp": {"type": "string", "format": "date-time"},
                             f"{domain.lower()}_data": {
                                 "type": "object",
-                                "properties": {
-                                    f"{operation.lower()}_field": {"type": "string"}
-                                }
-                            }
-                        }
+                                "properties": {f"{operation.lower()}_field": {"type": "string"}},
+                            },
+                        },
                     }
                     schema_count += 1
 
@@ -378,7 +376,7 @@ class TestRealWorldComplexityScenarios:
         }
         microservice_spec["components"]["schemas"]["OrderCreateData"]["properties"]["products"] = {
             "type": "array",
-            "items": {"$ref": "#/components/schemas/ProductCreateData"}
+            "items": {"$ref": "#/components/schemas/ProductCreateData"},
         }
 
         result = load_ir_from_spec(microservice_spec)
@@ -411,58 +409,37 @@ class TestRealWorldComplexityScenarios:
                             "id": {"type": "integer"},
                             "name": {"type": "string"},
                             "critical_field": {"type": "string"},
-
                             # Optional fields with various types
                             "optional_string": {"type": "string"},
                             "optional_integer": {"type": "integer"},
                             "optional_boolean": {"type": "boolean"},
-                            "optional_array": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "optional_object": {
-                                "type": "object",
-                                "properties": {
-                                    "nested_field": {"type": "string"}
-                                }
-                            },
+                            "optional_array": {"type": "array", "items": {"type": "string"}},
+                            "optional_object": {"type": "object", "properties": {"nested_field": {"type": "string"}}},
                             "optional_ref": {"$ref": "#/components/schemas/ReferencedSchema"},
-                            "optional_enum": {
-                                "type": "string",
-                                "enum": ["option1", "option2", "option3"]
-                            },
-
+                            "optional_enum": {"type": "string", "enum": ["option1", "option2", "option3"]},
                             # Fields with complex constraints
                             "constrained_string": {
                                 "type": "string",
                                 "minLength": 5,
                                 "maxLength": 100,
-                                "pattern": "^[A-Za-z0-9_-]+$"
+                                "pattern": "^[A-Za-z0-9_-]+$",
                             },
-                            "constrained_number": {
-                                "type": "number",
-                                "minimum": 0,
-                                "maximum": 1000,
-                                "multipleOf": 0.01
-                            },
+                            "constrained_number": {"type": "number", "minimum": 0, "maximum": 1000, "multipleOf": 0.01},
                             "constrained_array": {
                                 "type": "array",
                                 "items": {"type": "integer"},
                                 "minItems": 1,
                                 "maxItems": 10,
-                                "uniqueItems": True
-                            }
-                        }
+                                "uniqueItems": True,
+                            },
+                        },
                     },
                     "ReferencedSchema": {
                         "type": "object",
-                        "properties": {
-                            "ref_id": {"type": "string"},
-                            "ref_data": {"type": "string"}
-                        }
-                    }
+                        "properties": {"ref_id": {"type": "string"}, "ref_data": {"type": "string"}},
+                    },
                 }
-            }
+            },
         }
 
         result = load_ir_from_spec(complex_fields_spec)
@@ -491,49 +468,38 @@ class TestErrorHandlingIntegration:
                             "200": {
                                 "description": "Success",
                                 "content": {
-                                    "application/json": {
-                                        "schema": {"$ref": "#/components/schemas/InvalidRef1"}
-                                    }
-                                }
+                                    "application/json": {"schema": {"$ref": "#/components/schemas/InvalidRef1"}}
+                                },
                             }
-                        }
+                        },
                     }
                 },
                 "/endpoint2": {
                     "post": {
                         "operationId": "postEndpoint2",
                         "requestBody": {
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ValidSchema"}
-                                }
-                            }
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ValidSchema"}}}
                         },
                         "responses": {
                             "201": {
                                 "description": "Created",
                                 "content": {
-                                    "application/json": {
-                                        "schema": {"$ref": "#/components/schemas/InvalidRef2"}
-                                    }
-                                }
+                                    "application/json": {"schema": {"$ref": "#/components/schemas/InvalidRef2"}}
+                                },
                             }
-                        }
+                        },
                     }
-                }
+                },
             },
             "components": {
                 "schemas": {
                     "ValidSchema": {
                         "type": "object",
-                        "properties": {
-                            "id": {"type": "integer"},
-                            "name": {"type": "string"}
-                        }
+                        "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
                     }
                     # Note: InvalidRef1 and InvalidRef2 are missing - this should cause errors
                 }
-            }
+            },
         }
 
         # Should handle missing references gracefully
@@ -552,26 +518,14 @@ class TestErrorHandlingIntegration:
             "paths": {},
             "components": {
                 "schemas": {
-                    "ValidSchema1": {
-                        "type": "object",
-                        "properties": {
-                            "field1": {"type": "string"}
-                        }
-                    },
-                    "ValidSchema2": {
-                        "type": "object",
-                        "properties": {
-                            "field2": {"type": "integer"}
-                        }
-                    },
+                    "ValidSchema1": {"type": "object", "properties": {"field1": {"type": "string"}}},
+                    "ValidSchema2": {"type": "object", "properties": {"field2": {"type": "integer"}}},
                     "ProblematicSchema": {
                         "type": "object",
-                        "properties": {
-                            "bad_ref": {"$ref": "#/components/schemas/DoesNotExist"}
-                        }
-                    }
+                        "properties": {"bad_ref": {"$ref": "#/components/schemas/DoesNotExist"}},
+                    },
                 }
-            }
+            },
         }
 
         result = load_ir_from_spec(mixed_spec)
@@ -579,9 +533,7 @@ class TestErrorHandlingIntegration:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             context = RenderContext(
-                overall_project_root=temp_dir,
-                package_root_for_generated_code=temp_dir,
-                core_package_name="test_core"
+                overall_project_root=temp_dir, package_root_for_generated_code=temp_dir, core_package_name="test_core"
             )
 
             emitter = ModelsEmitter(context=context, parsed_schemas=result.schemas)
@@ -606,9 +558,7 @@ class TestMemoryAndPerformanceEdgeCases:
             "openapi": "3.1.0",
             "info": {"title": "Duplicate Heavy API", "version": "1.0.0"},
             "paths": {},
-            "components": {
-                "schemas": {}
-            }
+            "components": {"schemas": {}},
         }
 
         # Create many very similar schemas (testing memory efficiency)
@@ -622,10 +572,10 @@ class TestMemoryAndPerformanceEdgeCases:
                     "type": "object",
                     "properties": {
                         "created_at": {"type": "string", "format": "date-time"},
-                        "updated_at": {"type": "string", "format": "date-time"}
-                    }
-                }
-            }
+                        "updated_at": {"type": "string", "format": "date-time"},
+                    },
+                },
+            },
         }
 
         # Create 200 nearly identical schemas
@@ -644,8 +594,12 @@ class TestMemoryAndPerformanceEdgeCases:
         # Total: ~400 schemas
         expected_min_schemas = 200 * 2  # Main schemas + nested metadata objects
         expected_max_schemas = 200 * 3  # Allow some additional extraction
-        assert len(result.schemas) >= expected_min_schemas, f"Expected at least {expected_min_schemas}, got {len(result.schemas)}"
-        assert len(result.schemas) <= expected_max_schemas, f"Expected at most {expected_max_schemas}, got {len(result.schemas)}"
+        assert (
+            len(result.schemas) >= expected_min_schemas
+        ), f"Expected at least {expected_min_schemas}, got {len(result.schemas)}"
+        assert (
+            len(result.schemas) <= expected_max_schemas
+        ), f"Expected at most {expected_max_schemas}, got {len(result.schemas)}"
 
     def test_processing_time_with_complex_references(self) -> None:
         """Test processing time with complex reference patterns."""
@@ -655,28 +609,18 @@ class TestMemoryAndPerformanceEdgeCases:
             "openapi": "3.1.0",
             "info": {"title": "Complex Reference API", "version": "1.0.0"},
             "paths": {},
-            "components": {
-                "schemas": {}
-            }
+            "components": {"schemas": {}},
         }
 
         # Create a web of interconnected references
         schema_count = 100
         for i in range(schema_count):
-            schema = {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "integer"},
-                    "name": {"type": "string"}
-                }
-            }
+            schema = {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}
 
             # Add references to other schemas
             for j in range(min(5, schema_count)):  # Reference up to 5 other schemas
                 ref_target = (i + j + 1) % schema_count
-                schema["properties"][f"ref_{j}"] = {
-                    "$ref": f"#/components/schemas/RefSchema{ref_target}"
-                }
+                schema["properties"][f"ref_{j}"] = {"$ref": f"#/components/schemas/RefSchema{ref_target}"}
 
             complex_ref_spec["components"]["schemas"][f"RefSchema{i}"] = schema
 
@@ -704,32 +648,20 @@ class TestCodeGenerationIntegrationEdgeCases:
         """Test complete client generation with various edge cases."""
         edge_case_api_spec = {
             "openapi": "3.1.0",
-            "info": {
-                "title": "Edge Case Complete API",
-                "version": "1.0.0"
-            },
+            "info": {"title": "Edge Case Complete API", "version": "1.0.0"},
             "paths": {
                 "/users/{user-id}": {  # Hyphenated parameter
                     "get": {
                         "operationId": "getUser",
                         "parameters": [
-                            {
-                                "name": "user-id",
-                                "in": "path",
-                                "required": True,
-                                "schema": {"type": "string"}
-                            }
+                            {"name": "user-id", "in": "path", "required": True, "schema": {"type": "string"}}
                         ],
                         "responses": {
                             "200": {
                                 "description": "User found",
-                                "content": {
-                                    "application/json": {
-                                        "schema": {"$ref": "#/components/schemas/User"}
-                                    }
-                                }
+                                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/User"}}},
                             }
-                        }
+                        },
                     }
                 }
             },
@@ -742,38 +674,32 @@ class TestCodeGenerationIntegrationEdgeCases:
                             "id": {"type": "integer"},
                             "name": {"type": "string"},
                             "email": {"type": "string", "format": "email"},
-                            "preferences": {"$ref": "#/components/schemas/UserPreferences"}
-                        }
+                            "preferences": {"$ref": "#/components/schemas/UserPreferences"},
+                        },
                     },
                     "UserPreferences": {
                         "type": "object",
                         "properties": {
-                            "theme": {
-                                "type": "string",
-                                "enum": ["light", "dark", "auto"]
-                            },
+                            "theme": {"type": "string", "enum": ["light", "dark", "auto"]},
                             "notifications": {"type": "boolean"},
-                            "user_ref": {"$ref": "#/components/schemas/User"}  # Circular reference
-                        }
-                    }
+                            "user_ref": {"$ref": "#/components/schemas/User"},  # Circular reference
+                        },
+                    },
                 }
-            }
+            },
         }
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Write spec to temporary file
             import json
+
             spec_file = Path(temp_dir) / "test_spec.json"
-            with open(spec_file, 'w') as f:
+            with open(spec_file, "w") as f:
                 json.dump(edge_case_api_spec, f)
 
             # Should generate complete client without errors
             generator = ClientGenerator(verbose=False)
-            generator.generate(
-                spec_path=str(spec_file),
-                project_root=Path(temp_dir),
-                output_package="edge_case_client"
-            )
+            generator.generate(spec_path=str(spec_file), project_root=Path(temp_dir), output_package="edge_case_client")
 
             # Verify basic structure was created
             client_dir = Path(temp_dir) / "edge_case_client"
@@ -802,11 +728,11 @@ class TestCodeGenerationIntegrationEdgeCases:
                             "type_field": {"$ref": "#/components/schemas/Type"},
                             "list_field": {"$ref": "#/components/schemas/List"},
                             "dict_field": {"$ref": "#/components/schemas/Dict"},
-                            "string_field": {"$ref": "#/components/schemas/String"}
-                        }
-                    }
+                            "string_field": {"$ref": "#/components/schemas/String"},
+                        },
+                    },
                 }
-            }
+            },
         }
 
         result = load_ir_from_spec(collision_spec)
@@ -814,9 +740,7 @@ class TestCodeGenerationIntegrationEdgeCases:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             context = RenderContext(
-                overall_project_root=temp_dir,
-                package_root_for_generated_code=temp_dir,
-                core_package_name="test_core"
+                overall_project_root=temp_dir, package_root_for_generated_code=temp_dir, core_package_name="test_core"
             )
 
             emitter = ModelsEmitter(context=context, parsed_schemas=result.schemas)

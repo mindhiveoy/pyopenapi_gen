@@ -77,10 +77,8 @@ class TestParseAnyOfSchemas(unittest.TestCase):
 
         # Configure mock_parse_fn to return a specific schema for this input
         string_schema = IRSchema(name="GeneratedStringProperty", type="string")
-        self.mock_parse_fn.side_effect = (
-            lambda n, nd, c, md: string_schema
-            if nd == any_of_nodes[0]
-            else self.fail("Unexpected call to mock_parse_fn")
+        self.mock_parse_fn.side_effect = lambda n, nd, c, md: (
+            string_schema if nd == any_of_nodes[0] else self.fail("Unexpected call to mock_parse_fn")
         )
 
         parsed_schemas, is_nullable, eff_type = _parse_any_of_schemas(
@@ -110,8 +108,8 @@ class TestParseAnyOfSchemas(unittest.TestCase):
         any_of_nodes: List[Mapping[str, Any]] = [{"type": "null"}, {"type": "integer"}]
 
         integer_schema = IRSchema(name="GeneratedIntProperty", type="integer")
-        self.mock_parse_fn.side_effect = (
-            lambda n, nd, c, md: integer_schema if nd == any_of_nodes[1] else self.fail("Unexpected call for null type")
+        self.mock_parse_fn.side_effect = lambda n, nd, c, md: (
+            integer_schema if nd == any_of_nodes[1] else self.fail("Unexpected call for null type")
         )
 
         parsed_schemas, is_nullable, eff_type = _parse_any_of_schemas(
@@ -141,8 +139,8 @@ class TestParseAnyOfSchemas(unittest.TestCase):
         any_of_nodes: List[Mapping[str, Any]] = [ref_node]
 
         ref_schema_parsed = IRSchema(name="MyReferencedSchema", type="object")
-        self.mock_parse_fn.side_effect = (
-            lambda n, nd, c, md: ref_schema_parsed if nd == ref_node else self.fail("Unexpected call")
+        self.mock_parse_fn.side_effect = lambda n, nd, c, md: (
+            ref_schema_parsed if nd == ref_node else self.fail("Unexpected call")
         )
 
         parsed_schemas, is_nullable, eff_type = _parse_any_of_schemas(

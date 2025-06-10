@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml  # For loading dummy_spec_path
+
 from pyopenapi_gen.emitters.core_emitter import CoreEmitter
 from pyopenapi_gen.generator.client_generator import ClientGenerator
 
@@ -292,9 +293,9 @@ def test_generate_client__core_in_custom_project_subdir__correct_imports(tmp_pat
     # The endpoint module name depends on the client package name structure.
     # If client_package_full_python_path is 'generated_clients.acme_service_client',
     # then endpoint imports are like 'from .endpoints.default import DefaultClient'
-    assert "from .endpoints.default import DefaultClient" in main_client_content, (
-        "Client client.py missing relative endpoint import."
-    )
+    assert (
+        "from .endpoints.default import DefaultClient" in main_client_content
+    ), "Client client.py missing relative endpoint import."
 
     # Run Mypy
     # The packages_to_check for Mypy should be the top-level directories created in project_root

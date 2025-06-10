@@ -12,7 +12,6 @@ from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.http_types import HTTPMethod
 
 from ..core.utils import NameSanitizer
-from .type_helper import TypeHelper
 from ..types.services.type_service import UnifiedTypeService
 
 logger = logging.getLogger(__name__)

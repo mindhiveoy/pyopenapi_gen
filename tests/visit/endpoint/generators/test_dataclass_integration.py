@@ -7,11 +7,11 @@ Expected Outcome: Generated code includes DataclassSerializer calls for body par
 ensuring seamless developer experience with dataclass inputs.
 """
 
-import dataclasses
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, call
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -54,7 +54,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             "original_name": "body",
             "type": "CreateUserRequest",  # Custom dataclass type
         }
-        
+
         operation = IROperation(
             operation_id="create_user",
             summary="Create a new user",
@@ -65,14 +65,12 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             parameters=[],
             request_body=IRRequestBody(
                 description="User data",
-                content={
-                    "application/json": IRSchema(type="CreateUserRequest", description="User creation data")
-                },
+                content={"application/json": IRSchema(type="CreateUserRequest", description="User creation data")},
                 required=True,
             ),
             responses=[],
         )
-        
+
         ordered_parameters = [body_param_info]
         primary_content_type = "application/json"
 
@@ -89,7 +87,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         # Assert
         # Should import DataclassSerializer
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
-        
+
         # Should generate serialized json_body assignment
         expected_calls = [
             call('url = f"{self.base_url}/users"'),
@@ -97,7 +95,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             call("json_body: CreateUserRequest = DataclassSerializer.serialize(body)"),
             call(""),
         ]
-        
+
         code_writer_mock.write_line.assert_has_calls(expected_calls, any_order=False)
 
     def test_generate_url_and_args_form_data__includes_serializer_call__converts_dataclass_to_form(
@@ -118,14 +116,12 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             parameters=[],
             request_body=IRRequestBody(
                 description="Form data",
-                content={
-                    "application/x-www-form-urlencoded": IRSchema(type="object")
-                },
+                content={"application/x-www-form-urlencoded": IRSchema(type="object")},
                 required=True,
             ),
             responses=[],
         )
-        
+
         ordered_parameters: List[Dict[str, Any]] = []
         primary_content_type = "application/x-www-form-urlencoded"
         resolved_body_type = "FormDataRequest"
@@ -143,9 +139,11 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         # Assert
         # Should import DataclassSerializer
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
-        
+
         # Should generate serialized form_data_body assignment
-        code_writer_mock.write_line.assert_any_call("form_data_body: FormDataRequest = DataclassSerializer.serialize(form_data)")
+        code_writer_mock.write_line.assert_any_call(
+            "form_data_body: FormDataRequest = DataclassSerializer.serialize(form_data)"
+        )
 
     def test_generate_url_and_args_no_body__does_not_include_serializer__handles_bodyless_requests(
         self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
@@ -166,7 +164,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             request_body=None,
             responses=[],
         )
-        
+
         ordered_parameters: List[Dict[str, Any]] = []
 
         # Act
@@ -183,17 +181,13 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         # Should NOT import DataclassSerializer
         import_calls = render_context_mock.add_import.call_args_list
         serializer_import_calls = [
-            call for call in import_calls 
-            if len(call[0]) >= 2 and "DataclassSerializer" in str(call[0][1])
+            call for call in import_calls if len(call[0]) >= 2 and "DataclassSerializer" in str(call[0][1])
         ]
         assert len(serializer_import_calls) == 0, "DataclassSerializer should not be imported for bodyless requests"
-        
+
         # Should NOT generate any serializer calls
         write_calls = code_writer_mock.write_line.call_args_list
-        serializer_write_calls = [
-            call for call in write_calls 
-            if "DataclassSerializer" in str(call[0][0])
-        ]
+        serializer_write_calls = [call for call in write_calls if "DataclassSerializer" in str(call[0][0])]
         assert len(serializer_write_calls) == 0, "DataclassSerializer should not be called for bodyless requests"
 
     def test_generate_url_and_args_multipart_files__includes_serializer_for_metadata__handles_mixed_content(
@@ -211,7 +205,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             "original_name": "files",
             "type": "Dict[str, Any]",  # Could contain dataclass metadata
         }
-        
+
         operation = IROperation(
             operation_id="upload_with_metadata",
             summary="Upload files with metadata",
@@ -222,14 +216,12 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             parameters=[],
             request_body=IRRequestBody(
                 description="Files and metadata",
-                content={
-                    "multipart/form-data": IRSchema(type="object")
-                },
+                content={"multipart/form-data": IRSchema(type="object")},
                 required=True,
             ),
             responses=[],
         )
-        
+
         ordered_parameters = [files_param_info]
         primary_content_type = "multipart/form-data"
 
@@ -246,7 +238,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         # Assert
         # Should import DataclassSerializer for potential dataclass serialization in multipart data
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
-        
+
         # Should generate files_data with potential serialization
         code_writer_mock.write_line.assert_any_call("files_data: Dict[str, Any] = DataclassSerializer.serialize(files)")
 
@@ -261,10 +253,10 @@ class TestEndpointMethodGeneratorDataclassIntegration:
         """
         # This test verifies the complete integration across all generators
         # The actual implementation will span multiple generator classes
-        
+
         # This test serves as a specification for the expected behavior
         # and will be implemented once the generators are updated
-        
+
         expected_generated_code = '''
 async def create_user(self, body: CreateUserRequest) -> CreateUserResponse:
     """Create a new user.
@@ -289,7 +281,7 @@ async def create_user(self, body: CreateUserRequest) -> CreateUserResponse:
     else:
         raise HTTPError(f"Request failed with status {response.status_code}")
         '''.strip()
-        
+
         # For now, this test documents the expected behavior
         # The implementation will make this test pass
         assert True  # Placeholder until generators are updated
@@ -305,10 +297,10 @@ class TestDataclassSerializationCodeGeneration:
         """
         # Expected pattern:
         # json_body: TypeName = DataclassSerializer.serialize(body)
-        
+
         # This test defines the expected code generation pattern
         expected_pattern = "json_body: {type_hint} = DataclassSerializer.serialize(body)"
-        
+
         # The implementation should generate this exact pattern
         assert True  # Will be implemented in the generator update
 
@@ -319,9 +311,9 @@ class TestDataclassSerializationCodeGeneration:
         """
         # Expected pattern:
         # form_data_body: TypeName = DataclassSerializer.serialize(form_data)
-        
+
         expected_pattern = "form_data_body: {type_hint} = DataclassSerializer.serialize(form_data)"
-        
+
         # The implementation should generate this exact pattern
         assert True  # Will be implemented in the generator update
 
@@ -332,8 +324,8 @@ class TestDataclassSerializationCodeGeneration:
         """
         # Expected import:
         # from {core_package}.utils import DataclassSerializer
-        
+
         # This should be added via:
         # context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
-        
+
         assert True  # Will be implemented in the generator update

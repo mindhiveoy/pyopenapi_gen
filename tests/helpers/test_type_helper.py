@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext
@@ -220,9 +221,9 @@ class TestTypeHelperWithIRSchema:
         assert result_false_nullable == py_type
         # Use fresh_finalizer for isolated import check
         fresh_finalizer.finalize(py_type, non_nullable_schema, True)  # Call on fresh instance
-        assert not fresh_finalizer.context.import_collector.has_import("typing", "Optional"), (
-            f"Optional was incorrectly added for {py_type} with non_nullable_schema, required=True"
-        )
+        assert not fresh_finalizer.context.import_collector.has_import(
+            "typing", "Optional"
+        ), f"Optional was incorrectly added for {py_type} with non_nullable_schema, required=True"
 
         # Test with is_nullable = None
         # Re-create fresh_finalizer for the second isolated check or use a different one
@@ -236,9 +237,9 @@ class TestTypeHelperWithIRSchema:
         )  # Use general finalizer for main assert
         assert result_none_nullable == py_type
         another_fresh_finalizer.finalize(py_type, none_nullable_schema, True)  # Call on new fresh instance
-        assert not another_fresh_finalizer.context.import_collector.has_import("typing", "Optional"), (
-            f"Optional was incorrectly added for {py_type} with none_nullable_schema, required=True"
-        )
+        assert not another_fresh_finalizer.context.import_collector.has_import(
+            "typing", "Optional"
+        ), f"Optional was incorrectly added for {py_type} with none_nullable_schema, required=True"
 
     # Category 2: Optional by Usage
     # Postcondition 1.b
@@ -273,9 +274,9 @@ class TestTypeHelperWithIRSchema:
             )
         )
         assert ff3.finalize("Optional[int]", non_nullable_schema, False) == "Optional[int]"
-        assert not ff3.context.import_collector.has_import("typing", "Optional"), (
-            "Optional added when py_type was already Optional[]"
-        )
+        assert not ff3.context.import_collector.has_import(
+            "typing", "Optional"
+        ), "Optional added when py_type was already Optional[]"
 
         # Postcondition 1.b.iv (already "Union[..., None]")
         ff4 = TypeFinalizer(
@@ -284,9 +285,9 @@ class TestTypeHelperWithIRSchema:
             )
         )
         assert ff4.finalize("Union[int, float, None]", non_nullable_schema, False) == "Union[int, float, None]"
-        assert not ff4.context.import_collector.has_import("typing", "Optional"), (
-            "Optional added when py_type was Union[..., None]"
-        )
+        assert not ff4.context.import_collector.has_import(
+            "typing", "Optional"
+        ), "Optional added when py_type was Union[..., None]"
 
         ff5 = TypeFinalizer(
             RenderContext(
@@ -411,9 +412,9 @@ class TestTypeHelperWithIRSchema:
         )
         result = ff_c3.finalize("Optional[str]", nullable_schema, True)
         assert result == "Optional[str]"
-        assert not ff_c3.context.import_collector.has_import("typing", "Optional"), (
-            "Optional import was added when py_type was already Optional[]"
-        )
+        assert not ff_c3.context.import_collector.has_import(
+            "typing", "Optional"
+        ), "Optional import was added when py_type was already Optional[]"
 
         # Case 4: Union type, non-nullable schema, not required (required=False)
         # Contract: Optional due to required=False. py_type is "Union[str, int]" (Postcondition 1.b.v)
@@ -613,9 +614,9 @@ class TestPrimitiveTypeResolver:  # Renamed class
         assert result == expected_py_type
         # Check imports on the resolver's context
         for module, name in expected_imports:
-            assert primitive_resolver.context.import_collector.has_import(module, name), (
-                f"Expected import {module}.{name} not found for {schema_type}/{schema_format}"
-            )
+            assert primitive_resolver.context.import_collector.has_import(
+                module, name
+            ), f"Expected import {module}.{name} not found for {schema_type}/{schema_format}"
         if not expected_imports and expected_py_type in ["date", "datetime"]:
             if expected_py_type == "date":
                 assert not primitive_resolver.context.import_collector.has_import("datetime", "date")
@@ -714,9 +715,9 @@ class TestArrayTypeResolver:  # Renamed class
         for name in expected_typing_imports:
             assert array_resolver.context.import_collector.has_import(
                 "typing", name
-            ) or array_resolver.context.import_collector.has_import("datetime", name), (
-                f"Expected typing/datetime import '{name}' not found for items: {items_schema_dict}"
-            )
+            ) or array_resolver.context.import_collector.has_import(
+                "datetime", name
+            ), f"Expected typing/datetime import '{name}' not found for items: {items_schema_dict}"
 
 
 # Update tests for CompositionTypeResolver (formerly TypeHelper._get_composition_type)
@@ -873,9 +874,9 @@ class TestCompositionTypeResolver:  # Renamed class
         for name in expected_typing_imports:
             assert composition_resolver.context.import_collector.has_import(
                 "typing", name
-            ) or composition_resolver.context.import_collector.has_import("datetime", name), (
-                f"Expected typing/datetime import '{name}' not found for {composition_type} with items: {sub_schemas_dicts}"
-            )
+            ) or composition_resolver.context.import_collector.has_import(
+                "datetime", name
+            ), f"Expected typing/datetime import '{name}' not found for {composition_type} with items: {sub_schemas_dicts}"
 
 
 # Update tests for NamedTypeResolver (formerly TypeHelper._get_named_or_enum_type)
@@ -1063,9 +1064,9 @@ class TestNamedTypeResolver:  # Renamed class
         # Check imports on the fresh_context_for_test
         if expected_model_imports:
             for module, name in expected_model_imports:
-                assert fresh_context_for_test.import_collector.has_import(module, name), (
-                    f"[{test_id}] Expected model import {module}.{name} not found."
-                )
+                assert fresh_context_for_test.import_collector.has_import(
+                    module, name
+                ), f"[{test_id}] Expected model import {module}.{name} not found."
         else:
             # Check for unexpected model imports if none are expected
             if not expected_model_imports:
@@ -1257,13 +1258,13 @@ class TestObjectTypeResolver:  # Renamed class
         for item in expected_imports:
             if isinstance(item, tuple):
                 module, name = item
-                assert object_resolver.context.import_collector.has_import(module, name), (
-                    f"[{test_id}] Expected model import {module}.{name} not found."
-                )
+                assert object_resolver.context.import_collector.has_import(
+                    module, name
+                ), f"[{test_id}] Expected model import {module}.{name} not found."
             else:
-                assert object_resolver.context.import_collector.has_import("typing", item), (
-                    f"[{test_id}] Expected typing import '{item}' not found."
-                )
+                assert object_resolver.context.import_collector.has_import(
+                    "typing", item
+                ), f"[{test_id}] Expected typing import '{item}' not found."
 
         # Check that no unexpected model imports were added if only typing imports were expected
         if all(isinstance(item, str) for item in expected_imports):
@@ -1293,13 +1294,13 @@ class TestObjectTypeResolver:  # Renamed class
                             is_unexpected_model_import = False
 
                         if is_unexpected_model_import:
-                            assert not imp_module.startswith(tuple(s.split(".")[0] for s in schemas.keys())), (
-                                f"[{test_id}] Unexpected model-like import found: {imp_module} when only typing imports expected. Expected: {expected_imports}"
-                            )
+                            assert not imp_module.startswith(
+                                tuple(s.split(".")[0] for s in schemas.keys())
+                            ), f"[{test_id}] Unexpected model-like import found: {imp_module} when only typing imports expected. Expected: {expected_imports}"
                             # Stricter check for any non-typing, non-core, non-stdlib import
-                            assert False, (
-                                f"[{test_id}] Unexpected non-typing/non-core/non-stdlib import found: {imp_module}. Expected only: {expected_imports}"
-                            )
+                            assert (
+                                False
+                            ), f"[{test_id}] Unexpected non-typing/non-core/non-stdlib import found: {imp_module}. Expected only: {expected_imports}"
 
 
 class TestTypeHelperGetPythonTypeForSchemaFallthroughs:
@@ -1499,9 +1500,9 @@ class TestTypeHelperModelToModelImports:
         # The has_import check is good. For rendered output, we'd look at the final string.
         rendered_imports = context.render_imports()
         expected_import_line = f"from {expected_relative_module} import {expected_class_name_b}"
-        assert expected_import_line in rendered_imports, (
-            f"Expected import line '{expected_import_line}' not in rendered imports:\\n{rendered_imports}"
-        )
+        assert (
+            expected_import_line in rendered_imports
+        ), f"Expected import line '{expected_import_line}' not in rendered imports:\\n{rendered_imports}"
 
     def test_get_python_type_for_schema__optional_model_import_same_dir(
         self, model_import_render_context: RenderContext, tmp_path: Path
@@ -1560,9 +1561,9 @@ class TestTypeHelperModelToModelImports:
 
         # Assert import for SchemaB (unified system uses relative imports)
         expected_relative_module_b = f".{schema_b_module_name}"
-        assert context.import_collector.has_import(expected_relative_module_b, expected_class_name_b), (
-            f"Expected SchemaB import 'from {expected_relative_module_b} import {expected_class_name_b}' not found."
-        )
+        assert context.import_collector.has_import(
+            expected_relative_module_b, expected_class_name_b
+        ), f"Expected SchemaB import 'from {expected_relative_module_b} import {expected_class_name_b}' not found."
 
         # Assert import for Optional
         assert context.import_collector.has_import("typing", "Optional"), "Expected typing.Optional import not found."
@@ -1572,9 +1573,9 @@ class TestTypeHelperModelToModelImports:
         expected_import_line_schema_b = f"from {expected_relative_module_b} import {expected_class_name_b}"
         expected_import_line_optional = "from typing import Optional"
 
-        assert expected_import_line_schema_b in rendered_imports, (
-            f"Expected SchemaB import line '{expected_import_line_schema_b}' not in rendered imports:\\n{rendered_imports}"
-        )
-        assert expected_import_line_optional in rendered_imports, (
-            f"Expected Optional import line '{expected_import_line_optional}' not in rendered imports:\\n{rendered_imports}"
-        )
+        assert (
+            expected_import_line_schema_b in rendered_imports
+        ), f"Expected SchemaB import line '{expected_import_line_schema_b}' not in rendered imports:\\n{rendered_imports}"
+        assert (
+            expected_import_line_optional in rendered_imports
+        ), f"Expected Optional import line '{expected_import_line_optional}' not in rendered imports:\\n{rendered_imports}"

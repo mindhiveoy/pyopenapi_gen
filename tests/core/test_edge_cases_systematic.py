@@ -9,6 +9,7 @@ error handling, and proper behavior with unusual or extreme inputs.
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
@@ -49,7 +50,7 @@ class TestNameSanitizationEdgeCases:
             "Schema.with.dots",
             "Schema with spaces",
             "123NumericStart",
-            "0StartWithZero"
+            "0StartWithZero",
         ]
 
         for name in unicode_cases:
@@ -60,10 +61,38 @@ class TestNameSanitizationEdgeCases:
         """Test that Python reserved words are properly handled."""
         # Test keywords that should be sanitized when used as class names
         lowercase_keywords = [
-            'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue',
-            'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from',
-            'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not',
-            'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield'
+            "and",
+            "as",
+            "assert",
+            "async",
+            "await",
+            "break",
+            "class",
+            "continue",
+            "def",
+            "del",
+            "elif",
+            "else",
+            "except",
+            "finally",
+            "for",
+            "from",
+            "global",
+            "if",
+            "import",
+            "in",
+            "is",
+            "lambda",
+            "nonlocal",
+            "not",
+            "or",
+            "pass",
+            "raise",
+            "return",
+            "try",
+            "while",
+            "with",
+            "yield",
         ]
 
         # Test that lowercase keywords get capitalized and potentially suffixed
@@ -74,7 +103,7 @@ class TestNameSanitizationEdgeCases:
             assert sanitized != keyword, f"Keyword '{keyword}' was not modified"
 
         # Test the capitalized built-in constants separately
-        constants = ['False', 'True', 'None']
+        constants = ["False", "True", "None"]
         for const in constants:
             sanitized = NameSanitizer.sanitize_class_name(const)
             assert sanitized.isidentifier(), f"Sanitized constant '{sanitized}' is not valid identifier"
@@ -83,9 +112,7 @@ class TestNameSanitizationEdgeCases:
     def test_name_collision_resolution(self) -> None:
         """Test systematic name collision resolution."""
         # Test that different naming patterns produce valid identifiers
-        test_names = [
-            "User", "user", "USER", "data", "type", "list", "class", "def"
-        ]
+        test_names = ["User", "user", "USER", "data", "type", "list", "class", "def"]
 
         for name in test_names:
             sanitized = NameSanitizer.sanitize_class_name(name)
@@ -95,7 +122,9 @@ class TestNameSanitizationEdgeCases:
         # Test that reserved names get modified
         reserved_name = "list"
         sanitized_reserved = NameSanitizer.sanitize_class_name(reserved_name)
-        assert sanitized_reserved != "List", f"Reserved name '{reserved_name}' should be modified, got '{sanitized_reserved}'"
+        assert (
+            sanitized_reserved != "List"
+        ), f"Reserved name '{reserved_name}' should be modified, got '{sanitized_reserved}'"
 
 
 class TestSchemaParsingEdgeCases:
@@ -116,10 +145,7 @@ class TestSchemaParsingEdgeCases:
         context = ParsingContext()
 
         # Test schema with missing/null type (should default to object)
-        schema_with_nulls = {
-            "description": None,
-            "properties": {}
-        }
+        schema_with_nulls = {"description": None, "properties": {}}
 
         result = _parse_schema("NullSchema", schema_with_nulls, context)
         assert result is not None
@@ -132,11 +158,7 @@ class TestSchemaParsingEdgeCases:
 
         # Create 20 levels of nesting
         for i in range(20):
-            current["properties"] = {
-                f"level_{i}": {
-                    "type": "object"
-                }
-            }
+            current["properties"] = {f"level_{i}": {"type": "object"}}
             current = current["properties"][f"level_{i}"]
 
         # Add final property
@@ -150,10 +172,7 @@ class TestSchemaParsingEdgeCases:
         """Test enum with very large number of values."""
         large_enum_values = [f"value_{i}" for i in range(1000)]
 
-        enum_schema = {
-            "type": "string",
-            "enum": large_enum_values
-        }
+        enum_schema = {"type": "string", "enum": large_enum_values}
 
         context = ParsingContext()
         result = _parse_schema("LargeEnum", enum_schema, context)
@@ -167,15 +186,15 @@ class TestSchemaParsingEdgeCases:
             "CircularA": {
                 "allOf": [
                     {"$ref": "#/components/schemas/CircularB"},
-                    {"type": "object", "properties": {"a_field": {"type": "string"}}}
+                    {"type": "object", "properties": {"a_field": {"type": "string"}}},
                 ]
             },
             "CircularB": {
                 "allOf": [
                     {"$ref": "#/components/schemas/CircularA"},
-                    {"type": "object", "properties": {"b_field": {"type": "integer"}}}
+                    {"type": "object", "properties": {"b_field": {"type": "integer"}}},
                 ]
-            }
+            },
         }
 
         # Should handle circular references gracefully
@@ -208,12 +227,7 @@ class TestInvalidReferenceHandling:
         context.raw_spec_schemas = {"ValidSchema": {"type": "string"}}
 
         for ref_path in malformed_refs:
-            schema_with_bad_ref = {
-                "type": "object",
-                "properties": {
-                    "bad_ref": {"$ref": ref_path}
-                }
-            }
+            schema_with_bad_ref = {"type": "object", "properties": {"bad_ref": {"$ref": ref_path}}}
 
             # Should not crash but handle gracefully
             result = _parse_schema("SchemaWithBadRef", schema_with_bad_ref, context)
@@ -227,9 +241,7 @@ class TestInvalidReferenceHandling:
         invalid_self_ref = {
             "type": "object",
             "description": {"$ref": "#/components/schemas/InvalidSelfRef"},  # Wrong place for ref
-            "properties": {
-                "self": {"$ref": "#/components/schemas/InvalidSelfRef"}
-            }
+            "properties": {"self": {"$ref": "#/components/schemas/InvalidSelfRef"}},
         }
 
         context.raw_spec_schemas["InvalidSelfRef"] = invalid_self_ref
@@ -246,11 +258,8 @@ class TestInvalidReferenceHandling:
             "properties": {
                 "missing1": {"$ref": "#/components/schemas/DoesNotExist1"},
                 "missing2": {"$ref": "#/components/schemas/DoesNotExist2"},
-                "array_missing": {
-                    "type": "array",
-                    "items": {"$ref": "#/components/schemas/DoesNotExist3"}
-                }
-            }
+                "array_missing": {"type": "array", "items": {"$ref": "#/components/schemas/DoesNotExist3"}},
+            },
         }
 
         result = _parse_schema("SchemaWithMissingRefs", schema_with_missing_refs, context)
@@ -273,7 +282,7 @@ class TestBoundaryConditions:
                 "type": "object",
                 "properties": {
                     "next": {"$ref": f"#/components/schemas/Deep{i + 1}"} if i < 199 else {"type": "string"}
-                }
+                },
             }
 
         # Should handle without stack overflow
@@ -286,9 +295,7 @@ class TestBoundaryConditions:
             "openapi": "3.1.0",
             "info": {"title": "Large API", "version": "1.0.0"},
             "paths": {},
-            "components": {
-                "schemas": {f"Schema{i}": {"type": "string"} for i in range(1000)}
-            }
+            "components": {"schemas": {f"Schema{i}": {"type": "string"} for i in range(1000)}},
         }
 
         # Should handle large number of schemas efficiently
@@ -303,12 +310,7 @@ class TestBoundaryConditions:
         schema_with_long_desc = {
             "type": "object",
             "description": very_long_description,
-            "properties": {
-                "field": {
-                    "type": "string",
-                    "description": very_long_description
-                }
-            }
+            "properties": {"field": {"type": "string", "description": very_long_description}},
         }
 
         context = ParsingContext()
@@ -341,11 +343,7 @@ class TestSpecialCharactersAndEncoding:
                 "openapi": "3.1.0",
                 "info": {"title": "Test API", "version": "1.0.0"},
                 "paths": {},
-                "components": {
-                    "schemas": {
-                        name: {"type": "string"}
-                    }
-                }
+                "components": {"schemas": {name: {"type": "string"}}},
             }
 
             # Should handle without crashing
@@ -359,17 +357,13 @@ class TestSpecialCharactersAndEncoding:
             "type": "object",
             "description": "Описание на русском языке 中文描述 توصيف عربي",
             "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "名前 اسم имя",
-                    "example": "例 مثال пример"
-                },
+                "name": {"type": "string", "description": "名前 اسم имя", "example": "例 مثال пример"},
                 "emoji_field": {
                     "type": "string",
                     "description": "Field with emojis 🚀🔥💯",
-                    "example": "Hello 👋 World 🌍"
-                }
-            }
+                    "example": "Hello 👋 World 🌍",
+                },
+            },
         }
 
         context = ParsingContext()
@@ -386,18 +380,13 @@ class TestErrorRecoveryAndResilience:
             "openapi": "3.1.0",
             "info": {"title": "Partial Error API", "version": "1.0.0"},
             "paths": {
-                "/valid": {
-                    "get": {
-                        "operationId": "validOperation",
-                        "responses": {"200": {"description": "OK"}}
-                    }
-                },
+                "/valid": {"get": {"operationId": "validOperation", "responses": {"200": {"description": "OK"}}}},
                 "/invalid": {
                     "get": {
                         # Missing operationId and responses - invalid
                         "description": "Invalid operation"
                     }
-                }
+                },
             },
             "components": {
                 "schemas": {
@@ -405,10 +394,10 @@ class TestErrorRecoveryAndResilience:
                     "InvalidSchema": {
                         # Invalid schema structure
                         "type": "unknown_type",
-                        "invalid_property": "should not be here"
-                    }
+                        "invalid_property": "should not be here",
+                    },
                 }
-            }
+            },
         }
 
         # Should process valid parts and handle invalid parts gracefully
@@ -424,9 +413,7 @@ class TestErrorRecoveryAndResilience:
             "openapi": "3.1.0",
             "info": {"title": "Memory Test API", "version": "1.0.0"},
             "paths": {},
-            "components": {
-                "schemas": {}
-            }
+            "components": {"schemas": {}},
         }
 
         # Add schemas with moderately complex structures
@@ -438,14 +425,11 @@ class TestErrorRecoveryAndResilience:
                         "type": "array",
                         "items": {
                             "type": "object",
-                            "properties": {
-                                f"nested_{k}": {"type": "string"}
-                                for k in range(5)  # Reduced from 10
-                            }
-                        }
+                            "properties": {f"nested_{k}": {"type": "string"} for k in range(5)},  # Reduced from 10
+                        },
                     }
                     for j in range(5)  # Reduced from 10
-                }
+                },
             }
 
         # Should complete without memory issues
@@ -454,18 +438,13 @@ class TestErrorRecoveryAndResilience:
         # Should have at least the 50 primary schemas, plus any generated inline schemas
         assert len(result.schemas) >= 50
 
-    @patch('pyopenapi_gen.core.parsing.schema_parser.logger')
+    @patch("pyopenapi_gen.core.parsing.schema_parser.logger")
     def test_logging_during_error_conditions(self, mock_logger: MagicMock) -> None:
         """Test that appropriate logging occurs during error conditions."""
         context = ParsingContext()
 
         # Schema that will cause warnings/errors
-        problematic_schema = {
-            "type": "object",
-            "properties": {
-                "bad_ref": {"$ref": "#/components/schemas/NonExistent"}
-            }
-        }
+        problematic_schema = {"type": "object", "properties": {"bad_ref": {"$ref": "#/components/schemas/NonExistent"}}}
 
         result = _parse_schema("ProblematicSchema", problematic_schema, context)
         assert result is not None
@@ -492,7 +471,7 @@ class TestCodeGenerationEdgeCases:
             "openapi": "3.1.0",
             "info": {"title": "Edge Case Test", "version": "1.0.0"},
             "paths": {},
-            "components": {"schemas": edge_case_schemas}
+            "components": {"schemas": edge_case_schemas},
         }
 
         spec = load_ir_from_spec(spec_dict)
@@ -508,7 +487,7 @@ class TestCodeGenerationEdgeCases:
             "SCHEMA_ALL_CAPS",
             "schema_all_lowercase",
             "123NumericStart",
-            "Special@#$Characters"
+            "Special@#$Characters",
         ]
 
         for name in problematic_names:
@@ -517,7 +496,7 @@ class TestCodeGenerationEdgeCases:
             sanitized_class = NameSanitizer.sanitize_class_name(name)
 
             # Should be valid Python module/class names
-            assert sanitized_module.replace('_', '').isalnum() or sanitized_module == ""
+            assert sanitized_module.replace("_", "").isalnum() or sanitized_module == ""
             assert sanitized_class.isidentifier() or sanitized_class == ""
 
 
@@ -533,7 +512,7 @@ class TestPerformanceAndScalability:
             "openapi": "3.1.0",
             "info": {"title": "Complex API", "version": "1.0.0"},
             "paths": {},
-            "components": {"schemas": {}}
+            "components": {"schemas": {}},
         }
 
         # Add interconnected schemas
@@ -544,11 +523,8 @@ class TestPerformanceAndScalability:
                     "id": {"type": "integer"},
                     "name": {"type": "string"},
                     f"ref_to_{(i + 1) % 50}": {"$ref": f"#/components/schemas/Schema{(i + 1) % 50}"},
-                    "array_field": {
-                        "type": "array",
-                        "items": {"$ref": f"#/components/schemas/Schema{(i + 10) % 50}"}
-                    }
-                }
+                    "array_field": {"type": "array", "items": {"$ref": f"#/components/schemas/Schema{(i + 10) % 50}"}},
+                },
             }
 
         start_time = time.time()
@@ -574,29 +550,21 @@ class TestComprehensiveEdgeCaseValidation:
             "info": {
                 "title": "Edge Case API 🚀",
                 "version": "1.0.0-beta+build.123",
-                "description": "API with many edge cases and special characters 中文"
+                "description": "API with many edge cases and special characters 中文",
             },
             "paths": {
                 "/test-endpoint": {
                     "get": {
                         "operationId": "getTestEndpoint",
-                        "parameters": [
-                            {
-                                "name": "param-with-hyphens",
-                                "in": "query",
-                                "schema": {"type": "string"}
-                            }
-                        ],
+                        "parameters": [{"name": "param-with-hyphens", "in": "query", "schema": {"type": "string"}}],
                         "responses": {
                             "200": {
                                 "description": "Success response with edge cases",
                                 "content": {
-                                    "application/json": {
-                                        "schema": {"$ref": "#/components/schemas/EdgeCaseResponse"}
-                                    }
-                                }
+                                    "application/json": {"schema": {"$ref": "#/components/schemas/EdgeCaseResponse"}}
+                                },
                             }
-                        }
+                        },
                     }
                 }
             },
@@ -607,18 +575,15 @@ class TestComprehensiveEdgeCaseValidation:
                         "properties": {
                             "id": {"type": "integer"},
                             "data": {"$ref": "#/components/schemas/EdgeCaseResponse"},  # Self-reference
-                            "list_field": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
+                            "list_field": {"type": "array", "items": {"type": "string"}},
                             "enum_field": {
                                 "type": "string",
-                                "enum": ["value-with-hyphens", "VALUE_WITH_UNDERSCORES", "123_numeric_start"]
-                            }
-                        }
+                                "enum": ["value-with-hyphens", "VALUE_WITH_UNDERSCORES", "123_numeric_start"],
+                            },
+                        },
                     }
                 }
-            }
+            },
         }
 
         # Should process completely without errors

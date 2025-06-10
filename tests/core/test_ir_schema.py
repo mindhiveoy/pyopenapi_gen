@@ -1,6 +1,7 @@
 """Unit tests for IRSchema class."""
 
 import pytest
+
 from pyopenapi_gen import IRSchema
 
 

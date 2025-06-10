@@ -66,7 +66,6 @@ show_error_codes = true
 namespace_packages = true
 implicit_optional = false
 # Disable overly strict return checking for match statements
-no_implicit_return = false
 warn_no_return = false
 
 [tool.pytest.ini_options]

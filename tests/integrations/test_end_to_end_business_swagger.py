@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
@@ -177,9 +178,9 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
             encoding="utf-8",
         )
 
-    assert mypy_result.returncode == 0, (
-        f"mypy errors (see full output in logs or {mypy_output_filename.relative_to(project_root_dir)}):\n{mypy_output_content}"
-    )
+    assert (
+        mypy_result.returncode == 0
+    ), f"mypy errors (see full output in logs or {mypy_output_filename.relative_to(project_root_dir)}):\n{mypy_output_content}"
 
 
 def test_generated_agent_datasources_imports_are_valid(tmp_path: Path) -> None:

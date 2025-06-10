@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 import pytest
 from httpx import Response
+
 from pyopenapi_gen.core.http_transport import HttpxTransport
 from pyopenapi_gen.core.pagination import paginate_by_next
 
@@ -79,7 +80,9 @@ def test_cli_with_optional_flags(spec_file: Path, tmp_path: Path) -> None:
     # Test the CLI using subprocess to avoid Typer testing issues
     result = subprocess.run(
         [
-            sys.executable, "-m", "pyopenapi_gen.cli",
+            sys.executable,
+            "-m",
+            "pyopenapi_gen.cli",
             "gen",
             str(spec_file),
             "--project-root",
@@ -98,7 +101,9 @@ def test_cli_with_optional_flags(spec_file: Path, tmp_path: Path) -> None:
     )
 
     # Should fail with non-zero exit code due to invalid options
-    assert result.returncode != 0, f"Expected non-zero exit code, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
+    assert (
+        result.returncode != 0
+    ), f"Expected non-zero exit code, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
 
     # Check for error message about unknown options
     error_output = result.stdout + result.stderr

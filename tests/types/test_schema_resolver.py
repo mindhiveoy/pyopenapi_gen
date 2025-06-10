@@ -1,21 +1,22 @@
 """Tests for schema resolver."""
 
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
+
 import pytest
 
 from pyopenapi_gen import IRSchema
-from pyopenapi_gen.types.contracts.types import ResolvedType, TypeResolutionError
+from pyopenapi_gen.types.contracts.types import TypeResolutionError
 from pyopenapi_gen.types.resolvers.schema_resolver import OpenAPISchemaResolver
 
 
 class TestOpenAPISchemaResolver:
     """Test the schema resolver."""
-    
+
     @pytest.fixture
     def mock_ref_resolver(self):
         """Mock reference resolver."""
         return Mock()
-    
+
     @pytest.fixture
     def mock_context(self):
         """Mock type context."""
@@ -23,12 +24,12 @@ class TestOpenAPISchemaResolver:
         context.add_import = Mock()
         context.add_conditional_import = Mock()
         return context
-    
+
     @pytest.fixture
     def resolver(self, mock_ref_resolver):
         """Schema resolver instance."""
         return OpenAPISchemaResolver(mock_ref_resolver)
-    
+
     def test_resolve_schema__none_schema__returns_any(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving None schema
@@ -36,11 +37,11 @@ class TestOpenAPISchemaResolver:
         """
         # Act
         result = resolver.resolve_schema(None, mock_context)
-        
+
         # Assert
         assert result.python_type == "Any"
         mock_context.add_import.assert_called_with("typing", "Any")
-    
+
     def test_resolve_schema__string_type__returns_str(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving string schema
@@ -48,14 +49,14 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="string")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context, required=True)
-        
+
         # Assert
         assert result.python_type == "str"
         assert not result.is_optional
-    
+
     def test_resolve_schema__string_type_optional__returns_optional_str(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving optional string schema
@@ -63,14 +64,14 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="string")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context, required=False)
-        
+
         # Assert
         assert result.python_type == "str"
         assert result.is_optional
-    
+
     def test_resolve_schema__integer_type__returns_int(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving integer schema
@@ -78,13 +79,13 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="integer")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "int"
-    
+
     def test_resolve_schema__number_type__returns_float(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving number schema
@@ -92,13 +93,13 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="number")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "float"
-    
+
     def test_resolve_schema__boolean_type__returns_bool(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving boolean schema
@@ -106,13 +107,13 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="boolean")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "bool"
-    
+
     def test_resolve_schema__array_with_string_items__returns_list_str(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving array schema with string items
@@ -121,14 +122,14 @@ class TestOpenAPISchemaResolver:
         # Arrange
         items_schema = IRSchema(type="string")
         schema = IRSchema(type="array", items=items_schema)
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "List[str]"
         mock_context.add_import.assert_called_with("typing", "List")
-    
+
     def test_resolve_schema__array_no_items__returns_list_any(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving array schema without items
@@ -136,15 +137,15 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="array")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "List[Any]"
         mock_context.add_import.assert_any_call("typing", "List")
         mock_context.add_import.assert_any_call("typing", "Any")
-    
+
     def test_resolve_schema__object_no_properties__returns_dict_any(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving object schema without properties
@@ -152,15 +153,15 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="object")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "Dict[str, Any]"
         mock_context.add_import.assert_any_call("typing", "Dict")
         mock_context.add_import.assert_any_call("typing", "Any")
-    
+
     def test_resolve_schema__named_schema__returns_class_name(self, resolver) -> None:
         """
         Scenario: Resolving named schema with mock context
@@ -171,23 +172,23 @@ class TestOpenAPISchemaResolver:
         mock_render_context.current_file = "/project/endpoints/users.py"
         mock_render_context.calculate_relative_path_for_internal_module.return_value = "..models.user"
         mock_render_context.add_import = Mock()
-        
+
         mock_context = Mock()
         mock_context.render_context = mock_render_context
         mock_context.add_import = Mock()
-        
+
         schema = IRSchema(name="User", generation_name="User", final_module_stem="user")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "User"
         assert result.needs_import
         assert result.import_module == "..models.user"
         assert result.import_name == "User"
         mock_context.add_import.assert_called_with("..models.user", "User")
-    
+
     def test_resolve_schema__reference__resolves_target(self, resolver, mock_context, mock_ref_resolver) -> None:
         """
         Scenario: Resolving schema with $ref
@@ -198,14 +199,14 @@ class TestOpenAPISchemaResolver:
         mock_ref_resolver.resolve_ref.return_value = target_schema
         schema = Mock()
         schema.ref = "#/components/schemas/User"
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "str"
         mock_ref_resolver.resolve_ref.assert_called_once_with("#/components/schemas/User")
-    
+
     def test_resolve_schema__reference_not_found__raises_error(self, resolver, mock_context, mock_ref_resolver) -> None:
         """
         Scenario: Resolving schema with invalid $ref
@@ -215,11 +216,11 @@ class TestOpenAPISchemaResolver:
         mock_ref_resolver.resolve_ref.return_value = None
         schema = Mock()
         schema.ref = "#/components/schemas/MissingUser"
-        
+
         # Act & Assert
         with pytest.raises(TypeResolutionError, match="Could not resolve reference"):
             resolver.resolve_schema(schema, mock_context)
-    
+
     def test_resolve_schema__unknown_type__returns_any(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving schema with unknown type
@@ -227,14 +228,14 @@ class TestOpenAPISchemaResolver:
         """
         # Arrange
         schema = IRSchema(type="unknown_type")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "Any"
         mock_context.add_import.assert_called_with("typing", "Any")
-    
+
     def test_resolve_schema__named_schema_with_render_context__uses_relative_path_calculation(self, resolver) -> None:
         """
         Scenario: Resolving named schema with render context that calculates relative paths
@@ -245,16 +246,16 @@ class TestOpenAPISchemaResolver:
         mock_render_context.current_file = "/project/models/my_item_list_response.py"
         mock_render_context.calculate_relative_path_for_internal_module.return_value = ".my_item"
         mock_render_context.add_import = Mock()
-        
+
         mock_context = Mock()
         mock_context.render_context = mock_render_context
         mock_context.add_import = Mock()
-        
+
         schema = IRSchema(name="MyItem", generation_name="MyItem", final_module_stem="my_item")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "MyItem"
         assert result.needs_import
@@ -262,7 +263,7 @@ class TestOpenAPISchemaResolver:
         assert result.import_name == "MyItem"
         mock_context.add_import.assert_called_with(".my_item", "MyItem")
         mock_render_context.calculate_relative_path_for_internal_module.assert_called_with("models.my_item")
-    
+
     def test_resolve_schema__named_schema_without_render_context__uses_default_path(self, resolver) -> None:
         """
         Scenario: Resolving named schema without render context
@@ -273,19 +274,19 @@ class TestOpenAPISchemaResolver:
         mock_context.add_import = Mock()
         # Explicitly set up mock to not have render_context attribute
         del mock_context.render_context
-        
+
         schema = IRSchema(name="User", generation_name="User", final_module_stem="user")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "User"
         assert result.needs_import
         assert result.import_module == "..models.user"  # Default fallback
         assert result.import_name == "User"
         mock_context.add_import.assert_called_with("..models.user", "User")
-    
+
     def test_resolve_schema__named_schema_from_different_directory__uses_proper_relative_path(self, resolver) -> None:
         """
         Scenario: Resolving named schema from endpoints directory to models directory
@@ -296,16 +297,16 @@ class TestOpenAPISchemaResolver:
         mock_render_context.current_file = "/project/endpoints/users.py"
         mock_render_context.calculate_relative_path_for_internal_module.return_value = "..models.user"
         mock_render_context.add_import = Mock()
-        
+
         mock_context = Mock()
         mock_context.render_context = mock_render_context
         mock_context.add_import = Mock()
-        
+
         schema = IRSchema(name="User", generation_name="User", final_module_stem="user")
-        
+
         # Act
         result = resolver.resolve_schema(schema, mock_context)
-        
+
         # Assert
         assert result.python_type == "User"
         assert result.needs_import

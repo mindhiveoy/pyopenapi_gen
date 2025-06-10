@@ -1,6 +1,5 @@
 """Unit tests for ParsingContext class."""
 
-
 from pyopenapi_gen.core.parsing.context import ParsingContext
 
 

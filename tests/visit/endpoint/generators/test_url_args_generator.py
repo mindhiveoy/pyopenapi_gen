@@ -2,6 +2,7 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -453,7 +454,9 @@ class TestEndpointUrlArgsGenerator:
             None,  # resolved_body_type not directly used for multipart in this path
         )
 
-        code_writer_mock.write_line.assert_any_call(f"files_data: {files_param_info['type']} = DataclassSerializer.serialize(files)")
+        code_writer_mock.write_line.assert_any_call(
+            f"files_data: {files_param_info['type']} = DataclassSerializer.serialize(files)"
+        )
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         render_context_mock.add_typing_imports_for_type.assert_called_with(files_param_info["type"])
 
@@ -525,7 +528,9 @@ class TestEndpointUrlArgsGenerator:
             resolved_body_type,
         )
 
-        code_writer_mock.write_line.assert_any_call(f"form_data_body: {resolved_body_type} = DataclassSerializer.serialize(form_data)")
+        code_writer_mock.write_line.assert_any_call(
+            f"form_data_body: {resolved_body_type} = DataclassSerializer.serialize(form_data)"
+        )
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         # This specific path does not add imports itself, assumes type hint is valid
 
@@ -557,7 +562,9 @@ class TestEndpointUrlArgsGenerator:
             resolved_body_type,
         )
 
-        code_writer_mock.write_line.assert_any_call("form_data_body: Dict[str, Any] = DataclassSerializer.serialize(form_data)  # Fallback type")
+        code_writer_mock.write_line.assert_any_call(
+            "form_data_body: Dict[str, Any] = DataclassSerializer.serialize(form_data)  # Fallback type"
+        )
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         render_context_mock.add_import.assert_any_call("typing", "Dict")
         render_context_mock.add_import.assert_any_call("typing", "Any")

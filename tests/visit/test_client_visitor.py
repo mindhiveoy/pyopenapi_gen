@@ -20,7 +20,7 @@ class TestClientVisitor:
         self.context = RenderContext(
             core_package_name="test_app.core",
             package_root_for_generated_code="/tmp/test_app",
-            overall_project_root="/tmp"
+            overall_project_root="/tmp",
         )
         # Set a current file to collect imports properly
         self.context.set_current_file("/tmp/test_app/client.py")
@@ -33,12 +33,7 @@ class TestClientVisitor:
             A valid Python class is generated with required imports
         """
         # Create a minimal IRSpec with no operations
-        spec = IRSpec(
-            title="Test API",
-            version="1.0.0",
-            description="Test API description",
-            operations=[]
-        )
+        spec = IRSpec(title="Test API", version="1.0.0", description="Test API description", operations=[])
 
         # Set a current file to collect imports properly
         self.context.set_current_file("/tmp/test_app/client.py")
@@ -108,12 +103,7 @@ class TestClientVisitor:
         ]
 
         # Create a spec with these operations
-        spec = IRSpec(
-            title="Test API",
-            version="1.0.0",
-            description="Test API description",
-            operations=operations
-        )
+        spec = IRSpec(title="Test API", version="1.0.0", description="Test API description", operations=operations)
 
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
@@ -167,12 +157,7 @@ class TestClientVisitor:
         ]
 
         # Create a spec with these operations
-        spec = IRSpec(
-            title="Test API",
-            version="1.0.0",
-            description="Test API description",
-            operations=operations
-        )
+        spec = IRSpec(title="Test API", version="1.0.0", description="Test API description", operations=operations)
 
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
@@ -229,12 +214,7 @@ class TestClientVisitor:
         ]
 
         # Create a spec with these operations
-        spec = IRSpec(
-            title="Test API",
-            version="1.0.0",
-            description="Test API description",
-            operations=operations
-        )
+        spec = IRSpec(title="Test API", version="1.0.0", description="Test API description", operations=operations)
 
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
@@ -291,12 +271,7 @@ class TestClientVisitor:
         ]
 
         # Create a spec with these operations
-        spec = IRSpec(
-            title="Test API",
-            version="1.0.0",
-            description="Test API description",
-            operations=operations
-        )
+        spec = IRSpec(title="Test API", version="1.0.0", description="Test API description", operations=operations)
 
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
@@ -323,7 +298,7 @@ class TestClientVisitor:
             title="Test API",
             version="2.1.0",
             description="This is a test API\nwith multiple lines\nof description.",
-            operations=[]
+            operations=[],
         )
 
         # Visit the spec to generate the client code
@@ -344,12 +319,7 @@ class TestClientVisitor:
             Class includes request() and close() methods
         """
         # Create a minimal spec
-        spec = IRSpec(
-            title="Test API",
-            version="1.0.0",
-            description="Test API",
-            operations=[]
-        )
+        spec = IRSpec(title="Test API", version="1.0.0", description="Test API", operations=[])
 
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
@@ -371,12 +341,7 @@ class TestClientVisitor:
             Class includes __aenter__ and __aexit__ methods
         """
         # Create a minimal spec
-        spec = IRSpec(
-            title="Test API",
-            version="1.0.0",
-            description="Test API",
-            operations=[]
-        )
+        spec = IRSpec(title="Test API", version="1.0.0", description="Test API", operations=[])
 
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
