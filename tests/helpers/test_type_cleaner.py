@@ -62,9 +62,17 @@ class TestTypeCleaner:
             - Should handle deeply nested structures correctly
         """
         # The exact string with no whitespace between parts
-        complex_type = "Union[Dict[str, List[Dict[str, Any, None], None]], List[Union[Dict[str, Any, None], str, None]], Optional[Dict[str, Union[str, int, None], None]]]"
+        complex_type = (
+            "Union[Dict[str, List[Dict[str, Any, None], None]], "
+            "List[Union[Dict[str, Any, None], str, None]], "
+            "Optional[Dict[str, Union[str, int, None], None]]]"
+        )
 
-        expected = "Union[Dict[str, List[Dict[str, Any]]], List[Union[Dict[str, Any], str, None]], Optional[Dict[str, Union[str, int, None]]]]"
+        expected = (
+            "Union[Dict[str, List[Dict[str, Any]]], "
+            "List[Union[Dict[str, Any], str, None]], "
+            "Optional[Dict[str, Union[str, int, None]]]]"
+        )
 
         result = TypeCleaner.clean_type_parameters(complex_type)
 

@@ -63,8 +63,8 @@ def test_iter_ndjson__yields_json_objects() -> None:
     response = MagicMock(spec=httpx.Response)
 
     async def aiter_lines() -> AsyncGenerator[str, None]:
-        for l in lines:
-            yield l
+        for line in lines:
+            yield line
 
     response.aiter_lines = aiter_lines
     out = []
@@ -98,8 +98,8 @@ def test_iter_sse__yields_events() -> None:
     response = MagicMock(spec=httpx.Response)
 
     async def aiter_lines() -> AsyncGenerator[str, None]:
-        for l in lines:
-            yield l
+        for line in lines:
+            yield line
 
     response.aiter_lines = aiter_lines
     out = []

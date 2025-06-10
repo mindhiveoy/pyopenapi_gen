@@ -253,7 +253,8 @@ class TestLogging(unittest.TestCase):
         _parse_schema("TestSchema", {"$ref": "#/components/schemas/NonExistent"}, context, allow_self_reference=False)
         mock_logger.warning.assert_called_once()
         self.assertIn(
-            "Cannot resolve $ref '#/components/schemas/NonExistent' for parent 'TestSchema'. Target 'NonExistent' not in raw_spec_schemas. Returning placeholder.",
+            "Cannot resolve $ref '#/components/schemas/NonExistent' for parent 'TestSchema'. "
+            "Target 'NonExistent' not in raw_spec_schemas. Returning placeholder.",
             mock_logger.warning.call_args[0][0],
         )
 

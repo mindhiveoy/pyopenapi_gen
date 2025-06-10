@@ -12,7 +12,8 @@ from pyopenapi_gen.core.parsing.common.type_parser import extract_primary_type_a
 
 class TestExtractPrimaryTypeAndNullability:
     @pytest.mark.parametrize(
-        "test_id, node_type_field, schema_name, expected_type, expected_nullable, expected_warnings_count, expected_warning_substring",
+        "test_id, node_type_field, schema_name, expected_type, expected_nullable, "
+        "expected_warnings_count, expected_warning_substring",
         [
             (
                 "simple_string",

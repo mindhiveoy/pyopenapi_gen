@@ -62,7 +62,8 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
             self.fail(
                 f"DETECTED ISSUE: The include parameter is incorrectly typed as '{current_incorrect_typing}'. "
                 f"It should be '{expected_correct_typing}' to match the OpenAPI spec which defines it as "
-                f"an array of strings with enum values: ['tenant', 'agentSettings', 'credentials', 'dataSourceConnections']"
+                f"an array of strings with enum values: "
+                f"['tenant', 'agentSettings', 'credentials', 'dataSourceConnections']"
             )
 
         # If the fix has been applied, check for the correct typing

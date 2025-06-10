@@ -119,7 +119,8 @@ class TestAttemptPromoteInlineObject(unittest.TestCase):
         parent_schema_name = "Choice"
         property_key = "option"
         property_schema = IRSchema(name="Choice.option", type="object", enum=["A", "B"])
-        # Note: the type might be set to "object" by schema_parser if it's an inline enum without explicit type sometimes.
+        # Note: the type might be set to "object" by schema_parser if it's an inline enum
+        # without explicit type sometimes.
         # The promoter should specifically check `schema_obj.enum is None`.
 
         promoted_property_ref_ir = _attempt_promote_inline_object(

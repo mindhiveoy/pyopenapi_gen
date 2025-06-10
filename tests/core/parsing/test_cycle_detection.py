@@ -506,7 +506,8 @@ class TestCycleDetection(unittest.TestCase):
         # This ensures the ref target for schema_3 exists, even if it's schema_4 that would be depth limited.
         # The critical point is schema_3 trying to parse its allOf pointing to schema_4.
         # No, the critical point is when _parse_schema is called *for* schema_3.
-        # The setup ensures schema_name (DeepAllOfSchema_0) has schema_1 in its allOf, schema_1 has schema_2, schema_2 has schema_3.
+        # The setup ensures schema_name (DeepAllOfSchema_0) has schema_1 in its allOf,
+        # schema_1 has schema_2, schema_2 has schema_3.
         # Parsing schema_0 (depth 1)
         #  -> calls _parse_schema for schema_1 (depth 2)
         #     -> calls _parse_schema for schema_2 (depth 3)
@@ -532,7 +533,8 @@ class TestCycleDetection(unittest.TestCase):
 
         self.assertTrue(
             depth_exceeded_schema_actual_ir._max_depth_exceeded_marker,
-            f"{depth_limited_schema_name} ({depth_exceeded_schema_actual_ir.name}) should be marked for max depth exceeded",
+            f"{depth_limited_schema_name} ({depth_exceeded_schema_actual_ir.name}) "
+            f"should be marked for max depth exceeded",
         )
 
         _temp_name_val = depth_exceeded_schema_actual_ir.name

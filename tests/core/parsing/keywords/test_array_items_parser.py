@@ -57,7 +57,8 @@ class TestParseArrayItemsSchema:
             - A `parent_schema_name` is provided.
         Expected Outcome:
             - The `parse_fn` is called once.
-            - The `item_name_for_parse` passed to `parse_fn` is extracted directly from the $ref path (e.g., "ReferencedItem").
+            - The `item_name_for_parse` passed to `parse_fn` is extracted directly from the $ref path
+              (e.g., "ReferencedItem").
         """
         parent_name = "ArrayOfRefs"
         items_data = {"$ref": "#/components/schemas/ReferencedItem"}
@@ -93,7 +94,8 @@ class TestParseArrayItemsSchema:
             - `parent_schema_name` is None.
         Expected Outcome:
             - `parse_fn` is called once.
-            - `item_name_for_parse` passed to `parse_fn` is None, as there is no parent name to derive from and it's not a $ref.
+            - `item_name_for_parse` passed to `parse_fn` is None, as there is no parent name to derive
+              from and it's not a $ref.
         """
         items_data = {"type": "boolean"}
         expected_item_name = None  # No parent name, not a ref -> item name is None

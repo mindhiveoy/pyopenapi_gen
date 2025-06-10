@@ -191,7 +191,8 @@ def test_simple_object_unwrapping(tmp_path: Path) -> None:
             endpoint_file = non_init_py_files[0]
         else:
             pytest.fail(
-                f"Expected a single endpoint file or default.py, found: {non_init_py_files}. Check generator's default tagging."
+                f"Expected a single endpoint file or default.py, found: {non_init_py_files}. "
+                f"Check generator's default tagging."
             )
 
     assert endpoint_file.exists(), f"Endpoint file {endpoint_file} not found."

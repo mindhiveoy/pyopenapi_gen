@@ -57,7 +57,7 @@ preview = true
 
 [tool.ruff.lint]
 select = ["F401", "E", "W", "I"]
-# ignore = ["E501"]
+ignore = ["E501"]  # Ignore line length for test files - focus on logic errors
 
 [tool.mypy]
 python_version = "3.12"

@@ -117,7 +117,8 @@ def test_cli_with_optional_flags(spec_file: Path, tmp_path: Path) -> None:
     # # Add assertions to check if generated code uses these names (optional)
     #
     # # Core files still generated
-    # out_dir = tmp_path / "out" # This path seems incorrect, gen command outputs based on project_root and output_package
+    # out_dir = tmp_path / "out"
+    # This path seems incorrect, gen command outputs based on project_root and output_package
     # # Corrected path would be tmp_path / pag_client / ... (or wherever output_package resolves)
     # # For now, commenting out since the command is expected to fail
     # # assert (out_dir / "config.py").exists()

@@ -144,9 +144,7 @@ class EndpointUrlArgsGenerator:
                         f"ordered_params for JSON. Defaulting to Any."
                     )
                     context.add_import("typing", "Any")
-                    writer.write_line(
-                        "json_body: Any = DataclassSerializer.serialize(body)  # param not found"
-                    )
+                    writer.write_line("json_body: Any = DataclassSerializer.serialize(body)  # param not found")
             elif primary_content_type == "multipart/form-data":
                 files_param_details = next((p for p in ordered_params if p["name"] == "files"), None)
                 if files_param_details:

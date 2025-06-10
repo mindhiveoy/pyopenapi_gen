@@ -493,7 +493,8 @@ class TestEndpointUrlArgsGenerator:
         assert "Could not find 'files' parameter details" in mock_logger.warning.call_args[0][0]
 
         code_writer_mock.write_line.assert_any_call(
-            "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # Type inference for files_data failed"
+            "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)  "
+            "# Type inference for files_data failed"
         )
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         render_context_mock.add_import.assert_any_call("typing", "Dict")

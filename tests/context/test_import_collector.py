@@ -464,7 +464,8 @@ class TestImportCollector:
     # --- Tests for get_import_statements with context ---
 
     @pytest.mark.parametrize(
-        "scenario_id, current_module_dot_path, package_root, core_abs, input_imports_dict, expected_import_strings_list",
+        "scenario_id, current_module_dot_path, package_root, core_abs, input_imports_dict, "
+        "expected_import_strings_list",
         [
             # Scenario 1: Simple stdlib and plain
             (

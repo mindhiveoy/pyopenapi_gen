@@ -281,7 +281,8 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         self.assertEqual(global_enum_schema.type, ["string", "null"])  # Type as defined
         self.assertEqual(global_enum_schema.enum, ["active", "inactive", None])
         # The is_nullable for the enum itself would be true if parsed with extract_primary_type_and_nullability
-        # Our current _extract_enum_from_property_node does not directly set it on new_enum_ir but it is passed to IRSchema constructor
+        # Our current _extract_enum_from_property_node does not directly set it on new_enum_ir
+        # but it is passed to IRSchema constructor
         # Let's assume IRSchema constructor handles list type correctly for its own is_nullable or ModelsVisitor does
         # For this test, we mainly care that the property_ir_referencing_enum.is_nullable is correctly set.
 

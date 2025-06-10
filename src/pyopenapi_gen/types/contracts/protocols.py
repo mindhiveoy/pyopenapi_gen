@@ -23,7 +23,7 @@ class TypeContext(Protocol):
 
 class ReferenceResolver(ABC):
     """Resolves OpenAPI $ref references to target schemas."""
-    
+
     # Concrete implementations should have these attributes
     schemas: Dict[str, IRSchema]
     responses: Dict[str, IRResponse]
