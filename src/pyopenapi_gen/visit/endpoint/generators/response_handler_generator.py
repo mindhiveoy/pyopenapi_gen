@@ -361,6 +361,10 @@ class EndpointResponseHandlerGenerator:
             writer.dedent()
 
         # All code paths should be covered by the match statement above
+        # But add an explicit assertion for mypy's satisfaction
+        writer.write_line("# All paths above should return or raise - this should never execute")
+        context.add_import("typing", "NoReturn")
+        writer.write_line("assert False, 'Unexpected code path'  # pragma: no cover")
         writer.write_line("")  # Add a blank line for readability
 
     def _write_parsed_return(
