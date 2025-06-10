@@ -1,21 +1,21 @@
 # Quality assurance commands
 format:
-	black src/ tests/
+	poetry run black src/ tests/
 
 format-check:
-	black --check --diff src/ tests/
+	poetry run black --check --diff src/ tests/
 
 lint:
-	ruff check src/ tests/
+	poetry run ruff check src/ tests/
 
 lint-fix:
-	ruff check --fix src/ tests/
+	poetry run ruff check --fix src/ tests/
 
 typecheck:
-	mypy src/ --strict --no-warn-no-return
+	poetry run mypy src/ --strict --no-warn-no-return
 
 security:
-	bandit -r src/ -f txt -c .bandit
+	poetry run bandit -r src/ -f txt -c .bandit
 
 # Combined quality commands
 quality-fix: format lint-fix
@@ -26,21 +26,21 @@ quality: format-check lint typecheck security
 
 # Testing commands
 test:
-	pytest
+	poetry run pytest
 
 test-cov:
-	pytest --cov=src --cov-report=term-missing
+	poetry run pytest --cov=src --cov-report=term-missing
 
 test-fast:
-	pytest -x
+	poetry run pytest -x
 
 coverage-html:
-	pytest --cov=src --cov-report=html
+	poetry run pytest --cov=src --cov-report=html
 	open htmlcov/index.html
 
 # Development workflow
 dev-setup:
-	pip install -e '.[dev]'
+	poetry install --with dev
 
 clean:
 	rm -rf dist/ build/ *.egg-info/
@@ -49,6 +49,6 @@ clean:
 
 # Build commands
 build: clean
-	python -m build
+	poetry build
 
 .PHONY: format format-check lint lint-fix typecheck security quality quality-fix test test-cov test-fast coverage-html dev-setup clean build 

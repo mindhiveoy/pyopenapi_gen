@@ -141,7 +141,7 @@ auth = CompositeAuth(BearerAuth("token"), HeadersAuth({"X-Key": "val"}))
 git clone https://github.com/your-org/pyopenapi_gen.git
 cd pyopenapi_gen
 source .venv/bin/activate  # Activate virtual environment
-pip install -e '.[dev]'   # Install in development mode
+poetry install --with dev  # Install dependencies with Poetry
 ```
 
 ### Quality Workflow
