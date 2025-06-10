@@ -39,7 +39,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        poetry install --with dev
+        poetry install --extras dev
 
     - name: Run full test suite with coverage
       run: |
@@ -84,7 +84,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        poetry install --with dev
+        poetry install --extras dev
 
     - name: Test large specification processing
       run: |
