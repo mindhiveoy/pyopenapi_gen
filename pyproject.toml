@@ -89,5 +89,6 @@ types-toml = "^0.10.8.20240310"
 httpx = "^0.28.1"
 pytest-asyncio = "^0.26.0"
 
+
 [project.scripts]
 pyopenapi-gen = "pyopenapi_gen.cli:app"
