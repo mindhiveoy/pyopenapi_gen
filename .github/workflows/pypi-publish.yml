@@ -23,7 +23,7 @@ jobs:
           virtualenvs-path: .venv
       - name: Install dependencies
         run: |
-          poetry install --with dev
+          poetry install --extras dev
       - name: Run tests
         run: |
           poetry run pytest
