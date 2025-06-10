@@ -122,9 +122,7 @@ class DataclassGenerator:
             field_name_for_array_content = "items"
             assert schema.items is not None, "Schema items must be present for array type dataclass field."
 
-            list_item_py_type = self.type_service.resolve_schema_type(
-                schema.items, context, required=True
-            )
+            list_item_py_type = self.type_service.resolve_schema_type(schema.items, context, required=True)
             list_item_py_type = TypeFinalizer(context)._clean_type(list_item_py_type)
             field_type_str = f"List[{list_item_py_type}]"
 
@@ -164,11 +162,7 @@ class DataclassGenerator:
                 # Sanitize the property name for use as a Python attribute
                 field_name = NameSanitizer.sanitize_method_name(prop_name)
 
-                py_type = self.type_service.resolve_schema_type(
-                    prop_schema,
-                    context,
-                    required=is_required
-                )
+                py_type = self.type_service.resolve_schema_type(prop_schema, context, required=is_required)
                 py_type = TypeFinalizer(context)._clean_type(py_type)
 
                 default_expr: Optional[str] = None

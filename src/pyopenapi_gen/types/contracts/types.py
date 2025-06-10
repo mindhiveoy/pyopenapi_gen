@@ -6,13 +6,14 @@ from typing import Optional
 
 class TypeResolutionError(Exception):
     """Raised when type resolution fails."""
+
     pass
 
 
 @dataclass
 class ResolvedType:
     """Result of type resolution."""
-    
+
     python_type: str
     needs_import: bool = False
     import_module: Optional[str] = None
@@ -20,7 +21,7 @@ class ResolvedType:
     is_optional: bool = False
     is_forward_ref: bool = False
     was_unwrapped: bool = False
-    
+
     def __post_init__(self) -> None:
         """Validate resolved type data."""
         if self.needs_import and not self.import_module:

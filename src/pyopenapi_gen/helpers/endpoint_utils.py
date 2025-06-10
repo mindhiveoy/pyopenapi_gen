@@ -87,17 +87,17 @@ def get_return_type_unified(
     op: IROperation,
     context: RenderContext,
     schemas: Dict[str, IRSchema],
-    responses: Optional[Dict[str, IRResponse]] = None
+    responses: Optional[Dict[str, IRResponse]] = None,
 ) -> str:
     """
     Determines the primary return type hint for an operation using the unified type service.
-    
+
     Args:
         op: The operation to resolve
         context: Render context for imports
         schemas: Dictionary of all schemas
         responses: Dictionary of all responses (optional)
-        
+
     Returns:
         Python type string
     """
@@ -112,7 +112,7 @@ def get_return_type(
 ) -> tuple[str, bool]:
     """
     DEPRECATED: Use get_return_type_unified instead.
-    
+
     Now delegates to the unified service for consistent type resolution.
     Falls back to path-based inference for backward compatibility.
 
@@ -122,7 +122,7 @@ def get_return_type(
     # Delegate to the unified service for all type resolution
     type_service = UnifiedTypeService(schemas)
     py_type = type_service.resolve_operation_response_type(op, context)
-    
+
     # Backward compatibility: If unified service returns None or "None", try inference
     if py_type is None or py_type == "None":
         if op.method == HTTPMethod.GET:
@@ -144,12 +144,12 @@ def get_return_type(
                     else:
                         # Fall back to request body type
                         py_type = request_schema.name
-    
+
     # Convert "None" string back to None for backward compatibility only for GET operations
     # For other operations, preserve "None" string as expected by tests
     if py_type == "None" and op.method == HTTPMethod.GET:
         py_type = None
-    
+
     # For backward compatibility, return a tuple with unwrapping flag set to False
     # The unified service handles unwrapping internally
     return (py_type, False)

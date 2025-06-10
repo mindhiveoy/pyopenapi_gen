@@ -167,12 +167,14 @@ class EndpointResponseHandlerGenerator:
             # First try the fallback method for backward compatibility
             return_type_for_op = get_return_type_unified(op, context, self.schemas)
             needs_unwrap_for_op = False  # Default to False
-            
+
             # If we have proper schemas, try to get unwrapping information from unified service
-            if self.schemas and hasattr(list(self.schemas.values())[0] if self.schemas else None, 'type'):
+            if self.schemas and hasattr(list(self.schemas.values())[0] if self.schemas else None, "type"):
                 try:
                     type_service = UnifiedTypeService(self.schemas)
-                    return_type_for_op, needs_unwrap_for_op = type_service.resolve_operation_response_with_unwrap_info(op, context)
+                    return_type_for_op, needs_unwrap_for_op = type_service.resolve_operation_response_with_unwrap_info(
+                        op, context
+                    )
                 except Exception:
                     # Fall back to the original approach if there's an issue
                     needs_unwrap_for_op = False
@@ -356,9 +358,7 @@ class EndpointResponseHandlerGenerator:
             context.add_typing_imports_for_type(return_type)
             extraction_code_str = self._get_extraction_code(return_type, context, op, needs_unwrap, response_ir)
 
-            if (
-                extraction_code_str == "sse_json_stream_marker"
-            ):  # SSE handling
+            if extraction_code_str == "sse_json_stream_marker":  # SSE handling
                 context.add_plain_import("json")
                 context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_sse_events_text")
                 # The actual yield loop must be outside, this function is about the *return value* for one branch.

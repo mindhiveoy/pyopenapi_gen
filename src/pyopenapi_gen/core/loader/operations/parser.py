@@ -121,11 +121,7 @@ def parse_operations(
                         # Convert schema reference to a response with content
                         resp_node_resolved = {
                             "description": f"Response with {rn_node['$ref'].split('/')[-1]} schema",
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": rn_node["$ref"]}
-                                }
-                            }
+                            "content": {"application/json": {"schema": {"$ref": rn_node["$ref"]}}},
                         }
                     else:
                         resp_node_resolved = rn_node

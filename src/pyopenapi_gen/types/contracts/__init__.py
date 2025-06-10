@@ -4,10 +4,10 @@ from .protocols import ReferenceResolver, SchemaTypeResolver, ResponseTypeResolv
 from .types import ResolvedType, TypeResolutionError
 
 __all__ = [
-    "ReferenceResolver", 
-    "SchemaTypeResolver", 
-    "ResponseTypeResolver", 
+    "ReferenceResolver",
+    "SchemaTypeResolver",
+    "ResponseTypeResolver",
     "TypeContext",
-    "ResolvedType", 
-    "TypeResolutionError"
+    "ResolvedType",
+    "TypeResolutionError",
 ]
