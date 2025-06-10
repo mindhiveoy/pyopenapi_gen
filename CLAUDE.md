@@ -44,10 +44,12 @@ make typecheck            # Type checking with mypy
 make security             # Security scanning with Bandit
 
 # Testing Options
-make test                 # Run all tests
+make test                 # Run all tests in parallel with 4 workers and coverage (85% required - matches CI)
+make test-serial          # Run tests sequentially (fallback if parallel tests hang)
+make test-no-cov          # Run tests without coverage checking
 make test-fast            # Run tests, stop on first failure
-make test-cov             # Run tests with coverage report
-pytest -n auto            # Run tests in parallel (faster)
+make test-cov             # Run tests in parallel with coverage report (85% required)
+pytest -n auto            # Run tests in parallel (faster, use with --timeout=300 if needed)
 
 # Legacy Commands (still work)
 pytest --cov=src --cov-report=html  # Generate coverage report
@@ -80,7 +82,7 @@ make format-check         # Must pass (no formatting issues)
 make lint                 # Must pass (no linting errors)  
 make typecheck            # Must pass (no type errors)
 make security             # Must pass (no security issues)
-make test                 # Must pass (all tests pass)
+make test                 # Must pass (all tests pass + 85% coverage)
 ```
 
 ### Running Specific Tests

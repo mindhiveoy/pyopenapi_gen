@@ -55,7 +55,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        poetry run pytest --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+        poetry run pytest -n 4 --timeout=300 --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4

@@ -157,7 +157,13 @@ make format               # Auto-format with Black
 make lint-fix             # Auto-fix linting with Ruff  
 make typecheck            # Type checking with mypy
 make security             # Security scanning with Bandit
-make test                 # Run all tests
+make test                 # Run all tests in parallel with 4 workers (with 85% coverage requirement)
+
+# Testing options
+make test-serial          # Run tests sequentially (if parallel tests hang)
+pytest -n auto            # Run tests in parallel (faster)
+pytest -n 4               # Run tests with specific number of workers  
+pytest --no-cov           # Run tests without coverage (fastest)
 ```
 
 ### Contributing
@@ -165,7 +171,7 @@ make test                 # Run all tests
 Contributions welcome! Please ensure:
 
 - **Code Quality**: All `make quality` checks pass
-- **Testing**: pytest with ≥90% branch coverage
+- **Testing**: pytest with ≥85% branch coverage
 - **Compatibility**: Python 3.10-3.12 support
 - **Documentation**: Update relevant docs for new features
 

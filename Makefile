@@ -21,21 +21,27 @@ security:
 quality-fix: format lint-fix
 	@echo "✅ Auto-fixes completed!"
 
-quality: format-check lint typecheck security
+quality: format-check lint typecheck security test
 	@echo "✅ All quality checks passed!"
 
 # Testing commands
 test:
+	poetry run pytest -n 4 --timeout=300 --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+
+test-no-cov:
 	poetry run pytest
 
 test-cov:
-	poetry run pytest --cov=src --cov-report=term-missing
+	poetry run pytest -n 4 --timeout=300 --cov=src --cov-report=term-missing --cov-fail-under=85
 
 test-fast:
 	poetry run pytest -x
 
+test-serial:
+	poetry run pytest --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+
 coverage-html:
-	poetry run pytest --cov=src --cov-report=html
+	poetry run pytest -n 4 --timeout=300 --cov=src --cov-report=html --cov-fail-under=85
 	open htmlcov/index.html
 
 # Development workflow

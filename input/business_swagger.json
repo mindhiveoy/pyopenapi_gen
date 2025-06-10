@@ -250,10 +250,13 @@
         "tags": [
           "Authentication"
         ],
-        "description": "Validates the provided JWT token and returns current user information.\nRequires a valid Bearer token in the Authorization header.\n",
+        "description": "Validates the user session and returns current user information.\nSupports both JWT Bearer tokens (mobile) and NextAuth sessions (web).\nFor web clients: Uses NextAuth session cookies automatically.\nFor mobile clients: Requires a valid Bearer token in the Authorization header.\n",
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "responses": {
@@ -310,7 +313,7 @@
             }
           },
           "401": {
-            "description": "Invalid or missing token"
+            "description": "Invalid or missing authentication"
           },
           "404": {
             "description": "User not found"
@@ -5426,7 +5429,7 @@
     "/tenants/{tenantId}/feedback": {
       "get": {
         "summary": "Get all feedback for a tenant",
-        "operationId": "getFeedback",
+        "operationId": "getTenantFeedback",
         "tags": [
           "Feedback"
         ],
@@ -6581,17 +6584,17 @@
         }
       }
     },
-    "/api/tenants/{tenantId}/validate": {
+    "/api/tenants/{tenantId}/validate-domain": {
       "get": {
         "summary": "Validate if a tenant exists",
-        "operationId": "validateTenantDomain",
+        "operationId": "validateTenantById",
         "tags": [
           "Tenants"
         ],
         "description": "Validates if a tenant with the given ID exists in the system.\nThis endpoint does not require authentication and can be used\nby clients to verify tenant existence before attempting login.\n",
         "parameters": [
           {
-            "name": "domain",
+            "name": "tenantId",
             "in": "path",
             "required": true,
             "description": "The unique identifier of the tenant to validate",
