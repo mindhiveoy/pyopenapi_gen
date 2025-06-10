@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import re  # For parsing Union types, etc.
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
 
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.helpers.endpoint_utils import (
@@ -19,8 +19,27 @@ from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation, IRResponse
     from pyopenapi_gen.context.render_context import RenderContext
+else:
+    # For runtime, we need to import for TypedDict
+    from pyopenapi_gen import IRResponse
 
 logger = logging.getLogger(__name__)
+
+
+class StatusCase(TypedDict):
+    """Type definition for status code case data."""
+    status_code: int
+    type: str  # 'primary_success', 'success', or 'error'
+    return_type: str
+    needs_unwrap: bool
+    response_ir: IRResponse
+
+
+class DefaultCase(TypedDict):
+    """Type definition for default case data."""
+    response_ir: IRResponse
+    return_type: str
+    needs_unwrap: bool
 
 
 class EndpointResponseHandlerGenerator:
@@ -151,18 +170,15 @@ class EndpointResponseHandlerGenerator:
             ),
         )
 
-        is_first_condition = True
+        # Collect all status codes and their handlers for the match statement
+        status_cases: list[StatusCase] = []
 
         # 1. Handle primary success response IF IT IS TRULY A SUCCESS RESPONSE AND NUMERIC (2xx)
         if is_primary_handled_by_first_block:
             assert primary_success_ir is not None  # Add assertion to help linter
             # No try-except needed here as isdigit() and startswith("2") already checked
             status_code_val = int(primary_success_ir.status_code)
-            condition = f"response.status_code == {status_code_val}"
 
-            writer.write_line(f"if {condition}:")
-            is_first_condition = False
-            writer.indent()
             # This is the return_type for the *entire operation*, based on its primary success response
             # First try the fallback method for backward compatibility
             return_type_for_op = get_return_type_unified(op, context, self.schemas)
@@ -179,19 +195,16 @@ class EndpointResponseHandlerGenerator:
                     # Fall back to the original approach if there's an issue
                     needs_unwrap_for_op = False
 
-            # If get_return_type determined a specific type (not "None"),
-            # we should attempt to parse the response accordingly. This handles cases
-            # where the type was inferred even if the spec lacked explicit content for the 2xx.
-            # If get_return_type says "None" (e.g., for a 204 or truly no content), then return None.
-            if return_type_for_op == "None":
-                writer.write_line("return None")
-            else:
-                self._write_parsed_return(
-                    writer, op, context, return_type_for_op, needs_unwrap_for_op, primary_success_ir
-                )
-            writer.dedent()
+            status_cases.append(StatusCase(
+                status_code=status_code_val,
+                type='primary_success',
+                return_type=return_type_for_op,
+                needs_unwrap=needs_unwrap_for_op,
+                response_ir=primary_success_ir
+            ))
 
         # 2. Handle other specific responses (other 2xx, then default, then errors)
+        default_case: Optional[DefaultCase] = None
         for resp_ir in other_responses:
             # Determine if this response IR defines a success type different from the primary
             # This is complex. For now, if it's 2xx, we'll try to parse it.
@@ -218,9 +231,6 @@ class EndpointResponseHandlerGenerator:
                         "data" in current_return_type_str.lower() or "item" in current_return_type_str.lower()
                     )
 
-            condition_prefix = "elif" if not is_first_condition else "if"
-            is_first_condition = False
-
             if resp_ir.status_code == "default":
                 # Determine type for default response if it has content
                 default_return_type_str = "None"
@@ -235,55 +245,120 @@ class EndpointResponseHandlerGenerator:
                         default_return_type_str = op_global_return_type
                         default_needs_unwrap = op_global_needs_unwrap
 
-                writer.write_line(f"{condition_prefix} response.status_code >= 0: # Default response catch-all")
-                writer.indent()
-                if resp_ir.content and default_return_type_str != "None":
-                    self._write_parsed_return(
-                        writer, op, context, default_return_type_str, default_needs_unwrap, resp_ir
-                    )
-                else:  # Default implies error or no content
-                    context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
-                    writer.write_line(
-                        f"raise HTTPError(response=response, "
-                        f'message="Default error: {resp_ir.description or "Unknown default error"}", '
-                        f"status_code=response.status_code)"
-                    )
-                writer.dedent()
-                continue  # Handled default, move to next
+                default_case = DefaultCase(
+                    response_ir=resp_ir,
+                    return_type=default_return_type_str,
+                    needs_unwrap=default_needs_unwrap
+                )
+                continue  # Handle default separately
 
             try:
                 status_code_val = int(resp_ir.status_code)
-                writer.write_line(f"{condition_prefix} response.status_code == {status_code_val}:")
+                case_type = 'success' if resp_ir.status_code.startswith("2") else 'error'
+
+                status_cases.append(StatusCase(
+                    status_code=status_code_val,
+                    type=case_type,
+                    return_type=current_return_type_str,
+                    needs_unwrap=current_needs_unwrap,
+                    response_ir=resp_ir
+                ))
+            except ValueError:
+                logger.warning(f"Skipping non-integer status code in other_responses: {resp_ir.status_code}")
+
+        # Generate the match statement
+        if status_cases or default_case:
+            writer.write_line("match response.status_code:")
+            writer.indent()
+
+            # Generate cases for specific status codes
+            for case in status_cases:
+                writer.write_line(f"case {case['status_code']}:")
                 writer.indent()
 
-                if resp_ir.status_code.startswith("2"):  # Other 2xx success
-                    if current_return_type_str == "None" or not resp_ir.content:
+                if case['type'] == 'primary_success':
+                    # If get_return_type determined a specific type (not "None"),
+                    # we should attempt to parse the response accordingly. This handles cases
+                    # where the type was inferred even if the spec lacked explicit content for the 2xx.
+                    # If get_return_type says "None" (e.g., for a 204 or truly no content), then return None.
+                    if case['return_type'] == "None":
                         writer.write_line("return None")
                     else:
                         self._write_parsed_return(
-                            writer, op, context, current_return_type_str, current_needs_unwrap, resp_ir
+                            writer, op, context, case['return_type'], case['needs_unwrap'], case['response_ir']
                         )
-                else:  # Error codes (3xx, 4xx, 5xx)
-                    error_class_name = f"Error{status_code_val}"
+                elif case['type'] == 'success':
+                    # Other 2xx success
+                    if case['return_type'] == "None" or not case['response_ir'].content:
+                        writer.write_line("return None")
+                    else:
+                        self._write_parsed_return(
+                            writer, op, context, case['return_type'], case['needs_unwrap'], case['response_ir']
+                        )
+                elif case['type'] == 'error':
+                    # Error codes (3xx, 4xx, 5xx)
+                    error_class_name = f"Error{case['status_code']}"
                     context.add_import(
                         f"{context.core_package_name}", error_class_name
                     )  # Import from top-level core package
                     writer.write_line(f"raise {error_class_name}(response=response)")
-                writer.dedent()
-            except ValueError:
-                logger.warning(f"Skipping non-integer status code in other_responses: {resp_ir.status_code}")
 
-        # 3. Final else for unhandled status codes
-        if not is_first_condition:  # if any if/elif was written
-            writer.write_line("else:")
-        else:  # No conditions were written at all (e.g. op.responses was empty)
-            writer.write_line("if True: # Should ideally not happen if responses are defined")  # Fallback
-        writer.indent()
-        context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
-        writer.write_line(
-            f'raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)'
-        )
-        writer.dedent()
+                writer.dedent()
+
+            # Handle default case if it exists
+            if default_case:
+                # Default response case - catch all remaining status codes
+                if default_case['response_ir'].content and default_case['return_type'] != "None":
+                    # Default case with content (success)
+                    writer.write_line("case _ if response.status_code >= 0:  # Default response catch-all")
+                    writer.indent()
+                    self._write_parsed_return(
+                        writer,
+                        op,
+                        context,
+                        default_case['return_type'],
+                        default_case['needs_unwrap'],
+                        default_case['response_ir'],
+                    )
+                    writer.dedent()
+                else:
+                    # Default case without content (error)
+                    writer.write_line("case _:  # Default error response")
+                    writer.indent()
+                    context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
+                    default_description = default_case["response_ir"].description or "Unknown default error"
+                    writer.write_line(
+                        f"raise HTTPError(response=response, "
+                        f'message="Default error: {default_description}", '
+                        f"status_code=response.status_code)"
+                    )
+                    writer.dedent()
+            else:
+                # Final catch-all for unhandled status codes
+                writer.write_line("case _:")
+                writer.indent()
+                context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
+                writer.write_line(
+                    'raise HTTPError('
+                    'response=response, '
+                    'message="Unhandled status code", '
+                    'status_code=response.status_code)'
+                )
+                writer.dedent()
+
+            writer.dedent()  # End of match statement
+        else:
+            # Fallback if no responses are defined
+            writer.write_line("match response.status_code:")
+            writer.indent()
+            writer.write_line("case _:")
+            writer.indent()
+            context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
+            writer.write_line(
+                f'raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)'
+            )
+            writer.dedent()
+            writer.dedent()
 
         writer.write_line("")  # Add a blank line for readability
 

@@ -59,7 +59,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
             written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("if response.status_code == 200:", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            self.assertIn("case 200:", written_code)
             self.assertTrue(
                 any(
                     c[0][0].strip() == "return cast(Item, response.json())"
@@ -96,7 +97,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
             mock_get_return_type.assert_called_once()
             written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-            self.assertIn("if response.status_code == 204:", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            self.assertIn("case 204:", written_code)
             self.assertTrue(
                 any(c[0][0].strip() == "return None" for c in self.code_writer_mock.write_line.call_args_list)
             )
@@ -201,7 +203,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
             written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("if response.status_code == 404:", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            self.assertIn("case 404:", written_code)
             self.assertTrue(
                 any(
                     c[0][0].strip() == "raise Error404(response=response)"
@@ -242,7 +245,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
             written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("if True: # Should ideally not happen if responses are defined", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            self.assertIn("case _:", written_code)
             self.assertTrue(
                 any(
                     c[0][0].strip()
@@ -288,7 +292,9 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
             written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("if response.status_code >= 0: # Default response catch-all", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            # Default case can be handled with case _ if status_code >= 0 or case _
+            self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
             self.assertTrue(
                 any(
                     c[0][0].strip() == "return cast(DefaultSuccessData, response.json())"
@@ -297,10 +303,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             )
             self.render_context_mock.add_typing_imports_for_type.assert_any_call("DefaultSuccessData")
             self.render_context_mock.add_import.assert_any_call("typing", "cast")
-            self.assertIn(
-                'raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)',
-                written_code,
-            )
+            # For default-only responses with content, no unhandled case is needed as default handles all
 
     def test_generate_response_handling_default_as_fallback_error(self) -> None:
         """
@@ -340,7 +343,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
             written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("if response.status_code == 200:", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            self.assertIn("case 200:", written_code)
             self.assertTrue(
                 any(
                     c[0][0].strip() == "return cast(SuccessData, response.json())"
@@ -348,7 +352,9 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
                 )
             )
 
-            self.assertIn("elif response.status_code >= 0: # Default response catch-all", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            # Default case can be handled with case _ if status_code >= 0 or case _
+            self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
             self.assertTrue(
                 any(
                     c[0][0].strip()
@@ -399,7 +405,9 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
             written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("if response.status_code >= 0: # Default response catch-all", written_code)
+            self.assertIn("match response.status_code:", written_code)
+            # Default case can be handled with case _ if status_code >= 0 or case _
+            self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
             self.assertTrue(
                 any(
                     c[0][0].strip() == "return cast(PrimaryDefault, response.json())"
@@ -456,7 +464,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-        self.assertIn("if response.status_code == 200:", written_code)
+        self.assertIn("match response.status_code:", written_code)
+        self.assertIn("case 200:", written_code)
         self.assertTrue(
             any(
                 c[0][0].strip() == "return cast(ModelA, response.json())"
@@ -465,7 +474,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         )
         self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelA")
 
-        self.assertIn("elif response.status_code == 201:", written_code)
+        self.assertIn("case 201:", written_code)
         self.assertTrue(
             any(
                 c[0][0].strip() == "return cast(ModelB, response.json())"
@@ -508,7 +517,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-        self.assertIn("if response.status_code == 200:", written_code)
+        self.assertIn("match response.status_code:", written_code)
+        self.assertIn("case 200:", written_code)
         self.assertTrue(
             any(
                 c[0][0].strip() == "async for chunk in iter_bytes(response):"
@@ -558,7 +568,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-        self.assertIn("if response.status_code == 200:", written_code)
+        self.assertIn("match response.status_code:", written_code)
+        self.assertIn("case 200:", written_code)
         self.assertTrue(
             any(
                 c[0][0].strip() == "async for chunk in iter_sse_events_text(response):"
@@ -613,7 +624,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
 
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
-        self.assertIn("if response.status_code == 200:", written_code)
+        self.assertIn("match response.status_code:", written_code)
+        self.assertIn("case 200:", written_code)
         self.assertIn("try:", written_code)
         self.assertTrue(
             any(
@@ -666,7 +678,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         written_code_union = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
         written_lines_stripped_union = [c[0][0].strip() for c in self.code_writer_mock.write_line.call_args_list]
 
-        self.assertIn("if response.status_code == 200:", written_code_union)
+        self.assertIn("match response.status_code:", written_code_union)
+        self.assertIn("case 200:", written_code_union)
         self.assertIn("try:", written_code_union)
         # With unified service, no manual unwrapping should be generated for union types
         self.assertIn("return cast(ModelA, response.json())", written_lines_stripped_union)
@@ -706,7 +719,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
         written_lines_stripped = [c[0][0].strip() for c in self.code_writer_mock.write_line.call_args_list]
 
-        self.assertIn("if response.status_code == 200:", written_code)
+        self.assertIn("match response.status_code:", written_code)
+        self.assertIn("case 200:", written_code)
         # With unified service, no manual unwrapping should be generated
         self.assertIn("return cast(ModelC, response.json())", written_lines_stripped)
         
