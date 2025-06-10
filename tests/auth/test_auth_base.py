@@ -1,5 +1,6 @@
 import inspect
 from typing import Any
+
 import pytest
 
 from pyopenapi_gen.core.auth.base import BaseAuth, CompositeAuth

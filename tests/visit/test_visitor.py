@@ -1,11 +1,12 @@
 """Tests for visit.visitor module."""
 
-import pytest
-from unittest.mock import Mock
 from typing import Any
+from unittest.mock import Mock
 
-from pyopenapi_gen.visit.visitor import Visitor, Registry
+import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.visit.visitor import Registry, Visitor
 
 
 class MockNode:

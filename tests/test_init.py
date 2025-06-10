@@ -1,7 +1,7 @@
 """Tests for __init__ module."""
 
+
 import pytest
-from typing import Any
 
 
 def test_package_imports():
@@ -92,7 +92,7 @@ def test_all_exports():
 
 def test_ir_classes_import():
     """Scenario: Test IR classes are properly imported."""
-    from pyopenapi_gen import IRSpec, IRSchema, IROperation, IRParameter, IRResponse, IRRequestBody
+    from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema, IRSpec
 
     # Expected Outcome: All IR classes are available
     assert IRSpec.__name__ == "IRSpec"

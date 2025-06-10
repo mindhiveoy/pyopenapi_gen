@@ -1,8 +1,9 @@
 """Tests for core.schemas module."""
 
-import pytest
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from typing import Optional
+
+import pytest
 
 from pyopenapi_gen.core.schemas import BaseSchema
 

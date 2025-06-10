@@ -1,7 +1,6 @@
 """Tests for helpers.type_resolution.array_resolver module."""
 
-import pytest
-from unittest.mock import Mock, MagicMock, call
+from unittest.mock import Mock, call
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
