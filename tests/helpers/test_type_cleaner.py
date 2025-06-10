@@ -190,7 +190,7 @@ class TestTypeCleaner:
         # Test Union with single member after cleaning
         result = TypeCleaner.clean_type_parameters("Union[str]")
         assert result == "str"
-        
+
         # Test Union with duplicate members
         result = TypeCleaner.clean_type_parameters("Union[str, str, str]")
         assert result == "str"
@@ -206,7 +206,7 @@ class TestTypeCleaner:
         # Test empty List
         result = TypeCleaner.clean_type_parameters("List[]")
         assert result == "List[Any]"
-        
+
         # Test List with empty string parameter (edge case)
         # This would require specific input to trigger the warning path
 
@@ -221,11 +221,11 @@ class TestTypeCleaner:
         # Test empty Dict
         result = TypeCleaner.clean_type_parameters("Dict[]")
         assert result == "Dict[Any, Any]"
-        
+
         # Test Dict with only key type
         result = TypeCleaner.clean_type_parameters("Dict[str]")
         assert result == "Dict[str, Any]"
-        
+
         # Test Dict with more than 2 parameters
         result = TypeCleaner.clean_type_parameters("Dict[str, int, bool, float]")
         assert result == "Dict[str, int]"
@@ -241,11 +241,11 @@ class TestTypeCleaner:
         # Test empty Optional
         result = TypeCleaner.clean_type_parameters("Optional[]")
         assert result == "Optional[Any]"
-        
-        # Test Optional with multiple parameters  
+
+        # Test Optional with multiple parameters
         result = TypeCleaner.clean_type_parameters("Optional[str, int, bool]")
         assert result == "Optional[str]"
-        
+
         # Test Optional[None] after cleaning
         result = TypeCleaner.clean_type_parameters("Optional[None]")
         assert result == "Optional[Any]"
@@ -273,7 +273,7 @@ class TestTypeCleaner:
         # Test complex pattern that triggers the bracket counting logic
         result = TypeCleaner.clean_type_parameters("List[Union[str, int], None]")
         assert result == "List[Union[str, int]]"
-        
+
         # Test deeply nested case
         result = TypeCleaner.clean_type_parameters("List[Dict[str, List[int, None]], None]")
         assert result == "List[Dict[str, List[int]]]"
@@ -303,12 +303,12 @@ class TestTypeCleaner:
             "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
             "Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]"
         )
-        
+
         expected = (
             "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
             "Optional[Any], bool, float, str, None]], Optional[Any], bool, float, str]"
         )
-        
+
         result = TypeCleaner.clean_type_parameters(complex_input)
         assert result == expected
 
@@ -323,7 +323,7 @@ class TestTypeCleaner:
         # Test deeply nested structure that requires recursive cleaning
         nested_type = "Union[List[Dict[str, Optional[Union[str, int, None], None], None], None], None]"
         result = TypeCleaner.clean_type_parameters(nested_type)
-        
+
         # Should recursively clean each level
         assert "None], None" not in result or result.count("None") < nested_type.count("None")
 
@@ -337,15 +337,15 @@ class TestTypeCleaner:
         """
         # Create a custom TypeCleaner subclass to test _clean_simple_patterns directly
         from pyopenapi_gen.helpers.type_cleaner import TypeCleaner
-        
+
         # Test Dict pattern with exact regex match
         result = TypeCleaner._clean_simple_patterns("Dict[key, value, extra, None]")
         assert "Dict[key, value]" in result
-        
-        # Test List pattern with exact regex match  
+
+        # Test List pattern with exact regex match
         result = TypeCleaner._clean_simple_patterns("List[item, extra, None]")
         assert "List[item]" in result
-        
+
         # Test Optional pattern with exact regex match
         result = TypeCleaner._clean_simple_patterns("Optional[type, None]")
         assert "Optional[type]" in result
@@ -387,7 +387,7 @@ class TestTypeCleaner:
         # Test Dict with more than 2 parameters (already covered but ensure warning path)
         result = TypeCleaner.clean_type_parameters("Dict[a, b, c, d, e]")
         assert result == "Dict[a, b]"
-        
+
         # Test Dict with no parameters after split (edge case)
         result = TypeCleaner.clean_type_parameters("Dict[]")
         assert result == "Dict[Any, Any]"
@@ -403,7 +403,7 @@ class TestTypeCleaner:
         # Test Optional with multiple parameters (warning case)
         result = TypeCleaner.clean_type_parameters("Optional[a, b, c]")
         assert result == "Optional[a]"
-        
+
         # Test Optional with no parameters after split (edge case)
         result = TypeCleaner.clean_type_parameters("Optional[]")
         assert result == "Optional[Any]"
@@ -419,10 +419,10 @@ class TestTypeCleaner:
         # Test the bracket counting logic with deeply nested structures
         complex_nested = "List[Dict[str, List[Union[int, str], None]], None]"
         result = TypeCleaner.clean_type_parameters(complex_nested)
-        
+
         # Should remove the outer None but preserve inner structure
         assert ", None]" not in result.split("List[", 1)[1].rsplit("]", 1)[0] if "List[" in result else True
-        
+
         # Test case with multiple closing brackets
         multi_bracket = "List[Union[Dict[str, int], List[str]], None]"
         result = TypeCleaner.clean_type_parameters(multi_bracket)
@@ -441,10 +441,10 @@ class TestTypeCleaner:
         simple_list_none = "List[SimpleType, None]"
         result = TypeCleaner.clean_type_parameters(simple_list_none)
         assert result == "List[SimpleType]"
-        
+
         # Test pattern with Union that should NOT be modified by the special case
         union_list = "List[Union[str, int], None]"
-        result = TypeCleaner.clean_type_parameters(union_list) 
+        result = TypeCleaner.clean_type_parameters(union_list)
         assert result == "List[Union[str, int]]"
 
     def test_handle_special_cases_pattern_matching_edge_case(self) -> None:
@@ -460,9 +460,9 @@ class TestTypeCleaner:
             "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
             "Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]"
         )
-        
+
         result = TypeCleaner.clean_type_parameters(test_pattern)
-        
+
         # Should trigger the special case handling
         expected_pattern = (
             "Union["

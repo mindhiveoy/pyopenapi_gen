@@ -408,7 +408,11 @@ def test_wrap_and_append_forces_newlines() -> None:
     """
     writer = LineWriter()
     writer.append("Initial text. ")
-    writer.wrap_and_append("This is a very long text that definitely will not fit on the current line and will force wrapping", width=30, prefix="WRAP: ")
+    writer.wrap_and_append(
+        "This is a very long text that definitely will not fit on the current line and will force wrapping",
+        width=30,
+        prefix="WRAP: ",
+    )
     expected = """Initial text. WRAP: This is a very long text
       that definitely will not
       fit on the current line
@@ -454,7 +458,7 @@ def test_current_line_method() -> None:
     writer = LineWriter()
     writer.append("Test line content")
     assert writer.current_line() == "Test line content"
-    
+
     writer.newline()
     writer.append("New line")
     assert writer.current_line() == "New line"
@@ -591,6 +595,6 @@ def test_custom_max_width() -> None:
     writer = LineWriter(max_width=15)
     writer.append_wrapped("This is a text that should wrap at 15 characters")
     # Should wrap at 15 characters
-    lines = writer.getvalue().split('\n')
+    lines = writer.getvalue().split("\n")
     for line in lines:
         assert len(line) <= 15
