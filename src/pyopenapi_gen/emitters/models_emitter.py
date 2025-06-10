@@ -116,6 +116,7 @@ class ModelsEmitter:
         except Exception as e:
             logger.error(f"Error writing model file {file_path}: {e}")
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
