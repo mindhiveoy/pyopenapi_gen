@@ -11,7 +11,9 @@ from pyopenapi_gen.visit.endpoint.generators.url_args_generator import EndpointU
 
 @pytest.fixture
 def render_context_mock() -> MagicMock:
-    return MagicMock(spec=RenderContext)
+    mock = MagicMock(spec=RenderContext)
+    mock.core_package_name = "test_core"
+    return mock
 
 
 @pytest.fixture
@@ -270,8 +272,10 @@ class TestEndpointUrlArgsGenerator:
 
         # It will write lines for json_body setup due to op.request_body and primary_content_type being json
         code_writer_mock.write_line.assert_any_call(
-            "json_body: Any = body  # 'body' param not found in signature details"
+            "json_body: Any = DataclassSerializer.serialize(body)  # 'body' param not found in signature details"
         )
+        # Should import DataclassSerializer
+        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         # self.render_context_mock.add_import.assert_any_call("typing", "Dict") # Dict is not explicitly imported here
         render_context_mock.add_import.assert_any_call("typing", "Any")  # Any is imported for json_body
 
@@ -408,8 +412,9 @@ class TestEndpointUrlArgsGenerator:
             # Assert body setup
             # With primary_content_type = "application/json" and no 'body' in ordered_parameters
             code_writer_mock.write_line.assert_any_call(
-                "json_body: Any = body  # 'body' param not found in signature details"
+                "json_body: Any = DataclassSerializer.serialize(body)  # 'body' param not found in signature details"
             )
+            render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
             render_context_mock.add_import.assert_any_call("typing", "Any")
             # Dict is not explicitly imported by this section, but Any is for the Dict[str, Any] and json_body: Any
             # self.render_context_mock.add_import.assert_any_call("typing", "Dict")
@@ -448,7 +453,8 @@ class TestEndpointUrlArgsGenerator:
             None,  # resolved_body_type not directly used for multipart in this path
         )
 
-        code_writer_mock.write_line.assert_any_call(f"files_data: {files_param_info['type']} = files")
+        code_writer_mock.write_line.assert_any_call(f"files_data: {files_param_info['type']} = DataclassSerializer.serialize(files)")
+        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         render_context_mock.add_typing_imports_for_type.assert_called_with(files_param_info["type"])
 
     def test_generate_url_and_args_multipart_no_files_param_fallback(
@@ -484,8 +490,9 @@ class TestEndpointUrlArgsGenerator:
         assert "Could not find 'files' parameter details" in mock_logger.warning.call_args[0][0]
 
         code_writer_mock.write_line.assert_any_call(
-            "files_data: Dict[str, IO[Any]] = files  # Type inference for files_data failed"
+            "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # Type inference for files_data failed"
         )
+        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         render_context_mock.add_import.assert_any_call("typing", "Dict")
         render_context_mock.add_import.assert_any_call("typing", "IO")
         render_context_mock.add_import.assert_any_call("typing", "Any")
@@ -518,7 +525,8 @@ class TestEndpointUrlArgsGenerator:
             resolved_body_type,
         )
 
-        code_writer_mock.write_line.assert_any_call(f"form_data_body: {resolved_body_type} = form_data")
+        code_writer_mock.write_line.assert_any_call(f"form_data_body: {resolved_body_type} = DataclassSerializer.serialize(form_data)")
+        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         # This specific path does not add imports itself, assumes type hint is valid
 
     def test_generate_url_and_args_form_urlencoded_no_resolved_type_fallback(
@@ -549,7 +557,8 @@ class TestEndpointUrlArgsGenerator:
             resolved_body_type,
         )
 
-        code_writer_mock.write_line.assert_any_call("form_data_body: Dict[str, Any] = form_data  # Fallback type")
+        code_writer_mock.write_line.assert_any_call("form_data_body: Dict[str, Any] = DataclassSerializer.serialize(form_data)  # Fallback type")
+        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         render_context_mock.add_import.assert_any_call("typing", "Dict")
         render_context_mock.add_import.assert_any_call("typing", "Any")
 

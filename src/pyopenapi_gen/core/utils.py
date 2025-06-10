@@ -3,10 +3,12 @@
 This module contains utility classes and functions used across the code generation process.
 """
 
+import dataclasses
 import keyword
 import logging
 import re
-from typing import Any, Dict, Type, TypeVar, cast
+from datetime import datetime
+from typing import Any, Dict, Set, Type, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -301,3 +303,107 @@ def safe_cast(expected_type: Type[T], data: Any) -> T:
     # No validation for now
     # Cast to object first, then to expected_type
     return cast(expected_type, cast(object, data))  # type: ignore[valid-type]
+
+
+class DataclassSerializer:
+    """Utility for converting dataclass instances to dictionaries for API serialization.
+
+    This enables automatic conversion of dataclass request bodies to JSON-compatible
+    dictionaries in generated client code, providing a better developer experience.
+    """
+
+    @staticmethod
+    def serialize(obj: Any) -> Any:
+        """Convert dataclass instances to dictionaries recursively.
+
+        Args:
+            obj: The object to serialize. Can be a dataclass, list, dict, or primitive.
+
+        Returns:
+            The serialized object with dataclasses converted to dictionaries.
+
+        Handles:
+        - Dataclass instances: Converted to dictionaries
+        - Lists: Recursively serialize each item
+        - Dictionaries: Recursively serialize values
+        - datetime: Convert to ISO format string
+        - Primitives: Return unchanged
+        - None values: Excluded from output
+        """
+        # Track visited objects to handle circular references
+        return DataclassSerializer._serialize_with_tracking(obj, set())
+
+    @staticmethod
+    def _serialize_with_tracking(obj: Any, visited: Set[int]) -> Any:
+        """Internal serialization method with circular reference tracking."""
+
+        # Handle None values by excluding them
+        if obj is None:
+            return None
+
+        # Handle circular references
+        obj_id = id(obj)
+        if obj_id in visited:
+            # For circular references, return a simple representation
+            if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+                return f"<Circular reference to {obj.__class__.__name__}>"
+            return obj
+
+        # Handle datetime objects
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+
+        # Handle dataclass instances
+        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            visited.add(obj_id)
+            try:
+                result = {}
+                for field in dataclasses.fields(obj):
+                    value = getattr(obj, field.name)
+                    # Skip None values to keep JSON clean
+                    if value is not None:
+                        serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
+                        if serialized_value is not None:
+                            result[field.name] = serialized_value
+                return result
+            finally:
+                visited.discard(obj_id)
+
+        # Handle lists and tuples
+        if isinstance(obj, (list, tuple)):
+            return [DataclassSerializer._serialize_with_tracking(item, visited) for item in obj]
+
+        # Handle dictionaries
+        if isinstance(obj, dict):
+            result = {}
+            for key, value in obj.items():
+                serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
+                if serialized_value is not None:
+                    result[key] = serialized_value
+            return result
+
+        # Handle primitive types and unknown objects
+        if isinstance(obj, (str, int, float, bool)):
+            return obj
+
+        # For unknown types, try to convert to string as fallback
+        try:
+            # If the object has a __dict__, try to serialize it like a dataclass
+            if hasattr(obj, "__dict__"):
+                visited.add(obj_id)
+                try:
+                    result = {}
+                    for key, value in obj.__dict__.items():
+                        if not key.startswith("_"):  # Skip private attributes
+                            serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
+                            if serialized_value is not None:
+                                result[key] = serialized_value
+                    return result
+                finally:
+                    visited.discard(obj_id)
+            else:
+                # Fallback to string representation
+                return str(obj)
+        except Exception:
+            # Ultimate fallback
+            return str(obj)

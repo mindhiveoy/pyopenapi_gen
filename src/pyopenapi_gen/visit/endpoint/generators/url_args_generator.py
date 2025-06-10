@@ -127,25 +127,32 @@ class EndpointUrlArgsGenerator:
         # Request Body related local variables (json_body, files_data, etc.)
         # This part was in _write_url_and_args in the original, it sets up variables used by _write_request
         if op.request_body:
+            # Import DataclassSerializer for automatic conversion
+            context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
+
             if primary_content_type == "application/json":
                 body_param_detail = next((p for p in ordered_params if p["name"] == "body"), None)
                 if body_param_detail:
                     actual_body_type_from_signature = body_param_detail["type"]
                     context.add_typing_imports_for_type(actual_body_type_from_signature)
-                    writer.write_line(f"json_body: {actual_body_type_from_signature} = body")
+                    writer.write_line(
+                        f"json_body: {actual_body_type_from_signature} = DataclassSerializer.serialize(body)"
+                    )
                 else:
                     logger.warning(
                         f"Operation {op.operation_id}: 'body' parameter not found in "
                         f"ordered_params for JSON. Defaulting to Any."
                     )
                     context.add_import("typing", "Any")
-                    writer.write_line("json_body: Any = body  # 'body' param not found in signature details")
+                    writer.write_line(
+                        "json_body: Any = DataclassSerializer.serialize(body)  # 'body' param not found in signature details"
+                    )
             elif primary_content_type == "multipart/form-data":
                 files_param_details = next((p for p in ordered_params if p["name"] == "files"), None)
                 if files_param_details:
                     actual_files_param_type = files_param_details["type"]
                     context.add_typing_imports_for_type(actual_files_param_type)
-                    writer.write_line(f"files_data: {actual_files_param_type} = files")
+                    writer.write_line(f"files_data: {actual_files_param_type} = DataclassSerializer.serialize(files)")
                 else:
                     logger.warning(
                         f"Operation {op.operation_id}: Could not find 'files' parameter details "
@@ -154,16 +161,22 @@ class EndpointUrlArgsGenerator:
                     context.add_import("typing", "Dict")
                     context.add_import("typing", "IO")  # For IO[Any]
                     context.add_import("typing", "Any")
-                    writer.write_line("files_data: Dict[str, IO[Any]] = files  # Type inference for files_data failed")
+                    writer.write_line(
+                        "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # Type inference for files_data failed"
+                    )
             elif primary_content_type == "application/x-www-form-urlencoded":
                 # form_data is the expected parameter name from EndpointParameterProcessor
                 # resolved_body_type should be Dict[str, Any]
                 if resolved_body_type:
-                    writer.write_line(f"form_data_body: {resolved_body_type} = form_data")
+                    writer.write_line(
+                        f"form_data_body: {resolved_body_type} = DataclassSerializer.serialize(form_data)"
+                    )
                 else:  # Should not happen if EndpointParameterProcessor sets it
                     context.add_import("typing", "Dict")
                     context.add_import("typing", "Any")
-                    writer.write_line("form_data_body: Dict[str, Any] = form_data  # Fallback type")
+                    writer.write_line(
+                        "form_data_body: Dict[str, Any] = DataclassSerializer.serialize(form_data)  # Fallback type"
+                    )
             elif resolved_body_type == "bytes":  # e.g. application/octet-stream
                 # bytes_content is the expected parameter name from EndpointParameterProcessor
                 writer.write_line(f"bytes_body: bytes = bytes_content")
