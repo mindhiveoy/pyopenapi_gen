@@ -179,11 +179,45 @@ When adding new features or fixing bugs:
 - **Performance Testing**: Limited tests for performance optimization
 - **Error Recovery**: More tests needed for graceful error recovery scenarios
 
+## Running Tests
+
+### Quick Commands
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-cov
+
+# Run tests, stop on first failure (fast debugging)
+make test-fast
+
+# Run specific test file
+pytest tests/core/test_loader.py
+
+# Run specific test function
+pytest tests/core/test_loader.py::test_load_ir_from_spec__minimal_openapi_spec__creates_ir_with_basic_components
+```
+
+### Quality Assurance
+```bash
+# Before committing - auto-fix and check everything
+make quality-fix && make quality
+
+# Individual quality checks
+make format-check         # Code formatting
+make lint                 # Linting
+make typecheck            # Type checking
+make security             # Security scanning
+```
+
 ## Test Configuration
 
 The project uses pytest with the following main configuration options:
 - Test discovery in the `tests/` directory
 - Test files must match `test_*.py`
 - Test functions must be prefixed with `test_`
+- Coverage target: ≥90% branch coverage
+- Strict type checking with mypy
 
-See `pyproject.toml` for more pytest configuration details. 
+See `pyproject.toml` and `Makefile` for complete configuration details. 

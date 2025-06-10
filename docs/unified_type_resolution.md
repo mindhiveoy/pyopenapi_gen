@@ -196,5 +196,11 @@ The unified system has comprehensive test coverage in `tests/types/`:
 
 Run type resolution tests:
 ```bash
+# Run all type system tests
 pytest tests/types/ -v
+
+# Or use make commands for complete quality checks
+make test                # All tests
+make test-cov            # Tests with coverage
+make quality             # Full quality gate (includes testing)
 ``` 

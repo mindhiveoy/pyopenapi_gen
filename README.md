@@ -134,21 +134,42 @@ from .core.auth.base import CompositeAuth
 auth = CompositeAuth(BearerAuth("token"), HeadersAuth({"X-Key": "val"}))
 ```
 
-## Contributing
+## Development
+
+### Setup
+```bash
+git clone https://github.com/your-org/pyopenapi_gen.git
+cd pyopenapi_gen
+source .venv/bin/activate  # Activate virtual environment
+pip install -e '.[dev]'   # Install in development mode
+```
+
+### Quality Workflow
+```bash
+# Before committing - auto-fix what's possible
+make quality-fix
+
+# Run all quality checks (matches CI pipeline)
+make quality
+
+# Individual commands
+make format               # Auto-format with Black
+make lint-fix             # Auto-fix linting with Ruff  
+make typecheck            # Type checking with mypy
+make security             # Security scanning with Bandit
+make test                 # Run all tests
+```
+
+### Contributing
 
 Contributions welcome! Please ensure:
 
-- **Code Quality**: Black formatting, Ruff linting, mypy type checking
+- **Code Quality**: All `make quality` checks pass
 - **Testing**: pytest with ≥90% branch coverage
 - **Compatibility**: Python 3.10-3.12 support
+- **Documentation**: Update relevant docs for new features
 
-```bash
-# Development setup
-pytest                    # Run tests
-mypy src/                 # Type checking  
-ruff check src/           # Linting
-black src/                # Formatting
-```
+The `make quality-fix` command will auto-fix most formatting and linting issues. All pull requests must pass the full `make quality` check suite.
 
 ## License
 

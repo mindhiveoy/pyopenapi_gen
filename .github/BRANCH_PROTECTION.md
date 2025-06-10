@@ -87,22 +87,40 @@ The pipeline enforces the following quality gates:
 
 ## Local Development
 
-Before creating a PR, run locally:
+Before creating a PR, run locally to ensure it will pass CI:
 
 ```bash
 # Activate virtual environment
 source .venv/bin/activate
 
-# Run quality checks
-black src/ tests/
-ruff check src/ tests/
-mypy src/ --strict --no-warn-no-return
+# Auto-fix what's possible
+make quality-fix
 
-# Run tests
-pytest --cov=src --cov-report=term-missing --cov-fail-under=90
+# Verify all quality gates pass (exactly matches CI pipeline)
+make quality
 
-# Test CLI
-pyopenapi-gen --help
+# Run tests with coverage
+make test-cov
 ```
 
-This ensures your PR will pass the automated checks.
+### Individual Commands (if needed)
+
+```bash
+# Quality checks (matches CI pipeline exactly)
+make format-check         # Black formatting check
+make lint                 # Ruff linting check  
+make typecheck            # mypy type checking
+make security             # Bandit security scanning
+
+# Testing
+make test                 # Run all tests
+make test-fast            # Stop on first failure (for debugging)
+
+# Auto-fixes
+make format               # Auto-format with Black
+make lint-fix             # Auto-fix linting with Ruff
+```
+
+### Why Use Make Commands?
+
+The `make` commands ensure you're running **exactly** the same checks as the CI pipeline. This prevents the "works locally but fails in CI" problem and provides fast feedback during development.
