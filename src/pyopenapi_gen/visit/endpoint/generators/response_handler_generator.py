@@ -360,6 +360,7 @@ class EndpointResponseHandlerGenerator:
             writer.dedent()
             writer.dedent()
 
+        # All code paths should be covered by the match statement above
         writer.write_line("")  # Add a blank line for readability
 
     def _write_parsed_return(

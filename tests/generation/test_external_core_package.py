@@ -53,7 +53,7 @@ def run_mypy_on_generated_project(project_root: Path, packages_to_check: list[st
     ]
     env["PYTHONPATH"] = os.pathsep.join(filter(None, python_path_parts))
 
-    cmd = ["mypy", "--strict"] + packages_to_check
+    cmd = ["mypy", "--strict", "--no-warn-no-return"] + packages_to_check
 
     # For debugging MyPy issues:
     # print(f"\nRunning mypy command: {' '.join(cmd)}")

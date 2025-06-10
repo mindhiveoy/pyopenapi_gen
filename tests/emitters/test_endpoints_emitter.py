@@ -150,7 +150,7 @@ def test_endpoints_emitter__json_request_body__generates_body_parameter_and_json
     content = pets_file.read_text()
     # The method should include a body parameter and json=body in the request
     assert "body:" in content
-    assert "json_body: Dict[str, Any] = body" in content
+    assert "json_body: Dict[str, Any] = DataclassSerializer.serialize(body)" in content
 
 
 def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_assignment(tmp_path: Path, mock_render_context: MagicMock) -> None:
@@ -195,7 +195,7 @@ def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_a
     # The method signature should include 'files: Dict[str, IO[Any]]'
     assert "files: Dict[str, IO[Any]]" in content
     # And the request should pass files via kwargs
-    assert "files_data: Dict[str, IO[Any]] = files" in content
+    assert "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)" in content
 
 
 def test_endpoints_emitter__streaming_binary_response__generates_async_iterator_with_bytes_yield(tmp_path: Path, mock_render_context: MagicMock) -> None:
