@@ -108,7 +108,7 @@ def get_return_type(
     op: IROperation,
     context: RenderContext,
     schemas: Dict[str, IRSchema],
-) -> tuple[str, bool]:
+) -> tuple[str | None, bool]:
     """
     DEPRECATED: Use get_return_type_unified instead.
 
@@ -120,7 +120,7 @@ def get_return_type(
     """
     # Delegate to the unified service for all type resolution
     type_service = UnifiedTypeService(schemas)
-    py_type = type_service.resolve_operation_response_type(op, context)
+    py_type: str | None = type_service.resolve_operation_response_type(op, context)
 
     # Backward compatibility: If unified service returns None or "None", try inference
     if py_type is None or py_type == "None":

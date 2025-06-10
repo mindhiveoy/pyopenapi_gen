@@ -106,4 +106,6 @@ class TypeHelper:
         """
         # Delegate to the unified type service for all type resolution
         type_service = UnifiedTypeService(all_schemas)
+        if schema is None:
+            return "Any"
         return type_service.resolve_schema_type(schema, context, required)

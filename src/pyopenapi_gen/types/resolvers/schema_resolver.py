@@ -116,7 +116,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
 
         if not module_stem:
             logger.warning(f"Named schema {schema.name} missing final_module_stem")
-            return ResolvedType(python_type=class_name, is_optional=not required)
+            return ResolvedType(python_type=class_name or "Any", is_optional=not required)
 
         # Check if we're trying to import from the same module (self-import)
         # This only applies when using a RenderContextAdapter with a real RenderContext
@@ -139,7 +139,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         if current_file and isinstance(current_file, str) and current_file.endswith(f"{module_stem}.py"):
             # This is a self-import (importing from the same file), so skip the import
             # and mark as forward reference to require quoting
-            return ResolvedType(python_type=class_name, is_optional=not required, is_forward_ref=True)
+            return ResolvedType(python_type=class_name or "Any", is_optional=not required, is_forward_ref=True)
 
         # Use the render context's relative path calculation to determine proper import path
         import_module = f"..models.{module_stem}"  # Default fallback
@@ -160,13 +160,13 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 # If relative path calculation fails, fall back to the default
                 logger.debug(f"Failed to calculate relative path for {module_stem}, using default: {e}")
 
-        context.add_import(import_module, class_name)
+        context.add_import(import_module, class_name or "Any")
 
         return ResolvedType(
-            python_type=class_name,
+            python_type=class_name or "Any",
             needs_import=True,
             import_module=import_module,
-            import_name=class_name,
+            import_name=class_name or "Any",
             is_optional=not required,
         )
 
@@ -239,12 +239,12 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         # Only resolve underlying for primitive type aliases, not for actual models that should be generated
         items_resolve_underlying = (
             resolve_underlying
-            and items_schema.name
+            and getattr(items_schema, "name", None)
             and not getattr(items_schema, "properties", None)
-            and items_schema.type in ("string", "integer", "number", "boolean")
+            and getattr(items_schema, "type", None) in ("string", "integer", "number", "boolean")
         )
         item_type = self.resolve_schema(
-            items_schema, context, required=True, resolve_underlying=items_resolve_underlying
+            items_schema, context, required=True, resolve_underlying=bool(items_resolve_underlying)
         )
         context.add_import("typing", "List")
 
@@ -288,12 +288,12 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             # For union components, preserve model references unless it's a primitive type alias
             sub_resolve_underlying = (
                 resolve_underlying
-                and sub_schema.name
+                and getattr(sub_schema, "name", None)
                 and not getattr(sub_schema, "properties", None)
-                and sub_schema.type in ("string", "integer", "number", "boolean")
+                and getattr(sub_schema, "type", None) in ("string", "integer", "number", "boolean")
             )
             sub_resolved = self.resolve_schema(
-                sub_schema, context, required=True, resolve_underlying=sub_resolve_underlying
+                sub_schema, context, required=True, resolve_underlying=bool(sub_resolve_underlying)
             )
             # Format sub-types properly, handling forward references
             sub_type_str = sub_resolved.python_type
@@ -343,12 +343,12 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             # For union components, preserve model references unless it's a primitive type alias
             sub_resolve_underlying = (
                 resolve_underlying
-                and sub_schema.name
+                and getattr(sub_schema, "name", None)
                 and not getattr(sub_schema, "properties", None)
-                and sub_schema.type in ("string", "integer", "number", "boolean")
+                and getattr(sub_schema, "type", None) in ("string", "integer", "number", "boolean")
             )
             sub_resolved = self.resolve_schema(
-                sub_schema, context, required=True, resolve_underlying=sub_resolve_underlying
+                sub_schema, context, required=True, resolve_underlying=bool(sub_resolve_underlying)
             )
             # Format sub-types properly, handling forward references
             sub_type_str = sub_resolved.python_type
