@@ -1,32 +1,52 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import Mock, MagicMock
+
+import pytest
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
 from pyopenapi_gen.ir import IROperation, IRResponse, IRSchema
+from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 from pyopenapi_gen.visit.endpoint.generators.response_handler_generator import EndpointResponseHandlerGenerator
 
 
-class TestEndpointResponseHandlerGenerator(unittest.TestCase):
-    def setUp(self) -> None:
-        self.render_context_mock = MagicMock(spec=RenderContext)
-        self.render_context_mock.import_collector = MagicMock()
-        self.render_context_mock.import_collector._current_file_module_dot_path = "some.dummy.path"
-        self.code_writer_mock = MagicMock(spec=CodeWriter)
-        self.generator = EndpointResponseHandlerGenerator()
-        self.mock_op = MagicMock(spec=IROperation)
-        self.mock_op.responses = []
-        self.render_context_mock.name_sanitizer = MagicMock()
+class TestEndpointResponseHandlerGenerator:
+    """Test the response handler generator with the new ResponseStrategy pattern."""
+    
+    @pytest.fixture
+    def render_context_mock(self):
+        """Mock render context."""
+        context = MagicMock(spec=RenderContext)
+        context.import_collector = MagicMock()
+        context.import_collector._current_file_module_dot_path = "some.dummy.path"
+        context.name_sanitizer = MagicMock()
+        context.core_package_name = "test_client.core"
+        return context
+        
+    @pytest.fixture
+    def code_writer_mock(self):
+        """Mock code writer."""
+        return MagicMock(spec=CodeWriter)
+        
+    @pytest.fixture
+    def generator(self):
+        """Response handler generator instance."""
+        return EndpointResponseHandlerGenerator()
+        
+    @pytest.fixture
+    def mock_op(self):
+        """Mock operation."""
+        op = MagicMock(spec=IROperation)
+        op.responses = []
+        return op
 
-    def test_generate_response_handling_success_json(self) -> None:
+    def test_generate_response_handling_success_json(self, generator, code_writer_mock, render_context_mock) -> None:
         """
-        Scenario:
-            Test response handling for a successful JSON response where the return type is a known model.
-        Expected Outcome:
-            The generated code should use JSONWizard deserialization for the model type.
-            The model type should be imported.
+        Scenario: Test response handling for a successful JSON response with a known model
+        Expected Outcome: Generated code uses BaseSchema deserialization and imports model
         """
+        # Arrange
         success_response_schema = IRSchema(type="object", properties={"id": IRSchema(type="integer")}, name="Item")
         operation = IROperation(
             operation_id="get_item",
@@ -45,39 +65,38 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
                 )
             ],
         )
-        self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "Item"
-        self.render_context_mock.core_package_name = "test_client.core"
+        
+        strategy = ResponseStrategy(
+            return_type="Item",
+            response_schema=success_response_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0]
+        )
+        
+        render_context_mock.name_sanitizer.sanitize_class_name.return_value = "Item"
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="Item",
-        ) as mock_get_return_type:
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Act
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-            mock_get_return_type.assert_called_once_with(operation, self.render_context_mock, self.generator.schemas)
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("Item")
+        # Assert
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+        
+        assert "match response.status_code:" in written_code
+        assert "case 200:" in written_code
+        assert any(
+            c[0][0].strip() == "return Item.from_dict(response.json())"
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
+        )
 
-            written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-
-            self.assertIn("match response.status_code:", written_code)
-            self.assertIn("case 200:", written_code)
-            self.assertTrue(
-                any(
-                    c[0][0].strip() == "return Item.from_dict(response.json())"
-                    for c in self.code_writer_mock.write_line.call_args_list
-                )
-            )
-            self.render_context_mock.add_import.assert_any_call(
-                f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
-            )
-
-    def test_generate_response_handling_for_none_return_type(self) -> None:
+    def test_generate_response_handling_for_none_return_type(self, generator, code_writer_mock, render_context_mock) -> None:
         """
-        Scenario:
-            Test response handling when get_return_type indicates "None" (e.g., for a 204 response).
-        Expected Outcome:
-            The generated code should simply be "return None".
+        Scenario: Test response handling for None return type (e.g., 204 response)
+        Expected Outcome: Generated code simply returns None
         """
+        # Arrange
         operation = IROperation(
             operation_id="delete_item",
             method=HTTPMethod.DELETE,
@@ -86,102 +105,100 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             summary="delete",
             description="delete",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="None",
-        ) as mock_get_return_type:
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
-
-            mock_get_return_type.assert_called_once()
-            written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-            self.assertIn("match response.status_code:", written_code)
-            self.assertIn("case 204:", written_code)
-            self.assertTrue(
-                any(c[0][0].strip() == "return None" for c in self.code_writer_mock.write_line.call_args_list)
-            )
-            self.render_context_mock.add_import.assert_any_call(
-                f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
-            )
-
-    def test_get_extraction_code_primitive_str(self) -> None:
-        """
-        Scenario:
-            _get_extraction_code is called with return_type="str".
-        Expected Outcome:
-            Returns "response.text".
-        """
-        code = self.generator._get_extraction_code(
-            return_type="str", context=self.render_context_mock, op=self.mock_op, needs_unwrap=False
+        
+        strategy = ResponseStrategy(
+            return_type="None",
+            response_schema=None,
+            is_streaming=False,
+            response_ir=operation.responses[0]
         )
-        self.assertEqual(code, "response.text")
 
-    def test_get_extraction_code_primitive_bytes(self) -> None:
-        """
-        Scenario:
-            _get_extraction_code is called with return_type="bytes".
-        Expected Outcome:
-            Returns "response.content".
-        """
-        code = self.generator._get_extraction_code(
-            return_type="bytes", context=self.render_context_mock, op=self.mock_op, needs_unwrap=False
-        )
-        self.assertEqual(code, "response.content")
+        # Act
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-    def test_get_extraction_code_any_type(self) -> None:
-        """
-        Scenario:
-            _get_extraction_code is called with return_type="Any".
-        Expected Outcome:
-            Returns "response.json()  # Type is Any" and registers import for Any.
-        """
-        code = self.generator._get_extraction_code(
-            return_type="Any", context=self.render_context_mock, op=self.mock_op, needs_unwrap=False
+        # Assert
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+        assert "match response.status_code:" in written_code
+        assert "case 204:" in written_code
+        assert any(c[0][0].strip() == "return None" for c in code_writer_mock.write_line.call_args_list)
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
-        self.assertEqual(code, "response.json()  # Type is Any")
-        self.render_context_mock.add_import.assert_called_with("typing", "Any")
 
-    def test_get_extraction_code_model_type(self) -> None:
+    def test_get_extraction_code_primitive_str(self, generator, render_context_mock, mock_op) -> None:
         """
-        Scenario:
-            _get_extraction_code is called with a model type string (e.g., "MyModel").
-        Expected Outcome:
-            Returns "MyModel.from_dict(response.json())" for JSONWizard deserialization and registers imports for the model.
+        Scenario: _get_extraction_code is called with return_type="str"
+        Expected Outcome: Returns "response.text"
         """
-        code = self.generator._get_extraction_code(
-            return_type="MyModel", context=self.render_context_mock, op=self.mock_op, needs_unwrap=False
+        # Act
+        code = generator._get_extraction_code(
+            return_type="str", context=render_context_mock, op=mock_op
         )
-        self.assertEqual(code, "MyModel.from_dict(response.json())")
-        self.render_context_mock.add_typing_imports_for_type.assert_called_with("MyModel")
+        
+        # Assert
+        assert code == "response.text"
 
-    def test_get_extraction_code_model_type_with_unwrap(self) -> None:
+    def test_get_extraction_code_primitive_bytes(self, generator, render_context_mock, mock_op) -> None:
         """
-        Scenario:
-            _get_extraction_code is called for a model type with needs_unwrap=True.
-        Expected Outcome:
-            Returns multi-line code for unwrapping 'data' key and JSONWizard deserialization, and registers imports.
+        Scenario: _get_extraction_code is called with return_type="bytes"
+        Expected Outcome: Returns "response.content"
         """
-        expected_code = (
-            "raw_data = response.json().get('data')\n"
-            "if raw_data is None:\n"
-            "    raise ValueError(\"Expected 'data' key in response but found None\")\n"
-            "return MyDataModel.from_dict(raw_data)"
+        # Act
+        code = generator._get_extraction_code(
+            return_type="bytes", context=render_context_mock, op=mock_op
         )
-        code = self.generator._get_extraction_code(
-            return_type="MyDataModel", context=self.render_context_mock, op=self.mock_op, needs_unwrap=True
-        )
-        self.assertEqual(code, expected_code)
-        self.render_context_mock.add_typing_imports_for_type.assert_called_with("MyDataModel")
+        
+        # Assert
+        assert code == "response.content"
 
-    def test_generate_response_handling_error_404(self) -> None:
+    def test_get_extraction_code_any_type(self, generator, render_context_mock, mock_op) -> None:
         """
-        Scenario:
-            Test response handling for a 404 Not Found error.
-        Expected Outcome:
-            The generated code should raise Error404(response=response).
-            Error404 and HTTPError should be imported.
+        Scenario: _get_extraction_code is called with return_type="Any"
+        Expected Outcome: Returns "response.json()  # Type is Any" and registers import for Any
         """
+        # Act
+        code = generator._get_extraction_code(
+            return_type="Any", context=render_context_mock, op=mock_op
+        )
+        
+        # Assert
+        assert code == "response.json()  # Type is Any"
+        render_context_mock.add_import.assert_called_with("typing", "Any")
+
+    def test_get_extraction_code_model_type(self, generator, render_context_mock, mock_op) -> None:
+        """
+        Scenario: _get_extraction_code is called with a model type string (e.g., "MyModel")
+        Expected Outcome: Returns "MyModel.from_dict(response.json())" for BaseSchema deserialization and registers imports
+        """
+        # Act
+        code = generator._get_extraction_code(
+            return_type="MyModel", context=render_context_mock, op=mock_op
+        )
+        
+        # Assert
+        assert code == "MyModel.from_dict(response.json())"
+        render_context_mock.add_typing_imports_for_type.assert_called_with("MyModel")
+
+    def test_get_extraction_code_model_type_no_unwrapping(self, generator, render_context_mock, mock_op) -> None:
+        """
+        Scenario: _get_extraction_code is called for a model type 
+        Expected Outcome: Returns direct BaseSchema deserialization (no unwrapping)
+        """
+        # Act
+        code = generator._get_extraction_code(
+            return_type="MyDataModel", context=render_context_mock, op=mock_op
+        )
+        
+        # Assert
+        assert code == "MyDataModel.from_dict(response.json())"
+        render_context_mock.add_typing_imports_for_type.assert_called_with("MyDataModel")
+
+    def test_generate_response_handling_error_404(self, generator, code_writer_mock, render_context_mock) -> None:
+        """
+        Scenario: Test response handling for a 404 Not Found error
+        Expected Outcome: Generated code raises Error404(response=response) and imports are added
+        """
+        # Arrange
         operation = IROperation(
             operation_id="get_missing_item",
             method=HTTPMethod.GET,
@@ -190,40 +207,40 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             summary="get missing",
             description="get missing",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
+        
+        strategy = ResponseStrategy(
+            return_type="Any",
+            response_schema=None,
+            is_streaming=False,
+            response_ir=operation.responses[0]
+        )
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="Any",
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Act
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-            written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
+        # Assert
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+        
+        assert "match response.status_code:" in written_code
+        assert "case 404:" in written_code
+        assert any(
+            c[0][0].strip() == "raise Error404(response=response)"
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}", "Error404"
+        )
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
+        )
 
-            self.assertIn("match response.status_code:", written_code)
-            self.assertIn("case 404:", written_code)
-            self.assertTrue(
-                any(
-                    c[0][0].strip() == "raise Error404(response=response)"
-                    for c in self.code_writer_mock.write_line.call_args_list
-                )
-            )
-
-            self.render_context_mock.add_import.assert_any_call(
-                f"{self.render_context_mock.core_package_name}", "Error404"
-            )
-            self.render_context_mock.add_import.assert_any_call(
-                f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
-            )
-
-    def test_generate_response_handling_unhandled_error(self) -> None:
+    def test_generate_response_handling_unhandled_error(self, generator, code_writer_mock, render_context_mock) -> None:
         """
-        Scenario:
-            Test response handling for an undefined/unhandled error status code.
-        Expected Outcome:
-            The generated code should fall into the final else block and raise HTTPError(response=response).
-            HTTPError should be imported.
+        Scenario: Test response handling for an undefined/unhandled error status code
+        Expected Outcome: Generated code falls into final else block and raises HTTPError
         """
+        # Arrange
         operation = IROperation(
             operation_id="op_no_responses",
             method=HTTPMethod.GET,
@@ -232,29 +249,31 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             summary="unknown",
             description="unknown",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
+        
+        strategy = ResponseStrategy(
+            return_type="Any",
+            response_schema=None,
+            is_streaming=False,
+            response_ir=None
+        )
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="Any",
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Act
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-            written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-
-            self.assertIn("match response.status_code:", written_code)
-            self.assertIn("case _:", written_code)
-            self.assertTrue(
-                any(
-                    c[0][0].strip()
-                    == 'raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)'
-                    for c in self.code_writer_mock.write_line.call_args_list
-                )
-            )
-
-            self.render_context_mock.add_import.assert_any_call(
-                f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
-            )
+        # Assert
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+        
+        assert "match response.status_code:" in written_code
+        assert "case _:" in written_code
+        assert any(
+            c[0][0].strip()
+            == 'raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)'
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
+        )
 
     def test_generate_response_handling_default_as_success_only_response(self) -> None:
         """
@@ -294,12 +313,11 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
             self.assertTrue(
                 any(
-                    c[0][0].strip() == "return cast(DefaultSuccessData, response.json())"
+                    c[0][0].strip() == "return DefaultSuccessData.from_dict(response.json())"
                     for c in self.code_writer_mock.write_line.call_args_list
                 )
             )
             self.render_context_mock.add_typing_imports_for_type.assert_any_call("DefaultSuccessData")
-            self.render_context_mock.add_import.assert_any_call("typing", "cast")
             # For default-only responses with content, no unhandled case is needed as default handles all
 
     def test_generate_response_handling_default_as_fallback_error(self) -> None:
@@ -407,7 +425,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
             self.assertTrue(
                 any(
-                    c[0][0].strip() == "return cast(PrimaryDefault, response.json())"
+                    c[0][0].strip() == "return PrimaryDefault.from_dict(response.json())"
                     for c in self.code_writer_mock.write_line.call_args_list
                 )
             )
@@ -465,7 +483,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("case 200:", written_code)
         self.assertTrue(
             any(
-                c[0][0].strip() == "return cast(ModelA, response.json())"
+                c[0][0].strip() == "return ModelA.from_dict(response.json())"
                 for c in self.code_writer_mock.write_line.call_args_list
             )
         )
@@ -474,13 +492,12 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("case 201:", written_code)
         self.assertTrue(
             any(
-                c[0][0].strip() == "return cast(ModelB, response.json())"
+                c[0][0].strip() == "return ModelB.from_dict(response.json())"
                 for c in self.code_writer_mock.write_line.call_args_list
             )
         )
         self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelB")
 
-        self.render_context_mock.add_import.assert_any_call("typing", "cast")
         self.render_context_mock.add_import.assert_any_call(
             f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
@@ -678,19 +695,19 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("case 200:", written_code_union)
         self.assertIn("try:", written_code_union)
         # With unified service, no manual unwrapping should be generated for union types
-        self.assertIn("return cast(ModelA, response.json())", written_lines_stripped_union)
+        self.assertIn("return ModelA.from_dict(response.json())", written_lines_stripped_union)
         self.assertIn("except Exception:", written_code_union)
-        self.assertIn("return cast(ModelB, response.json())", written_lines_stripped_union)
+        self.assertIn("return ModelB.from_dict(response.json())", written_lines_stripped_union)
 
         # Ensure no unwrapping code is generated (unified service handles it)
         self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped_union)
-        self.assertNotIn("return_value = cast(ModelA, raw_data)", written_lines_stripped_union)
+        self.assertNotIn("return_value = ModelA.from_dict(raw_data)", written_lines_stripped_union)
         self.assertNotIn("return return_value", written_lines_stripped_union)
 
     def test_generate_response_handling_simple_type_with_unwrap(self) -> None:
         """
         Scenario: Op returns 200 OK, type is ModelC. With unified service, unwrapping is handled internally.
-        Expected Outcome: JSONWizard deserialization for ModelC is generated (no manual unwrapping).
+        Expected Outcome: BaseSchema deserialization for ModelC is generated (no manual unwrapping).
         """
         schema_c = IRSchema(type="object", name="ModelC")
         operation = IROperation(

@@ -107,7 +107,7 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
     my_item_file = models_output_dir / f"{NameSanitizer.sanitize_module_name('MyItem')}.py"
     assert my_item_file.exists(), f"{my_item_file} was not generated."
     my_item_content = my_item_file.read_text()
-    assert "class MyItem:" in my_item_content
+    assert "class MyItem(BaseSchema):" in my_item_content
     assert f"{NameSanitizer.sanitize_method_name('id')}: str" in my_item_content
     assert f"{NameSanitizer.sanitize_method_name('name')}: str" in my_item_content
 
@@ -115,7 +115,7 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
     pagination_meta_file = models_output_dir / f"{NameSanitizer.sanitize_module_name('PaginationMeta')}.py"
     assert pagination_meta_file.exists(), f"{pagination_meta_file} was not generated."
     pagination_meta_content = pagination_meta_file.read_text()
-    assert "class PaginationMeta:" in pagination_meta_content
+    assert "class PaginationMeta(BaseSchema):" in pagination_meta_content
     assert f"{NameSanitizer.sanitize_method_name('totalItems')}: int" in pagination_meta_content
     assert f"{NameSanitizer.sanitize_method_name('totalPages')}: int" in pagination_meta_content
 
@@ -123,7 +123,7 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
     my_item_list_response_file = models_output_dir / f"{NameSanitizer.sanitize_module_name('MyItemListResponse')}.py"
     assert my_item_list_response_file.exists(), f"{my_item_list_response_file} was not generated."
     my_item_list_response_content = my_item_list_response_file.read_text()
-    assert "class MyItemListResponse:" in my_item_list_response_content
+    assert "class MyItemListResponse(BaseSchema):" in my_item_list_response_content
     assert "from typing import List" in my_item_list_response_content
     assert f"from .{NameSanitizer.sanitize_module_name('MyItem')} import MyItem" in my_item_list_response_content
     assert (

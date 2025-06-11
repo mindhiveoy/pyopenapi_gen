@@ -30,7 +30,7 @@ class TestBusinessSwaggerIntegration:
     def test_message_batch_response_type_resolution(self, mock_context) -> None:
         """
         Scenario: Resolving MessageBatchResponse with List[Message] data property
-        Expected Outcome: Returns MessageBatchResponse and unwraps to List[Message]
+        Expected Outcome: Returns MessageBatchResponse (no unwrapping - use schema as-is)
         """
 
         # Configure mock to return expected relative paths
@@ -76,15 +76,14 @@ class TestBusinessSwaggerIntegration:
         result = type_service.resolve_operation_response_type(operation, mock_context.render_context)
 
         # Assert
-        # Should unwrap to List[Message] not MessageBatchResponse
-        assert result == "List[Message]"
-        mock_context.render_context.add_import.assert_any_call("typing", "List")
-        mock_context.render_context.add_import.assert_any_call("..models.message", "Message")
+        # Should return MessageBatchResponse as-is (no unwrapping)
+        assert result == "MessageBatchResponse"
+        mock_context.render_context.add_import.assert_any_call("..models.message_batch_response", "MessageBatchResponse")
 
     def test_message_response_type_resolution(self, mock_context) -> None:
         """
         Scenario: Resolving MessageResponse with Message data property
-        Expected Outcome: Returns MessageResponse and unwraps to Message
+        Expected Outcome: Returns MessageResponse (no unwrapping - use schema as-is)
         """
 
         # Configure mock to return expected relative paths
@@ -130,9 +129,9 @@ class TestBusinessSwaggerIntegration:
         result = type_service.resolve_operation_response_type(operation, mock_context.render_context)
 
         # Assert
-        # Should unwrap to Message not MessageResponse
-        assert result == "Message"
-        mock_context.render_context.add_import.assert_any_call("..models.message", "Message")
+        # Should return MessageResponse as-is (no unwrapping)
+        assert result == "MessageResponse"
+        mock_context.render_context.add_import.assert_any_call("..models.message_response", "MessageResponse")
 
     def test_schema_reference_resolution(self, mock_context) -> None:
         """

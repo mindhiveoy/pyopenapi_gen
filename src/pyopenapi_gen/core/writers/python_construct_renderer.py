@@ -149,14 +149,14 @@ class PythonConstructRenderer:
         field_mappings: Optional[Dict[str, str]] = None,
     ) -> str:
         """
-        Render a dataclass as Python code with optional JSONWizard support.
+        Render a dataclass as Python code with BaseSchema support.
 
         Args:
             class_name: The name of the dataclass
             fields: List of (name, type_hint, default_expr, description) tuples for each field
             description: Optional description for the class docstring
             context: The rendering context for import registration
-            field_mappings: Optional mapping of API field names to Python field names for JSONWizard
+            field_mappings: Optional mapping of API field names to Python field names for BaseSchema
 
         Returns:
             Formatted Python code for the dataclass
@@ -164,14 +164,14 @@ class PythonConstructRenderer:
         Example:
             ```python
             @dataclass
-            class User(JSONWizard):
+            class User(BaseSchema):
                 \"\"\"User information with automatic JSON field mapping.\"\"\"
                 id_: str
                 first_name: str
                 email: Optional[str] = None
                 is_active: bool = True
 
-                class _(JSONWizard.Meta):
+                class Meta:
                     \"\"\"Configure field name mapping for JSON conversion.\"\"\"
                     key_transform_with_load = {
                         'id': 'id_',
@@ -182,21 +182,29 @@ class PythonConstructRenderer:
         writer = CodeWriter()
         context.add_import("dataclasses", "dataclass")
 
-        # Determine if we need JSONWizard
-        use_json_wizard = field_mappings is not None and len(field_mappings) > 0
-
-        if use_json_wizard:
-            context.add_import("dataclass_wizard", "JSONWizard")
+        # Always use self-contained BaseSchema for client independence with automatic field mapping
+        # Use the core package from context - could be relative (..core) or absolute (api_sdks.my_core)
+        if context.core_package_name.startswith(".."):
+            # Already a relative import
+            core_import_path = f"{context.core_package_name}.schemas"
+        elif "." in context.core_package_name:
+            # External core package with dots (e.g., api_sdks.my_core) - use absolute import
+            core_import_path = f"{context.core_package_name}.schemas"
+        elif context.core_package_name == "core":
+            # Default relative core package
+            core_import_path = "..core.schemas"
+        else:
+            # Simple external core package name (e.g., shared_core_pkg) - use absolute import
+            core_import_path = f"{context.core_package_name}.schemas"
+        
+        context.add_import(core_import_path, "BaseSchema")
 
         # Add __all__ export
         writer.write_line(f'__all__ = ["{class_name}"]')
         writer.write_line("")  # Add a blank line for separation
 
         writer.write_line("@dataclass")
-        if use_json_wizard:
-            writer.write_line(f"class {class_name}(JSONWizard):")
-        else:
-            writer.write_line(f"class {class_name}:")
+        writer.write_line(f"class {class_name}(BaseSchema):")
         writer.indent()
 
         # Build and write docstring
@@ -204,12 +212,9 @@ class PythonConstructRenderer:
         for name, type_hint, _, field_desc in fields:
             field_args.append((name, type_hint, field_desc or ""))
 
-        # Update description for JSONWizard classes
-        if use_json_wizard:
-            base_description = description or f"{class_name} dataclass"
-            enhanced_description = f"{base_description} with automatic JSON field mapping."
-        else:
-            enhanced_description = description or f"{class_name} dataclass."
+        # Enhanced description with automatic field mapping
+        base_description = description or f"{class_name} dataclass"
+        enhanced_description = f"{base_description} with automatic JSON field mapping."
 
         doc_block = DocumentationBlock(
             summary=enhanced_description,
@@ -246,10 +251,10 @@ class PythonConstructRenderer:
                     line += f"  # {comment_text}"
                 writer.write_line(line)
 
-        # Add JSONWizard Meta class if field mappings are provided
-        if use_json_wizard and field_mappings:
+        # Add Meta class if field mappings are provided (for BaseSchema field mapping)
+        if field_mappings:
             writer.write_line("")  # Blank line before Meta class
-            writer.write_line("class _(JSONWizard.Meta):")
+            writer.write_line("class Meta:")
             writer.indent()
             writer.write_line('"""Configure field name mapping for JSON conversion."""')
             writer.write_line("key_transform_with_load = {")

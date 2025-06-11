@@ -6,6 +6,7 @@ from pyopenapi_gen import IROperation
 from ....context.render_context import RenderContext
 from ....core.utils import Formatter
 from ....core.writers.code_writer import CodeWriter
+from ....types.strategies import ResponseStrategyResolver
 from ..processors.import_analyzer import EndpointImportAnalyzer
 from ..processors.parameter_processor import EndpointParameterProcessor
 from .docstring_generator import EndpointDocstringGenerator
@@ -43,14 +44,18 @@ class EndpointMethodGenerator:
         context.add_import(f"{context.core_package_name}.http_transport", "HttpTransport")
         context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
 
-        # Special case for updateAgentDataSource was removed.
+        # UNIFIED RESPONSE STRATEGY: Resolve once, use everywhere
+        strategy_resolver = ResponseStrategyResolver(self.schemas)
+        response_strategy = strategy_resolver.resolve(op, context)
 
         self.import_analyzer.analyze_and_register_imports(op, context)
 
         ordered_params, primary_content_type, resolved_body_type = self.parameter_processor.process_parameters(
             op, context
         )
-        self.signature_generator.generate_signature(writer, op, context, ordered_params)
+        
+        # Pass strategy to generators for consistent behavior
+        self.signature_generator.generate_signature(writer, op, context, ordered_params, response_strategy)
 
         self.docstring_generator.generate_docstring(writer, op, context, primary_content_type)
 
@@ -63,8 +68,8 @@ class EndpointMethodGenerator:
         )
         self.request_generator.generate_request_call(writer, op, context, has_header_params, primary_content_type)
 
-        # Call the new response handler generator
-        self.response_handler_generator.generate_response_handling(writer, op, context)
+        # Call the new response handler generator with strategy
+        self.response_handler_generator.generate_response_handling(writer, op, context, response_strategy)
 
         # Check if any actual statements were added for the body
         current_full_code = writer.get_code()

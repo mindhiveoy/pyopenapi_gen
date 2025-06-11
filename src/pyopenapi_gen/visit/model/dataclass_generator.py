@@ -86,7 +86,7 @@ class DataclassGenerator:
         return api_field != python_field
 
     def _generate_field_mappings(self, properties: Dict[str, Any], sanitized_names: Dict[str, str]) -> Dict[str, str]:
-        """Generate field mappings for JSONWizard configuration."""
+        """Generate field mappings for BaseSchema configuration."""
         mappings = {}
         for api_name, python_name in sanitized_names.items():
             if api_name in properties and self._requires_field_mapping(api_name, python_name):
@@ -203,6 +203,8 @@ class DataclassGenerator:
         #     f"DataclassGenerator: Preparing to render dataclass '{class_name}' with fields: {fields_data}."
         # )
 
+        # Always use BaseSchema for better developer experience
+        # Only include field mappings if there are actual mappings needed
         rendered_code = self.renderer.render_dataclass(
             class_name=class_name,
             fields=fields_data,

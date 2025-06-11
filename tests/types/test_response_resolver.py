@@ -148,31 +148,29 @@ class TestOpenAPIResponseResolver:
         assert result.python_type == "Dict[str, Any]"
         mock_schema_resolver.resolve_schema.assert_called_once_with(schema, mock_context, required=True)
 
-    def test_resolve_specific_response__data_unwrapping__returns_unwrapped_type(
+    def test_resolve_specific_response__data_wrapper__returns_wrapper_type(
         self, resolver, mock_context, mock_schema_resolver
     ) -> None:
         """
         Scenario: Resolving response with data wrapper property
-        Expected Outcome: Returns unwrapped type
+        Expected Outcome: Returns wrapper type as-is (no unwrapping)
         """
         # Arrange
         data_schema = IRSchema(type="string")
         wrapper_schema = IRSchema(type="object", properties={"data": data_schema})
         response = IRResponse(status_code="200", description="Success", content={"application/json": wrapper_schema})
 
-        # First call returns wrapper, second call returns unwrapped data
-        mock_schema_resolver.resolve_schema.side_effect = [
-            ResolvedType(python_type="WrapperType"),  # First call for wrapper
-            ResolvedType(python_type="str"),  # Second call for data property
-        ]
+        # Mock returns wrapper type (no unwrapping behavior)
+        expected_result = ResolvedType(python_type="WrapperType")
+        mock_schema_resolver.resolve_schema.return_value = expected_result
 
         # Act
         result = resolver.resolve_specific_response(response, mock_context)
 
         # Assert
-        assert result.python_type == "str"
-        # Should be called twice: once for wrapper, once for data property
-        assert mock_schema_resolver.resolve_schema.call_count == 2
+        assert result.python_type == "WrapperType"
+        # Should be called only once for the wrapper schema (no unwrapping)
+        mock_schema_resolver.resolve_schema.assert_called_once_with(wrapper_schema, mock_context, required=True)
 
     def test_resolve_specific_response__response_reference__resolves_target(
         self, resolver, mock_context, mock_ref_resolver

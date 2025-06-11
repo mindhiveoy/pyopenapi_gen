@@ -209,9 +209,3 @@ def test_paginate_by_next__returns_async_iterator() -> None:
     assert hasattr(iterator, "__anext__")
 
 
-# This function is not needed since pytest-asyncio will run the async tests directly
-# We're keeping it but skipping it to avoid duplicate test runs
-@pytest.mark.skip(reason="Not needed with pytest-asyncio")
-def test_all() -> None:
-    """This function is not needed when using pytest-asyncio."""
-    pass

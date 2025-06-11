@@ -1,10 +1,10 @@
 """
-Unit tests for DataclassGenerator JSON Wizard functionality.
+Unit tests for DataclassGenerator BaseSchema functionality.
 
 Scenario: Test the DataclassGenerator's ability to generate dataclasses with
-JSONWizard support when field name mapping is required.
+BaseSchema support when field name mapping is required.
 
-Expected Outcome: Generated dataclasses include JSONWizard inheritance and
+Expected Outcome: Generated dataclasses include BaseSchema inheritance and
 field mapping configuration for fields that require name sanitization.
 """
 
@@ -14,13 +14,13 @@ from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstruct
 from pyopenapi_gen.visit.model.dataclass_generator import DataclassGenerator
 
 
-class TestDataclassGeneratorJsonWizard:
-    """Test DataclassGenerator JSON Wizard functionality."""
+class TestDataclassGeneratorBaseSchema:
+    """Test DataclassGenerator BaseSchema functionality."""
 
-    def test_generate__camel_case_fields__generates_json_wizard_dataclass(self):
+    def test_generate__camel_case_fields__generates_base_schema_dataclass(self):
         """
         Scenario: Generate dataclass with camelCase field names requiring mapping.
-        Expected Outcome: Dataclass with JSONWizard inheritance and field mappings.
+        Expected Outcome: Dataclass with BaseSchema inheritance and field mappings.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -42,18 +42,18 @@ class TestDataclassGeneratorJsonWizard:
         result = generator.generate(schema, "User", context)
 
         # Assert
-        assert "class User(JSONWizard):" in result
+        assert "class User(BaseSchema):" in result
         assert "with automatic JSON field mapping" in result
-        assert "class _(JSONWizard.Meta):" in result
+        assert "class Meta:" in result
         assert "key_transform_with_load = {" in result
         assert "'emailAddress': 'email_address'," in result
         assert "'firstName': 'first_name'," in result
         assert "'lastName': 'last_name'," in result
 
-    def test_generate__reserved_keyword_fields__generates_json_wizard_dataclass(self):
+    def test_generate__reserved_keyword_fields__generates_base_schema_dataclass(self):
         """
         Scenario: Generate dataclass with reserved keyword field names.
-        Expected Outcome: Dataclass with JSONWizard inheritance and mappings for reserved words.
+        Expected Outcome: Dataclass with BaseSchema inheritance and mappings for reserved words.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -75,15 +75,15 @@ class TestDataclassGeneratorJsonWizard:
         result = generator.generate(schema, "Data", context)
 
         # Assert
-        assert "class Data(JSONWizard):" in result
+        assert "class Data(BaseSchema):" in result
         assert "'class': 'class_'," in result
         assert "'id': 'id_'," in result
         assert "'type': 'type_'," in result
 
-    def test_generate__no_field_mapping_needed__generates_standard_dataclass(self):
+    def test_generate__no_field_mapping_needed__generates_base_schema_dataclass(self):
         """
         Scenario: Generate dataclass with field names that don't require mapping.
-        Expected Outcome: Standard dataclass without JSONWizard inheritance.
+        Expected Outcome: BaseSchema dataclass for better DX but no Meta class since no mappings needed.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -105,14 +105,14 @@ class TestDataclassGeneratorJsonWizard:
         result = generator.generate(schema, "Simple", context)
 
         # Assert
-        assert "class Simple:" in result
-        assert "JSONWizard" not in result
-        assert "key_transform_with_load" not in result
+        assert "class Simple(BaseSchema):" in result
+        assert "with automatic JSON field mapping" in result
+        assert "key_transform_with_load" not in result  # No Meta class when no mappings needed
 
-    def test_generate__mixed_fields__generates_json_wizard_for_mapped_fields_only(self):
+    def test_generate__mixed_fields__generates_base_schema_for_mapped_fields_only(self):
         """
         Scenario: Generate dataclass with mix of fields requiring and not requiring mapping.
-        Expected Outcome: JSONWizard dataclass with mappings only for fields that need it.
+        Expected Outcome: BaseSchema dataclass with mappings only for fields that need it.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -135,7 +135,7 @@ class TestDataclassGeneratorJsonWizard:
         result = generator.generate(schema, "Mixed", context)
 
         # Assert
-        assert "class Mixed(JSONWizard):" in result
+        assert "class Mixed(BaseSchema):" in result
         assert "'firstName': 'first_name'," in result
         assert "'id': 'id_'," in result
         # name and status shouldn't appear in mappings since they don't need mapping
@@ -177,10 +177,10 @@ class TestDataclassGeneratorJsonWizard:
         # Should add mapping info for fields without description
         assert "Maps from 'id'" in result
 
-    def test_generate__array_type_dataclass__no_json_wizard_for_array_wrapper(self):
+    def test_generate__array_type_dataclass__uses_base_schema_for_consistency(self):
         """
         Scenario: Generate dataclass for array type (wrapper style).
-        Expected Outcome: Standard dataclass since array wrappers don't have property mappings.
+        Expected Outcome: BaseSchema dataclass for consistency, but no Meta class since no field mappings.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -193,13 +193,14 @@ class TestDataclassGeneratorJsonWizard:
         result = generator.generate(schema, "UserList", context)
 
         # Assert
-        assert "class UserList:" in result
-        assert "JSONWizard" not in result
-        # Array wrapper shouldn't have field mappings
+        assert "class UserList(BaseSchema):" in result
+        assert "with automatic JSON field mapping" in result
+        # Array wrapper shouldn't have field mappings Meta class
+        assert "key_transform_with_load" not in result
 
-    def test_generate__adds_correct_imports_for_json_wizard(self):
+    def test_generate__adds_correct_imports_for_base_schema(self):
         """
-        Scenario: Generate dataclass requiring JSONWizard.
+        Scenario: Generate dataclass requiring BaseSchema.
         Expected Outcome: Proper imports are added to context.
         """
         # Arrange
@@ -221,13 +222,13 @@ class TestDataclassGeneratorJsonWizard:
         imports = context.import_collector.imports
         assert "dataclasses" in imports
         assert "dataclass" in imports["dataclasses"]
-        assert "dataclass_wizard" in imports
-        assert "JSONWizard" in imports["dataclass_wizard"]
+        assert "..core.schemas" in imports
+        assert "BaseSchema" in imports["..core.schemas"]
 
-    def test_generate__no_properties__generates_empty_standard_dataclass(self):
+    def test_generate__no_properties__generates_empty_base_schema_dataclass(self):
         """
         Scenario: Generate dataclass with no properties.
-        Expected Outcome: Empty standard dataclass without JSONWizard.
+        Expected Outcome: Empty BaseSchema dataclass for consistency.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -240,6 +241,8 @@ class TestDataclassGeneratorJsonWizard:
         result = generator.generate(schema, "Empty", context)
 
         # Assert
-        assert "class Empty:" in result
-        assert "JSONWizard" not in result
+        assert "class Empty(BaseSchema):" in result
+        assert "with automatic JSON field mapping" in result
         assert "pass" in result or "No properties defined in schema" in result
+        # Should not have Meta class since no field mappings
+        assert "key_transform_with_load" not in result

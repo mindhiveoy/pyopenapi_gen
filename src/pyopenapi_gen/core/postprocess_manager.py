@@ -34,7 +34,7 @@ class PostprocessManager:
 
         # --- RE-ENABLE RUFF CHECKS ---
         for target_path in target_paths:
-            if target_path.is_file():
+            if target_path.is_file() and target_path.suffix == ".py":
                 self.remove_unused_imports(target_path)
                 self.sort_imports(target_path)
                 self.format_code(target_path)
@@ -136,8 +136,14 @@ class PostprocessManager:
             return
 
         print(f"Running mypy on {target_dir}...")
+        # Find all Python files in the target directory
+        python_files = list(target_dir.rglob("*.py"))
+        if not python_files:
+            print(f"No Python files found in {target_dir}, skipping type check.")
+            return
+
         result = subprocess.run(
-            [sys.executable, "-m", "mypy", str(target_dir), "--strict"],
+            [sys.executable, "-m", "mypy", "--strict"] + [str(f) for f in python_files],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
