@@ -4,13 +4,12 @@ Generates Python code for dataclasses from IRSchema objects.
 
 import json
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
-from pyopenapi_gen.helpers.field_mapping import FieldMapper
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
@@ -81,6 +80,22 @@ class DataclassGenerator:
                     f" cannot be directly rendered. Falling back to None. Type: {type(ps.default)}"
                 )
         return "None"
+
+    def _requires_field_mapping(self, api_field: str, python_field: str) -> bool:
+        """Check if field mapping is required between API and Python field names."""
+        return api_field != python_field
+
+    def _generate_field_mappings(self, properties: Dict[str, Any], sanitized_names: Dict[str, str]) -> Dict[str, str]:
+        """Generate field mappings for JSONWizard configuration."""
+        mappings = {}
+        for api_name, python_name in sanitized_names.items():
+            if api_name in properties and self._requires_field_mapping(api_name, python_name):
+                mappings[api_name] = python_name
+        return mappings
+
+    def _has_any_mappings(self, properties: Dict[str, Any], sanitized_names: Dict[str, str]) -> bool:
+        """Check if any field mappings are needed."""
+        return bool(self._generate_field_mappings(properties, sanitized_names))
 
     def generate(
         self,
@@ -164,7 +179,7 @@ class DataclassGenerator:
                 field_name = NameSanitizer.sanitize_method_name(prop_name)
 
                 # Track field mapping if the names differ
-                if FieldMapper.requires_mapping(prop_name, field_name):
+                if self._requires_field_mapping(prop_name, field_name):
                     field_mappings[prop_name] = field_name
 
                 py_type = self.type_service.resolve_schema_type(prop_schema, context, required=is_required)
