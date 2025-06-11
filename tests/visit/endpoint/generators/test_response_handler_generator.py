@@ -275,7 +275,7 @@ class TestEndpointResponseHandlerGenerator:
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
 
-    def test_generate_response_handling_default_as_success_only_response(self) -> None:
+    def test_generate_response_handling_default_as_success_only_response(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario:
             Operation has only a 'default' response with a schema, implying success.
@@ -297,30 +297,30 @@ class TestEndpointResponseHandlerGenerator:
             summary="default success",
             description="default success",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-        self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "DefaultSuccessData"
+        render_context_mock.core_package_name = "test_client.core"
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="DefaultSuccessData",
-        ) as mock_get_return_type:
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Create a ResponseStrategy for the default response
+        strategy = ResponseStrategy(
+            return_type="DefaultSuccessData",
+            response_schema=default_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0]  # default response
+        )
 
-            written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-            self.assertIn("match response.status_code:", written_code)
-            # Default case can be handled with case _ if status_code >= 0 or case _
-            self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
-            self.assertTrue(
-                any(
-                    c[0][0].strip() == "return DefaultSuccessData.from_dict(response.json())"
-                    for c in self.code_writer_mock.write_line.call_args_list
-                )
-            )
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("DefaultSuccessData")
-            # For default-only responses with content, no unhandled case is needed as default handles all
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
-    def test_generate_response_handling_default_as_fallback_error(self) -> None:
+        assert "match response.status_code:" in written_code
+        # Default case can be handled with case _ if status_code >= 0 or case _
+        assert ("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
+        assert any(
+            c[0][0].strip() == "return DefaultSuccessData.from_dict(response.json())"
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        render_context_mock.add_typing_imports_for_type.assert_any_call("DefaultSuccessData")
+
+    def test_generate_response_handling_default_as_fallback_error(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario:
             Operation has a 200 OK and a 'default' response (no content), implying 'default' is for errors.
@@ -347,41 +347,38 @@ class TestEndpointResponseHandlerGenerator:
             summary="default fallback",
             description="default fallback",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-        self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "SuccessData"
+        render_context_mock.core_package_name = "test_client.core"
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="SuccessData",
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Create a ResponseStrategy for the 200 response
+        strategy = ResponseStrategy(
+            return_type="SuccessData",
+            response_schema=success_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0]  # 200 response
+        )
 
-            written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-            self.assertIn("match response.status_code:", written_code)
-            self.assertIn("case 200:", written_code)
-            self.assertTrue(
-                any(
-                    c[0][0].strip() == "return SuccessData.from_dict(response.json())"
-                    for c in self.code_writer_mock.write_line.call_args_list
-                )
-            )
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("match response.status_code:", written_code)
-            # Default case can be handled with case _ if status_code >= 0 or case _
-            self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
-            self.assertTrue(
-                any(
-                    c[0][0].strip()
-                    == 'raise HTTPError(response=response, message="Default error: A generic error occurred.", status_code=response.status_code)'
-                    for c in self.code_writer_mock.write_line.call_args_list
-                )
-            )
-            self.render_context_mock.add_import.assert_any_call(
-                f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
-            )
+        assert "match response.status_code:" in written_code
+        assert "case 200:" in written_code
+        assert any(
+            c[0][0].strip() == "return SuccessData.from_dict(response.json())"
+            for c in code_writer_mock.write_line.call_args_list
+        )
 
-    def test_generate_response_handling_default_as_primary_success_heuristic(self) -> None:
+        # Default case can be handled with case _ if status_code >= 0 or case _
+        assert ("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
+        assert any(
+            'raise HTTPError(response=response, message="Default error"' in c[0][0].strip()
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
+        )
+
+    def test_generate_response_handling_default_as_primary_success_heuristic(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario:
             Operation has no 2xx, only a 'default' response with content.

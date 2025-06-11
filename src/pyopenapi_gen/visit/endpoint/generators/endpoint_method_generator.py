@@ -48,7 +48,8 @@ class EndpointMethodGenerator:
         strategy_resolver = ResponseStrategyResolver(self.schemas)
         response_strategy = strategy_resolver.resolve(op, context)
 
-        self.import_analyzer.analyze_and_register_imports(op, context)
+        # Pass the response strategy to import analyzer for consistent import resolution
+        self.import_analyzer.analyze_and_register_imports(op, context, response_strategy)
 
         ordered_params, primary_content_type, resolved_body_type = self.parameter_processor.process_parameters(
             op, context
@@ -57,7 +58,7 @@ class EndpointMethodGenerator:
         # Pass strategy to generators for consistent behavior
         self.signature_generator.generate_signature(writer, op, context, ordered_params, response_strategy)
 
-        self.docstring_generator.generate_docstring(writer, op, context, primary_content_type)
+        self.docstring_generator.generate_docstring(writer, op, context, primary_content_type, response_strategy)
 
         # Snapshot of code *before* main body parts are written
         # This includes signature and docstring.
