@@ -95,7 +95,6 @@ class TestCycleDetection(unittest.TestCase):
             result_a.name, NameSanitizer.sanitize_class_name(schema_a_name), "Schema name should be sanitized"
         )
 
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
     def test_composition_cycle_detection(self) -> None:
         """Test detection of cycles in schema composition (allOf, anyOf, oneOf)."""
         schema_a_name = "SchemaA"
@@ -570,7 +569,6 @@ class TestCycleDetection(unittest.TestCase):
             os.environ["PYOPENAPI_MAX_DEPTH"] = original_max_depth
         importlib.reload(schema_parser)
 
-    @pytest.mark.skip(reason="Complex cycle test temporarily skipped - needs architectural review")
     def test_complex_cycle_with_multiple_refs(self) -> None:
         schema_name = "ComplexCycleStart"
         schema_data = {
