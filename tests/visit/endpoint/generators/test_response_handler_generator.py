@@ -24,8 +24,8 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         Scenario:
             Test response handling for a successful JSON response where the return type is a known model.
         Expected Outcome:
-            The generated code should cast the JSON response to the specified model type.
-            The model type and 'cast' should be imported.
+            The generated code should use JSONWizard deserialization for the model type.
+            The model type should be imported.
         """
         success_response_schema = IRSchema(type="object", properties={"id": IRSchema(type="integer")}, name="Item")
         operation = IROperation(
@@ -63,14 +63,13 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             self.assertIn("case 200:", written_code)
             self.assertTrue(
                 any(
-                    c[0][0].strip() == "return cast(Item, response.json())"
+                    c[0][0].strip() == "return Item.from_dict(response.json())"
                     for c in self.code_writer_mock.write_line.call_args_list
                 )
             )
             self.render_context_mock.add_import.assert_any_call(
                 f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
             )
-            self.render_context_mock.add_import.assert_any_call("typing", "cast")
 
     def test_generate_response_handling_for_none_return_type(self) -> None:
         """
@@ -148,34 +147,32 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         Scenario:
             _get_extraction_code is called with a model type string (e.g., "MyModel").
         Expected Outcome:
-            Returns "cast(MyModel, response.json())" and registers imports for the model and cast.
+            Returns "MyModel.from_dict(response.json())" for JSONWizard deserialization and registers imports for the model.
         """
         code = self.generator._get_extraction_code(
             return_type="MyModel", context=self.render_context_mock, op=self.mock_op, needs_unwrap=False
         )
-        self.assertEqual(code, "cast(MyModel, response.json())")
+        self.assertEqual(code, "MyModel.from_dict(response.json())")
         self.render_context_mock.add_typing_imports_for_type.assert_called_with("MyModel")
-        self.render_context_mock.add_import.assert_any_call("typing", "cast")
 
     def test_get_extraction_code_model_type_with_unwrap(self) -> None:
         """
         Scenario:
             _get_extraction_code is called for a model type with needs_unwrap=True.
         Expected Outcome:
-            Returns multi-line code for unwrapping 'data' key and casting, and registers imports.
+            Returns multi-line code for unwrapping 'data' key and JSONWizard deserialization, and registers imports.
         """
         expected_code = (
             "raw_data = response.json().get('data')\n"
             "if raw_data is None:\n"
             "    raise ValueError(\"Expected 'data' key in response but found None\")\n"
-            "return cast(MyDataModel, raw_data)"
+            "return MyDataModel.from_dict(raw_data)"
         )
         code = self.generator._get_extraction_code(
             return_type="MyDataModel", context=self.render_context_mock, op=self.mock_op, needs_unwrap=True
         )
         self.assertEqual(code, expected_code)
         self.render_context_mock.add_typing_imports_for_type.assert_called_with("MyDataModel")
-        self.render_context_mock.add_import.assert_any_call("typing", "cast")
 
     def test_generate_response_handling_error_404(self) -> None:
         """
@@ -347,7 +344,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
             self.assertIn("case 200:", written_code)
             self.assertTrue(
                 any(
-                    c[0][0].strip() == "return cast(SuccessData, response.json())"
+                    c[0][0].strip() == "return SuccessData.from_dict(response.json())"
                     for c in self.code_writer_mock.write_line.call_args_list
                 )
             )
@@ -629,7 +626,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("try:", written_code)
         self.assertTrue(
             any(
-                c[0][0].strip() == "return cast(ModelA, response.json())"
+                c[0][0].strip() == "return ModelA.from_dict(response.json())"
                 for c in self.code_writer_mock.write_line.call_args_list
                 if "try:" in written_code and "except Exception:" not in written_code[: written_code.find(c[0][0])]
             )
@@ -637,14 +634,13 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("except Exception:  # Attempt to parse as the second type", written_code)
         self.assertTrue(
             any(
-                c[0][0].strip() == "return cast(ModelB, response.json())"
+                c[0][0].strip() == "return ModelB.from_dict(response.json())"
                 for c in self.code_writer_mock.write_line.call_args_list
                 if "except Exception:" in written_code[: written_code.find(c[0][0])]
             )
         )
 
         self.render_context_mock.add_import.assert_any_call("typing", "Union")
-        self.render_context_mock.add_import.assert_any_call("typing", "cast")
         self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelA")
         self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelB")
 
@@ -694,7 +690,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
     def test_generate_response_handling_simple_type_with_unwrap(self) -> None:
         """
         Scenario: Op returns 200 OK, type is ModelC. With unified service, unwrapping is handled internally.
-        Expected Outcome: Simple cast for ModelC is generated (no manual unwrapping).
+        Expected Outcome: JSONWizard deserialization for ModelC is generated (no manual unwrapping).
         """
         schema_c = IRSchema(type="object", name="ModelC")
         operation = IROperation(
@@ -722,11 +718,11 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("match response.status_code:", written_code)
         self.assertIn("case 200:", written_code)
         # With unified service, no manual unwrapping should be generated
-        self.assertIn("return cast(ModelC, response.json())", written_lines_stripped)
+        self.assertIn("return ModelC.from_dict(response.json())", written_lines_stripped)
 
         # Ensure no unwrapping code is generated (unified service handles it)
         self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped)
-        self.assertNotIn("return_value = cast(ModelC, raw_data)", written_code)
+        self.assertNotIn("ModelC.from_dict(raw_data)", written_code)
         self.assertNotIn("return return_value", written_code)
 
 

@@ -50,6 +50,67 @@ class EndpointResponseHandlerGenerator:
     def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
         self.schemas: Dict[str, Any] = schemas or {}
 
+    def _should_use_json_wizard(self, type_name: str) -> bool:
+        """
+        Determine if a type should use JSONWizard deserialization.
+        
+        Args:
+            type_name: The Python type name (e.g., "User", "List[User]", "Optional[User]")
+            
+        Returns:
+            True if the type should use JSONWizard .from_dict() deserialization
+        """
+        # Extract the base type name from complex types
+        base_type = type_name
+        
+        # Handle List[Type], Optional[Type], etc.
+        if "[" in base_type and "]" in base_type:
+            # Extract the inner type from List[Type], Optional[Type], etc.
+            start_bracket = base_type.find("[")
+            end_bracket = base_type.rfind("]")
+            inner_type = base_type[start_bracket + 1:end_bracket]
+            
+            # For Union types like Optional[User] -> Union[User, None], take the first type
+            if ", " in inner_type:
+                inner_type = inner_type.split(", ")[0]
+            
+            base_type = inner_type.strip()
+        
+        # Skip primitive types and built-ins
+        if base_type in {"str", "int", "float", "bool", "bytes", "None", "Any", "Dict", "List"}:
+            return False
+            
+        # Skip typing constructs
+        if base_type.startswith(("Dict[", "List[", "Optional[", "Union[", "Tuple[")):
+            return False
+            
+        # Check if it's a model type (contains a dot indicating it's from models package)
+        # or if it's a simple class name that's likely a generated model (starts with uppercase)
+        return "." in base_type or base_type[0].isupper()
+
+    def _get_json_wizard_deserialization_code(self, return_type: str, data_expr: str) -> str:
+        """
+        Generate JSONWizard deserialization code for a given type.
+        
+        Args:
+            return_type: The return type (e.g., "User", "List[User]")
+            data_expr: The expression containing the raw data to deserialize
+            
+        Returns:
+            Code string for deserializing the data using JSONWizard
+        """
+        if return_type.startswith("List["):
+            # Handle List[Model] types
+            item_type = return_type[5:-1]  # Remove 'List[' and ']'
+            return f"[{item_type}.from_dict(item) for item in {data_expr}]"
+        elif return_type.startswith("Optional["):
+            # Handle Optional[Model] types  
+            inner_type = return_type[9:-1]  # Remove 'Optional[' and ']'
+            return f"{inner_type}.from_dict({data_expr}) if {data_expr} is not None else None"
+        else:
+            # Handle simple Model types
+            return f"{return_type}.from_dict({data_expr})"
+
     def _get_extraction_code(
         self,
         return_type: str,
@@ -100,8 +161,14 @@ class EndpointResponseHandlerGenerator:
         elif return_type == "None":
             return "None"  # This will be handled by generate_response_handling directly
         else:  # Includes schema-defined models, List[], Dict[], Optional[]
-            context.add_import("typing", "cast")
             context.add_typing_imports_for_type(return_type)  # Ensure model itself is imported
+            
+            # Check if we should use JSONWizard deserialization instead of cast()
+            use_json_wizard = self._should_use_json_wizard(return_type)
+            
+            if not use_json_wizard:
+                # Fallback to cast() for non-JSONWizard types
+                context.add_import("typing", "cast")
 
             if needs_unwrap:
                 # Special handling for List unwrapping - ensure we have the correct imports
@@ -112,22 +179,47 @@ class EndpointResponseHandlerGenerator:
                     if "." in item_type:
                         # Ensure we have the proper import for the item type
                         context.add_typing_imports_for_type(item_type)
-                    # Handle unwrapping of List directly
+                    
+                    # Handle unwrapping of List with proper deserialization
+                    if use_json_wizard:
+                        deserialization_code = self._get_json_wizard_deserialization_code(return_type, "raw_data")
+                        return (
+                            f"raw_data = response.json().get('data')\n"
+                            f"if raw_data is None:\n"
+                            f"    raise ValueError(\"Expected 'data' key in response but found None\")\n"
+                            f"return {deserialization_code}"
+                        )
+                    else:
+                        return (
+                            f"raw_data = response.json().get('data')\n"
+                            f"if raw_data is None:\n"
+                            f"    raise ValueError(\"Expected 'data' key in response but found None\")\n"
+                            f"return cast({return_type}, raw_data)"
+                        )
+                
+                # Standard unwrapping for single object
+                if use_json_wizard:
+                    deserialization_code = self._get_json_wizard_deserialization_code(return_type, "raw_data")
+                    return (
+                        f"raw_data = response.json().get('data')\n"
+                        f"if raw_data is None:\n"
+                        f"    raise ValueError(\"Expected 'data' key in response but found None\")\n"
+                        f"return {deserialization_code}"
+                    )
+                else:
                     return (
                         f"raw_data = response.json().get('data')\n"
                         f"if raw_data is None:\n"
                         f"    raise ValueError(\"Expected 'data' key in response but found None\")\n"
                         f"return cast({return_type}, raw_data)"
                     )
-                # Standard unwrapping for single object
-                return (
-                    f"raw_data = response.json().get('data')\n"
-                    f"if raw_data is None:\n"
-                    f"    raise ValueError(\"Expected 'data' key in response but found None\")\n"
-                    f"return cast({return_type}, raw_data)"
-                )
             else:
-                return f"cast({return_type}, response.json())"
+                # No unwrapping needed - direct deserialization
+                if use_json_wizard:
+                    deserialization_code = self._get_json_wizard_deserialization_code(return_type, "response.json()")
+                    return deserialization_code
+                else:
+                    return f"cast({return_type}, response.json())"
 
     def generate_response_handling(
         self,
@@ -430,14 +522,21 @@ class EndpointResponseHandlerGenerator:
                     f"Could not parse Union components with regex: {return_type}. Falling back to cast(Any, ...)"
                 )
                 context.add_import("typing", "Any")
+                context.add_import("typing", "cast")
                 writer.write_line(f"return cast(Any, response.json())")
 
         elif return_type == "None":  # Explicit None, e.g. for 204 or when specific response has no content
             writer.write_line("return None")
         elif is_op_with_inferred_type:  # This condition may need re-evaluation in this context
             context.add_typing_imports_for_type(return_type)
-            context.add_import("typing", "cast")
-            writer.write_line(f"return cast({return_type}, response.json())")
+            
+            # Check if we should use JSONWizard deserialization instead of cast()
+            if self._should_use_json_wizard(return_type):
+                deserialization_code = self._get_json_wizard_deserialization_code(return_type, "response.json()")
+                writer.write_line(f"return {deserialization_code}")
+            else:
+                context.add_import("typing", "cast")
+                writer.write_line(f"return cast({return_type}, response.json())")
         else:
             context.add_typing_imports_for_type(return_type)
             extraction_code_str = self._get_extraction_code(return_type, context, op, needs_unwrap, response_ir)

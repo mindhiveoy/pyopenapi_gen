@@ -10,6 +10,7 @@ from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
+from pyopenapi_gen.helpers.field_mapping import FieldMapper
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
@@ -116,6 +117,7 @@ class DataclassGenerator:
 
         class_name = base_name
         fields_data: List[Tuple[str, str, Optional[str], Optional[str]]] = []
+        field_mappings: Dict[str, str] = {}
 
         if schema.type == "array" and schema.items:
             field_name_for_array_content = "items"
@@ -161,6 +163,10 @@ class DataclassGenerator:
                 # Sanitize the property name for use as a Python attribute
                 field_name = NameSanitizer.sanitize_method_name(prop_name)
 
+                # Track field mapping if the names differ
+                if FieldMapper.requires_mapping(prop_name, field_name):
+                    field_mappings[prop_name] = field_name
+
                 py_type = self.type_service.resolve_schema_type(prop_schema, context, required=is_required)
                 py_type = TypeFinalizer(context)._clean_type(py_type)
 
@@ -168,7 +174,14 @@ class DataclassGenerator:
                 if not is_required:
                     default_expr = self._get_field_default(prop_schema, context)
 
+                # Enhance field documentation for mapped fields
                 field_doc = prop_schema.description
+                if field_mappings.get(prop_name) == field_name and prop_name != field_name:
+                    if field_doc:
+                        field_doc = f"{field_doc} (maps from '{prop_name}')"
+                    else:
+                        field_doc = f"Maps from '{prop_name}'"
+
                 fields_data.append((field_name, py_type, default_expr, field_doc))
 
         # logger.debug(
@@ -180,6 +193,7 @@ class DataclassGenerator:
             fields=fields_data,
             description=schema.description,
             context=context,
+            field_mappings=field_mappings if field_mappings else None,
         )
 
         assert rendered_code.strip(), "Generated dataclass code cannot be empty."
