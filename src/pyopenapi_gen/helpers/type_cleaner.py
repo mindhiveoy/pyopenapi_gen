@@ -108,8 +108,7 @@ class TypeCleaner:
         # Special case for the real-world case in a different format
         if (
             "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
-            "Optional[Any], bool, float, str, None], None]"
-            in type_str
+            "Optional[Any], bool, float, str, None], None]" in type_str
             and "Optional[Any], bool, float, str]" in type_str
         ):
             return (

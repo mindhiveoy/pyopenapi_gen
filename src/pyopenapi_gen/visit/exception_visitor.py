@@ -18,9 +18,9 @@ class ExceptionVisitor:
         context.add_import("httpx", "Response")
 
         # Collect unique numeric status codes
-        codes = sorted({
-            int(resp.status_code) for op in spec.operations for resp in op.responses if resp.status_code.isdigit()
-        })
+        codes = sorted(
+            {int(resp.status_code) for op in spec.operations for resp in op.responses if resp.status_code.isdigit()}
+        )
 
         all_exception_code = []
         generated_alias_names = []

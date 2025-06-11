@@ -579,12 +579,14 @@ class TestCycleDetection(unittest.TestCase):
         ref_schema2 = {"properties": {"other": {"type": "string"}}}  # Does not cycle
         ref_schema3 = {"properties": {"back": {"$ref": f"#/components/schemas/{schema_name}"}}}  # Cycles back
 
-        self.context.raw_spec_schemas.update({
-            schema_name: schema_data,
-            "RefSchema1": ref_schema1,
-            "RefSchema2": ref_schema2,
-            "RefSchema3": ref_schema3,
-        })
+        self.context.raw_spec_schemas.update(
+            {
+                schema_name: schema_data,
+                "RefSchema1": ref_schema1,
+                "RefSchema2": ref_schema2,
+                "RefSchema3": ref_schema3,
+            }
+        )
         result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
         self.assertFalse(result._is_circular_ref, "Initial schema may not be marked if cycle is indirect")
 
