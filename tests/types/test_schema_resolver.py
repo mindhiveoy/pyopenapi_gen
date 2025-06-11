@@ -314,3 +314,320 @@ class TestOpenAPISchemaResolver:
         assert result.import_name == "User"
         mock_context.add_import.assert_called_with("..models.user", "User")
         mock_render_context.calculate_relative_path_for_internal_module.assert_called_with("models.user")
+
+    def test_resolve_schema__any_of_composition__returns_union_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving anyOf composition with multiple schemas
+        Expected Outcome: Returns Union[Type1, Type2] type
+        """
+        # Arrange
+        schema1 = IRSchema(type="string")
+        schema2 = IRSchema(type="integer")
+        schema = IRSchema(any_of=[schema1, schema2])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "Union[int, str]"  # Sorted order
+        mock_context.add_import.assert_called_with("typing", "Union")
+
+    def test_resolve_schema__any_of_single_schema__returns_single_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving anyOf composition with single schema
+        Expected Outcome: Returns the single type without Union wrapper
+        """
+        # Arrange
+        schema1 = IRSchema(type="string")
+        schema = IRSchema(any_of=[schema1])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "str"
+        # Should not add Union import for single type
+        calls = [call for call in mock_context.add_import.call_args_list if "Union" in str(call)]
+        assert len(calls) == 0
+
+    def test_resolve_schema__any_of_empty__returns_any(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving anyOf composition with empty list
+        Expected Outcome: Returns Any type
+        """
+        # Arrange
+        schema = IRSchema(any_of=[])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "Any"
+        mock_context.add_import.assert_called_with("typing", "Any")
+
+    def test_resolve_schema__one_of_composition__returns_union_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving oneOf composition with multiple schemas
+        Expected Outcome: Returns Union[Type1, Type2] type
+        """
+        # Arrange
+        schema1 = IRSchema(type="string")
+        schema2 = IRSchema(type="boolean")
+        schema = IRSchema(one_of=[schema1, schema2])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "Union[bool, str]"  # Sorted order
+        mock_context.add_import.assert_called_with("typing", "Union")
+
+    def test_resolve_schema__one_of_single_schema__returns_single_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving oneOf composition with single schema
+        Expected Outcome: Returns the single type without Union wrapper
+        """
+        # Arrange
+        schema1 = IRSchema(type="boolean")
+        schema = IRSchema(one_of=[schema1])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "bool"
+
+    def test_resolve_schema__one_of_empty__returns_any(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving oneOf composition with empty list
+        Expected Outcome: Returns Any type
+        """
+        # Arrange
+        schema = IRSchema(one_of=[])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "Any"
+        mock_context.add_import.assert_called_with("typing", "Any")
+
+    def test_resolve_schema__all_of_composition__returns_first_concrete_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving allOf composition with multiple schemas
+        Expected Outcome: Returns the first schema with a concrete type
+        """
+        # Arrange
+        schema1 = IRSchema()  # No type
+        schema2 = IRSchema(type="string")
+        schema3 = IRSchema(type="integer")
+        schema = IRSchema(all_of=[schema1, schema2, schema3])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "str"  # First concrete type
+
+    def test_resolve_schema__all_of_no_concrete_types__returns_first_schema(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving allOf composition with no concrete types
+        Expected Outcome: Returns resolved first schema
+        """
+        # Arrange
+        schema1 = IRSchema()  # No type, should resolve to Any
+        schema2 = IRSchema()  # No type
+        schema = IRSchema(all_of=[schema1, schema2])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "Any"  # First schema resolves to Any
+
+    def test_resolve_schema__all_of_empty__returns_any(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving allOf composition with empty list
+        Expected Outcome: Returns Any type
+        """
+        # Arrange
+        schema = IRSchema(all_of=[])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "Any"
+        mock_context.add_import.assert_called_with("typing", "Any")
+
+    def test_resolve_schema__string_with_format_date__returns_date_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving string schema with date format
+        Expected Outcome: Returns date type with appropriate import
+        """
+        # Arrange
+        schema = IRSchema(type="string", format="date")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "date"
+        mock_context.add_import.assert_called_with("datetime", "date")
+
+    def test_resolve_schema__string_with_format_datetime__returns_datetime_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving string schema with date-time format
+        Expected Outcome: Returns datetime type with appropriate import
+        """
+        # Arrange
+        schema = IRSchema(type="string", format="date-time")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "datetime"
+        mock_context.add_import.assert_called_with("datetime", "datetime")
+
+    def test_resolve_schema__string_with_format_uuid__returns_uuid_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving string schema with uuid format
+        Expected Outcome: Returns UUID type with appropriate import
+        """
+        # Arrange
+        schema = IRSchema(type="string", format="uuid")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "UUID"
+        mock_context.add_import.assert_called_with("uuid", "UUID")
+
+    def test_resolve_schema__string_with_inline_enum__logs_warning_returns_str(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving string schema with inline enum
+        Expected Outcome: Logs warning and returns str type
+        """
+        # Arrange
+        schema = IRSchema(type="string", enum=["option1", "option2"])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "str"
+
+    def test_resolve_schema__named_schema_lookup_by_type__resolves_target(self, resolver, mock_context, mock_ref_resolver) -> None:
+        """
+        Scenario: Resolving schema where type refers to a named schema
+        Expected Outcome: Resolves to the target named schema
+        """
+        # Arrange
+        target_schema = IRSchema(name="User", type="object")
+        mock_ref_resolver.schemas = {"User": target_schema}
+        schema = IRSchema(type="User")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        # Since target_schema has no generation_name, it should fall back to type handling
+        assert result.python_type == "Dict[str, Any]"  # object type without properties
+
+    def test_resolve_schema__named_schema_lookup_in_schemas__resolves_target(self, resolver, mock_context, mock_ref_resolver) -> None:
+        """
+        Scenario: Resolving schema with name that exists in schemas registry
+        Expected Outcome: Resolves to the target schema to avoid infinite recursion
+        """
+        # Arrange
+        target_schema = IRSchema(type="string")
+        mock_ref_resolver.schemas = {"StringAlias": target_schema}
+        schema = IRSchema(name="StringAlias")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "str"
+
+    def test_resolve_schema__named_schema_same_object__avoids_infinite_recursion(self, resolver, mock_context, mock_ref_resolver) -> None:
+        """
+        Scenario: Resolving schema with name that points to same object (infinite recursion prevention)
+        Expected Outcome: Falls back to type-based resolution
+        """
+        # Arrange
+        schema = IRSchema(name="SelfRef", type="string")
+        mock_ref_resolver.schemas = {"SelfRef": schema}  # Same object
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "str"  # Falls back to type-based resolution
+
+    def test_resolve_schema__named_schema_missing_module_stem__logs_warning_returns_any(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving named schema without final_module_stem
+        Expected Outcome: Logs warning and returns Any type
+        """
+        # Arrange
+        schema = IRSchema(name="InvalidSchema", generation_name="InvalidSchema")  # Missing final_module_stem
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "InvalidSchema"  # Uses generation_name as fallback
+        assert not result.is_optional
+
+    def test_resolve_schema__self_import_detection__returns_forward_ref(self, resolver) -> None:
+        """
+        Scenario: Resolving named schema from same module (self-import)
+        Expected Outcome: Returns forward reference to avoid circular import
+        """
+        # Arrange
+        mock_render_context = Mock()
+        mock_render_context.current_file = "/project/models/user.py"
+        mock_render_context.add_import = Mock()
+
+        mock_context = Mock()
+        mock_context.render_context = mock_render_context
+        mock_context.add_import = Mock()
+
+        schema = IRSchema(name="User", generation_name="User", final_module_stem="user")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "User"
+        assert result.is_forward_ref  # Should be marked as forward reference
+        # Should not call add_import for self-references
+        mock_context.add_import.assert_not_called()
+
+    def test_resolve_schema__relative_path_calculation_failure__uses_fallback(self, resolver) -> None:
+        """
+        Scenario: Resolving named schema when relative path calculation fails
+        Expected Outcome: Falls back to default ..models. path
+        """
+        # Arrange
+        mock_render_context = Mock()
+        mock_render_context.current_file = "/project/endpoints/users.py"
+        mock_render_context.calculate_relative_path_for_internal_module.side_effect = Exception("Path calculation failed")
+        mock_render_context.add_import = Mock()
+
+        mock_context = Mock()
+        mock_context.render_context = mock_render_context
+        mock_context.add_import = Mock()
+
+        schema = IRSchema(name="User", generation_name="User", final_module_stem="user")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "User"
+        assert result.import_module == "..models.user"  # Fallback path
+        mock_context.add_import.assert_called_with("..models.user", "User")

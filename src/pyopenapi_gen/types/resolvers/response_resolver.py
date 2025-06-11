@@ -58,13 +58,13 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
         if hasattr(response, "ref") and response.ref:
             return self._resolve_response_reference(response.ref, context)
 
+        # Handle streaming responses (check before content validation)
+        if hasattr(response, "stream") and response.stream:
+            return self._resolve_streaming_response(response, context)
+
         # Handle responses without content (e.g., 204)
         if not hasattr(response, "content") or not response.content:
             return ResolvedType(python_type="None")
-
-        # Handle streaming responses
-        if hasattr(response, "stream") and response.stream:
-            return self._resolve_streaming_response(response, context)
 
         # Get the content schema
         schema = self._get_response_schema(response)
