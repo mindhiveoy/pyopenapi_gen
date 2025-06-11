@@ -130,7 +130,7 @@ jobs:
       run: |
         poetry run pyopenapi-gen --help
         # Test basic generation
-        poetry run pyopenapi-gen gen input/minimal_swagger.json --project-root ./test_output --output-package test_client --force --no-postprocess
+        poetry run pyopenapi-gen input/minimal_swagger.json --project-root ./test_output --output-package test_client --force --no-postprocess
 
     - name: Verify generated client structure
       run: |
