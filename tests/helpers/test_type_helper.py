@@ -863,7 +863,7 @@ class TestCompositionTypeResolver:  # Renamed class
             if non_none_type != "Any":
                 # Sorting is ['None', 'ActualType'] for Union[None, ActualType]
                 actual_types = sorted(["None", non_none_type])
-                expected_intermediate_union = f"Union[{', '.join(actual_types)}]"
+                expected_intermediate_union = f"Union[{", ".join(actual_types)}]"
                 assert result == expected_intermediate_union
             else:
                 assert result == "Any"
@@ -871,10 +871,9 @@ class TestCompositionTypeResolver:  # Renamed class
             assert result == expected_py_type
 
         for name in expected_typing_imports:
-            assert composition_resolver.context.import_collector.has_import(
-                "typing", name
-            ) or composition_resolver.context.import_collector.has_import(
-                "datetime", name
+            assert (
+                composition_resolver.context.import_collector.has_import("typing", name)
+                or composition_resolver.context.import_collector.has_import("datetime", name)
             ), f"Expected typing/datetime import '{name}' not found for {composition_type} with items: {sub_schemas_dicts}"
 
 
@@ -1297,9 +1296,7 @@ class TestObjectTypeResolver:  # Renamed class
                                 tuple(s.split(".")[0] for s in schemas.keys())
                             ), f"[{test_id}] Unexpected model-like import found: {imp_module} when only typing imports expected. Expected: {expected_imports}"
                             # Stricter check for any non-typing, non-core, non-stdlib import
-                            assert (
-                                False
-                            ), f"[{test_id}] Unexpected non-typing/non-core/non-stdlib import found: {imp_module}. Expected only: {expected_imports}"
+                            assert False, f"[{test_id}] Unexpected non-typing/non-core/non-stdlib import found: {imp_module}. Expected only: {expected_imports}"
 
 
 class TestTypeHelperGetPythonTypeForSchemaFallthroughs:

@@ -479,7 +479,9 @@ class TestNamedTypeResolver:
         """
         # Arrange
         schema = IRSchema(
-            name="Status-Enum-With-Dashes", type="string", enum=["active", "inactive"]  # Needs sanitization
+            name="Status-Enum-With-Dashes",
+            type="string",
+            enum=["active", "inactive"],  # Needs sanitization
         )
 
         # Act

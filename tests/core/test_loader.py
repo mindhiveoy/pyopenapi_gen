@@ -508,14 +508,12 @@ class TestParseSchemaAllOfMerging:
 
             # Check required fields merging
             assert composed_ir_schema.required is not None
-            assert sorted(composed_ir_schema.required) == sorted(
-                [
-                    "base_prop1",
-                    "mixin_prop1",
-                    "composed_prop1",
-                    "common_prop",
-                ]
-            )
+            assert sorted(composed_ir_schema.required) == sorted([
+                "base_prop1",
+                "mixin_prop1",
+                "composed_prop1",
+                "common_prop",
+            ])
 
         # Check that all_of list is still populated for potential inheritance
         assert composed_ir_schema.all_of is not None

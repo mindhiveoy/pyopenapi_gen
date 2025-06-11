@@ -161,14 +161,12 @@ class DataclassGenerator:
             elif not field_description:
                 field_description = "A list of items."
 
-            fields_data.append(
-                (
-                    field_name_for_array_content,
-                    final_field_type_str,
-                    array_items_field_default_expr,
-                    field_description,
-                )
-            )
+            fields_data.append((
+                field_name_for_array_content,
+                final_field_type_str,
+                array_items_field_default_expr,
+                field_description,
+            ))
         elif schema.properties:
             sorted_props = sorted(schema.properties.items(), key=lambda item: (item[0] not in schema.required, item[0]))
 

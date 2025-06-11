@@ -302,7 +302,7 @@ class PythonConstructRenderer:
             ```
         """
         writer = CodeWriter()
-        bases = f"({', '.join(base_classes)})" if base_classes else ""
+        bases = f"({", ".join(base_classes)})" if base_classes else ""
         writer.write_line(f"class {class_name}{bases}:")
         writer.indent()
         has_content = False

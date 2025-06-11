@@ -66,7 +66,7 @@ class EndpointMethodSignatureGenerator:
         args = ["self"]
         for p_orig in ordered_params:
             p = p_orig.copy()  # Work with a copy
-            arg_str = f"{NameSanitizer.sanitize_method_name(p['name'])}: {p['type']}"  # Ensure param name is sanitized
+            arg_str = f"{NameSanitizer.sanitize_method_name(p["name"])}: {p["type"]}"  # Ensure param name is sanitized
             if not p.get("required", False):
                 # Default value handling: if default is None, it should be ' = None'
                 # If default is a string, it should be ' = "default_value"'

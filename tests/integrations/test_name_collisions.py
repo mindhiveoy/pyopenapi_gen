@@ -128,13 +128,11 @@ def test_name_collision_generation(tmp_path: Path) -> None:
     env = os.environ.copy()
     # Adjust PYTHONPATH to include the root of the generated package and the project's src
     src_dir_path = project_root_dir / "src"
-    env["PYTHONPATH"] = os.pathsep.join(
-        [
-            str(tmp_path.resolve()),  # Root of generated client 'collision_client'
-            str(src_dir_path.resolve()),  # Project src for pyopenapi_gen itself if needed by generated core utils
-            env.get("PYTHONPATH", ""),
-        ]
-    )
+    env["PYTHONPATH"] = os.pathsep.join([
+        str(tmp_path.resolve()),  # Root of generated client 'collision_client'
+        str(src_dir_path.resolve()),  # Project src for pyopenapi_gen itself if needed by generated core utils
+        env.get("PYTHONPATH", ""),
+    ])
 
     packages_to_check = [output_package.split(".")[0]]  # e.g., ['collision_client']
 
@@ -143,8 +141,8 @@ def test_name_collision_generation(tmp_path: Path) -> None:
     mypy_output_filename = mypy_output_log_dir / "mypy_name_collision_errors.txt"
 
     mypy_command = ["mypy", "--strict"] + packages_to_check
-    logger.info(f"Running mypy command: {' '.join(mypy_command)} from cwd: {tmp_path}")
-    logger.info(f"PYTHONPATH for mypy: {env.get('PYTHONPATH')}")
+    logger.info(f"Running mypy command: {" ".join(mypy_command)} from cwd: {tmp_path}")
+    logger.info(f"PYTHONPATH for mypy: {env.get("PYTHONPATH")}")
 
     mypy_result = subprocess.run(
         mypy_command,

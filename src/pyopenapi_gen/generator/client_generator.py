@@ -271,7 +271,8 @@ class ClientGenerator:
                 self._log_progress("Generating client file (temp)", "EMIT_CLIENT_TEMP")
                 client_emitter = ClientEmitter(context=tmp_render_context_for_diff)  # ClientEmitter now takes context
                 client_files = [
-                    Path(p) for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # emit takes ir, str output_dir
+                    Path(p)
+                    for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # emit takes ir, str output_dir
                 ]
                 temp_generated_files += client_files
                 self._log_progress(f"Generated {len(client_files)} client files (temp)", "EMIT_CLIENT_TEMP")

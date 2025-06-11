@@ -66,7 +66,7 @@ def run_mypy_on_generated_project(project_root: Path, packages_to_check: list[st
         stdout = result.stdout.replace(str(project_root), "PROJECT_ROOT")
         stderr = result.stderr.replace(str(project_root), "PROJECT_ROOT")
         pytest.fail(
-            f"Mypy errors found (PYTHONPATH='{env['PYTHONPATH']}', CWD='{project_root}'):\n"
+            f"Mypy errors found (PYTHONPATH='{env["PYTHONPATH"]}', CWD='{project_root}'):\n"
             f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
         )
 

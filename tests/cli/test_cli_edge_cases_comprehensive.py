@@ -350,15 +350,13 @@ class TestCLIRealWorldScenarios:
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_file = Path(temp_dir) / "spec.json"
             spec_file.write_text(
-                json.dumps(
-                    {
-                        "openapi": "3.1.0",
-                        "info": {"title": "Rapid Test", "version": "1.0.0"},
-                        "paths": {
-                            "/test": {"get": {"operationId": "getTest", "responses": {"200": {"description": "OK"}}}}
-                        },
-                    }
-                )
+                json.dumps({
+                    "openapi": "3.1.0",
+                    "info": {"title": "Rapid Test", "version": "1.0.0"},
+                    "paths": {
+                        "/test": {"get": {"operationId": "getTest", "responses": {"200": {"description": "OK"}}}}
+                    },
+                })
             )
 
             # Run multiple times rapidly (reduced from 5 to 3 for reliability)
@@ -444,20 +442,18 @@ class TestCLIRealWorldScenarios:
             with tempfile.TemporaryDirectory() as temp_dir:
                 spec_file = Path(temp_dir) / "spec.json"
                 spec_file.write_text(
-                    json.dumps(
-                        {
-                            "openapi": "3.1.0",
-                            "info": {"title": f"Concurrent API {thread_id}", "version": "1.0.0"},
-                            "paths": {
-                                f"/endpoint{thread_id}": {
-                                    "get": {
-                                        "operationId": f"getEndpoint{thread_id}",
-                                        "responses": {"200": {"description": "OK"}},
-                                    }
+                    json.dumps({
+                        "openapi": "3.1.0",
+                        "info": {"title": f"Concurrent API {thread_id}", "version": "1.0.0"},
+                        "paths": {
+                            f"/endpoint{thread_id}": {
+                                "get": {
+                                    "operationId": f"getEndpoint{thread_id}",
+                                    "responses": {"200": {"description": "OK"}},
                                 }
-                            },
-                        }
-                    )
+                            }
+                        },
+                    })
                 )
 
                 try:

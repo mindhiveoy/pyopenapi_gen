@@ -26,14 +26,12 @@ def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSch
     for param in op.parameters:
         py_type = get_param_type(param, context, schemas)
         default = None if param.required else "None"
-        params.append(
-            {
-                "name": NameSanitizer.sanitize_method_name(param.name),
-                "type": py_type,
-                "default": default,
-                "required": param.required,
-            }
-        )
+        params.append({
+            "name": NameSanitizer.sanitize_method_name(param.name),
+            "type": py_type,
+            "default": default,
+            "required": param.required,
+        })
     return params
 
 
@@ -308,10 +306,10 @@ def format_method_args(params: list[dict[str, Any]]) -> str:
     optional = [p for p in params if not p.get("required", True)]
     arg_strs = []
     for p in required:
-        arg_strs.append(f"{p['name']}: {p['type']}")
+        arg_strs.append(f"{p["name"]}: {p["type"]}")
     for p in optional:
         default = p["default"]
-        arg_strs.append(f"{p['name']}: {p['type']} = {default}")
+        arg_strs.append(f"{p["name"]}: {p["type"]} = {default}")
     return ", ".join(arg_strs)
 
 
@@ -388,14 +386,12 @@ def merge_params_with_model_fields(
             if py_type.startswith(".") and not py_type.startswith(".."):
                 py_type = "models" + py_type
 
-            merged_params.append(
-                {
-                    "name": sanitized_name,
-                    "type": py_type,
-                    "default": None,
-                    "required": True,
-                }
-            )
+            merged_params.append({
+                "name": sanitized_name,
+                "type": py_type,
+                "default": None,
+                "required": True,
+            })
     return merged_params
 
 

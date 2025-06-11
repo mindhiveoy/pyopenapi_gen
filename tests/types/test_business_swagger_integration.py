@@ -38,7 +38,7 @@ class TestBusinessSwaggerIntegration:
                 return "..models.message"
             elif target == "models.message_batch_response":
                 return "..models.message_batch_response"
-            return f"..models.{target.split('.')[-1]}"
+            return f"..models.{target.split(".")[-1]}"
 
         mock_context.render_context.calculate_relative_path_for_internal_module.side_effect = mock_relative_path
 
@@ -93,7 +93,7 @@ class TestBusinessSwaggerIntegration:
                 return "..models.message"
             elif target == "models.message_response":
                 return "..models.message_response"
-            return f"..models.{target.split('.')[-1]}"
+            return f"..models.{target.split(".")[-1]}"
 
         mock_context.render_context.calculate_relative_path_for_internal_module.side_effect = mock_relative_path
 
@@ -144,7 +144,7 @@ class TestBusinessSwaggerIntegration:
         def mock_relative_path(target):
             if target == "models.user":
                 return "..models.user"
-            return f"..models.{target.split('.')[-1]}"
+            return f"..models.{target.split(".")[-1]}"
 
         mock_context.render_context.calculate_relative_path_for_internal_module.side_effect = mock_relative_path
 
