@@ -142,18 +142,38 @@ class PostprocessManager:
             print(f"No Python files found in {target_dir}, skipping type check.")
             return
 
-        result = subprocess.run(
-            [sys.executable, "-m", "mypy", "--strict"] + [str(f) for f in python_files],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        if result.stdout or result.stderr or result.returncode != 0:
-            if result.stdout:
-                print(result.stdout)
-            if result.stderr:
-                print(result.stderr, file=sys.stderr)
-            if result.returncode != 0:
+        # Try mypy with cache cleanup on failure
+        for attempt in range(2):
+            cmd = [sys.executable, "-m", "mypy", "--strict"]
+            if attempt == 1:
+                # Second attempt: clear cache
+                cmd.append("--cache-dir=/tmp/mypy_cache_temp")
+            cmd.extend([str(f) for f in python_files])
+            
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            
+            # Check for specific mypy cache corruption errors
+            cache_error_patterns = ["KeyError: 'setter_type'", "KeyError:", "deserialize"]
+            is_cache_error = any(pattern in result.stderr for pattern in cache_error_patterns)
+            
+            if result.returncode == 0:
+                # Success
+                return
+            elif attempt == 0 and is_cache_error:
+                # Retry with cache cleanup
+                print(f"Mypy cache error detected, retrying with fresh cache...", file=sys.stderr)
+                continue
+            else:
+                # Report the error
+                if result.stdout:
+                    print(result.stdout)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr)
                 print(f"Type checking failed for {target_dir}. Please fix the above issues.", file=sys.stderr)
                 sys.exit(result.returncode)
 
