@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.loader.loader import (
     load_ir_from_spec,

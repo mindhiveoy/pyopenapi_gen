@@ -4,6 +4,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.visit.visitor import Registry, Visitor
 

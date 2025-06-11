@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.http_types import HTTPMethod

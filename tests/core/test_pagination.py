@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from unittest.mock import AsyncMock
 
 import pytest
+
 from pyopenapi_gen.core.pagination import paginate_by_next
 
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import pytest
+
 from pyopenapi_gen.core.schemas import BaseSchema
 
 

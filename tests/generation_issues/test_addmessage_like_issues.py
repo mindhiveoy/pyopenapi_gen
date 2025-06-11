@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+
 from pyopenapi_gen.generator.client_generator import ClientGenerator, GenerationError
 
 # Absolute path to the root of the pyopenapi_gen project itself

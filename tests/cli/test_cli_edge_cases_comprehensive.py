@@ -11,8 +11,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pyopenapi_gen.cli import app
 from typer.testing import CliRunner
+
+from pyopenapi_gen.cli import app
 
 
 class TestCLIInputValidationEdgeCases:

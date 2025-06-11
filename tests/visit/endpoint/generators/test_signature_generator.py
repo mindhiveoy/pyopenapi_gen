@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod

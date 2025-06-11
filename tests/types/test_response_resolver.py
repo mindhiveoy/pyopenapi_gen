@@ -3,6 +3,7 @@
 from unittest.mock import Mock
 
 import pytest
+
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.types.contracts.types import ResolvedType
 from pyopenapi_gen.types.resolvers.response_resolver import OpenAPIResponseResolver

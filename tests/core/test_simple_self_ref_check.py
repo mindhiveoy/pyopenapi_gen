@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+
 from pyopenapi_gen.generator.client_generator import ClientGenerator, GenerationError
 
 

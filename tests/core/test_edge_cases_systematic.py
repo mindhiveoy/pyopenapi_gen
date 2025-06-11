@@ -9,6 +9,7 @@ error handling, and proper behavior with unusual or extreme inputs.
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema

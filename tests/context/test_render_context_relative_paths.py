@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 
 # Use POSIX paths for consistency in tests, os.path should handle separators

@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen import (
     HTTPMethod,
     IROperation,

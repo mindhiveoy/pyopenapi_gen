@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import pytest
+
 from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
