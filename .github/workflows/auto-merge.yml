@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize]
   check_suite:
     types: [completed]
-  status: {}
+  status:
 
 jobs:
   auto-merge:
