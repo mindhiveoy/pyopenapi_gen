@@ -112,17 +112,44 @@ class TestEndpointMethodGenerator:
         mock_render_context.add_import.assert_any_call("test_core_pkg.http_transport", "HttpTransport")
         mock_render_context.add_import.assert_any_call("test_core_pkg.exceptions", "HTTPError")
 
-        # Check helper calls in order
-        mock_import_analyzer.assert_called_once_with(mock_op, mock_render_context)
+        # Check helper calls in order - import analyzer now gets response strategy
+        call_args = mock_import_analyzer.call_args
+        assert call_args is not None
+        args = call_args[0]
+        assert len(args) == 3  # op, context, response_strategy
+        assert args[0] == mock_op
+        assert args[1] == mock_render_context
+        # args[2] should be a ResponseStrategy instance
+        from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
+
+        assert isinstance(args[2], ResponseStrategy)
         mock_param_processor.assert_called_once_with(mock_op, mock_render_context)
 
-        mock_signature_gen.assert_called_once_with(
-            mock_writer_instance, mock_op, mock_render_context, ordered_params_fixture
-        )
+        # Check that signature generator was called with response strategy
+        call_args = mock_signature_gen.call_args
+        assert call_args is not None
+        args = call_args[0]
+        assert len(args) == 5  # writer, op, context, params, response_strategy
+        assert args[0] == mock_writer_instance
+        assert args[1] == mock_op
+        assert args[2] == mock_render_context
+        assert args[3] == ordered_params_fixture
+        # args[4] should be a ResponseStrategy instance
+        from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 
-        mock_docstring_gen.assert_called_once_with(
-            mock_writer_instance, mock_op, mock_render_context, primary_content_type_fixture
-        )
+        assert isinstance(args[4], ResponseStrategy)
+
+        # Check that docstring generator was called with response strategy
+        docstring_call_args = mock_docstring_gen.call_args
+        assert docstring_call_args is not None
+        docstring_args = docstring_call_args[0]
+        assert len(docstring_args) == 5  # writer, op, context, content_type, response_strategy
+        assert docstring_args[0] == mock_writer_instance
+        assert docstring_args[1] == mock_op
+        assert docstring_args[2] == mock_render_context
+        assert docstring_args[3] == primary_content_type_fixture
+        # docstring_args[4] should be a ResponseStrategy instance
+        assert isinstance(docstring_args[4], ResponseStrategy)
 
         mock_url_args_gen.assert_called_once_with(
             mock_writer_instance,
@@ -141,7 +168,16 @@ class TestEndpointMethodGenerator:
             primary_content_type_fixture,
         )
 
-        mock_response_handler_gen.assert_called_once_with(mock_writer_instance, mock_op, mock_render_context)
+        # Check that response handler was called with response strategy
+        resp_call_args = mock_response_handler_gen.call_args
+        assert resp_call_args is not None
+        resp_args = resp_call_args[0]
+        assert len(resp_args) == 4  # writer, op, context, response_strategy
+        assert resp_args[0] == mock_writer_instance
+        assert resp_args[1] == mock_op
+        assert resp_args[2] == mock_render_context
+        # resp_args[3] should be a ResponseStrategy instance
+        assert isinstance(resp_args[3], ResponseStrategy)
 
         # Check CodeWriter usage
         # get_code is called twice, once for snapshot, once for final

@@ -50,7 +50,6 @@ class TestResolvedType:
         assert resolved.import_name is None
         assert resolved.is_optional is False
         assert resolved.is_forward_ref is False
-        assert resolved.was_unwrapped is False
 
     def test_resolved_type__with_import__works(self):
         """Scenario: Create ResolvedType with import info.
@@ -107,11 +106,9 @@ class TestResolvedType:
             import_name="User",
             is_optional=True,
             is_forward_ref=True,
-            was_unwrapped=True,
         )
 
         # Assert
         assert resolved.is_optional is True
         assert resolved.is_forward_ref is True
-        assert resolved.was_unwrapped is True
         assert resolved.needs_import is True

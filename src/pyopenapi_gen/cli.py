@@ -6,26 +6,6 @@ import yaml
 
 from .generator.client_generator import ClientGenerator, GenerationError
 
-app = typer.Typer(invoke_without_command=True)
-
-
-@app.callback()
-def main(ctx: typer.Context) -> None:
-    """
-    PyOpenAPI Generator CLI.
-    """
-    if ctx.invoked_subcommand is None:
-        # Show basic help without using ctx.get_help() to avoid Click compatibility issues
-        typer.echo("PyOpenAPI Generator CLI")
-        typer.echo("")
-        typer.echo("Usage: pyopenapi-gen [OPTIONS] COMMAND [ARGS]...")
-        typer.echo("")
-        typer.echo("Commands:")
-        typer.echo("  gen    Generate a Python OpenAPI client from a spec file or URL")
-        typer.echo("")
-        typer.echo("Run 'pyopenapi-gen gen --help' for more information on the gen command.")
-        raise typer.Exit(code=0)
-
 
 def _load_spec(path_or_url: str) -> Union[Dict[str, Any], Any]:
     """Load a spec from a file path or URL."""
@@ -35,8 +15,7 @@ def _load_spec(path_or_url: str) -> Union[Dict[str, Any], Any]:
     raise typer.Exit(code=1)
 
 
-@app.command()
-def gen(
+def main(
     spec: str = typer.Argument(..., help="Path or URL to OpenAPI spec"),
     project_root: Path = typer.Option(
         ...,
@@ -80,6 +59,10 @@ def gen(
     except GenerationError as e:
         typer.echo(f"Generation failed: {e}", err=True)
         raise typer.Exit(code=1)
+
+
+app = typer.Typer(help="PyOpenAPI Generator CLI - Generate Python clients from OpenAPI specs.")
+app.command()(main)
 
 
 if __name__ == "__main__":

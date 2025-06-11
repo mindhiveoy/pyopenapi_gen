@@ -1,6 +1,41 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) and the Claude GitHub App when working with code in this repository.
+
+## Claude GitHub App Capabilities
+
+The Claude GitHub App is configured with extensive permissions to independently operate on this repository:
+
+### Automated PR Review & Fixes
+- **Code Review**: Automatically triggered for dependabot PRs, version bumps, and documentation changes
+- **Issue Fixing**: Can directly commit fixes to PR branches for:
+  - Formatting issues (Black, Ruff)
+  - Linting violations
+  - Type checking errors
+  - Security issues
+  - Small bugs and improvements
+- **Quality Assurance**: Runs `make quality` and `make test` to ensure all changes meet standards
+- **Merge Decisions**: Approves and merges PRs when all criteria are met
+
+### Repository Management
+- **Issue Creation**: Creates detailed issues for complex problems that need human attention
+- **Branch Management**: Can work on feature branches and create new branches as needed
+- **Release Management**: Assists with version bumps and changelog updates
+- **Documentation**: Updates documentation to reflect code changes
+
+### Permissions
+The Claude GitHub App has the following permissions:
+- `contents: write` - Modify files and commit changes
+- `pull-requests: write` - Review, approve, and merge PRs
+- `issues: write` - Create and manage issues
+- `actions: read` - Monitor CI/CD status
+- `checks: read` - Review test results
+- `statuses: read` - Check status checks
+
+### Triggering Claude Reviews
+1. **Automatic**: PRs from dependabot, devops-mindhive (docs/release), or with `[claude-review]` tag
+2. **Manual**: Comment `@claude` on any PR, issue, or review to request assistance
+3. **On PR Events**: New PRs automatically get Claude attention for quality review
 
 # PyOpenAPI Generator
 
@@ -391,7 +426,7 @@ Located in `core/parsing/unified_cycle_detection.py` with:
 - **Formatting**: Black (120 char line length)
 - **Linting**: Ruff for code quality and import sorting
 - **Type Safety**: mypy strict mode with 100% coverage
-- **Compatibility**: Python 3.10-3.12
+- **Compatibility**: Python 3.12+
 
 ### Testing Requirements
 Follow cursor rules strictly:

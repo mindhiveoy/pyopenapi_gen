@@ -34,7 +34,7 @@ class PostprocessManager:
 
         # --- RE-ENABLE RUFF CHECKS ---
         for target_path in target_paths:
-            if target_path.is_file():
+            if target_path.is_file() and target_path.suffix == ".py":
                 self.remove_unused_imports(target_path)
                 self.sort_imports(target_path)
                 self.format_code(target_path)
@@ -136,18 +136,44 @@ class PostprocessManager:
             return
 
         print(f"Running mypy on {target_dir}...")
-        result = subprocess.run(
-            [sys.executable, "-m", "mypy", str(target_dir), "--strict"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        if result.stdout or result.stderr or result.returncode != 0:
-            if result.stdout:
-                print(result.stdout)
-            if result.stderr:
-                print(result.stderr, file=sys.stderr)
-            if result.returncode != 0:
+        # Find all Python files in the target directory
+        python_files = list(target_dir.rglob("*.py"))
+        if not python_files:
+            print(f"No Python files found in {target_dir}, skipping type check.")
+            return
+
+        # Try mypy with cache cleanup on failure
+        for attempt in range(2):
+            cmd = [sys.executable, "-m", "mypy", "--strict"]
+            if attempt == 1:
+                # Second attempt: clear cache
+                cmd.append("--cache-dir=/tmp/mypy_cache_temp")
+            cmd.extend([str(f) for f in python_files])
+
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            # Check for specific mypy cache corruption errors
+            cache_error_patterns = ["KeyError: 'setter_type'", "KeyError:", "deserialize"]
+            is_cache_error = any(pattern in result.stderr for pattern in cache_error_patterns)
+
+            if result.returncode == 0:
+                # Success
+                return
+            elif attempt == 0 and is_cache_error:
+                # Retry with cache cleanup
+                print(f"Mypy cache error detected, retrying with fresh cache...", file=sys.stderr)
+                continue
+            else:
+                # Report the error
+                if result.stdout:
+                    print(result.stdout)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr)
                 print(f"Type checking failed for {target_dir}. Please fix the above issues.", file=sys.stderr)
                 sys.exit(result.returncode)
 

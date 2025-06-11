@@ -10,11 +10,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
-from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_request_body_type, get_return_type_unified
+from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_request_body_type
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation
     from pyopenapi_gen.context.render_context import RenderContext
+    from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class EndpointDocstringGenerator:
         op: IROperation,
         context: RenderContext,
         primary_content_type: Optional[str],
+        response_strategy: ResponseStrategy,
     ) -> None:
         """Writes the method docstring to the provided CodeWriter."""
         summary = op.summary or None
@@ -75,7 +77,7 @@ class EndpointDocstringGenerator:
             else:  # Fallback for other types like application/octet-stream
                 args.append(("bytes_content", "bytes", body_desc + f" ({primary_content_type})"))
 
-        return_type = get_return_type_unified(op, context, self.schemas)
+        return_type = response_strategy.return_type
         response_desc = None
         # Prioritize 2xx success codes for the main response description
         for code in ("200", "201", "202", "default"):  # Include default as it might be the success response
@@ -97,7 +99,7 @@ class EndpointDocstringGenerator:
             for resp in error_codes:
                 # Using a generic HTTPError, specific error classes could be mapped later
                 code_to_raise = "HTTPError"
-                desc = f"{resp.status_code}: {resp.description.strip() if resp.description else 'HTTP error.'}"
+                desc = f"{resp.status_code}: {resp.description.strip() if resp.description else "HTTP error."}"
                 raises.append((code_to_raise, desc))
         else:
             raises.append(("HTTPError", "If the server returns a non-2xx HTTP response."))

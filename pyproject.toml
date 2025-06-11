@@ -4,18 +4,20 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "0.8.3"
+version = "0.8.5"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
 authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
 maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
 readme = "README.md"
-requires-python = ">=3.10,<4.0.0"
+requires-python = ">=3.12,<4.0.0"
 dependencies = [
   "openapi-spec-validator>=0.7",
   "openapi-core>=0.19",
   "PyYAML>=6.0",
-  "typer>=0.12.0,<0.15.0",
+  "typer>=0.12.0,<0.14.0",
+  "click>=8.0.0,<8.2.0",
   "httpx>=0.24.0",
+  "dataclass-wizard>=0.22.0",
 ]
 license = { text = "MIT" }
 keywords = [
@@ -43,8 +45,6 @@ classifiers = [
   "Operating System :: POSIX :: Linux",
   "Operating System :: Microsoft :: Windows",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11", 
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
@@ -78,6 +78,7 @@ dev = [
   "bandit[toml]>=1.7.0",
   "types-pyyaml>=6.0.12",
   "httpx>=0.24.0",
+  "dataclass-wizard>=0.22.0",
 ]
 
 [tool.black]
@@ -116,6 +117,12 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "timeout: specify a timeout for a test function (integration with pytest-timeout).",
 ]
+
+
+[tool.poetry.group.dev.dependencies]
+types-pyyaml = "^6.0.12.20250516"
+bandit = {extras = ["toml"], version = "^1.8.3"}
+pytest-timeout = "^2.4.0"
 
 [project.scripts]
 pyopenapi-gen = "pyopenapi_gen.cli:app"

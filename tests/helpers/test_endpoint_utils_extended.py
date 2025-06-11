@@ -14,87 +14,9 @@ from pyopenapi_gen.helpers.endpoint_utils import (
     get_model_stub_args,
     get_python_type_for_response_body,
     get_return_type,
-    get_return_type_unified,
     get_schema_from_response,
     get_type_for_specific_response,
 )
-
-# ===== Tests for get_return_type_unified =====
-
-
-class TestGetReturnTypeUnified:
-    def test_get_return_type_unified__basic_operation__delegates_to_unified_service(self) -> None:
-        """
-        Scenario:
-            A basic operation is passed to get_return_type_unified.
-
-        Expected Outcome:
-            The function delegates to UnifiedTypeService and returns the result.
-        """
-        # Arrange
-        op = IROperation(
-            operation_id="get_user",
-            method=HTTPMethod.GET,
-            path="/users/{id}",
-            summary=None,
-            description=None,
-            parameters=[],
-            request_body=None,
-            responses=[],
-            tags=[],
-        )
-        context = RenderContext()
-        schemas: dict[str, IRSchema] = {}
-        responses: dict[str, IRResponse] = {}
-
-        with patch("pyopenapi_gen.helpers.endpoint_utils.UnifiedTypeService") as MockTypeService:
-            mock_service = Mock()
-            mock_service.resolve_operation_response_type.return_value = "User"
-            MockTypeService.return_value = mock_service
-
-            # Act
-            result = get_return_type_unified(op, context, schemas, responses)
-
-            # Assert
-            assert result == "User"
-            MockTypeService.assert_called_once_with(schemas, responses)
-            mock_service.resolve_operation_response_type.assert_called_once_with(op, context)
-
-    def test_get_return_type_unified__no_responses_dict__passes_none_to_service(self) -> None:
-        """
-        Scenario:
-            No responses dictionary is provided (default None).
-
-        Expected Outcome:
-            UnifiedTypeService is called with None for responses.
-        """
-        # Arrange
-        op = IROperation(
-            operation_id="create_user",
-            method=HTTPMethod.POST,
-            path="/users",
-            summary=None,
-            description=None,
-            parameters=[],
-            request_body=None,
-            responses=[],
-            tags=[],
-        )
-        context = RenderContext()
-        schemas: dict[str, IRSchema] = {}
-
-        with patch("pyopenapi_gen.helpers.endpoint_utils.UnifiedTypeService") as MockTypeService:
-            mock_service = Mock()
-            mock_service.resolve_operation_response_type.return_value = "User"
-            MockTypeService.return_value = mock_service
-
-            # Act
-            result = get_return_type_unified(op, context, schemas)
-
-            # Assert
-            assert result == "User"
-            MockTypeService.assert_called_once_with(schemas, None)
-
 
 # ===== Tests for get_return_type =====
 

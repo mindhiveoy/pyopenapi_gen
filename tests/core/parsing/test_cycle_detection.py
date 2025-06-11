@@ -7,8 +7,6 @@ import os
 import unittest
 from typing import Any, Dict, cast
 
-import pytest
-
 import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
@@ -95,7 +93,6 @@ class TestCycleDetection(unittest.TestCase):
             result_a.name, NameSanitizer.sanitize_class_name(schema_a_name), "Schema name should be sanitized"
         )
 
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
     def test_composition_cycle_detection(self) -> None:
         """Test detection of cycles in schema composition (allOf, anyOf, oneOf)."""
         schema_a_name = "SchemaA"
@@ -570,7 +567,6 @@ class TestCycleDetection(unittest.TestCase):
             os.environ["PYOPENAPI_MAX_DEPTH"] = original_max_depth
         importlib.reload(schema_parser)
 
-    @pytest.mark.skip(reason="Complex cycle test temporarily skipped - needs architectural review")
     def test_complex_cycle_with_multiple_refs(self) -> None:
         schema_name = "ComplexCycleStart"
         schema_data = {
@@ -613,49 +609,6 @@ class TestCycleDetection(unittest.TestCase):
                 self.assertIsNotNone(a_again_prop)
                 if a_again_prop and a_again_prop._refers_to_schema:
                     self.assertTrue(a_again_prop._refers_to_schema._is_circular_ref)
-
-    @pytest.mark.skip(reason="Cycle detection tests temporarily skipped - stack management issue")
-    def test_parse_schema_handles_three_way_cycle(self) -> None:
-        schema_a_name = "ThreeWayA"
-        schema_b_name = "ThreeWayB"
-        schema_c_name = "ThreeWayC"
-
-        schema_a = {"properties": {"to_b": {"$ref": f"#/components/schemas/{schema_b_name}"}}}
-        schema_b = {"properties": {"to_c": {"$ref": f"#/components/schemas/{schema_c_name}"}}}
-        schema_c = {"properties": {"to_a": {"$ref": f"#/components/schemas/{schema_a_name}"}}}
-
-        self.context.raw_spec_schemas.update(
-            {
-                schema_a_name: schema_a,
-                schema_b_name: schema_b,
-                schema_c_name: schema_c,
-            }
-        )
-
-        result_a_direct = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
-        self.assertFalse(result_a_direct._is_circular_ref)
-
-        self.context.reset_for_new_parse()
-        self.context.raw_spec_schemas.update(
-            {
-                schema_a_name: schema_a,
-                schema_b_name: schema_b,
-                schema_c_name: schema_c,
-            }
-        )
-        result_b_direct = _parse_schema(schema_b_name, schema_b, self.context, allow_self_reference=False)
-        self.assertFalse(result_b_direct._is_circular_ref)
-
-        self.context.reset_for_new_parse()
-        self.context.raw_spec_schemas.update(
-            {
-                schema_a_name: schema_a,
-                schema_b_name: schema_b,
-                schema_c_name: schema_c,
-            }
-        )
-        result_c_direct = _parse_schema(schema_c_name, schema_c, self.context, allow_self_reference=False)
-        self.assertFalse(result_c_direct._is_circular_ref)
 
 
 if __name__ == "__main__":

@@ -10,8 +10,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 
-# Import necessary helpers from endpoint_utils if they were used directly or indirectly
-from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_return_type_unified  # Added
+# Import necessary helpers from endpoint_utils
+from pyopenapi_gen.helpers.endpoint_utils import get_param_type
+from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation
@@ -32,13 +33,15 @@ class EndpointMethodSignatureGenerator:
         op: IROperation,
         context: RenderContext,
         ordered_params: List[Dict[str, Any]],
+        strategy: ResponseStrategy,
     ) -> None:
         """Writes the method signature to the provided CodeWriter."""
         # Logic from EndpointMethodGenerator._write_method_signature
         for p_info in ordered_params:  # Renamed p to p_info to avoid conflict if IRParameter is named p
             context.add_typing_imports_for_type(p_info["type"])
 
-        return_type = get_return_type_unified(op, context, self.schemas)
+        # Use strategy return type instead of computing it again
+        return_type = strategy.return_type
         context.add_typing_imports_for_type(return_type)
 
         # Check if AsyncIterator is in return_type or any parameter type
@@ -63,7 +66,7 @@ class EndpointMethodSignatureGenerator:
         args = ["self"]
         for p_orig in ordered_params:
             p = p_orig.copy()  # Work with a copy
-            arg_str = f"{NameSanitizer.sanitize_method_name(p['name'])}: {p['type']}"  # Ensure param name is sanitized
+            arg_str = f"{NameSanitizer.sanitize_method_name(p["name"])}: {p["type"]}"  # Ensure param name is sanitized
             if not p.get("required", False):
                 # Default value handling: if default is None, it should be ' = None'
                 # If default is a string, it should be ' = "default_value"'
