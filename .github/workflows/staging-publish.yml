@@ -1,0 +1,98 @@
+name: Staging Release (TestPyPI)
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+jobs:
+  publish-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        virtualenvs-path: .venv
+
+    - name: Install dependencies
+      run: |
+        poetry install --extras dev
+
+    - name: Run quality checks
+      run: |
+        poetry run black --check src/ tests/
+        poetry run ruff check src/ tests/
+        poetry run mypy src/ --strict --no-warn-no-return
+
+    - name: Run tests
+      run: |
+        poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-fail-under=85
+
+    - name: Get current version
+      id: current_version
+      run: |
+        VERSION=$(poetry version --short)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Generate staging version with commit hash
+      id: staging_version
+      run: |
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        STAGING_VERSION="${{ steps.current_version.outputs.version }}-dev+$COMMIT_HASH"
+        echo "staging_version=$STAGING_VERSION" >> $GITHUB_OUTPUT
+        poetry version $STAGING_VERSION
+
+    - name: Build package
+      run: |
+        poetry build
+
+    - name: Verify build
+      run: |
+        poetry run pip install twine
+        poetry run twine check dist/*
+
+    - name: Publish to TestPyPI
+      env:
+        POETRY_REPOSITORIES_TESTPYPI_URL: https://test.pypi.org/legacy/
+        POETRY_HTTP_BASIC_TESTPYPI_USERNAME: __token__
+        POETRY_HTTP_BASIC_TESTPYPI_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        poetry config repositories.testpypi https://test.pypi.org/legacy/
+        poetry publish -r testpypi
+
+    - name: Create staging release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.staging_version.outputs.staging_version }}
+        release_name: Staging Release v${{ steps.staging_version.outputs.staging_version }}
+        body: |
+          Staging release for testing purposes.
+          
+          **This is a development release - do not use in production!**
+          
+          Version: ${{ steps.staging_version.outputs.staging_version }}
+          Commit: ${{ github.sha }}
+          
+          Install with:
+          ```bash
+          pip install --index-url https://test.pypi.org/simple/ pyopenapi-gen==${{ steps.staging_version.outputs.staging_version }}
+          ```
+        draft: false
+        prerelease: true

@@ -1,0 +1,170 @@
+name: Production Release (PyPI)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        virtualenvs-path: .venv
+
+    - name: Install dependencies
+      run: |
+        poetry install --extras dev
+
+    - name: Run comprehensive quality checks
+      run: |
+        poetry run black --check src/ tests/
+        poetry run ruff check src/ tests/
+        poetry run mypy src/ --strict --no-warn-no-return
+        poetry run bandit -r src/ -f txt -c .bandit
+
+    - name: Run full test suite
+      run: |
+        poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+
+    - name: Set version for manual release
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        poetry version ${{ github.event.inputs.version }}
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add pyproject.toml
+        git commit -m "bump: version ${{ github.event.inputs.version }}"
+        git tag v${{ github.event.inputs.version }}
+
+    - name: Get version
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "push" ]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION=${{ github.event.inputs.version }}
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+
+    - name: Update version in pyproject.toml
+      if: github.event_name == 'push'
+      run: |
+        poetry version ${{ steps.get_version.outputs.version }}
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get previous tag for changelog
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "Generating changelog from $PREVIOUS_TAG to current"
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD | grep -E "^- (feat|fix|docs|style|refactor|test|chore)" | head -20)
+        else
+          echo "No previous tag found, using recent commits"
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" -10 | grep -E "^- (feat|fix|docs|style|refactor|test|chore)")
+        fi
+        
+        if [ -z "$CHANGELOG" ]; then
+          CHANGELOG="- Initial release"
+        fi
+        
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Build package
+      run: |
+        poetry build
+
+    - name: Verify build
+      run: |
+        poetry run pip install twine
+        poetry run twine check dist/*
+        
+        # Test installation of built package
+        pip install dist/*.whl
+        python -c "import pyopenapi_gen; print(f'Package version: {pyopenapi_gen.__version__}')"
+
+    - name: Publish to PyPI
+      env:
+        POETRY_HTTP_BASIC_PYPI_USERNAME: __token__
+        POETRY_HTTP_BASIC_PYPI_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        poetry publish
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.get_version.outputs.version }}
+        release_name: Release v${{ steps.get_version.outputs.version }}
+        body: |
+          # PyOpenAPI Generator v${{ steps.get_version.outputs.version }}
+          
+          Enterprise-grade Python client generator for OpenAPI specifications.
+          
+          ## 🚀 What's New
+          
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ## 📦 Installation
+          
+          ```bash
+          pip install pyopenapi-gen==${{ steps.get_version.outputs.version }}
+          ```
+          
+          ## 🔗 Links
+          
+          - [Documentation](https://github.com/mindhiveoy/pyopenapi_gen#readme)
+          - [PyPI Package](https://pypi.org/project/pyopenapi-gen/${{ steps.get_version.outputs.version }}/)
+          - [Examples](https://github.com/mindhiveoy/pyopenapi_gen/tree/main/examples)
+          
+          ## ✅ Compatibility
+          
+          - Python 3.10, 3.11, 3.12
+          - Linux, macOS
+          - Enterprise-ready with comprehensive error handling
+        draft: false
+        prerelease: false
+
+  notify-slack:
+    needs: release
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Notify Slack on success
+      if: needs.release.result == 'success'
+      run: |
+        echo "Release successful - would notify Slack channel here"
+        
+    - name: Notify Slack on failure
+      if: needs.release.result == 'failure'
+      run: |
+        echo "Release failed - would notify Slack channel here"
