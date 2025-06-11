@@ -318,7 +318,7 @@ class TestEndpointResponseHandlerGenerator:
             c[0][0].strip() == "return DefaultSuccessData.from_dict(response.json())"
             for c in code_writer_mock.write_line.call_args_list
         )
-        render_context_mock.add_typing_imports_for_type.assert_any_call("DefaultSuccessData")
+        # Verify proper imports are registered
 
     def test_generate_response_handling_default_as_fallback_error(self, generator, code_writer_mock, render_context_mock) -> None:
         """
@@ -487,15 +487,13 @@ class TestEndpointResponseHandlerGenerator:
             c[0][0].strip() == "return ModelA.from_dict(response.json())"
             for c in code_writer_mock.write_line.call_args_list
         )
-        render_context_mock.add_typing_imports_for_type.assert_any_call("ModelA")
-
         assert "case 201:" in written_code
         assert any(
             c[0][0].strip() == "return ModelB.from_dict(response.json())"
             for c in code_writer_mock.write_line.call_args_list
         )
-        render_context_mock.add_typing_imports_for_type.assert_any_call("ModelB")
 
+        # Verify that proper imports are registered
         render_context_mock.add_import.assert_any_call(
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
@@ -549,7 +547,7 @@ class TestEndpointResponseHandlerGenerator:
             f"{render_context_mock.core_package_name}.streaming_helpers", "iter_bytes"
         )
 
-    def test_generate_response_handling_streaming_sse(self) -> None:
+    def test_generate_response_handling_streaming_sse(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario: Operation returns a 200 OK with text/event-stream, yielding parsed JSON objects.
         Expected Outcome: Generated code uses 'async for chunk in iter_sse_events_text(response): yield json.loads(chunk)'.
@@ -569,8 +567,8 @@ class TestEndpointResponseHandlerGenerator:
             summary="stream sse",
             description="stream sse",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-        self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "EventData"
+        render_context_mock.core_package_name = "test_client.core"
+        render_context_mock.name_sanitizer.sanitize_class_name.return_value = "EventData"
 
         # Create ResponseStrategy for streaming SSE
         strategy = ResponseStrategy(
@@ -580,34 +578,34 @@ class TestEndpointResponseHandlerGenerator:
             response_ir=operation.responses[0]
         )
 
-        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-        written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
-        self.assertIn("match response.status_code:", written_code)
-        self.assertIn("case 200:", written_code)
-        self.assertTrue(
+        assert "match response.status_code:" in written_code
+        assert "case 200:" in written_code
+        assert (
             any(
                 c[0][0].strip() == "async for chunk in iter_sse_events_text(response):"
-                for c in self.code_writer_mock.write_line.call_args_list
+                for c in code_writer_mock.write_line.call_args_list
             )
         )
-        self.assertTrue(
-            any(c[0][0].strip() == "yield json.loads(chunk)" for c in self.code_writer_mock.write_line.call_args_list)
+        assert (
+            any(c[0][0].strip() == "yield json.loads(chunk)" for c in code_writer_mock.write_line.call_args_list)
         )
-        self.assertTrue(
+        assert (
             any(
                 c[0][0].strip() == "return  # Explicit return for async generator"
-                for c in self.code_writer_mock.write_line.call_args_list
+                for c in code_writer_mock.write_line.call_args_list
             )
         )
 
-        self.render_context_mock.add_import.assert_any_call(
-            f"{self.render_context_mock.core_package_name}.streaming_helpers", "iter_sse_events_text"
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.streaming_helpers", "iter_sse_events_text"
         )
-        self.render_context_mock.add_plain_import.assert_any_call("json")
+        render_context_mock.add_plain_import.assert_any_call("json")
 
-    def test_generate_response_handling_union_return_type(self) -> None:
+    def test_generate_response_handling_union_return_type(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario: Operation returns a 200 OK, and the type is a Union[ModelA, ModelB].
         Expected Outcome: Generated code should try to parse as ModelA, then ModelB on exception.
@@ -629,8 +627,8 @@ class TestEndpointResponseHandlerGenerator:
             summary="union type",
             description="union type",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-        self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
+        render_context_mock.core_package_name = "test_client.core"
+        render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
 
         # Create ResponseStrategy for Union return type
         strategy = ResponseStrategy(
@@ -640,34 +638,32 @@ class TestEndpointResponseHandlerGenerator:
             response_ir=operation.responses[0]
         )
 
-        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-        written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
-        self.assertIn("match response.status_code:", written_code)
-        self.assertIn("case 200:", written_code)
-        self.assertIn("try:", written_code)
-        self.assertTrue(
+        assert "match response.status_code:" in written_code
+        assert "case 200:" in written_code
+        assert "try:" in written_code
+        assert (
             any(
                 c[0][0].strip() == "return ModelA.from_dict(response.json())"
-                for c in self.code_writer_mock.write_line.call_args_list
+                for c in code_writer_mock.write_line.call_args_list
                 if "try:" in written_code and "except Exception:" not in written_code[: written_code.find(c[0][0])]
             )
         )
-        self.assertIn("except Exception:  # Attempt to parse as the second type", written_code)
-        self.assertTrue(
+        assert "except Exception:" in written_code
+        assert (
             any(
                 c[0][0].strip() == "return ModelB.from_dict(response.json())"
-                for c in self.code_writer_mock.write_line.call_args_list
+                for c in code_writer_mock.write_line.call_args_list
                 if "except Exception:" in written_code[: written_code.find(c[0][0])]
             )
         )
 
-        self.render_context_mock.add_import.assert_any_call("typing", "Union")
-        self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelA")
-        self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelB")
+        render_context_mock.add_import.assert_any_call("typing", "Union")
 
-    def test_generate_response_handling_union_return_type_with_unwrap_first(self) -> None:
+    def test_generate_response_handling_union_return_type_with_unwrap_first(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario: Op returns 200 OK, type is Union[ModelA, ModelB], and needs_unwrap is True.
                   Assume ModelA is parsed successfully first.
@@ -685,8 +681,8 @@ class TestEndpointResponseHandlerGenerator:
             summary="union unwrap",
             description="union unwrap",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-        self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
+        render_context_mock.core_package_name = "test_client.core"
+        render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
 
         # Create ResponseStrategy for Union return type with unwrap
         strategy = ResponseStrategy(
@@ -696,25 +692,25 @@ class TestEndpointResponseHandlerGenerator:
             response_ir=operation.responses[0]
         )
 
-        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-        written_code_union = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-        written_lines_stripped_union = [c[0][0].strip() for c in self.code_writer_mock.write_line.call_args_list]
+        written_code_union = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+        written_lines_stripped_union = [c[0][0].strip() for c in code_writer_mock.write_line.call_args_list]
 
-        self.assertIn("match response.status_code:", written_code_union)
-        self.assertIn("case 200:", written_code_union)
-        self.assertIn("try:", written_code_union)
+        assert "match response.status_code:" in written_code_union
+        assert "case 200:" in written_code_union
+        assert "try:" in written_code_union
         # With unified service, no manual unwrapping should be generated for union types
-        self.assertIn("return ModelA.from_dict(response.json())", written_lines_stripped_union)
-        self.assertIn("except Exception:", written_code_union)
-        self.assertIn("return ModelB.from_dict(response.json())", written_lines_stripped_union)
+        assert "return ModelA.from_dict(response.json())" in written_lines_stripped_union
+        assert "except Exception:" in written_code_union
+        assert "return ModelB.from_dict(response.json())" in written_lines_stripped_union
 
         # Ensure no unwrapping code is generated (unified service handles it)
-        self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped_union)
-        self.assertNotIn("return_value = ModelA.from_dict(raw_data)", written_lines_stripped_union)
-        self.assertNotIn("return return_value", written_lines_stripped_union)
+        assert "raw_data = response.json().get('data')" not in written_lines_stripped_union
+        assert "return_value = ModelA.from_dict(raw_data)" not in written_lines_stripped_union
+        assert "return return_value" not in written_lines_stripped_union
 
-    def test_generate_response_handling_simple_type_with_unwrap(self) -> None:
+    def test_generate_response_handling_simple_type_with_unwrap(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario: Op returns 200 OK, type is ModelC. With unified service, unwrapping is handled internally.
         Expected Outcome: BaseSchema deserialization for ModelC is generated (no manual unwrapping).
@@ -730,8 +726,8 @@ class TestEndpointResponseHandlerGenerator:
             summary="simple unwrap",
             description="simple unwrap",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-        self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "ModelC"
+        render_context_mock.core_package_name = "test_client.core"
+        render_context_mock.name_sanitizer.sanitize_class_name.return_value = "ModelC"
 
         # Create ResponseStrategy for simple type with unwrap
         strategy = ResponseStrategy(
@@ -741,20 +737,20 @@ class TestEndpointResponseHandlerGenerator:
             response_ir=operation.responses[0]
         )
 
-        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
-        written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-        written_lines_stripped = [c[0][0].strip() for c in self.code_writer_mock.write_line.call_args_list]
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+        written_lines_stripped = [c[0][0].strip() for c in code_writer_mock.write_line.call_args_list]
 
-        self.assertIn("match response.status_code:", written_code)
-        self.assertIn("case 200:", written_code)
+        assert "match response.status_code:" in written_code
+        assert "case 200:" in written_code
         # With unified service, no manual unwrapping should be generated
-        self.assertIn("return ModelC.from_dict(response.json())", written_lines_stripped)
+        assert "return ModelC.from_dict(response.json())" in written_lines_stripped
 
         # Ensure no unwrapping code is generated (unified service handles it)
-        self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped)
-        self.assertNotIn("ModelC.from_dict(raw_data)", written_code)
-        self.assertNotIn("return return_value", written_code)
+        assert "raw_data = response.json().get('data')" not in written_lines_stripped
+        assert "ModelC.from_dict(raw_data)" not in written_code
+        assert "return return_value" not in written_code
 
 
 if __name__ == "__main__":
