@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2024-11-06
+
 ### Added
 - Claude GitHub App automation for PR reviews and fixes
 - Auto-review for all PRs targeting develop branch
@@ -30,8 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Unused Jinja2 dependency (project uses visitor pattern, not templates)
 - Feature status promises to avoid implementation commitments
-
-## [0.8.4] - 2024-11-06
 
 ## [0.8.3] - 2024-11-06
 
