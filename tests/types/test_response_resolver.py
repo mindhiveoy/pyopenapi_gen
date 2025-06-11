@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.types.contracts.types import ResolvedType
 from pyopenapi_gen.types.resolvers.response_resolver import OpenAPIResponseResolver
@@ -287,9 +286,7 @@ class TestOpenAPIResponseResolver:
         # Should resolve the first content type (XML)
         mock_schema_resolver.resolve_schema.assert_called_once_with(xml_schema, mock_context, required=True)
 
-    def test_resolve_specific_response__response_ref_not_found(
-        self, resolver, mock_context, mock_ref_resolver
-    ) -> None:
+    def test_resolve_specific_response__response_ref_not_found(self, resolver, mock_context, mock_ref_resolver) -> None:
         """
         Scenario: Response reference cannot be resolved
         Expected Outcome: Returns None type
@@ -297,7 +294,7 @@ class TestOpenAPIResponseResolver:
         # Arrange
         response = Mock()
         response.ref = "#/components/responses/NonExistentResponse"
-        
+
         # Mock ref resolver to return None (not found)
         mock_ref_resolver.resolve_response_ref.return_value = None
 
@@ -308,9 +305,7 @@ class TestOpenAPIResponseResolver:
         assert result.python_type == "None"
         mock_ref_resolver.resolve_response_ref.assert_called_once_with("#/components/responses/NonExistentResponse")
 
-    def test_resolve_specific_response__streaming_binary_content(
-        self, resolver, mock_context
-    ) -> None:
+    def test_resolve_specific_response__streaming_binary_content(self, resolver, mock_context) -> None:
         """
         Scenario: Streaming response with binary content
         Expected Outcome: Returns AsyncIterator[bytes]
@@ -320,7 +315,7 @@ class TestOpenAPIResponseResolver:
             status_code="200",
             description="Streaming binary",
             content={"application/octet-stream": IRSchema(type="string", format="binary")},
-            stream=True
+            stream=True,
         )
 
         # Act
@@ -330,9 +325,7 @@ class TestOpenAPIResponseResolver:
         assert result.python_type == "AsyncIterator[bytes]"
         mock_context.add_import.assert_called_with("typing", "AsyncIterator")
 
-    def test_resolve_specific_response__streaming_event_stream(
-        self, resolver, mock_context
-    ) -> None:
+    def test_resolve_specific_response__streaming_event_stream(self, resolver, mock_context) -> None:
         """
         Scenario: Streaming response with event stream content
         Expected Outcome: Returns AsyncIterator[Dict[str, Any]]
@@ -342,7 +335,7 @@ class TestOpenAPIResponseResolver:
             status_code="200",
             description="Server-sent events",
             content={"text/event-stream": IRSchema(type="object")},
-            stream=True
+            stream=True,
         )
 
         # Act
@@ -364,10 +357,7 @@ class TestOpenAPIResponseResolver:
         # Arrange
         stream_schema = IRSchema(type="object", name="StreamItem")
         response = IRResponse(
-            status_code="200",
-            description="Streaming objects",
-            content={"application/json": stream_schema},
-            stream=True
+            status_code="200", description="Streaming objects", content={"application/json": stream_schema}, stream=True
         )
 
         expected_result = ResolvedType(python_type="StreamItem")
@@ -381,20 +371,13 @@ class TestOpenAPIResponseResolver:
         mock_context.add_import.assert_called_with("typing", "AsyncIterator")
         mock_schema_resolver.resolve_schema.assert_called_once_with(stream_schema, mock_context, required=True)
 
-    def test_resolve_specific_response__streaming_no_content(
-        self, resolver, mock_context
-    ) -> None:
+    def test_resolve_specific_response__streaming_no_content(self, resolver, mock_context) -> None:
         """
         Scenario: Streaming response with no content
         Expected Outcome: Returns AsyncIterator[bytes]
         """
         # Arrange
-        response = IRResponse(
-            status_code="200",
-            description="Empty stream",
-            content={},
-            stream=True
-        )
+        response = IRResponse(status_code="200", description="Empty stream", content={}, stream=True)
 
         # Act
         result = resolver.resolve_specific_response(response, mock_context)

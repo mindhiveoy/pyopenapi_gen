@@ -4,9 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-import pytest
 import yaml
-
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.utils import NameSanitizer

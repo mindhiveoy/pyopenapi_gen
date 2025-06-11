@@ -1,6 +1,5 @@
-from pytest import raises
-
 from pyopenapi_gen.core.exceptions import ClientError, HTTPError, ServerError
+from pytest import raises
 
 
 def test_http_error_attributes_and_str() -> None:

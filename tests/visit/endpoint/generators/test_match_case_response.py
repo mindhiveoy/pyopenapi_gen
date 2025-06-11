@@ -59,7 +59,7 @@ class TestMatchCaseResponseGeneration:
             return_type="User",
             response_schema=success_schema,
             is_streaming=False,
-            response_ir=operation.responses[0]  # 200 response
+            response_ir=operation.responses[0],  # 200 response
         )
 
         # Act
@@ -134,7 +134,7 @@ class TestMatchCaseResponseGeneration:
             return_type="Chat",
             response_schema=schema,
             is_streaming=False,
-            response_ir=operation.responses[0]  # 201 response
+            response_ir=operation.responses[0],  # 201 response
         )
 
         # Act
@@ -220,7 +220,7 @@ class TestMatchCaseResponseGeneration:
             return_type="Data",
             response_schema=data_schema,
             is_streaming=False,
-            response_ir=operation.responses[0]  # 200 response
+            response_ir=operation.responses[0],  # 200 response
         )
 
         # Act

@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 import yaml  # For loading dummy_spec_path
-
 from pyopenapi_gen.emitters.core_emitter import CoreEmitter
 from pyopenapi_gen.generator.client_generator import ClientGenerator
 

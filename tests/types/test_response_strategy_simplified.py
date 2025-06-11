@@ -3,7 +3,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.http_types import HTTPMethod
@@ -23,7 +22,7 @@ class TestResponseStrategy:
             return_type="User",
             response_schema=Mock(spec=IRSchema),
             is_streaming=False,
-            response_ir=Mock(spec=IRResponse)
+            response_ir=Mock(spec=IRResponse),
         )
 
         # Assert
@@ -69,7 +68,7 @@ class TestResponseStrategyResolver:
             path="/test",
             summary="test",
             description="test",
-            responses=[]
+            responses=[],
         )
 
         # Act
@@ -92,9 +91,7 @@ class TestResponseStrategyResolver:
             path="/users/{id}",
             summary="delete user",
             description="delete user",
-            responses=[
-                IRResponse(status_code="204", description="No Content", content={})
-            ]
+            responses=[IRResponse(status_code="204", description="No Content", content={})],
         )
 
         # Act
@@ -114,12 +111,9 @@ class TestResponseStrategyResolver:
         user_response_schema = IRSchema(
             name="UserResponse",
             type="object",
-            properties={
-                "data": IRSchema(name="User", type="object"),
-                "meta": IRSchema(type="object")
-            }
+            properties={"data": IRSchema(name="User", type="object"), "meta": IRSchema(type="object")},
         )
-        
+
         operation = IROperation(
             operation_id="get_user",
             method=HTTPMethod.GET,
@@ -128,14 +122,12 @@ class TestResponseStrategyResolver:
             description="get user",
             responses=[
                 IRResponse(
-                    status_code="200",
-                    description="User response",
-                    content={"application/json": user_response_schema}
+                    status_code="200", description="User response", content={"application/json": user_response_schema}
                 )
-            ]
+            ],
         )
 
-        with patch.object(resolver.type_service, 'resolve_schema_type') as mock_resolve:
+        with patch.object(resolver.type_service, "resolve_schema_type") as mock_resolve:
             mock_resolve.return_value = "UserResponse"
 
             # Act
@@ -153,14 +145,9 @@ class TestResponseStrategyResolver:
         """
         # Arrange
         user_schema = IRSchema(
-            name="User",
-            type="object",
-            properties={
-                "id": IRSchema(type="string"),
-                "name": IRSchema(type="string")
-            }
+            name="User", type="object", properties={"id": IRSchema(type="string"), "name": IRSchema(type="string")}
         )
-        
+
         operation = IROperation(
             operation_id="get_user_direct",
             method=HTTPMethod.GET,
@@ -169,14 +156,12 @@ class TestResponseStrategyResolver:
             description="get user direct",
             responses=[
                 IRResponse(
-                    status_code="200",
-                    description="Direct user response",
-                    content={"application/json": user_schema}
+                    status_code="200", description="Direct user response", content={"application/json": user_schema}
                 )
-            ]
+            ],
         )
 
-        with patch.object(resolver.type_service, 'resolve_schema_type') as mock_resolve:
+        with patch.object(resolver.type_service, "resolve_schema_type") as mock_resolve:
             mock_resolve.return_value = "User"
 
             # Act
@@ -197,16 +182,16 @@ class TestResponseStrategyResolver:
             status_code="200",
             description="Streaming response",
             content={"text/event-stream": IRSchema(type="object")},
-            stream=True  # This marks it as streaming
+            stream=True,  # This marks it as streaming
         )
-        
+
         operation = IROperation(
             operation_id="stream_events",
             method=HTTPMethod.GET,
             path="/events/stream",
             summary="stream events",
             description="stream events",
-            responses=[response]
+            responses=[response],
         )
 
         # Act
@@ -230,16 +215,16 @@ class TestResponseStrategyResolver:
             status_code="200",
             description="Binary stream",
             content={"application/octet-stream": IRSchema(type="string", format="binary")},
-            stream=True
+            stream=True,
         )
-        
+
         operation = IROperation(
             operation_id="download_file",
             method=HTTPMethod.GET,
             path="/files/{id}/download",
             summary="download file",
             description="download file",
-            responses=[response]
+            responses=[response],
         )
 
         # Act
@@ -259,16 +244,16 @@ class TestResponseStrategyResolver:
             status_code="200",
             description="Event stream",
             content={"text/event-stream": IRSchema(type="object")},
-            stream=True
+            stream=True,
         )
-        
+
         operation = IROperation(
             operation_id="listen_events",
             method=HTTPMethod.GET,
             path="/events",
             summary="listen events",
             description="listen events",
-            responses=[response]
+            responses=[response],
         )
 
         # Act
@@ -287,7 +272,7 @@ class TestResponseStrategyResolver:
         """
         # Arrange
         success_schema = IRSchema(name="User", type="object")
-        
+
         operation = IROperation(
             operation_id="get_user_with_errors",
             method=HTTPMethod.GET,
@@ -296,16 +281,12 @@ class TestResponseStrategyResolver:
             description="get user with errors",
             responses=[
                 IRResponse(status_code="404", description="Not Found", content={}),
-                IRResponse(
-                    status_code="200",
-                    description="Success",
-                    content={"application/json": success_schema}
-                ),
-                IRResponse(status_code="500", description="Server Error", content={})
-            ]
+                IRResponse(status_code="200", description="Success", content={"application/json": success_schema}),
+                IRResponse(status_code="500", description="Server Error", content={}),
+            ],
         )
 
-        with patch.object(resolver.type_service, 'resolve_schema_type') as mock_resolve:
+        with patch.object(resolver.type_service, "resolve_schema_type") as mock_resolve:
             mock_resolve.return_value = "User"
 
             # Act
@@ -322,7 +303,7 @@ class TestResponseStrategyResolver:
         """
         # Arrange
         created_schema = IRSchema(name="CreatedUser", type="object")
-        
+
         operation = IROperation(
             operation_id="create_user",
             method=HTTPMethod.POST,
@@ -331,15 +312,11 @@ class TestResponseStrategyResolver:
             description="create user",
             responses=[
                 IRResponse(status_code="400", description="Bad Request", content={}),
-                IRResponse(
-                    status_code="201",
-                    description="Created",
-                    content={"application/json": created_schema}
-                )
-            ]
+                IRResponse(status_code="201", description="Created", content={"application/json": created_schema}),
+            ],
         )
 
-        with patch.object(resolver.type_service, 'resolve_schema_type') as mock_resolve:
+        with patch.object(resolver.type_service, "resolve_schema_type") as mock_resolve:
             mock_resolve.return_value = "CreatedUser"
 
             # Act

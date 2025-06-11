@@ -1,7 +1,6 @@
 from typing import Any, Dict
 
 import pytest
-
 from pyopenapi_gen.core.auth.plugins import BearerAuth, HeadersAuth
 
 

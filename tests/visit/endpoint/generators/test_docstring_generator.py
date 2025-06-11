@@ -6,7 +6,6 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -134,7 +133,7 @@ class TestEndpointDocstringGenerator:
             return_type="MySuccessOutput",
             response_schema=success_response.content["application/json"],
             is_streaming=False,
-            response_ir=success_response
+            response_ir=success_response,
         )
 
         with (
@@ -200,7 +199,7 @@ class TestEndpointDocstringGenerator:
             patched_get_req_body_type.assert_called_once_with(
                 op_for_docstring.request_body, render_context_mock_for_docstring, schemas_for_docstring
             )
-        # No longer need to assert get_return_type_unified call since we use ResponseStrategy
+        # Uses ResponseStrategy directly instead of computing return type
 
         # These assertions are removed because the helper functions that would make these calls
         # (get_param_type, get_request_body_type, get_return_type) are mocked in this test.

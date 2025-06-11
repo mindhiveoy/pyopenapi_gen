@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from pyopenapi_gen.cli import app
+from typer.testing import CliRunner
 
 # Minimal spec for code generation
 MIN_SPEC = {

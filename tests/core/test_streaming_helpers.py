@@ -3,7 +3,6 @@ from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
-
 from pyopenapi_gen.core.streaming_helpers import (
     SSEEvent,
     _parse_sse_event,

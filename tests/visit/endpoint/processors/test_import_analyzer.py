@@ -9,7 +9,6 @@ from unittest.mock import (
 )
 
 import pytest
-
 from pyopenapi_gen.context.render_context import RenderContext
 
 # Assuming endpoint_utils is in pyopenapi_gen.helpers
@@ -74,7 +73,7 @@ class TestEndpointImportAnalyzer:
             return_type="SuccessResponse",
             response_schema=mock_success_response_schema,
             is_streaming=False,
-            response_ir=mock_response
+            response_ir=mock_response,
         )
 
         with unittest_patch(
@@ -120,10 +119,7 @@ class TestEndpointImportAnalyzer:
 
         # Create ResponseStrategy for 204 No Content
         response_strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=no_content_response
+            return_type="None", response_schema=None, is_streaming=False, response_ir=no_content_response
         )
 
         with unittest_patch(
@@ -174,10 +170,7 @@ class TestEndpointImportAnalyzer:
 
         # Create ResponseStrategy for 201 Created
         response_strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=created_response
+            return_type="None", response_schema=None, is_streaming=False, response_ir=created_response
         )
 
         with (
@@ -229,10 +222,7 @@ class TestEndpointImportAnalyzer:
 
         # Create ResponseStrategy for 200 OK
         response_strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=ok_response
+            return_type="None", response_schema=None, is_streaming=False, response_ir=ok_response
         )
 
         with unittest_patch(
@@ -282,10 +272,7 @@ class TestEndpointImportAnalyzer:
 
         # Create ResponseStrategy for 200 OK
         response_strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=ok_response
+            return_type="None", response_schema=None, is_streaming=False, response_ir=ok_response
         )
 
         with unittest_patch(
@@ -329,10 +316,7 @@ class TestEndpointImportAnalyzer:
 
         # Create ResponseStrategy for 200 OK
         response_strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=ok_response
+            return_type="None", response_schema=None, is_streaming=False, response_ir=ok_response
         )
 
         with (
@@ -392,7 +376,7 @@ class TestEndpointImportAnalyzer:
             return_type="AsyncIterator[DataItem]",
             response_schema=None,
             is_streaming=True,
-            response_ir=streaming_response
+            response_ir=streaming_response,
         )
 
         with unittest_patch(
@@ -435,10 +419,7 @@ class TestEndpointImportAnalyzer:
 
         # Create ResponseStrategy for simple response (non-AsyncIterator return type)
         response_strategy = ResponseStrategy(
-            return_type="SimpleResponse",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=ok_response
+            return_type="SimpleResponse", response_schema=None, is_streaming=False, response_ir=ok_response
         )
 
         # Mock get_param_type to return AsyncIterator for the specific param, and something else otherwise

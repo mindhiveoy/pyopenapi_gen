@@ -7,7 +7,6 @@ from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pyopenapi_gen.context.import_collector import ImportCollector
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer

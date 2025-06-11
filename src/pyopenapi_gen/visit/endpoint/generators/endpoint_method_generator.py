@@ -54,7 +54,7 @@ class EndpointMethodGenerator:
         ordered_params, primary_content_type, resolved_body_type = self.parameter_processor.process_parameters(
             op, context
         )
-        
+
         # Pass strategy to generators for consistent behavior
         self.signature_generator.generate_signature(writer, op, context, ordered_params, response_strategy)
 

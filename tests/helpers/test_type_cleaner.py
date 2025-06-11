@@ -3,7 +3,6 @@ Tests for the TypeCleaner class, which cleans malformed type expressions.
 """
 
 import pytest
-
 from pyopenapi_gen.helpers.type_cleaner import TypeCleaner
 
 

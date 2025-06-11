@@ -6,7 +6,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pyopenapi_gen import IROperation  # Added IRResponse
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
@@ -112,8 +111,17 @@ class TestEndpointMethodGenerator:
         mock_render_context.add_import.assert_any_call("test_core_pkg.http_transport", "HttpTransport")
         mock_render_context.add_import.assert_any_call("test_core_pkg.exceptions", "HTTPError")
 
-        # Check helper calls in order
-        mock_import_analyzer.assert_called_once_with(mock_op, mock_render_context)
+        # Check helper calls in order - import analyzer now gets response strategy
+        call_args = mock_import_analyzer.call_args
+        assert call_args is not None
+        args = call_args[0]
+        assert len(args) == 3  # op, context, response_strategy
+        assert args[0] == mock_op
+        assert args[1] == mock_render_context
+        # args[2] should be a ResponseStrategy instance
+        from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
+
+        assert isinstance(args[2], ResponseStrategy)
         mock_param_processor.assert_called_once_with(mock_op, mock_render_context)
 
         # Check that signature generator was called with response strategy
@@ -127,11 +135,20 @@ class TestEndpointMethodGenerator:
         assert args[3] == ordered_params_fixture
         # args[4] should be a ResponseStrategy instance
         from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
+
         assert isinstance(args[4], ResponseStrategy)
 
-        mock_docstring_gen.assert_called_once_with(
-            mock_writer_instance, mock_op, mock_render_context, primary_content_type_fixture
-        )
+        # Check that docstring generator was called with response strategy
+        docstring_call_args = mock_docstring_gen.call_args
+        assert docstring_call_args is not None
+        docstring_args = docstring_call_args[0]
+        assert len(docstring_args) == 5  # writer, op, context, content_type, response_strategy
+        assert docstring_args[0] == mock_writer_instance
+        assert docstring_args[1] == mock_op
+        assert docstring_args[2] == mock_render_context
+        assert docstring_args[3] == primary_content_type_fixture
+        # docstring_args[4] should be a ResponseStrategy instance
+        assert isinstance(docstring_args[4], ResponseStrategy)
 
         mock_url_args_gen.assert_called_once_with(
             mock_writer_instance,

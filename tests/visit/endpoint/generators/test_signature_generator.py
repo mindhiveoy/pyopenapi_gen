@@ -6,7 +6,6 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -77,10 +76,7 @@ class TestEndpointMethodSignatureGenerator:
         # Create ResponseStrategy for the test
         response_ir = IRResponse(status_code="204", description="No Content", content={})
         response_strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=response_ir
+            return_type="None", response_schema=None, is_streaming=False, response_ir=response_ir
         )
 
         generator.generate_signature(
@@ -124,10 +120,7 @@ class TestEndpointMethodSignatureGenerator:
         response_schema = IRSchema(type="object", name="SomeReturnType")
         response_ir = IRResponse(status_code="200", description="OK", content={"application/json": response_schema})
         response_strategy = ResponseStrategy(
-            return_type="SomeReturnType",
-            response_schema=response_schema,
-            is_streaming=False,
-            response_ir=response_ir
+            return_type="SomeReturnType", response_schema=response_schema, is_streaming=False, response_ir=response_ir
         )
 
         with patch("pyopenapi_gen.visit.endpoint.generators.signature_generator.get_param_type") as mock_get_param_type:
@@ -138,7 +131,11 @@ class TestEndpointMethodSignatureGenerator:
             }.get(param_spec.name, "Any")
 
             generator.generate_signature(
-                writer, op_for_sig_with_params, render_context_mock_for_sig, ordered_params_from_processor, response_strategy
+                writer,
+                op_for_sig_with_params,
+                render_context_mock_for_sig,
+                ordered_params_from_processor,
+                response_strategy,
             )
 
         generated_code = writer.get_code().strip()

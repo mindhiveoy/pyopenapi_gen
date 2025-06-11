@@ -1,5 +1,4 @@
 import pytest
-
 from pyopenapi_gen.context.import_collector import ImportCollector
 
 

@@ -3,7 +3,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.loader.schemas.extractor import (
     build_schemas,

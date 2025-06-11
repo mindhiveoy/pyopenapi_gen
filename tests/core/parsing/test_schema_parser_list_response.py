@@ -1,7 +1,6 @@
 from typing import Any, Dict, Mapping
 
 import yaml
-
 from pyopenapi_gen import IRSchema
 
 # Assuming build_schemas is the correct entry point for parsing schemas

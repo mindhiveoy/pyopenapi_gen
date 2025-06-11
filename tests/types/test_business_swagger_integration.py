@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
@@ -78,7 +77,9 @@ class TestBusinessSwaggerIntegration:
         # Assert
         # Should return MessageBatchResponse as-is (no unwrapping)
         assert result == "MessageBatchResponse"
-        mock_context.render_context.add_import.assert_any_call("..models.message_batch_response", "MessageBatchResponse")
+        mock_context.render_context.add_import.assert_any_call(
+            "..models.message_batch_response", "MessageBatchResponse"
+        )
 
     def test_message_response_type_resolution(self, mock_context) -> None:
         """

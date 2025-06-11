@@ -1,9 +1,8 @@
 """Tests for EndpointResponseHandlerGenerator with ResponseStrategy pattern."""
 
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
-
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -60,10 +59,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         )
 
         strategy = ResponseStrategy(
-            return_type="User",
-            response_schema=success_schema,
-            is_streaming=False,
-            response_ir=operation.responses[0]
+            return_type="User", response_schema=success_schema, is_streaming=False, response_ir=operation.responses[0]
         )
 
         render_context_mock.name_sanitizer.sanitize_class_name.return_value = "User"
@@ -90,12 +86,8 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         """
         # Arrange
         user_schema = IRSchema(type="object", name="User")
-        wrapper_schema = IRSchema(
-            type="object",
-            name="UserResponse",
-            properties={"data": user_schema}
-        )
-        
+        wrapper_schema = IRSchema(type="object", name="UserResponse", properties={"data": user_schema})
+
         operation = IROperation(
             operation_id="get_user_wrapped",
             method=HTTPMethod.GET,
@@ -115,7 +107,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
             return_type="UserResponse",
             response_schema=wrapper_schema,
             is_streaming=False,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         render_context_mock.name_sanitizer.sanitize_class_name.return_value = "UserResponse"
@@ -151,10 +143,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         )
 
         strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=operation.responses[0]
+            return_type="None", response_schema=None, is_streaming=False, response_ir=operation.responses[0]
         )
 
         # Act
@@ -195,7 +184,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
             return_type="AsyncIterator[Dict[str, Any]]",
             response_schema=IRSchema(type="object"),
             is_streaming=True,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         # Act
@@ -237,7 +226,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
             return_type="AsyncIterator[bytes]",
             response_schema=IRSchema(type="string", format="binary"),
             is_streaming=True,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         # Act
@@ -280,7 +269,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
             return_type="User",
             response_schema=IRSchema(type="object", name="User"),
             is_streaming=False,
-            response_ir=operation.responses[0]  # Primary success response
+            response_ir=operation.responses[0],  # Primary success response
         )
 
         render_context_mock.name_sanitizer.sanitize_class_name.return_value = "User"
@@ -325,7 +314,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
             return_type="Union[ModelA, ModelB]",
             response_schema=IRSchema(type="object"),
             is_streaming=False,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         # Act
@@ -369,7 +358,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
             return_type="List[User]",
             response_schema=IRSchema(type="array"),
             is_streaming=False,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         # Act
@@ -418,10 +407,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
 
         # For this test, we'll use the primary success response (200)
         strategy = ResponseStrategy(
-            return_type="ModelA",
-            response_schema=schema_a,
-            is_streaming=False,
-            response_ir=operation.responses[0]
+            return_type="ModelA", response_schema=schema_a, is_streaming=False, response_ir=operation.responses[0]
         )
 
         render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name

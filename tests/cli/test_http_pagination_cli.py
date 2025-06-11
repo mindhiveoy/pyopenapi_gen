@@ -5,7 +5,6 @@ from typing import Any
 import httpx
 import pytest
 from httpx import Response
-
 from pyopenapi_gen.core.http_transport import HttpxTransport
 from pyopenapi_gen.core.pagination import paginate_by_next
 

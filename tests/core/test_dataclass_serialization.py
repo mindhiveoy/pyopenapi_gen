@@ -12,7 +12,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import pytest
-
 from pyopenapi_gen.core.utils import DataclassSerializer
 
 

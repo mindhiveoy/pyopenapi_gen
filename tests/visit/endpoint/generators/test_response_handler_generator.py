@@ -1,8 +1,7 @@
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
-
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -13,7 +12,7 @@ from pyopenapi_gen.visit.endpoint.generators.response_handler_generator import E
 
 class TestEndpointResponseHandlerGenerator:
     """Test the response handler generator with the new ResponseStrategy pattern."""
-    
+
     @pytest.fixture
     def render_context_mock(self):
         """Mock render context."""
@@ -23,17 +22,17 @@ class TestEndpointResponseHandlerGenerator:
         context.name_sanitizer = MagicMock()
         context.core_package_name = "test_client.core"
         return context
-        
+
     @pytest.fixture
     def code_writer_mock(self):
         """Mock code writer."""
         return MagicMock(spec=CodeWriter)
-        
+
     @pytest.fixture
     def generator(self):
         """Response handler generator instance."""
         return EndpointResponseHandlerGenerator()
-        
+
     @pytest.fixture
     def mock_op(self):
         """Mock operation."""
@@ -65,14 +64,14 @@ class TestEndpointResponseHandlerGenerator:
                 )
             ],
         )
-        
+
         strategy = ResponseStrategy(
             return_type="Item",
             response_schema=success_response_schema,
             is_streaming=False,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
-        
+
         render_context_mock.name_sanitizer.sanitize_class_name.return_value = "Item"
 
         # Act
@@ -80,7 +79,7 @@ class TestEndpointResponseHandlerGenerator:
 
         # Assert
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
-        
+
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         assert any(
@@ -91,7 +90,9 @@ class TestEndpointResponseHandlerGenerator:
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
 
-    def test_generate_response_handling_for_none_return_type(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_for_none_return_type(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario: Test response handling for None return type (e.g., 204 response)
         Expected Outcome: Generated code simply returns None
@@ -105,12 +106,9 @@ class TestEndpointResponseHandlerGenerator:
             summary="delete",
             description="delete",
         )
-        
+
         strategy = ResponseStrategy(
-            return_type="None",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=operation.responses[0]
+            return_type="None", response_schema=None, is_streaming=False, response_ir=operation.responses[0]
         )
 
         # Act
@@ -131,10 +129,8 @@ class TestEndpointResponseHandlerGenerator:
         Expected Outcome: Returns "response.text"
         """
         # Act
-        code = generator._get_extraction_code(
-            return_type="str", context=render_context_mock, op=mock_op
-        )
-        
+        code = generator._get_extraction_code(return_type="str", context=render_context_mock, op=mock_op)
+
         # Assert
         assert code == "response.text"
 
@@ -144,10 +140,8 @@ class TestEndpointResponseHandlerGenerator:
         Expected Outcome: Returns "response.content"
         """
         # Act
-        code = generator._get_extraction_code(
-            return_type="bytes", context=render_context_mock, op=mock_op
-        )
-        
+        code = generator._get_extraction_code(return_type="bytes", context=render_context_mock, op=mock_op)
+
         # Assert
         assert code == "response.content"
 
@@ -157,10 +151,8 @@ class TestEndpointResponseHandlerGenerator:
         Expected Outcome: Returns "response.json()  # Type is Any" and registers import for Any
         """
         # Act
-        code = generator._get_extraction_code(
-            return_type="Any", context=render_context_mock, op=mock_op
-        )
-        
+        code = generator._get_extraction_code(return_type="Any", context=render_context_mock, op=mock_op)
+
         # Assert
         assert code == "response.json()  # Type is Any"
         render_context_mock.add_import.assert_called_with("typing", "Any")
@@ -171,24 +163,20 @@ class TestEndpointResponseHandlerGenerator:
         Expected Outcome: Returns "MyModel.from_dict(response.json())" for BaseSchema deserialization and registers imports
         """
         # Act
-        code = generator._get_extraction_code(
-            return_type="MyModel", context=render_context_mock, op=mock_op
-        )
-        
+        code = generator._get_extraction_code(return_type="MyModel", context=render_context_mock, op=mock_op)
+
         # Assert
         assert code == "MyModel.from_dict(response.json())"
         render_context_mock.add_typing_imports_for_type.assert_called_with("MyModel")
 
     def test_get_extraction_code_model_type_no_unwrapping(self, generator, render_context_mock, mock_op) -> None:
         """
-        Scenario: _get_extraction_code is called for a model type 
+        Scenario: _get_extraction_code is called for a model type
         Expected Outcome: Returns direct BaseSchema deserialization (no unwrapping)
         """
         # Act
-        code = generator._get_extraction_code(
-            return_type="MyDataModel", context=render_context_mock, op=mock_op
-        )
-        
+        code = generator._get_extraction_code(return_type="MyDataModel", context=render_context_mock, op=mock_op)
+
         # Assert
         assert code == "MyDataModel.from_dict(response.json())"
         render_context_mock.add_typing_imports_for_type.assert_called_with("MyDataModel")
@@ -207,12 +195,9 @@ class TestEndpointResponseHandlerGenerator:
             summary="get missing",
             description="get missing",
         )
-        
+
         strategy = ResponseStrategy(
-            return_type="Any",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=operation.responses[0]
+            return_type="Any", response_schema=None, is_streaming=False, response_ir=operation.responses[0]
         )
 
         # Act
@@ -220,17 +205,14 @@ class TestEndpointResponseHandlerGenerator:
 
         # Assert
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
-        
+
         assert "match response.status_code:" in written_code
         assert "case 404:" in written_code
         assert any(
-            c[0][0].strip() == "raise Error404(response=response)"
-            for c in code_writer_mock.write_line.call_args_list
+            c[0][0].strip() == "raise Error404(response=response)" for c in code_writer_mock.write_line.call_args_list
         )
-        
-        render_context_mock.add_import.assert_any_call(
-            f"{render_context_mock.core_package_name}", "Error404"
-        )
+
+        render_context_mock.add_import.assert_any_call(f"{render_context_mock.core_package_name}", "Error404")
         render_context_mock.add_import.assert_any_call(
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
@@ -249,20 +231,15 @@ class TestEndpointResponseHandlerGenerator:
             summary="unknown",
             description="unknown",
         )
-        
-        strategy = ResponseStrategy(
-            return_type="Any",
-            response_schema=None,
-            is_streaming=False,
-            response_ir=None
-        )
+
+        strategy = ResponseStrategy(return_type="Any", response_schema=None, is_streaming=False, response_ir=None)
 
         # Act
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
 
         # Assert
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
-        
+
         assert "match response.status_code:" in written_code
         assert "case _:" in written_code
         assert any(
@@ -270,12 +247,14 @@ class TestEndpointResponseHandlerGenerator:
             == 'raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)'
             for c in code_writer_mock.write_line.call_args_list
         )
-        
+
         render_context_mock.add_import.assert_any_call(
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
 
-    def test_generate_response_handling_default_as_success_only_response(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_default_as_success_only_response(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario:
             Operation has only a 'default' response with a schema, implying success.
@@ -304,7 +283,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="DefaultSuccessData",
             response_schema=default_schema,
             is_streaming=False,
-            response_ir=operation.responses[0]  # default response
+            response_ir=operation.responses[0],  # default response
         )
 
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
@@ -313,14 +292,16 @@ class TestEndpointResponseHandlerGenerator:
 
         assert "match response.status_code:" in written_code
         # Default case can be handled with case _ if status_code >= 0 or case _
-        assert ("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
+        assert "case _ if response.status_code >= 0:" in written_code or "case _:" in written_code
         assert any(
             c[0][0].strip() == "return DefaultSuccessData.from_dict(response.json())"
             for c in code_writer_mock.write_line.call_args_list
         )
         # Verify proper imports are registered
 
-    def test_generate_response_handling_default_as_fallback_error(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_default_as_fallback_error(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario:
             Operation has a 200 OK and a 'default' response (no content), implying 'default' is for errors.
@@ -354,7 +335,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="SuccessData",
             response_schema=success_schema,
             is_streaming=False,
-            response_ir=operation.responses[0]  # 200 response
+            response_ir=operation.responses[0],  # 200 response
         )
 
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
@@ -369,7 +350,7 @@ class TestEndpointResponseHandlerGenerator:
         )
 
         # Default case can be handled with case _ if status_code >= 0 or case _
-        assert ("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
+        assert "case _ if response.status_code >= 0:" in written_code or "case _:" in written_code
         assert any(
             'raise HTTPError(response=response, message="Default error"' in c[0][0].strip()
             for c in code_writer_mock.write_line.call_args_list
@@ -378,7 +359,9 @@ class TestEndpointResponseHandlerGenerator:
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
 
-    def test_generate_response_handling_default_as_primary_success_heuristic(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_default_as_primary_success_heuristic(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario:
             Operation has no 2xx, only a 'default' response with content.
@@ -409,7 +392,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="PrimaryDefault",
             response_schema=default_schema,
             is_streaming=False,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         with unittest.mock.patch(
@@ -421,7 +404,7 @@ class TestEndpointResponseHandlerGenerator:
 
             assert "match response.status_code:" in written_code
             # Default case can be handled with case _ if status_code >= 0 or case _
-            assert ("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
+            assert "case _ if response.status_code >= 0:" in written_code or "case _:" in written_code
             assert any(
                 c[0][0].strip() == "return PrimaryDefault.from_dict(response.json())"
                 for c in code_writer_mock.write_line.call_args_list
@@ -429,7 +412,9 @@ class TestEndpointResponseHandlerGenerator:
             # Verify that proper imports are registered
             render_context_mock.add_import.assert_any_call("typing", "NoReturn")
 
-    def test_generate_response_handling_multiple_2xx_distinct_types(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_multiple_2xx_distinct_types(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario:
             Operation has multiple 2xx responses with different schemas (e.g., 200 -> ModelA, 201 -> ModelB).
@@ -444,7 +429,7 @@ class TestEndpointResponseHandlerGenerator:
         schema_a.generation_name = "ModelA"
         schema_b.generation_name = "ModelB"
 
-        # Provide schemas to the generator  
+        # Provide schemas to the generator
         generator_with_schemas = EndpointResponseHandlerGenerator(schemas={"ModelA": schema_a, "ModelB": schema_b})
 
         operation = IROperation(
@@ -474,7 +459,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="ModelA",
             response_schema=schema_a,
             is_streaming=False,
-            response_ir=operation.responses[0]  # 200 response
+            response_ir=operation.responses[0],  # 200 response
         )
 
         generator_with_schemas.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
@@ -524,7 +509,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="AsyncIterator[bytes]",
             response_schema=operation.responses[0].content["application/octet-stream"],
             is_streaming=True,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
@@ -575,7 +560,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="AsyncIterator[EventData]",
             response_schema=event_data_schema,
             is_streaming=True,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
@@ -584,20 +569,14 @@ class TestEndpointResponseHandlerGenerator:
 
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
-        assert (
-            any(
-                c[0][0].strip() == "async for chunk in iter_sse_events_text(response):"
-                for c in code_writer_mock.write_line.call_args_list
-            )
+        assert any(
+            c[0][0].strip() == "async for chunk in iter_sse_events_text(response):"
+            for c in code_writer_mock.write_line.call_args_list
         )
-        assert (
-            any(c[0][0].strip() == "yield json.loads(chunk)" for c in code_writer_mock.write_line.call_args_list)
-        )
-        assert (
-            any(
-                c[0][0].strip() == "return  # Explicit return for async generator"
-                for c in code_writer_mock.write_line.call_args_list
-            )
+        assert any(c[0][0].strip() == "yield json.loads(chunk)" for c in code_writer_mock.write_line.call_args_list)
+        assert any(
+            c[0][0].strip() == "return  # Explicit return for async generator"
+            for c in code_writer_mock.write_line.call_args_list
         )
 
         render_context_mock.add_import.assert_any_call(
@@ -605,7 +584,9 @@ class TestEndpointResponseHandlerGenerator:
         )
         render_context_mock.add_plain_import.assert_any_call("json")
 
-    def test_generate_response_handling_union_return_type(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_union_return_type(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario: Operation returns a 200 OK, and the type is a Union[ModelA, ModelB].
         Expected Outcome: Generated code should try to parse as ModelA, then ModelB on exception.
@@ -635,7 +616,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="Union[ModelA, ModelB]",
             response_schema=schema_a,  # Primary schema
             is_streaming=False,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
@@ -645,25 +626,23 @@ class TestEndpointResponseHandlerGenerator:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         assert "try:" in written_code
-        assert (
-            any(
-                c[0][0].strip() == "return ModelA.from_dict(response.json())"
-                for c in code_writer_mock.write_line.call_args_list
-                if "try:" in written_code and "except Exception:" not in written_code[: written_code.find(c[0][0])]
-            )
+        assert any(
+            c[0][0].strip() == "return ModelA.from_dict(response.json())"
+            for c in code_writer_mock.write_line.call_args_list
+            if "try:" in written_code and "except Exception:" not in written_code[: written_code.find(c[0][0])]
         )
         assert "except Exception:" in written_code
-        assert (
-            any(
-                c[0][0].strip() == "return ModelB.from_dict(response.json())"
-                for c in code_writer_mock.write_line.call_args_list
-                if "except Exception:" in written_code[: written_code.find(c[0][0])]
-            )
+        assert any(
+            c[0][0].strip() == "return ModelB.from_dict(response.json())"
+            for c in code_writer_mock.write_line.call_args_list
+            if "except Exception:" in written_code[: written_code.find(c[0][0])]
         )
 
         render_context_mock.add_import.assert_any_call("typing", "Union")
 
-    def test_generate_response_handling_union_return_type_with_unwrap_first(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_union_return_type_with_unwrap_first(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario: Op returns 200 OK, type is Union[ModelA, ModelB], and needs_unwrap is True.
                   Assume ModelA is parsed successfully first.
@@ -689,7 +668,7 @@ class TestEndpointResponseHandlerGenerator:
             return_type="Union[ModelA, ModelB]",
             response_schema=schema_a,  # Primary schema
             is_streaming=False,
-            response_ir=operation.responses[0]
+            response_ir=operation.responses[0],
         )
 
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
@@ -710,7 +689,9 @@ class TestEndpointResponseHandlerGenerator:
         assert "return_value = ModelA.from_dict(raw_data)" not in written_lines_stripped_union
         assert "return return_value" not in written_lines_stripped_union
 
-    def test_generate_response_handling_simple_type_with_unwrap(self, generator, code_writer_mock, render_context_mock) -> None:
+    def test_generate_response_handling_simple_type_with_unwrap(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
         """
         Scenario: Op returns 200 OK, type is ModelC. With unified service, unwrapping is handled internally.
         Expected Outcome: BaseSchema deserialization for ModelC is generated (no manual unwrapping).
@@ -731,10 +712,7 @@ class TestEndpointResponseHandlerGenerator:
 
         # Create ResponseStrategy for simple type with unwrap
         strategy = ResponseStrategy(
-            return_type="ModelC",
-            response_schema=schema_c,
-            is_streaming=False,
-            response_ir=operation.responses[0]
+            return_type="ModelC", response_schema=schema_c, is_streaming=False, response_ir=operation.responses[0]
         )
 
         generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)

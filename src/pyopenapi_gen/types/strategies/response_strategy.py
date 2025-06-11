@@ -20,88 +20,75 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ResponseStrategy:
     """Unified strategy for handling a specific operation's response.
-    
+
     This class encapsulates all decisions about how to handle a response:
     - What type to use in method signatures (matches OpenAPI schema exactly)
     - Which schema to use for deserialization
     - How to generate the response handling code
     """
-    return_type: str                        # The Python type for method signature
-    response_schema: Optional[IRSchema]     # The response schema as defined in OpenAPI spec
-    is_streaming: bool                      # Whether this is a streaming response
-    
-    # Additional context for code generation  
-    response_ir: Optional[IRResponse]       # The original response IR
+
+    return_type: str  # The Python type for method signature
+    response_schema: Optional[IRSchema]  # The response schema as defined in OpenAPI spec
+    is_streaming: bool  # Whether this is a streaming response
+
+    # Additional context for code generation
+    response_ir: Optional[IRResponse]  # The original response IR
 
 
 class ResponseStrategyResolver:
     """Single source of truth for response handling decisions.
-    
+
     This resolver examines an operation and its responses to determine the optimal
     strategy for handling the response. It replaces the scattered logic that was
     previously spread across multiple components.
     """
-    
+
     def __init__(self, schemas: Dict[str, IRSchema]):
         self.schemas = schemas
         self.type_service = UnifiedTypeService(schemas)
-    
+
     def resolve(self, operation: IROperation, context: RenderContext) -> ResponseStrategy:
         """Determine how to handle this operation's response.
-        
+
         Uses the response schema exactly as defined in the OpenAPI spec,
         with no unwrapping logic. What you see in the spec is what you get.
-        
+
         Args:
             operation: The operation to analyze
             context: Render context for type resolution
-            
+
         Returns:
             A ResponseStrategy that all components should use consistently
         """
         primary_response = self._get_primary_response(operation)
-        
+
         if not primary_response:
-            return ResponseStrategy(
-                return_type="None",
-                response_schema=None,
-                is_streaming=False,
-                response_ir=None
-            )
-        
+            return ResponseStrategy(return_type="None", response_schema=None, is_streaming=False, response_ir=None)
+
         # Handle responses without content (e.g., 204)
         if not hasattr(primary_response, "content") or not primary_response.content:
             return ResponseStrategy(
-                return_type="None",
-                response_schema=None,
-                is_streaming=False,
-                response_ir=primary_response
+                return_type="None", response_schema=None, is_streaming=False, response_ir=primary_response
             )
-        
+
         # Handle streaming responses
         if hasattr(primary_response, "stream") and primary_response.stream:
             return self._resolve_streaming_strategy(primary_response, context)
-        
+
         # Get the response schema
         response_schema = self._get_response_schema(primary_response)
         if not response_schema:
             return ResponseStrategy(
-                return_type="None", 
-                response_schema=None,
-                is_streaming=False,
-                response_ir=primary_response
+                return_type="None", response_schema=None, is_streaming=False, response_ir=primary_response
             )
-        
+
         # Use the response schema as-is from the OpenAPI spec
         return_type = self.type_service.resolve_schema_type(response_schema, context, required=True)
-        
+
         return ResponseStrategy(
-            return_type=return_type,
-            response_schema=response_schema,
-            is_streaming=False,
-            response_ir=primary_response
+            return_type=return_type, response_schema=response_schema, is_streaming=False, response_ir=primary_response
         )
-    
+
     def _get_primary_response(self, operation: IROperation) -> Optional[IRResponse]:
         """Get the primary success response from an operation."""
         if not operation.responses:
@@ -125,7 +112,7 @@ class ResponseStrategyResolver:
 
         # First response as fallback
         return operation.responses[0] if operation.responses else None
-    
+
     def _get_response_schema(self, response: IRResponse) -> Optional[IRSchema]:
         """Get the schema from a response's content."""
         if not response.content:
@@ -146,7 +133,7 @@ class ResponseStrategyResolver:
             return None
 
         return response.content.get(content_type)
-    
+
     def _resolve_streaming_strategy(self, response: IRResponse, context: RenderContext) -> ResponseStrategy:
         """Resolve strategy for streaming responses."""
         # Add AsyncIterator import
@@ -156,10 +143,7 @@ class ResponseStrategyResolver:
         if not response.content:
             # Binary stream with no specific content type
             return ResponseStrategy(
-                return_type="AsyncIterator[bytes]",
-                response_schema=None,
-                is_streaming=True,
-                response_ir=response
+                return_type="AsyncIterator[bytes]", response_schema=None, is_streaming=True, response_ir=response
             )
 
         # Check for binary content types
@@ -171,10 +155,7 @@ class ResponseStrategyResolver:
 
         if is_binary:
             return ResponseStrategy(
-                return_type="AsyncIterator[bytes]",
-                response_schema=None,
-                is_streaming=True,
-                response_ir=response
+                return_type="AsyncIterator[bytes]", response_schema=None, is_streaming=True, response_ir=response
             )
 
         # For event streams (text/event-stream) or JSON streams
@@ -186,7 +167,7 @@ class ResponseStrategyResolver:
                 return_type="AsyncIterator[Dict[str, Any]]",
                 response_schema=None,
                 is_streaming=True,
-                response_ir=response
+                response_ir=response,
             )
 
         # For other streaming content, try to resolve the schema
@@ -197,13 +178,10 @@ class ResponseStrategyResolver:
                 return_type=f"AsyncIterator[{schema_type}]",
                 response_schema=schema,
                 is_streaming=True,
-                response_ir=response
+                response_ir=response,
             )
 
         # Default to bytes if we can't determine the type
         return ResponseStrategy(
-            return_type="AsyncIterator[bytes]",
-            response_schema=None,
-            is_streaming=True,
-            response_ir=response
+            return_type="AsyncIterator[bytes]", response_schema=None, is_streaming=True, response_ir=response
         )

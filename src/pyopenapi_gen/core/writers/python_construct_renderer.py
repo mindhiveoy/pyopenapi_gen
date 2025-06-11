@@ -196,7 +196,7 @@ class PythonConstructRenderer:
         else:
             # Simple external core package name (e.g., shared_core_pkg) - use absolute import
             core_import_path = f"{context.core_package_name}.schemas"
-        
+
         context.add_import(core_import_path, "BaseSchema")
 
         # Add __all__ export

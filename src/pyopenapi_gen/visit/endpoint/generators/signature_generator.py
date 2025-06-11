@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
-from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 
-# Import necessary helpers from endpoint_utils if they were used directly or indirectly
-from pyopenapi_gen.helpers.endpoint_utils import get_param_type  # Removed get_return_type_unified - now use strategy
+# Import necessary helpers from endpoint_utils
+from pyopenapi_gen.helpers.endpoint_utils import get_param_type
+from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation

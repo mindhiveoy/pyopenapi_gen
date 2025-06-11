@@ -49,22 +49,22 @@ class EndpointResponseHandlerGenerator:
     def _is_type_alias_to_array(self, type_name: str) -> bool:
         """
         Check if a type name corresponds to a type alias that resolves to a List/array type.
-        
+
         This helps distinguish between:
         - Type aliases: AgentHistoryListResponse = List[AgentHistory] (should use array deserialization)
         - Dataclasses: class AgentHistoryListResponse(BaseSchema): ... (should use .from_dict())
-        
+
         Args:
             type_name: The Python type name (e.g., "AgentHistoryListResponse")
-            
+
         Returns:
             True if this is a type alias that resolves to List[SomeType]
         """
         # Extract base type name without generics
         base_type = type_name
         if "[" in base_type:
-            base_type = base_type[:base_type.find("[")]
-        
+            base_type = base_type[: base_type.find("[")]
+
         # Look up the schema for this type name
         if base_type in self.schemas:
             schema = self.schemas[base_type]
@@ -75,35 +75,35 @@ class EndpointResponseHandlerGenerator:
             # - Type is not "object" (which would be a dataclass)
             # - Type is "array" (indicating it's an array type alias)
             is_type_alias = bool(
-                getattr(schema, 'name', None) and 
-                not getattr(schema, 'properties', None) and 
-                not getattr(schema, 'enum', None) and 
-                getattr(schema, 'type', None) != "object"
+                getattr(schema, "name", None)
+                and not getattr(schema, "properties", None)
+                and not getattr(schema, "enum", None)
+                and getattr(schema, "type", None) != "object"
             )
-            is_array_type = getattr(schema, 'type', None) == "array"
+            is_array_type = getattr(schema, "type", None) == "array"
             return is_type_alias and is_array_type
-        
+
         return False
 
     def _is_type_alias_to_primitive(self, type_name: str) -> bool:
         """
         Check if a type name corresponds to a type alias that resolves to a primitive type.
-        
+
         This helps distinguish between:
         - Type aliases: StringAlias = str (should use cast())
         - Dataclasses: class MyModel(BaseSchema): ... (should use .from_dict())
-        
+
         Args:
             type_name: The Python type name (e.g., "StringAlias")
-            
+
         Returns:
             True if this is a type alias that resolves to a primitive type (str, int, float, bool)
         """
         # Extract base type name without generics
         base_type = type_name
         if "[" in base_type:
-            base_type = base_type[:base_type.find("[")]
-        
+            base_type = base_type[: base_type.find("[")]
+
         # Look up the schema for this type name
         if base_type in self.schemas:
             schema = self.schemas[base_type]
@@ -114,14 +114,14 @@ class EndpointResponseHandlerGenerator:
             # - Type is not "object" (which would be a dataclass)
             # - Type is a primitive (string, integer, number, boolean)
             is_type_alias = bool(
-                getattr(schema, 'name', None) and 
-                not getattr(schema, 'properties', None) and 
-                not getattr(schema, 'enum', None) and 
-                getattr(schema, 'type', None) != "object"
+                getattr(schema, "name", None)
+                and not getattr(schema, "properties", None)
+                and not getattr(schema, "enum", None)
+                and getattr(schema, "type", None) != "object"
             )
-            is_primitive_type = getattr(schema, 'type', None) in ("string", "integer", "number", "boolean")
+            is_primitive_type = getattr(schema, "type", None) in ("string", "integer", "number", "boolean")
             return is_type_alias and is_primitive_type
-        
+
         return False
 
     def _should_use_base_schema(self, type_name: str) -> bool:

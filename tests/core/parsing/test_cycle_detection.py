@@ -7,8 +7,6 @@ import os
 import unittest
 from typing import Any, Dict, cast
 
-import pytest
-
 import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
@@ -611,7 +609,6 @@ class TestCycleDetection(unittest.TestCase):
                 self.assertIsNotNone(a_again_prop)
                 if a_again_prop and a_again_prop._refers_to_schema:
                     self.assertTrue(a_again_prop._refers_to_schema._is_circular_ref)
-
 
 
 if __name__ == "__main__":

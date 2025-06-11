@@ -149,18 +149,18 @@ class PostprocessManager:
                 # Second attempt: clear cache
                 cmd.append("--cache-dir=/tmp/mypy_cache_temp")
             cmd.extend([str(f) for f in python_files])
-            
+
             result = subprocess.run(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
             )
-            
+
             # Check for specific mypy cache corruption errors
             cache_error_patterns = ["KeyError: 'setter_type'", "KeyError:", "deserialize"]
             is_cache_error = any(pattern in result.stderr for pattern in cache_error_patterns)
-            
+
             if result.returncode == 0:
                 # Success
                 return

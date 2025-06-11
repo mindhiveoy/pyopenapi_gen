@@ -2,8 +2,8 @@ import logging
 from typing import Any
 
 from pyopenapi_gen import IROperation
-# No longer need endpoint utils helpers - using ResponseStrategy pattern
 
+# No longer need endpoint utils helpers - using ResponseStrategy pattern
 from ...context.render_context import RenderContext
 from ...core.utils import NameSanitizer
 from ...core.writers.code_writer import CodeWriter

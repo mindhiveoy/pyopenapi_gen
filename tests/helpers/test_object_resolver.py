@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.helpers.type_resolution.object_resolver import ObjectTypeResolver

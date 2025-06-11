@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.types.contracts.types import TypeResolutionError
 from pyopenapi_gen.types.resolvers.schema_resolver import OpenAPISchemaResolver
@@ -519,7 +518,9 @@ class TestOpenAPISchemaResolver:
         # Assert
         assert result.python_type == "str"
 
-    def test_resolve_schema__named_schema_lookup_by_type__resolves_target(self, resolver, mock_context, mock_ref_resolver) -> None:
+    def test_resolve_schema__named_schema_lookup_by_type__resolves_target(
+        self, resolver, mock_context, mock_ref_resolver
+    ) -> None:
         """
         Scenario: Resolving schema where type refers to a named schema
         Expected Outcome: Resolves to the target named schema
@@ -536,7 +537,9 @@ class TestOpenAPISchemaResolver:
         # Since target_schema has no generation_name, it should fall back to type handling
         assert result.python_type == "Dict[str, Any]"  # object type without properties
 
-    def test_resolve_schema__named_schema_lookup_in_schemas__resolves_target(self, resolver, mock_context, mock_ref_resolver) -> None:
+    def test_resolve_schema__named_schema_lookup_in_schemas__resolves_target(
+        self, resolver, mock_context, mock_ref_resolver
+    ) -> None:
         """
         Scenario: Resolving schema with name that exists in schemas registry
         Expected Outcome: Resolves to the target schema to avoid infinite recursion
@@ -552,7 +555,9 @@ class TestOpenAPISchemaResolver:
         # Assert
         assert result.python_type == "str"
 
-    def test_resolve_schema__named_schema_same_object__avoids_infinite_recursion(self, resolver, mock_context, mock_ref_resolver) -> None:
+    def test_resolve_schema__named_schema_same_object__avoids_infinite_recursion(
+        self, resolver, mock_context, mock_ref_resolver
+    ) -> None:
         """
         Scenario: Resolving schema with name that points to same object (infinite recursion prevention)
         Expected Outcome: Falls back to type-based resolution
@@ -567,7 +572,9 @@ class TestOpenAPISchemaResolver:
         # Assert
         assert result.python_type == "str"  # Falls back to type-based resolution
 
-    def test_resolve_schema__named_schema_missing_module_stem__logs_warning_returns_any(self, resolver, mock_context) -> None:
+    def test_resolve_schema__named_schema_missing_module_stem__logs_warning_returns_any(
+        self, resolver, mock_context
+    ) -> None:
         """
         Scenario: Resolving named schema without final_module_stem
         Expected Outcome: Logs warning and returns Any type
@@ -615,7 +622,9 @@ class TestOpenAPISchemaResolver:
         # Arrange
         mock_render_context = Mock()
         mock_render_context.current_file = "/project/endpoints/users.py"
-        mock_render_context.calculate_relative_path_for_internal_module.side_effect = Exception("Path calculation failed")
+        mock_render_context.calculate_relative_path_for_internal_module.side_effect = Exception(
+            "Path calculation failed"
+        )
         mock_render_context.add_import = Mock()
 
         mock_context = Mock()

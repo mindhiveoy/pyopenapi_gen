@@ -1,7 +1,6 @@
 """Tests for types.contracts.types module."""
 
 import pytest
-
 from pyopenapi_gen.types.contracts.types import ResolvedType, TypeResolutionError
 
 
