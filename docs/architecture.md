@@ -1,19 +1,75 @@
 # Architecture Overview
 
-PyOpenAPI Generator follows a three-stage pipeline: Load → Visit → Emit. This document explains the core components and data flow.
+## Why This Architecture?
 
-## System Overview
+Modern OpenAPI specifications contain complex schemas with circular references, deep nesting, and intricate type relationships. Traditional code generators struggle with these complexities, often producing broken code or failing entirely. 
+
+**Key Challenges:**
+- **Circular References**: Schema A references Schema B, which references back to Schema A
+- **Type Safety**: Generated code must be strongly-typed with full mypy compatibility
+- **Scalability**: Must handle enterprise-grade APIs with hundreds of schemas and operations
+- **Maintainability**: Generated clients must be self-contained and production-ready
+
+This architecture was designed to handle these enterprise-grade challenges while maintaining reliability and code quality.
+
+## What Is the Architecture?
+
+PyOpenAPI Generator implements a sophisticated three-stage pipeline with unified type resolution and advanced cycle detection. Each stage has distinct responsibilities and clean interfaces, enabling robust processing of complex schemas while maintaining code quality.
 
 ```mermaid
-graph LR
-    A[OpenAPI Spec] --> B[Loader]
-    B --> C[IR]
-    C --> D[Visitors]
-    D --> E[Emitters]
-    E --> F[Generated Client]
+graph TD
+    A[OpenAPI Spec] --> B[Loading Stage]
+    B --> C[Intermediate Representation]
+    C --> D[Unified Type Resolution]
+    D --> E[Visiting Stage]
+    E --> F[Python Code AST]
+    F --> G[Emitting Stage]
+    G --> H[Generated Files]
+    H --> I[Post-Processing]
+    I --> J[Final Client Package]
+    
+    subgraph "Loading Components"
+        K[Schema Parser]
+        L[Cycle Detection]
+        M[Reference Resolution]
+    end
+    
+    subgraph "Type Resolution"
+        N[Schema Resolver]
+        O[Response Resolver]
+        P[Reference Resolver]
+    end
+    
+    subgraph "Code Generation"
+        Q[Model Visitor]
+        R[Endpoint Visitor]
+        S[Client Visitor]
+    end
+    
+    B --> K
+    D --> N
+    E --> Q
 ```
 
-The generator transforms OpenAPI specifications into self-contained Python clients through a clean separation of concerns.
+## How the Architecture Works
+
+### Stage 1: Loading (Parse & Normalize)
+1. **Parse**: YAML/JSON spec into structured data
+2. **Detect Cycles**: Identify circular references and deep nesting
+3. **Resolve References**: Handle `$ref` links across the specification
+4. **Create IR**: Build normalized `IRSpec` with all schemas and operations
+
+### Stage 2: Visiting (Transform & Generate)
+1. **Type Resolution**: Convert IR schemas to Python types via `UnifiedTypeService`
+2. **Code Generation**: Transform IR nodes into Python code strings using visitor pattern
+3. **Import Management**: Track and resolve all necessary imports
+4. **Code Formatting**: Apply consistent code structure and formatting
+
+### Stage 3: Emitting (Write & Organize)
+1. **Structure Creation**: Build proper package directory structure
+2. **File Writing**: Write generated code to appropriate modules
+3. **Import Resolution**: Ensure all imports are correctly formatted
+4. **Post-Processing**: Apply formatting (Black) and type checking (mypy)
 
 ## Core Components
 
