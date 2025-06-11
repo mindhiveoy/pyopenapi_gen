@@ -1,11 +1,11 @@
-name: Auto-approve PRs
+name: Notify Claude for PR Review
 
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review]
 
 jobs:
-  auto-approve:
+  notify-claude:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     
@@ -19,8 +19,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Check if PR should be auto-approved
-        id: should_approve
+      - name: Check if PR needs Claude review
+        id: needs_review
         run: |
           pr_author="${{ github.event.pull_request.user.login }}"
           pr_title="${{ github.event.pull_request.title }}"
@@ -28,31 +28,31 @@ jobs:
           echo "PR Author: $pr_author"
           echo "PR Title: $pr_title"
           
-          # Auto-approve conditions:
+          # PRs that should get Claude review:
           # 1. Dependabot PRs (dependency updates)
           # 2. Version bump PRs from devops-mindhive
           # 3. Documentation PRs from devops-mindhive
-          # 4. PRs with [auto-approve] tag
+          # 4. PRs with [claude-review] tag
           
-          should_approve=false
+          needs_review=false
           
           if [[ "$pr_author" == "dependabot[bot]" ]] || \
              [[ "$pr_author" == "devops-mindhive" && "$pr_title" =~ ^(release|chore|docs): ]] || \
-             [[ "$pr_title" =~ \[auto-approve\] ]]; then
-            should_approve=true
+             [[ "$pr_title" =~ \[claude-review\] ]]; then
+            needs_review=true
           fi
           
-          echo "should_approve=$should_approve" >> $GITHUB_OUTPUT
+          echo "needs_review=$needs_review" >> $GITHUB_OUTPUT
           
-          if [[ "$should_approve" == "true" ]]; then
-            echo "✅ PR qualifies for auto-approval"
+          if [[ "$needs_review" == "true" ]]; then
+            echo "✅ PR needs Claude review"
           else
-            echo "❌ PR does not qualify for auto-approval"
+            echo "❌ PR does not need automatic Claude review"
           fi
 
-      - name: Auto-approve PR
-        if: steps.should_approve.outputs.should_approve == 'true'
+      - name: Request Claude review
+        if: steps.needs_review.outputs.needs_review == 'true'
         run: |
-          gh pr review ${{ github.event.pull_request.number }} --approve --body "🤖 Auto-approved - This PR meets criteria for automatic approval from trusted author ${{ github.event.pull_request.user.login }}"
+          gh pr comment ${{ github.event.pull_request.number }} --body "@claude Please review this PR for code quality, security, and compatibility. If everything looks good, approve and merge it."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
