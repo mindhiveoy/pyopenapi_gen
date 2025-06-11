@@ -47,7 +47,8 @@ class ParsingContext:
         max_depth = int(os.environ.get("PYOPENAPI_MAX_DEPTH", 150))
 
         self.unified_cycle_context = UnifiedCycleContext(
-            parsed_schemas=self.parsed_schemas, max_depth=max_depth  # Share the same parsed_schemas dict
+            parsed_schemas=self.parsed_schemas,
+            max_depth=max_depth,  # Share the same parsed_schemas dict
         )
 
     def unified_enter_schema(self, schema_name: Optional[str]) -> Any:

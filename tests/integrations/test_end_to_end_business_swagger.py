@@ -98,14 +98,6 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     py_files = [p for p in endpoints_dir.glob("*.py") if p.name != "__init__.py"]
     assert py_files, "no endpoint modules generated"
 
-    # +++ DEBUG: Read and print a generated endpoint file +++
-    users_endpoint_file = endpoints_dir / "users.py"
-    if users_endpoint_file.exists():
-        pass  # Keep structure, remove prints
-    else:
-        pass  # Keep structure, remove prints
-    # +++ END DEBUG +++
-
     # Run mypy on the generated code to ensure type correctness
     env = os.environ.copy()
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -121,8 +113,6 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
     mypy_output_filename = test_outputs_dir / "mypy_business_swagger_errors.txt"
 
     mypy_command = ["mypy", "--strict"] + packages_to_check
-    # print(f"DEBUG: Running mypy command: {' '.join(mypy_command)} from cwd: {out_dir.parent}")
-    # print(f"DEBUG: PYTHONPATH for mypy: {env.get('PYTHONPATH')}")
 
     # Run mypy capturing output to stdout/stderr attributes of the result object
     mypy_result = subprocess.run(
@@ -132,20 +122,6 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         env=env,
         cwd=out_dir.parent,  # text=False to handle bytes manually
     )
-
-    # ---- RE-OBTAIN LOGGER ----
-    current_logger = logging.getLogger("pyopenapi_gen")  # Or use a more specific name if preferred
-    # current_logger.critical(f"DEBUG: Copied generated files from {out_dir} to {destination_path}")
-
-    # ---- START NEW LOGGING FOR COPIED DIR CONTENTS ----
-    # current_logger.critical(f"--- Contents of copied directory: {destination_path} ---")
-    # for root, dirs, files in os.walk(destination_path):
-    #     for name in files:
-    #         current_logger.critical(os.path.join(root, name))
-    #     for name in dirs:
-    #         current_logger.critical(os.path.join(root, name) + "/")  # Add slash for dirs
-    # current_logger.critical(f"--- End of contents for: {destination_path} ---")
-    # ---- END NEW LOGGING FOR COPIED DIR CONTENTS ----
 
     # Initialize with placeholder for mypy_output_content
     mypy_output_content = "Mypy did not run or produce output."
@@ -174,7 +150,7 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         mypy_output_content = "Mypy checks passed."
         Path(mypy_output_filename).write_text(
             mypy_output_content
-            + f"\nSTDOUT:\n{mypy_result.stdout.decode('utf-8', errors='replace') if mypy_result.stdout else ''}\nSTDERR:\n{mypy_result.stderr.decode('utf-8', errors='replace') if mypy_result.stderr else ''}",
+            + f"\nSTDOUT:\n{mypy_result.stdout.decode("utf-8", errors="replace") if mypy_result.stdout else ""}\nSTDERR:\n{mypy_result.stderr.decode("utf-8", errors="replace") if mypy_result.stderr else ""}",
             encoding="utf-8",
         )
 

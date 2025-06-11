@@ -73,7 +73,7 @@ class CompositionTypeResolver:
                 return unique_types[0]
 
             self.context.add_import("typing", "Union")
-            union_str = f"Union[{', '.join(unique_types)}]"
+            union_str = f"Union[{", ".join(unique_types)}]"
             return union_str
 
         return None

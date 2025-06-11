@@ -211,7 +211,7 @@ class EndpointsEmitter:
         init_lines = []
         if unique_clients:
             all_list_items = sorted([f'"{cls}"' for cls, _ in unique_clients])
-            init_lines.append(f"__all__ = [{', '.join(all_list_items)}]")
+            init_lines.append(f"__all__ = [{", ".join(all_list_items)}]")
             for cls, mod in sorted(unique_clients):
                 init_lines.append(f"from .{mod} import {cls}")
 

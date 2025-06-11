@@ -123,7 +123,7 @@ class EndpointParameterProcessor:
                     param_details_map[body_specific_param_info["name"]] = body_specific_param_info
                 else:
                     logger.warning(
-                        f"Request body parameter name '{body_specific_param_info['name']}' "
+                        f"Request body parameter name '{body_specific_param_info["name"]}' "
                         f"for operation '{op.operation_id}'"
                         f"collides with an existing path/query/header parameter. Check OpenAPI spec."
                     )

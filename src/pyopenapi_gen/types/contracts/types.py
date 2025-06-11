@@ -20,7 +20,6 @@ class ResolvedType:
     import_name: Optional[str] = None
     is_optional: bool = False
     is_forward_ref: bool = False
-    was_unwrapped: bool = False
 
     def __post_init__(self) -> None:
         """Validate resolved type data."""

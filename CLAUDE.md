@@ -426,7 +426,7 @@ Located in `core/parsing/unified_cycle_detection.py` with:
 - **Formatting**: Black (120 char line length)
 - **Linting**: Ruff for code quality and import sorting
 - **Type Safety**: mypy strict mode with 100% coverage
-- **Compatibility**: Python 3.10-3.12
+- **Compatibility**: Python 3.12+
 
 ### Testing Requirements
 Follow cursor rules strictly:
