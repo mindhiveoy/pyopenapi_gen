@@ -8,13 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Claude GitHub App automation for PR reviews and fixes
+- Auto-review for all PRs targeting develop branch
 - Professional-grade documentation overhaul with comprehensive README.md
 - Detailed contributing guidelines in CONTRIBUTING.md
 - Formal changelog protocol following Keep a Changelog format
+- Documentation index in docs/README.md with navigation
+- Universal Why→What→How documentation structure standards
 
 ### Changed
+- TestPyPI workflow now uses staging environment for proper secret access
 - Enhanced README.md with modern badges, better structure, and comprehensive examples
-- Improved project metadata and documentation standards
+- Improved project metadata and documentation standards in pyproject.toml
+- Updated architecture documentation to follow established standards
+- Optimized CI workflow to eliminate duplicate test execution
+
+### Fixed
+- Claude.yml workflow validation errors (removed invalid metadata permission)
+- TestPyPI publishing failures due to secret access issues
+
+### Removed
+- Unused Jinja2 dependency (project uses visitor pattern, not templates)
+- Feature status promises to avoid implementation commitments
+
+## [0.8.4] - 2024-11-06
 
 ## [0.8.3] - 2024-11-06
 
