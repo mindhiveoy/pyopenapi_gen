@@ -3,12 +3,11 @@ name: Publish to TestPyPI (pre-release)
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 jobs:
   build-and-testpypi:
     runs-on: ubuntu-latest
+    environment: staging
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
