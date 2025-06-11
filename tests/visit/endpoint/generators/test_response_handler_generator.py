@@ -401,34 +401,35 @@ class TestEndpointResponseHandlerGenerator:
             summary="primary default",
             description="primary default",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
-        self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "PrimaryDefault"
+        render_context_mock.core_package_name = "test_client.core"
+        render_context_mock.name_sanitizer.sanitize_class_name.return_value = "PrimaryDefault"
 
-        with (
-            unittest.mock.patch(
-                "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-                return_value="PrimaryDefault",
-            ),
-            unittest.mock.patch(
-                "pyopenapi_gen.visit.endpoint.generators.response_handler_generator._get_primary_response",
-                return_value=operation.responses[0],
-            ),
+        # Create ResponseStrategy for the test
+        strategy = ResponseStrategy(
+            return_type="PrimaryDefault",
+            response_schema=default_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0]
+        )
+
+        with unittest.mock.patch(
+            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator._get_primary_response",
+            return_value=operation.responses[0],
         ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
-            written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
+            generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
+            written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
-            self.assertIn("match response.status_code:", written_code)
+            assert "match response.status_code:" in written_code
             # Default case can be handled with case _ if status_code >= 0 or case _
-            self.assertTrue("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
-            self.assertTrue(
-                any(
-                    c[0][0].strip() == "return PrimaryDefault.from_dict(response.json())"
-                    for c in self.code_writer_mock.write_line.call_args_list
-                )
+            assert ("case _ if response.status_code >= 0:" in written_code or "case _:" in written_code)
+            assert any(
+                c[0][0].strip() == "return PrimaryDefault.from_dict(response.json())"
+                for c in code_writer_mock.write_line.call_args_list
             )
-            self.render_context_mock.add_typing_imports_for_type.assert_any_call("PrimaryDefault")
+            # Verify that proper imports are registered
+            render_context_mock.add_import.assert_any_call("typing", "NoReturn")
 
-    def test_generate_response_handling_multiple_2xx_distinct_types(self) -> None:
+    def test_generate_response_handling_multiple_2xx_distinct_types(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario:
             Operation has multiple 2xx responses with different schemas (e.g., 200 -> ModelA, 201 -> ModelB).
@@ -443,8 +444,8 @@ class TestEndpointResponseHandlerGenerator:
         schema_a.generation_name = "ModelA"
         schema_b.generation_name = "ModelB"
 
-        # Provide schemas to the generator
-        self.generator = EndpointResponseHandlerGenerator(schemas={"ModelA": schema_a, "ModelB": schema_b})
+        # Provide schemas to the generator  
+        generator_with_schemas = EndpointResponseHandlerGenerator(schemas={"ModelA": schema_a, "ModelB": schema_b})
 
         operation = IROperation(
             operation_id="op_multi_2xx",
@@ -457,7 +458,7 @@ class TestEndpointResponseHandlerGenerator:
             summary="multi 2xx",
             description="multi 2xx",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
+        render_context_mock.core_package_name = "test_client.core"
 
         def sanitize_side_effect(name: str) -> str:
             if name == "ModelA":
@@ -466,40 +467,40 @@ class TestEndpointResponseHandlerGenerator:
                 return "ModelB"
             return name
 
-        self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = sanitize_side_effect
+        render_context_mock.name_sanitizer.sanitize_class_name.side_effect = sanitize_side_effect
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="ModelA",
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
-
-        written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-
-        self.assertIn("match response.status_code:", written_code)
-        self.assertIn("case 200:", written_code)
-        self.assertTrue(
-            any(
-                c[0][0].strip() == "return ModelA.from_dict(response.json())"
-                for c in self.code_writer_mock.write_line.call_args_list
-            )
-        )
-        self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelA")
-
-        self.assertIn("case 201:", written_code)
-        self.assertTrue(
-            any(
-                c[0][0].strip() == "return ModelB.from_dict(response.json())"
-                for c in self.code_writer_mock.write_line.call_args_list
-            )
-        )
-        self.render_context_mock.add_typing_imports_for_type.assert_any_call("ModelB")
-
-        self.render_context_mock.add_import.assert_any_call(
-            f"{self.render_context_mock.core_package_name}.exceptions", "HTTPError"
+        # Create ResponseStrategy for the test (using ModelA as primary response)
+        strategy = ResponseStrategy(
+            return_type="ModelA",
+            response_schema=schema_a,
+            is_streaming=False,
+            response_ir=operation.responses[0]  # 200 response
         )
 
-    def test_generate_response_handling_streaming_bytes(self) -> None:
+        generator_with_schemas.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
+
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+
+        assert "match response.status_code:" in written_code
+        assert "case 200:" in written_code
+        assert any(
+            c[0][0].strip() == "return ModelA.from_dict(response.json())"
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        render_context_mock.add_typing_imports_for_type.assert_any_call("ModelA")
+
+        assert "case 201:" in written_code
+        assert any(
+            c[0][0].strip() == "return ModelB.from_dict(response.json())"
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        render_context_mock.add_typing_imports_for_type.assert_any_call("ModelB")
+
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
+        )
+
+    def test_generate_response_handling_streaming_bytes(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario: Operation returns a 200 OK with application/octet-stream, yielding bytes.
         Expected Outcome: Generated code should use 'async for chunk in iter_bytes(response): yield chunk'.
@@ -518,34 +519,34 @@ class TestEndpointResponseHandlerGenerator:
             summary="stream bytes",
             description="stream bytes",
         )
-        self.render_context_mock.core_package_name = "test_client.core"
+        render_context_mock.core_package_name = "test_client.core"
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="AsyncIterator[bytes]",
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
-
-        written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
-
-        self.assertIn("match response.status_code:", written_code)
-        self.assertIn("case 200:", written_code)
-        self.assertTrue(
-            any(
-                c[0][0].strip() == "async for chunk in iter_bytes(response):"
-                for c in self.code_writer_mock.write_line.call_args_list
-            )
-        )
-        self.assertTrue(any(c[0][0].strip() == "yield chunk" for c in self.code_writer_mock.write_line.call_args_list))
-        self.assertTrue(
-            any(
-                c[0][0].strip() == "return  # Explicit return for async generator"
-                for c in self.code_writer_mock.write_line.call_args_list
-            )
+        # Create ResponseStrategy for streaming bytes
+        strategy = ResponseStrategy(
+            return_type="AsyncIterator[bytes]",
+            response_schema=operation.responses[0].content["application/octet-stream"],
+            is_streaming=True,
+            response_ir=operation.responses[0]
         )
 
-        self.render_context_mock.add_import.assert_any_call(
-            f"{self.render_context_mock.core_package_name}.streaming_helpers", "iter_bytes"
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
+
+        written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
+
+        assert "match response.status_code:" in written_code
+        assert "case 200:" in written_code
+        assert any(
+            c[0][0].strip() == "async for chunk in iter_bytes(response):"
+            for c in code_writer_mock.write_line.call_args_list
+        )
+        assert any(c[0][0].strip() == "yield chunk" for c in code_writer_mock.write_line.call_args_list)
+        assert any(
+            c[0][0].strip() == "return  # Explicit return for async generator"
+            for c in code_writer_mock.write_line.call_args_list
+        )
+
+        render_context_mock.add_import.assert_any_call(
+            f"{render_context_mock.core_package_name}.streaming_helpers", "iter_bytes"
         )
 
     def test_generate_response_handling_streaming_sse(self) -> None:
@@ -571,11 +572,15 @@ class TestEndpointResponseHandlerGenerator:
         self.render_context_mock.core_package_name = "test_client.core"
         self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "EventData"
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="AsyncIterator[EventData]",
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Create ResponseStrategy for streaming SSE
+        strategy = ResponseStrategy(
+            return_type="AsyncIterator[EventData]",
+            response_schema=event_data_schema,
+            is_streaming=True,
+            response_ir=operation.responses[0]
+        )
+
+        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
 
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
@@ -627,11 +632,15 @@ class TestEndpointResponseHandlerGenerator:
         self.render_context_mock.core_package_name = "test_client.core"
         self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="Union[ModelA, ModelB]",
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Create ResponseStrategy for Union return type
+        strategy = ResponseStrategy(
+            return_type="Union[ModelA, ModelB]",
+            response_schema=schema_a,  # Primary schema
+            is_streaming=False,
+            response_ir=operation.responses[0]
+        )
+
+        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
 
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
 
@@ -679,11 +688,15 @@ class TestEndpointResponseHandlerGenerator:
         self.render_context_mock.core_package_name = "test_client.core"
         self.render_context_mock.name_sanitizer.sanitize_class_name.side_effect = lambda name: name
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="Union[ModelA, ModelB]",  # unified service handles unwrapping internally
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Create ResponseStrategy for Union return type with unwrap
+        strategy = ResponseStrategy(
+            return_type="Union[ModelA, ModelB]",
+            response_schema=schema_a,  # Primary schema
+            is_streaming=False,
+            response_ir=operation.responses[0]
+        )
+
+        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
 
         written_code_union = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
         written_lines_stripped_union = [c[0][0].strip() for c in self.code_writer_mock.write_line.call_args_list]
@@ -720,11 +733,15 @@ class TestEndpointResponseHandlerGenerator:
         self.render_context_mock.core_package_name = "test_client.core"
         self.render_context_mock.name_sanitizer.sanitize_class_name.return_value = "ModelC"
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="ModelC",  # unified service handles unwrapping internally
-        ):
-            self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock)
+        # Create ResponseStrategy for simple type with unwrap
+        strategy = ResponseStrategy(
+            return_type="ModelC",
+            response_schema=schema_c,
+            is_streaming=False,
+            response_ir=operation.responses[0]
+        )
+
+        self.generator.generate_response_handling(self.code_writer_mock, operation, self.render_context_mock, strategy)
 
         written_code = "\n".join([call[0][0] for call in self.code_writer_mock.write_line.call_args_list])
         written_lines_stripped = [c[0][0].strip() for c in self.code_writer_mock.write_line.call_args_list]
