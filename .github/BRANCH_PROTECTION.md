@@ -1,10 +1,18 @@
 # Branch Protection Configuration
 
-This document outlines the required GitHub branch protection settings for the `develop` branch.
+This document outlines the GitHub branch protection settings for the `develop`, `staging`, and `main` branches.
+
+## 🛡️ Branch Protection Status
+
+All three critical branches are now **FULLY PROTECTED** with the following settings:
+
+- **main**: ✅ Protected with full CI/CD enforcement
+- **staging**: ✅ Protected with full CI/CD enforcement  
+- **develop**: ✅ Protected with full CI/CD enforcement
 
 ## Required Settings
 
-### Branch Protection Rules for `develop`
+### Branch Protection Rules for `develop`, `staging`, and `main`
 
 1. **Require pull request reviews before merging**
    - Required approving reviews: 1
@@ -14,11 +22,11 @@ This document outlines the required GitHub branch protection settings for the `d
 2. **Require status checks to pass before merging**
    - Require branches to be up to date before merging: ✅
    - Required status checks:
-     - `quality-checks (3.10)`
-     - `quality-checks (3.11)` 
-     - `quality-checks (3.12)`
-     - `security-scan`
-     - `integration-tests`
+     - `format-check` (Black formatting)
+     - `lint` (Ruff linting)
+     - `typecheck` (MyPy type checking)
+     - `security` (Bandit security scanning)
+     - `test` (Full test suite with 85% coverage)
 
 3. **Require conversation resolution before merging**: ✅
 
@@ -34,6 +42,22 @@ This document outlines the required GitHub branch protection settings for the `d
 
 9. **Allow deletions**: ❌
 
+## 🔒 Protection Features
+
+### Deletion Protection
+All branches are protected from accidental deletion:
+- Force pushes are disabled
+- Branch deletion is explicitly forbidden
+- Admin privileges still enforce protection rules
+
+### Quality Gates
+Every PR must pass all quality checks:
+- Code formatting (Black)
+- Linting (Ruff) 
+- Type checking (MyPy strict mode)
+- Security scanning (Bandit)
+- Test suite with 85% coverage minimum
+
 ## How to Configure
 
 ### Via GitHub Web Interface
@@ -44,16 +68,34 @@ This document outlines the required GitHub branch protection settings for the `d
 4. Configure the settings as outlined above
 5. Save the branch protection rule
 
-### Via GitHub CLI (if available)
+### Via GitHub CLI
+
+The protection was applied using GitHub CLI. Here's how to configure each branch:
 
 ```bash
-# Example command (adjust as needed)
-gh api repos/:owner/:repo/branches/develop/protection \
-  --method PUT \
-  --field required_status_checks='{"strict":true,"contexts":["quality-checks (3.10)","quality-checks (3.11)","quality-checks (3.12)","security-scan","integration-tests"]}' \
-  --field enforce_admins=true \
-  --field required_pull_request_reviews='{"required_approving_review_count":1,"dismiss_stale_reviews":true}' \
-  --field restrictions=null
+# Create protection JSON
+cat > branch_protection.json << EOF
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["format-check", "lint", "typecheck", "security", "test"]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews": true,
+    "require_code_owner_reviews": false
+  },
+  "restrictions": null,
+  "allow_deletions": false,
+  "allow_force_pushes": false
+}
+EOF
+
+# Apply to each branch
+gh api --method PUT repos/OWNER/REPO/branches/main/protection --input branch_protection.json
+gh api --method PUT repos/OWNER/REPO/branches/develop/protection --input branch_protection.json
+gh api --method PUT repos/OWNER/REPO/branches/staging/protection --input branch_protection.json
 ```
 
 ## Quality Gates Enforced
