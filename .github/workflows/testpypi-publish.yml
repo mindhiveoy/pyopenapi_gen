@@ -2,7 +2,7 @@ name: Publish to TestPyPI (pre-release)
 
 on:
   push:
-    branches: [main]
+    branches: [staging]
 
 jobs:
   build-and-testpypi:
