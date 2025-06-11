@@ -82,26 +82,8 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: 
     return "Any"
 
 
-def get_return_type_unified(
-    op: IROperation,
-    context: RenderContext,
-    schemas: Dict[str, IRSchema],
-    responses: Optional[Dict[str, IRResponse]] = None,
-) -> str:
-    """
-    Determines the primary return type hint for an operation using the unified type service.
-
-    Args:
-        op: The operation to resolve
-        context: Render context for imports
-        schemas: Dictionary of all schemas
-        responses: Dictionary of all responses (optional)
-
-    Returns:
-        Python type string
-    """
-    type_service = UnifiedTypeService(schemas, responses)
-    return type_service.resolve_operation_response_type(op, context)
+# REMOVED: get_return_type_unified - replaced with ResponseStrategy pattern
+# All callers should now use ResponseStrategyResolver.resolve() to get consistent response handling
 
 
 def get_return_type(

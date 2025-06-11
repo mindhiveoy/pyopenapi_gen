@@ -11,6 +11,7 @@ from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
 from pyopenapi_gen.ir import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
+from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 from pyopenapi_gen.visit.endpoint.generators.docstring_generator import EndpointDocstringGenerator
 
 
@@ -127,7 +128,14 @@ class TestEndpointDocstringGenerator:
                     return "MyInputBody"
             return "Any"
 
-        mock_main_return_type = "MySuccessOutput"
+        # Create ResponseStrategy for the test
+        success_response = op_for_docstring.responses[0]  # 200 response
+        response_strategy = ResponseStrategy(
+            return_type="MySuccessOutput",
+            response_schema=success_response.content["application/json"],
+            is_streaming=False,
+            response_ir=success_response
+        )
 
         with (
             patch(
@@ -138,10 +146,6 @@ class TestEndpointDocstringGenerator:
                 "pyopenapi_gen.visit.endpoint.generators.docstring_generator.get_request_body_type",
                 side_effect=mock_get_request_body_type,
             ) as patched_get_req_body_type,
-            patch(
-                "pyopenapi_gen.visit.endpoint.generators.docstring_generator.get_return_type_unified",
-                return_value=mock_main_return_type,
-            ) as patched_get_return_type_unified,
         ):
             # Act
             generator.generate_docstring(
@@ -149,6 +153,7 @@ class TestEndpointDocstringGenerator:
                 op_for_docstring,
                 render_context_mock_for_docstring,
                 primary_content_type,
+                response_strategy,
             )
 
         # Assert
@@ -195,9 +200,7 @@ class TestEndpointDocstringGenerator:
             patched_get_req_body_type.assert_called_once_with(
                 op_for_docstring.request_body, render_context_mock_for_docstring, schemas_for_docstring
             )
-        patched_get_return_type_unified.assert_called_once_with(
-            op_for_docstring, render_context_mock_for_docstring, schemas_for_docstring
-        )
+        # No longer need to assert get_return_type_unified call since we use ResponseStrategy
 
         # These assertions are removed because the helper functions that would make these calls
         # (get_param_type, get_request_body_type, get_return_type) are mocked in this test.
