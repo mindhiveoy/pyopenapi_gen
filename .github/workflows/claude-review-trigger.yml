@@ -24,19 +24,23 @@ jobs:
         run: |
           pr_author="${{ github.event.pull_request.user.login }}"
           pr_title="${{ github.event.pull_request.title }}"
+          pr_base="${{ github.event.pull_request.base.ref }}"
           
           echo "PR Author: $pr_author"
           echo "PR Title: $pr_title"
+          echo "PR Base Branch: $pr_base"
           
           # PRs that should get Claude review:
-          # 1. Dependabot PRs (dependency updates)
-          # 2. Version bump PRs from devops-mindhive
-          # 3. Documentation PRs from devops-mindhive
-          # 4. PRs with [claude-review] tag
+          # 1. ALL PRs targeting develop branch (main development branch)
+          # 2. Dependabot PRs (dependency updates)
+          # 3. Version bump PRs from devops-mindhive
+          # 4. Documentation PRs from devops-mindhive
+          # 5. PRs with [claude-review] tag
           
           needs_review=false
           
-          if [[ "$pr_author" == "dependabot[bot]" ]] || \
+          if [[ "$pr_base" == "develop" ]] || \
+             [[ "$pr_author" == "dependabot[bot]" ]] || \
              [[ "$pr_author" == "devops-mindhive" && "$pr_title" =~ ^(release|chore|docs): ]] || \
              [[ "$pr_title" =~ \[claude-review\] ]]; then
             needs_review=true
