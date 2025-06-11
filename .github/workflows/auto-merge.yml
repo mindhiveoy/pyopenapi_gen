@@ -172,16 +172,7 @@ jobs:
           
           # Add a comment explaining the auto-merge
           gh api repos/${{ github.repository }}/issues/$pr_number/comments \
-            -f body="🤖 **Auto-merge enabled**
-
-This PR qualifies for automatic merging:
-- ✅ Author: \`${{ github.actor }}\`
-- ✅ Required checks passing
-- ✅ Auto-merge criteria met
-
-The PR will be automatically merged when all required status checks pass.
-
-*This is an automated action by the auto-merge workflow.*"
+            -f body="🤖 Auto-merge enabled - This PR qualifies for automatic merging. Will merge when all checks pass."
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
