@@ -9,10 +9,7 @@ from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true", 
-    reason="File generation issue in CI environment - works locally"
-)
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="File generation issue in CI environment - works locally")
 def test_models_emitter__single_object_schema__generates_module_and_init(tmp_path: Path) -> None:
     """
     Scenario:
@@ -57,10 +54,7 @@ def test_models_emitter__single_object_schema__generates_module_and_init(tmp_pat
     assert "name: str" in result
 
 
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true", 
-    reason="File generation issue in CI environment - works locally"
-)
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="File generation issue in CI environment - works locally")
 def test_models_emitter__string_enum_schema__generates_enum_class(tmp_path: Path) -> None:
     """
     Scenario:
@@ -161,10 +155,7 @@ def test_models_emitter__object_with_array_property__generates_list_type_annotat
     assert item_model_file.exists()
 
 
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true", 
-    reason="File generation issue in CI environment - works locally"
-)
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="File generation issue in CI environment - works locally")
 def test_models_emitter_datetime(tmp_path: Path) -> None:
     """Test datetime type generation."""
     schema = IRSchema(
@@ -210,10 +201,7 @@ def test_models_emitter_datetime(tmp_path: Path) -> None:
     assert "date_only: Optional[date]" in result
 
 
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true", 
-    reason="File generation issue in CI environment - works locally"
-)
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="File generation issue in CI environment - works locally")
 def test_models_emitter_empty_schema(tmp_path: Path) -> None:
     """Test empty schema handling."""
     schema = IRSchema(
