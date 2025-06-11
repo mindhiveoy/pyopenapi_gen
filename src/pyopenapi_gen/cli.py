@@ -6,25 +6,7 @@ import yaml
 
 from .generator.client_generator import ClientGenerator, GenerationError
 
-app = typer.Typer(invoke_without_command=True)
-
-
-@app.callback()
-def main(ctx: typer.Context) -> None:
-    """
-    PyOpenAPI Generator CLI.
-    """
-    if ctx.invoked_subcommand is None:
-        # Show basic help without using ctx.get_help() to avoid Click compatibility issues
-        typer.echo("PyOpenAPI Generator CLI")
-        typer.echo("")
-        typer.echo("Usage: pyopenapi-gen [OPTIONS] COMMAND [ARGS]...")
-        typer.echo("")
-        typer.echo("Commands:")
-        typer.echo("  gen    Generate a Python OpenAPI client from a spec file or URL")
-        typer.echo("")
-        typer.echo("Run 'pyopenapi-gen gen --help' for more information on the gen command.")
-        raise typer.Exit(code=0)
+app = typer.Typer(help="PyOpenAPI Generator CLI - Generate Python clients from OpenAPI specs.")
 
 
 def _load_spec(path_or_url: str) -> Union[Dict[str, Any], Any]:
