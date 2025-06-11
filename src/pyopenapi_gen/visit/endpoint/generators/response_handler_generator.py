@@ -305,6 +305,7 @@ class EndpointResponseHandlerGenerator:
 
         # Handle the primary success response first
         primary_success_ir = _get_primary_response(op)
+        processed_primary_success = False
         if (
             primary_success_ir
             and primary_success_ir.status_code.isdigit()
@@ -320,9 +321,10 @@ class EndpointResponseHandlerGenerator:
                 self._write_strategy_based_return(writer, strategy, context)
 
             writer.dedent()
+            processed_primary_success = True
 
-        # Handle other responses
-        other_responses = [r for r in op.responses if r != primary_success_ir]
+        # Handle other responses (exclude primary only if it was actually processed)
+        other_responses = [r for r in op.responses if not (processed_primary_success and r == primary_success_ir)]
         for resp_ir in other_responses:
             if resp_ir.status_code.isdigit():
                 status_code_val = int(resp_ir.status_code)
