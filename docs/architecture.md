@@ -114,4 +114,50 @@ Critical system preventing infinite recursion during schema parsing:
 - **Placeholders**: For problematic cycles and depth exceeded
 - **State Tracking**: Schema lifecycle management
 
-Implementation in `core/parsing/unified_cycle_detection.py` provides conflict-free detection across all parsing scenarios. 
+Implementation in `core/parsing/unified_cycle_detection.py` provides conflict-free detection across all parsing scenarios.
+
+## Development Workflow
+
+### Quality Assurance
+
+The project enforces high code quality standards through automated tooling:
+
+```bash
+# Before any commit - auto-fix issues
+make quality-fix
+
+# Verify all quality gates pass (matches CI pipeline)
+make quality
+```
+
+#### Quality Tools
+
+- **Black**: Code formatting (120 char line length)
+- **Ruff**: Fast Python linter with auto-fix capabilities
+- **mypy**: Strict type checking with 100% coverage
+- **Bandit**: Security vulnerability scanning
+- **pytest**: Comprehensive test suite with ≥90% branch coverage
+
+#### Individual Commands
+
+```bash
+make format               # Auto-format code
+make lint-fix             # Auto-fix linting issues
+make typecheck            # Type checking
+make security             # Security scanning
+make test                 # Run all tests
+make test-cov             # Run tests with coverage
+```
+
+### Testing Strategy
+
+The project follows a comprehensive testing approach:
+
+- **Unit Tests**: Component-specific tests with high coverage
+- **Integration Tests**: End-to-end generation workflows
+- **Type Safety**: Full mypy coverage ensures type correctness
+- **Quality Gates**: All checks must pass before merge
+
+### CI/CD Integration
+
+The `make quality` command exactly matches the GitHub Actions pipeline, ensuring local development aligns with CI requirements. This prevents "works on my machine" issues and provides fast feedback during development. 

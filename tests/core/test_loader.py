@@ -4,6 +4,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen import HTTPMethod
 from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext
@@ -162,7 +163,9 @@ def test_load_ir_from_spec__operation_with_query_parameters__parses_params_with_
         assert p.schema.type == "string"
 
 
-def test_codegen__analytics_with_query_params__generates_params_dict(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_codegen__analytics_with_query_params__generates_params_dict(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         Code generation processes an analytics endpoint with query parameters
@@ -506,12 +509,14 @@ class TestParseSchemaAllOfMerging:
 
             # Check required fields merging
             assert composed_ir_schema.required is not None
-            assert sorted(composed_ir_schema.required) == sorted([
-                "base_prop1",
-                "mixin_prop1",
-                "composed_prop1",
-                "common_prop",
-            ])
+            assert sorted(composed_ir_schema.required) == sorted(
+                [
+                    "base_prop1",
+                    "mixin_prop1",
+                    "composed_prop1",
+                    "common_prop",
+                ]
+            )
 
         # Check that all_of list is still populated for potential inheritance
         assert composed_ir_schema.all_of is not None

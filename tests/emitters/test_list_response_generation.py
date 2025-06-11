@@ -158,6 +158,6 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
         f"{NameSanitizer.sanitize_module_name('MyItemListResponse')}.py",
         "__init__.py",
     }
-    assert generated_py_files == expected_py_files, (
-        f"Unexpected files in models directory. Expected: {expected_py_files}, Got: {generated_py_files}"
-    )
+    assert (
+        generated_py_files == expected_py_files
+    ), f"Unexpected files in models directory. Expected: {expected_py_files}, Got: {generated_py_files}"

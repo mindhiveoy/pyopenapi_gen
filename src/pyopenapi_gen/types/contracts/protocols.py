@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Optional, Protocol, runtime_checkable
 
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
-from pyopenapi_gen.context.render_context import RenderContext
 
 from .types import ResolvedType
 
@@ -24,6 +23,10 @@ class TypeContext(Protocol):
 
 class ReferenceResolver(ABC):
     """Resolves OpenAPI $ref references to target schemas."""
+
+    # Concrete implementations should have these attributes
+    schemas: Dict[str, IRSchema]
+    responses: Dict[str, IRResponse]
 
     @abstractmethod
     def resolve_ref(self, ref: str) -> Optional[IRSchema]:

@@ -6,6 +6,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
@@ -152,9 +153,9 @@ class TestEndpointDocstringGenerator:
 
         # Assert
         assert code_writer_mock_for_docstring.write_line.call_count > 5
-        written_lines = "\n".join([
-            call_args[0][0] for call_args in code_writer_mock_for_docstring.write_line.call_args_list
-        ])
+        written_lines = "\n".join(
+            [call_args[0][0] for call_args in code_writer_mock_for_docstring.write_line.call_args_list]
+        )
 
         if op_for_docstring.summary:
             assert op_for_docstring.summary in written_lines

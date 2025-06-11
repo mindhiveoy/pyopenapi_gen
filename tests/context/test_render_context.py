@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.import_collector import ImportCollector
 from pyopenapi_gen.context.render_context import RenderContext
@@ -155,9 +156,9 @@ class TestRenderContextGetCurrentModuleDotPath:
 class TestRenderContextCalculateRelativePath:
     # Helper to set up context for these specific tests
     def _setup_context_for_rel_path(self, context: RenderContext, current_file_rel_path: str, tmp_path: Path) -> None:
-        assert context.package_root_for_generated_code is not None, (
-            "package_root_for_generated_code cannot be None for this test setup"
-        )
+        assert (
+            context.package_root_for_generated_code is not None
+        ), "package_root_for_generated_code cannot be None for this test setup"
         gen_pkg_root_path = Path(context.package_root_for_generated_code)
         current_file_abs = gen_pkg_root_path / current_file_rel_path
         current_file_abs.parent.mkdir(parents=True, exist_ok=True)
@@ -283,7 +284,9 @@ class TestRenderContextAddImport:
         assert collector.imports == {"httpx": {"AsyncClient"}}
         assert not collector.relative_imports
 
-    def test_add_import__internal_made_relative_by_default(self, base_render_context: RenderContext, tmp_path: Path) -> None:
+    def test_add_import__internal_made_relative_by_default(
+        self, base_render_context: RenderContext, tmp_path: Path
+    ) -> None:
         """
         Current: /tmp_proj/pkg/endpoints/user_endpoints.py
         Target:  pkg.models.user -> should be from ..models.user import User (relative by default for internal modules)
@@ -319,14 +322,16 @@ class TestRenderContextAddImport:
         # Assert - Now expecting relative imports for internal modules
         collector: ImportCollector = context.import_collector
         assert not collector.imports, f"Expected no absolute imports for internal modules, got: {collector.imports}"
-        assert collector.relative_imports == {"..models.user": {"User"}}, f"Expected relative imports, got: {collector.relative_imports}"
+        assert collector.relative_imports == {
+            "..models.user": {"User"}
+        }, f"Expected relative imports, got: {collector.relative_imports}"
 
         code_writer = CodeWriter()
         code_writer.write_line(context.render_imports())
         expected_import_str = "from ..models.user import User"
-        assert code_writer.get_code() == expected_import_str, (
-            f"Actual: '{code_writer.get_code()}', Expected: '{expected_import_str}'"
-        )
+        assert (
+            code_writer.get_code() == expected_import_str
+        ), f"Actual: '{code_writer.get_code()}', Expected: '{expected_import_str}'"
         assert context.import_collector.has_import("..models.user", "User")
 
     def test_add_import__internal_same_dir_uses_relative_by_default(
@@ -362,14 +367,16 @@ class TestRenderContextAddImport:
         # Assert - Now expecting relative imports for same directory
         collector: ImportCollector = context.import_collector
         assert not collector.imports, f"Expected no absolute imports for same-dir modules, got: {collector.imports}"
-        assert collector.relative_imports == {".sibling_model": {"SiblingModel"}}, f"Expected relative imports, got: {collector.relative_imports}"
+        assert collector.relative_imports == {
+            ".sibling_model": {"SiblingModel"}
+        }, f"Expected relative imports, got: {collector.relative_imports}"
 
         code_writer = CodeWriter()
         code_writer.write_line(context.render_imports())
         expected_import_str = "from .sibling_model import SiblingModel"
-        assert code_writer.get_code() == expected_import_str, (
-            f"Actual: '{code_writer.get_code()}', Expected: '{expected_import_str}'"
-        )
+        assert (
+            code_writer.get_code() == expected_import_str
+        ), f"Actual: '{code_writer.get_code()}', Expected: '{expected_import_str}'"
         assert context.import_collector.has_import(".sibling_model", "SiblingModel")
 
     def test_add_import__self_import_is_skipped(self, base_render_context: RenderContext, tmp_path: Path) -> None:

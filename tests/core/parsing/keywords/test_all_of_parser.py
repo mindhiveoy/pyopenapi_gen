@@ -174,8 +174,10 @@ class TestProcessAllOf(unittest.TestCase):
               and others within the `allOf` components. The `allOf` components also conflict with each other.
         Expected Outcome:
             - Properties defined directly on the node take precedence over those from `allOf` components.
-            - For conflicting properties within the `allOf` list, the property from the sub-schema that appears *first* in the list wins.
-            - The `parsed_components` list should still contain the IRSchema objects for each allOf member, reflecting their original (pre-override) state.
+            - For conflicting properties within the `allOf` list, the property from the sub-schema
+              that appears *first* in the list wins.
+            - The `parsed_components` list should still contain the IRSchema objects for each allOf member,
+              reflecting their original (pre-override) state.
         """
         prop_a_v1 = IRSchema(name="propA", type="string", description="Version 1")
         prop_a_v2 = IRSchema(name="propA", type="integer", description="Version 2")
@@ -497,7 +499,8 @@ class TestProcessAllOf(unittest.TestCase):
         """
         Scenario:
             - An `allOf` list contains components that are valid schemas (e.g., a string type, an array type)
-              but do not themselves have a `.properties` attribute (i.e., they are not object schemas with direct properties).
+              but do not themselves have a `.properties` attribute
+              (i.e., they are not object schemas with direct properties).
             - One component in `allOf` *is* an object schema with properties.
         Expected Outcome:
             - `_process_all_of` correctly parses all components and includes them in `parsed_components`.

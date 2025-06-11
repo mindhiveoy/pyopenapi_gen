@@ -9,7 +9,6 @@ and proper imports for seamless dataclass handling.
 
 from unittest.mock import MagicMock
 
-import pytest
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.http_types import HTTPMethod
 from pyopenapi_gen.ir import IROperation, IRRequestBody, IRSchema
@@ -35,20 +34,18 @@ class TestDataclassSerializationEndToEnd:
             parameters=[],
             request_body=IRRequestBody(
                 description="User data",
-                content={
-                    "application/json": IRSchema(type="CreateUserRequest", description="User creation data")
-                },
+                content={"application/json": IRSchema(type="CreateUserRequest", description="User creation data")},
                 required=True,
             ),
             responses=[],
         )
-        
+
         # Mock render context
         context = MagicMock(spec=RenderContext)
         context.core_package_name = "test_core"
         context.add_import = MagicMock()
         context.add_typing_imports_for_type = MagicMock()
-        
+
         # Create generator
         generator = EndpointMethodGenerator()
 
@@ -58,20 +55,20 @@ class TestDataclassSerializationEndToEnd:
         # Assert
         # Check that the generated code includes DataclassSerializer
         assert "DataclassSerializer.serialize" in generated_code
-        
+
         # Check that the import was added
         context.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
-        
+
         # Check that the generated code structure is correct
         assert "async def create_user" in generated_code
         assert "json_body:" in generated_code
         assert "= DataclassSerializer.serialize(body)" in generated_code
-        
+
         # Verify the JSON body assignment pattern
-        lines = generated_code.split('\n')
+        lines = generated_code.split("\n")
         json_body_lines = [line for line in lines if "json_body:" in line and "DataclassSerializer" in line]
         assert len(json_body_lines) == 1, f"Expected exactly one json_body assignment, got: {json_body_lines}"
-        
+
         # Verify the pattern matches our expected format
         json_body_line = json_body_lines[0].strip()
         assert "DataclassSerializer.serialize(body)" in json_body_line
@@ -93,13 +90,13 @@ class TestDataclassSerializationEndToEnd:
             request_body=None,
             responses=[],
         )
-        
+
         # Mock render context
         context = MagicMock(spec=RenderContext)
         context.core_package_name = "test_core"
         context.add_import = MagicMock()
         context.add_typing_imports_for_type = MagicMock()
-        
+
         # Create generator
         generator = EndpointMethodGenerator()
 
@@ -109,15 +106,14 @@ class TestDataclassSerializationEndToEnd:
         # Assert
         # Check that the generated code does NOT include DataclassSerializer
         assert "DataclassSerializer" not in generated_code
-        
+
         # Check that the import was NOT added
         import_calls = context.add_import.call_args_list
         serializer_imports = [
-            call for call in import_calls 
-            if len(call[0]) >= 2 and "DataclassSerializer" in str(call[0][1])
+            call for call in import_calls if len(call[0]) >= 2 and "DataclassSerializer" in str(call[0][1])
         ]
         assert len(serializer_imports) == 0, "DataclassSerializer should not be imported for bodyless requests"
-        
+
         # Check basic structure
         assert "async def get_users" in generated_code
         assert "json_body" not in generated_code
@@ -138,19 +134,17 @@ class TestDataclassSerializationEndToEnd:
             parameters=[],
             request_body=IRRequestBody(
                 description="Updated user data",
-                content={
-                    "application/json": IRSchema(type="UpdateUserRequest", description="User update data")
-                },
+                content={"application/json": IRSchema(type="UpdateUserRequest", description="User update data")},
                 required=True,
             ),
             responses=[],
         )
-        
+
         context = MagicMock(spec=RenderContext)
         context.core_package_name = "test_core"
         context.add_import = MagicMock()
         context.add_typing_imports_for_type = MagicMock()
-        
+
         generator = EndpointMethodGenerator()
 
         # Act
@@ -158,19 +152,19 @@ class TestDataclassSerializationEndToEnd:
 
         # Assert
         # Check that the code is properly formatted
-        lines = generated_code.split('\n')
-        
+        lines = generated_code.split("\n")
+
         # Find the json_body assignment line
         json_body_lines = [line for line in lines if "json_body:" in line and "DataclassSerializer" in line]
         assert len(json_body_lines) == 1
-        
+
         json_body_line = json_body_lines[0]
-        
+
         # Check proper indentation (should have some leading whitespace)
-        assert json_body_line.startswith('    '), f"Expected indentation, got: '{json_body_line}'"
-        
+        assert json_body_line.startswith("    "), f"Expected indentation, got: '{json_body_line}'"
+
         # Check the pattern is correct
         assert "= DataclassSerializer.serialize(body)" in json_body_line
-        
+
         # Verify no trailing whitespace issues
-        assert not json_body_line.endswith(' '), f"Unexpected trailing whitespace: '{json_body_line}'"
+        assert not json_body_line.endswith(" "), f"Unexpected trailing whitespace: '{json_body_line}'"

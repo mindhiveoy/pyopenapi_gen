@@ -426,7 +426,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         """
         schema_a = IRSchema(type="object", name="ModelA", properties={"id": IRSchema(type="string")})
         schema_b = IRSchema(type="object", name="ModelB", properties={"value": IRSchema(type="integer")})
-        
+
         # Set generation_name so they're recognized as named schemas
         schema_a.generation_name = "ModelA"
         schema_b.generation_name = "ModelB"
@@ -685,7 +685,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("return cast(ModelA, response.json())", written_lines_stripped_union)
         self.assertIn("except Exception:", written_code_union)
         self.assertIn("return cast(ModelB, response.json())", written_lines_stripped_union)
-        
+
         # Ensure no unwrapping code is generated (unified service handles it)
         self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped_union)
         self.assertNotIn("return_value = cast(ModelA, raw_data)", written_lines_stripped_union)
@@ -723,7 +723,7 @@ class TestEndpointResponseHandlerGenerator(unittest.TestCase):
         self.assertIn("case 200:", written_code)
         # With unified service, no manual unwrapping should be generated
         self.assertIn("return cast(ModelC, response.json())", written_lines_stripped)
-        
+
         # Ensure no unwrapping code is generated (unified service handles it)
         self.assertNotIn("raw_data = response.json().get('data')", written_lines_stripped)
         self.assertNotIn("return_value = cast(ModelC, raw_data)", written_code)

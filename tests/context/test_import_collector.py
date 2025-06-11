@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Tuple
 
 import pytest
+
 from pyopenapi_gen.context.import_collector import ImportCollector, _is_stdlib, make_relative_import
 
 
@@ -463,7 +464,8 @@ class TestImportCollector:
     # --- Tests for get_import_statements with context ---
 
     @pytest.mark.parametrize(
-        "scenario_id, current_module_dot_path, package_root, core_abs, input_imports_dict, expected_import_strings_list",
+        "scenario_id, current_module_dot_path, package_root, core_abs, input_imports_dict, "
+        "expected_import_strings_list",
         [
             # Scenario 1: Simple stdlib and plain
             (
@@ -626,9 +628,9 @@ class TestImportCollector:
         # and if relative/absolute resolution is correct based on context.
         # For stricter order testing, a different assertion or more carefully ordered expected lists are needed.
         # For now, comparing sorted lists to focus on content and resolution.
-        assert sorted(result_statements) == sorted(expected_import_strings_list), (
-            f"Test scenario '{scenario_id}' failed. Got {sorted(result_statements)}, expected {sorted(expected_import_strings_list)}"
-        )
+        assert sorted(result_statements) == sorted(
+            expected_import_strings_list
+        ), f"Test scenario '{scenario_id}' failed. Got {sorted(result_statements)}, expected {sorted(expected_import_strings_list)}"
 
     def test_get_import_statements__complex_relatives_and_core__produces_correctly_resolved_and_ordered_imports(
         self,
@@ -675,19 +677,21 @@ class TestImportCollector:
 
         # Assert
         # Expected order: Plain first, then all 'from' imports sorted alphabetically.
-        expected_sorted_from_lines = sorted([
-            "from ...common.constants import MAX_RETRIES",  # Resolved relative
-            "from ...models.data_input import DataInput",  # Resolved relative
-            "from ...models.data_output import DataOutput",  # Resolved relative
-            f"from {core_pkg}.auth import authenticate",  # Core absolute
-            f"from {core_pkg}.utils import format_data",  # Core absolute
-            "from third_party_lib.sub.helpers import process_external",  # External absolute
-            "from typing import Dict",  # Stdlib
-        ])
-        final_expected = ["import logging"] + expected_sorted_from_lines
-        assert result_statements == final_expected, (
-            f"Import statements mismatch.\\nExpected:\\n{final_expected}\\nGot:\\n{result_statements}"
+        expected_sorted_from_lines = sorted(
+            [
+                "from ...common.constants import MAX_RETRIES",  # Resolved relative
+                "from ...models.data_input import DataInput",  # Resolved relative
+                "from ...models.data_output import DataOutput",  # Resolved relative
+                f"from {core_pkg}.auth import authenticate",  # Core absolute
+                f"from {core_pkg}.utils import format_data",  # Core absolute
+                "from third_party_lib.sub.helpers import process_external",  # External absolute
+                "from typing import Dict",  # Stdlib
+            ]
         )
+        final_expected = ["import logging"] + expected_sorted_from_lines
+        assert (
+            result_statements == final_expected
+        ), f"Import statements mismatch.\\nExpected:\\n{final_expected}\\nGot:\\n{result_statements}"
 
     def test_get_import_statements__explicit_relative_imports_only__formats_and_sorts_correctly(self) -> None:
         """

@@ -173,7 +173,8 @@ def test_normalize_tag_key__varied_cases_and_punctuation__returns_same_key() -> 
 def test_tag_deduplication__multiple_variants__only_one_survives() -> None:
     """
     Scenario:
-        - Given a list of tags with different cases and punctuation, simulate deduplication logic as in the client emitter.
+        - Given a list of tags with different cases and punctuation, simulate deduplication
+          logic as in the client emitter.
         - Only the first occurrence of a normalized tag should be kept.
 
     Expected Outcome:
@@ -200,7 +201,8 @@ def test_sanitize_module_name__camel_and_pascal_case__snake_case_result() -> Non
     """
     Scenario:
         - Test sanitize_module_name with camel case, PascalCase, and mixed-case names.
-        - Names like 'GetDatasourceResponse', 'DataSource', 'getDataSource', 'get_datasource_response', 'get-datasource-response'.
+        - Names like 'GetDatasourceResponse', 'DataSource', 'getDataSource', 'get_datasource_response',
+          'get-datasource-response'.
         - Also include names with dots, already snake_case, ALL_CAPS, and leading/trailing underscores.
     Expected Outcome:
         - All are converted to proper snake_case: 'get_datasource_response', 'data_source', etc.

@@ -73,8 +73,8 @@ class TestParseOneOfSchemas(unittest.TestCase):
         one_of_nodes: List[Mapping[str, Any]] = [{"type": "string"}]
 
         string_schema = IRSchema(name="GeneratedStringProperty", type="string")
-        self.mock_parse_fn.side_effect = (
-            lambda n, nd, c, md: string_schema if nd == one_of_nodes[0] else self.fail("Unexpected call")
+        self.mock_parse_fn.side_effect = lambda n, nd, c, md: (
+            string_schema if nd == one_of_nodes[0] else self.fail("Unexpected call")
         )
 
         parsed_schemas, is_nullable, eff_type = _parse_one_of_schemas(

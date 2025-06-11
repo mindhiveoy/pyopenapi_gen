@@ -144,9 +144,7 @@ class EndpointUrlArgsGenerator:
                         f"ordered_params for JSON. Defaulting to Any."
                     )
                     context.add_import("typing", "Any")
-                    writer.write_line(
-                        "json_body: Any = DataclassSerializer.serialize(body)  # 'body' param not found in signature details"
-                    )
+                    writer.write_line("json_body: Any = DataclassSerializer.serialize(body)  # param not found")
             elif primary_content_type == "multipart/form-data":
                 files_param_details = next((p for p in ordered_params if p["name"] == "files"), None)
                 if files_param_details:
@@ -162,7 +160,7 @@ class EndpointUrlArgsGenerator:
                     context.add_import("typing", "IO")  # For IO[Any]
                     context.add_import("typing", "Any")
                     writer.write_line(
-                        "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # Type inference for files_data failed"
+                        "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # type failed"
                     )
             elif primary_content_type == "application/x-www-form-urlencoded":
                 # form_data is the expected parameter name from EndpointParameterProcessor

@@ -32,22 +32,57 @@ pip install -e '.[dev]'
 ```bash
 # Fast Development Workflow
 pytest -xvs               # Run with verbose output, stop on first failure
-mypy src/                 # Type checking
-ruff check src/           # Linting
-black src/                # Code formatting
+make quality-fix          # Auto-fix formatting and linting issues
+make quality              # Run all quality checks (format, lint, typecheck, security)
+
+# Individual Quality Commands
+make format               # Auto-format code with Black
+make format-check         # Check formatting without fixing
+make lint                 # Check linting with Ruff
+make lint-fix             # Auto-fix linting issues with Ruff
+make typecheck            # Type checking with mypy
+make security             # Security scanning with Bandit
 
 # Testing Options
-pytest                    # Run all tests
-pytest -n auto            # Run tests in parallel (faster)
-pytest --cov=src --cov-report=html  # Generate coverage report
+make test                 # Run all tests in parallel with 4 workers and coverage (85% required - matches CI)
+make test-serial          # Run tests sequentially (fallback if parallel tests hang)
+make test-no-cov          # Run tests without coverage checking
+make test-fast            # Run tests, stop on first failure
+make test-cov             # Run tests in parallel with coverage report (85% required)
+pytest -n auto            # Run tests in parallel (faster, use with --timeout=300 if needed)
 
-# Quality Gates (CI checks)
-pytest --cov=src --cov-report=term-missing  # Coverage with missing lines
+# Legacy Commands (still work)
+pytest --cov=src --cov-report=html  # Generate coverage report
 ruff check --fix src/     # Auto-fix linting issues
 mypy src/ --strict        # Strict type checking
 
 # Development
-python -m build           # Build package
+make build                # Build package
+make clean                # Clean build artifacts
+```
+
+### Quality Workflow
+
+**Before committing or pushing changes:**
+
+```bash
+# 1. Auto-fix what's possible
+make quality-fix
+
+# 2. Run all quality checks
+make quality
+
+# 3. If issues remain, fix manually and repeat
+```
+
+**For CI/CD compliance:**
+```bash
+# These commands match what runs in GitHub Actions
+make format-check         # Must pass (no formatting issues)
+make lint                 # Must pass (no linting errors)  
+make typecheck            # Must pass (no type errors)
+make security             # Must pass (no security issues)
+make test                 # Must pass (all tests pass + 85% coverage)
 ```
 
 ### Running Specific Tests
@@ -66,7 +101,7 @@ pytest -k "test_cycle_detection"
 make coverage-html
 
 # Coverage with missing lines shown
-pytest --cov=src --cov-report=term-missing
+make test-cov
 ```
 
 ### Generator CLI

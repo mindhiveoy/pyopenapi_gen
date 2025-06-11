@@ -3,7 +3,6 @@ from typing import Any
 
 from pyopenapi_gen import IROperation
 from pyopenapi_gen.helpers.endpoint_utils import (
-    get_return_type,
     get_return_type_unified,
 )
 

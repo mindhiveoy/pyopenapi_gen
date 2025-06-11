@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+
 from pyopenapi_gen.generator.client_generator import ClientGenerator, GenerationError
 
 
@@ -128,11 +129,11 @@ def test_simple_self_reference_fix__basic_case__generates_quoted_forward_referen
 
         # Verify the generated code is syntactically valid
         try:
-            compile(content, simple_node_file.name, 'exec')
+            compile(content, simple_node_file.name, "exec")
             print("✅ Generated code is syntactically valid!")
         except SyntaxError as e:
             pytest.fail(f"Generated code has syntax error: {e}")
-            
+
         # The main test success is that the self-reference is properly quoted
         print("✅ Test PASSED: Self-reference properly quoted and syntax is valid")
 

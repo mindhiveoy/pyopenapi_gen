@@ -6,7 +6,6 @@ from typing import Dict, Optional
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 
-from ..contracts.protocols import TypeContext
 from ..contracts.types import ResolvedType
 from ..resolvers import OpenAPIReferenceResolver, OpenAPIResponseResolver, OpenAPISchemaResolver
 
@@ -119,7 +118,7 @@ class UnifiedTypeService:
         resolved = self.response_resolver.resolve_specific_response(response, type_context)
         return self._format_resolved_type(resolved, context)
 
-    def _format_resolved_type(self, resolved: ResolvedType, context: RenderContext = None) -> str:
+    def _format_resolved_type(self, resolved: ResolvedType, context: RenderContext | None = None) -> str:
         """Format a ResolvedType into a Python type string."""
         python_type = resolved.python_type
 

@@ -191,7 +191,8 @@ def test_simple_object_unwrapping(tmp_path: Path) -> None:
             endpoint_file = non_init_py_files[0]
         else:
             pytest.fail(
-                f"Expected a single endpoint file or default.py, found: {non_init_py_files}. Check generator's default tagging."
+                f"Expected a single endpoint file or default.py, found: {non_init_py_files}. "
+                f"Check generator's default tagging."
             )
 
     assert endpoint_file.exists(), f"Endpoint file {endpoint_file} not found."
@@ -206,9 +207,9 @@ def test_simple_object_unwrapping(tmp_path: Path) -> None:
 
     assert ") -> Item:" in method_block
     # Use regex to find the unwrapping pattern, ignoring whitespace/quotes
-    assert re.search(r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_block), (
-        "response.json().get('data') pattern not found in method"
-    )
+    assert re.search(
+        r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_block
+    ), "response.json().get('data') pattern not found in method"
     assert "cast(Item" in method_block  # Check cast is still there
 
 
@@ -271,14 +272,14 @@ def test_list_object_unwrapping(tmp_path: Path) -> None:
     method_block = method_match.group(1)
 
     assert ") -> List[Item]:" in method_block
-    assert re.search(r"from\s+typing\s+import\s+([^\n,]*?,\s*)*?List", content), (
-        "'from typing import ..., List, ...' not found"
-    )
+    assert re.search(
+        r"from\s+typing\s+import\s+([^\n,]*?,\s*)*?List", content
+    ), "'from typing import ..., List, ...' not found"
 
     # Use regex to find the unwrapping pattern
-    assert re.search(r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_block), (
-        "response.json().get('data') pattern not found in method"
-    )
+    assert re.search(
+        r"response\.json\(\)\s*\.\s*get\(\s*(?:'|\")data(?:'|\")\s*\)", method_block
+    ), "response.json().get('data') pattern not found in method"
     assert "cast(List[Item]" in method_block  # Check cast is still there
 
 

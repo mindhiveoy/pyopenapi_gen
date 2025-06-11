@@ -134,21 +134,48 @@ from .core.auth.base import CompositeAuth
 auth = CompositeAuth(BearerAuth("token"), HeadersAuth({"X-Key": "val"}))
 ```
 
-## Contributing
+## Development
+
+### Setup
+```bash
+git clone https://github.com/your-org/pyopenapi_gen.git
+cd pyopenapi_gen
+source .venv/bin/activate  # Activate virtual environment
+poetry install --with dev  # Install dependencies with Poetry
+```
+
+### Quality Workflow
+```bash
+# Before committing - auto-fix what's possible
+make quality-fix
+
+# Run all quality checks (matches CI pipeline)
+make quality
+
+# Individual commands
+make format               # Auto-format with Black
+make lint-fix             # Auto-fix linting with Ruff  
+make typecheck            # Type checking with mypy
+make security             # Security scanning with Bandit
+make test                 # Run all tests in parallel with 4 workers (with 85% coverage requirement)
+
+# Testing options
+make test-serial          # Run tests sequentially (if parallel tests hang)
+pytest -n auto            # Run tests in parallel (faster)
+pytest -n 4               # Run tests with specific number of workers  
+pytest --no-cov           # Run tests without coverage (fastest)
+```
+
+### Contributing
 
 Contributions welcome! Please ensure:
 
-- **Code Quality**: Black formatting, Ruff linting, mypy type checking
-- **Testing**: pytest with ≥90% branch coverage
+- **Code Quality**: All `make quality` checks pass
+- **Testing**: pytest with ≥85% branch coverage
 - **Compatibility**: Python 3.10-3.12 support
+- **Documentation**: Update relevant docs for new features
 
-```bash
-# Development setup
-pytest                    # Run tests
-mypy src/                 # Type checking  
-ruff check src/           # Linting
-black src/                # Formatting
-```
+The `make quality-fix` command will auto-fix most formatting and linting issues. All pull requests must pass the full `make quality` check suite.
 
 ## License
 

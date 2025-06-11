@@ -9,7 +9,7 @@ def test_exceptions_emitter__numeric_response_codes__generates_error_aliases(tmp
     Scenario:
         ExceptionsEmitter processes an IRSpec containing operations with numeric
         response codes (404, 500).
-    
+
     Expected Outcome:
         The emitter should generate exception_aliases.py with corresponding
         Error404 and Error500 classes that inherit from appropriate base exceptions.

@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from pyopenapi_gen import IROperation, IRResponse
+from pyopenapi_gen import IROperation, IRResponse, IRSchema
 
 from ..contracts.protocols import ReferenceResolver, ResponseTypeResolver, SchemaTypeResolver, TypeContext
 from ..contracts.types import ResolvedType
@@ -115,7 +115,7 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
         # First response as fallback
         return operation.responses[0] if operation.responses else None
 
-    def _get_response_schema(self, response: IRResponse):
+    def _get_response_schema(self, response: IRResponse) -> IRSchema | None:
         """Get the schema from a response's content."""
         if not response.content:
             return None
@@ -136,13 +136,13 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
 
         return response.content.get(content_type)
 
-    def _try_unwrap_data_property(self, schema, context: TypeContext) -> Optional[ResolvedType]:
+    def _try_unwrap_data_property(self, schema: IRSchema | None, context: TypeContext) -> Optional[ResolvedType]:
         """
         Try to unwrap a 'data' property if the schema is a wrapper.
 
         Returns unwrapped type or None if not applicable.
         """
-        if not hasattr(schema, "type") or schema.type != "object":
+        if not schema or not hasattr(schema, "type") or schema.type != "object":
             return None
 
         properties = getattr(schema, "properties", None)

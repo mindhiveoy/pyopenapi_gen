@@ -7,8 +7,9 @@ import os
 import unittest
 from typing import Any, Dict, cast
 
-import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
 import pytest
+
+import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.parsing.schema_parser import _parse_schema
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -505,7 +506,8 @@ class TestCycleDetection(unittest.TestCase):
         # This ensures the ref target for schema_3 exists, even if it's schema_4 that would be depth limited.
         # The critical point is schema_3 trying to parse its allOf pointing to schema_4.
         # No, the critical point is when _parse_schema is called *for* schema_3.
-        # The setup ensures schema_name (DeepAllOfSchema_0) has schema_1 in its allOf, schema_1 has schema_2, schema_2 has schema_3.
+        # The setup ensures schema_name (DeepAllOfSchema_0) has schema_1 in its allOf,
+        # schema_1 has schema_2, schema_2 has schema_3.
         # Parsing schema_0 (depth 1)
         #  -> calls _parse_schema for schema_1 (depth 2)
         #     -> calls _parse_schema for schema_2 (depth 3)
@@ -531,7 +533,8 @@ class TestCycleDetection(unittest.TestCase):
 
         self.assertTrue(
             depth_exceeded_schema_actual_ir._max_depth_exceeded_marker,
-            f"{depth_limited_schema_name} ({depth_exceeded_schema_actual_ir.name}) should be marked for max depth exceeded",
+            f"{depth_limited_schema_name} ({depth_exceeded_schema_actual_ir.name}) "
+            f"should be marked for max depth exceeded",
         )
 
         _temp_name_val = depth_exceeded_schema_actual_ir.name
@@ -580,12 +583,14 @@ class TestCycleDetection(unittest.TestCase):
         ref_schema2 = {"properties": {"other": {"type": "string"}}}  # Does not cycle
         ref_schema3 = {"properties": {"back": {"$ref": f"#/components/schemas/{schema_name}"}}}  # Cycles back
 
-        self.context.raw_spec_schemas.update({
-            schema_name: schema_data,
-            "RefSchema1": ref_schema1,
-            "RefSchema2": ref_schema2,
-            "RefSchema3": ref_schema3,
-        })
+        self.context.raw_spec_schemas.update(
+            {
+                schema_name: schema_data,
+                "RefSchema1": ref_schema1,
+                "RefSchema2": ref_schema2,
+                "RefSchema3": ref_schema3,
+            }
+        )
         result = _parse_schema(schema_name, schema_data, self.context, allow_self_reference=False)
         self.assertFalse(result._is_circular_ref, "Initial schema may not be marked if cycle is indirect")
 
@@ -619,30 +624,36 @@ class TestCycleDetection(unittest.TestCase):
         schema_b = {"properties": {"to_c": {"$ref": f"#/components/schemas/{schema_c_name}"}}}
         schema_c = {"properties": {"to_a": {"$ref": f"#/components/schemas/{schema_a_name}"}}}
 
-        self.context.raw_spec_schemas.update({
-            schema_a_name: schema_a,
-            schema_b_name: schema_b,
-            schema_c_name: schema_c,
-        })
+        self.context.raw_spec_schemas.update(
+            {
+                schema_a_name: schema_a,
+                schema_b_name: schema_b,
+                schema_c_name: schema_c,
+            }
+        )
 
         result_a_direct = _parse_schema(schema_a_name, schema_a, self.context, allow_self_reference=False)
         self.assertFalse(result_a_direct._is_circular_ref)
 
         self.context.reset_for_new_parse()
-        self.context.raw_spec_schemas.update({
-            schema_a_name: schema_a,
-            schema_b_name: schema_b,
-            schema_c_name: schema_c,
-        })
+        self.context.raw_spec_schemas.update(
+            {
+                schema_a_name: schema_a,
+                schema_b_name: schema_b,
+                schema_c_name: schema_c,
+            }
+        )
         result_b_direct = _parse_schema(schema_b_name, schema_b, self.context, allow_self_reference=False)
         self.assertFalse(result_b_direct._is_circular_ref)
 
         self.context.reset_for_new_parse()
-        self.context.raw_spec_schemas.update({
-            schema_a_name: schema_a,
-            schema_b_name: schema_b,
-            schema_c_name: schema_c,
-        })
+        self.context.raw_spec_schemas.update(
+            {
+                schema_a_name: schema_a,
+                schema_b_name: schema_b,
+                schema_c_name: schema_c,
+            }
+        )
         result_c_direct = _parse_schema(schema_c_name, schema_c, self.context, allow_self_reference=False)
         self.assertFalse(result_c_direct._is_circular_ref)
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from pyopenapi_gen.context.render_context import RenderContext
 
 # Use POSIX paths for consistency in tests, os.path should handle separators
@@ -66,9 +67,9 @@ def test_calculate_relative_path(
     """
     Tests RenderContext.calculate_relative_path_for_internal_module for various scenarios.
     """
-    assert context.package_root_for_generated_code is not None, (
-        "Test setup error: package_root_for_generated_code should be set"
-    )
+    assert (
+        context.package_root_for_generated_code is not None
+    ), "Test setup error: package_root_for_generated_code should be set"
     generated_package_root = Path(context.package_root_for_generated_code)
     current_abs_path = generated_package_root / current_file_rel_path
     context.set_current_file(str(current_abs_path))

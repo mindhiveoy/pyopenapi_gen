@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class StatusCase(TypedDict):
     """Type definition for status code case data."""
+
     status_code: int
     type: str  # 'primary_success', 'success', or 'error'
     return_type: str
@@ -37,6 +38,7 @@ class StatusCase(TypedDict):
 
 class DefaultCase(TypedDict):
     """Type definition for default case data."""
+
     response_ir: IRResponse
     return_type: str
     needs_unwrap: bool
@@ -195,13 +197,15 @@ class EndpointResponseHandlerGenerator:
                     # Fall back to the original approach if there's an issue
                     needs_unwrap_for_op = False
 
-            status_cases.append(StatusCase(
-                status_code=status_code_val,
-                type='primary_success',
-                return_type=return_type_for_op,
-                needs_unwrap=needs_unwrap_for_op,
-                response_ir=primary_success_ir
-            ))
+            status_cases.append(
+                StatusCase(
+                    status_code=status_code_val,
+                    type="primary_success",
+                    return_type=return_type_for_op,
+                    needs_unwrap=needs_unwrap_for_op,
+                    response_ir=primary_success_ir,
+                )
+            )
 
         # 2. Handle other specific responses (other 2xx, then default, then errors)
         default_case: Optional[DefaultCase] = None
@@ -246,23 +250,23 @@ class EndpointResponseHandlerGenerator:
                         default_needs_unwrap = op_global_needs_unwrap
 
                 default_case = DefaultCase(
-                    response_ir=resp_ir,
-                    return_type=default_return_type_str,
-                    needs_unwrap=default_needs_unwrap
+                    response_ir=resp_ir, return_type=default_return_type_str, needs_unwrap=default_needs_unwrap
                 )
                 continue  # Handle default separately
 
             try:
                 status_code_val = int(resp_ir.status_code)
-                case_type = 'success' if resp_ir.status_code.startswith("2") else 'error'
+                case_type = "success" if resp_ir.status_code.startswith("2") else "error"
 
-                status_cases.append(StatusCase(
-                    status_code=status_code_val,
-                    type=case_type,
-                    return_type=current_return_type_str,
-                    needs_unwrap=current_needs_unwrap,
-                    response_ir=resp_ir
-                ))
+                status_cases.append(
+                    StatusCase(
+                        status_code=status_code_val,
+                        type=case_type,
+                        return_type=current_return_type_str,
+                        needs_unwrap=current_needs_unwrap,
+                        response_ir=resp_ir,
+                    )
+                )
             except ValueError:
                 logger.warning(f"Skipping non-integer status code in other_responses: {resp_ir.status_code}")
 
@@ -276,26 +280,26 @@ class EndpointResponseHandlerGenerator:
                 writer.write_line(f"case {case['status_code']}:")
                 writer.indent()
 
-                if case['type'] == 'primary_success':
+                if case["type"] == "primary_success":
                     # If get_return_type determined a specific type (not "None"),
                     # we should attempt to parse the response accordingly. This handles cases
                     # where the type was inferred even if the spec lacked explicit content for the 2xx.
                     # If get_return_type says "None" (e.g., for a 204 or truly no content), then return None.
-                    if case['return_type'] == "None":
+                    if case["return_type"] == "None":
                         writer.write_line("return None")
                     else:
                         self._write_parsed_return(
-                            writer, op, context, case['return_type'], case['needs_unwrap'], case['response_ir']
+                            writer, op, context, case["return_type"], case["needs_unwrap"], case["response_ir"]
                         )
-                elif case['type'] == 'success':
+                elif case["type"] == "success":
                     # Other 2xx success
-                    if case['return_type'] == "None" or not case['response_ir'].content:
+                    if case["return_type"] == "None" or not case["response_ir"].content:
                         writer.write_line("return None")
                     else:
                         self._write_parsed_return(
-                            writer, op, context, case['return_type'], case['needs_unwrap'], case['response_ir']
+                            writer, op, context, case["return_type"], case["needs_unwrap"], case["response_ir"]
                         )
-                elif case['type'] == 'error':
+                elif case["type"] == "error":
                     # Error codes (3xx, 4xx, 5xx)
                     error_class_name = f"Error{case['status_code']}"
                     context.add_import(
@@ -308,7 +312,7 @@ class EndpointResponseHandlerGenerator:
             # Handle default case if it exists
             if default_case:
                 # Default response case - catch all remaining status codes
-                if default_case['response_ir'].content and default_case['return_type'] != "None":
+                if default_case["response_ir"].content and default_case["return_type"] != "None":
                     # Default case with content (success)
                     writer.write_line("case _ if response.status_code >= 0:  # Default response catch-all")
                     writer.indent()
@@ -316,9 +320,9 @@ class EndpointResponseHandlerGenerator:
                         writer,
                         op,
                         context,
-                        default_case['return_type'],
-                        default_case['needs_unwrap'],
-                        default_case['response_ir'],
+                        default_case["return_type"],
+                        default_case["needs_unwrap"],
+                        default_case["response_ir"],
                     )
                     writer.dedent()
                 else:
@@ -339,10 +343,10 @@ class EndpointResponseHandlerGenerator:
                 writer.indent()
                 context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")
                 writer.write_line(
-                    'raise HTTPError('
-                    'response=response, '
+                    "raise HTTPError("
+                    "response=response, "
                     'message="Unhandled status code", '
-                    'status_code=response.status_code)'
+                    "status_code=response.status_code)"
                 )
                 writer.dedent()
 
@@ -360,6 +364,11 @@ class EndpointResponseHandlerGenerator:
             writer.dedent()
             writer.dedent()
 
+        # All code paths should be covered by the match statement above
+        # But add an explicit assertion for mypy's satisfaction
+        writer.write_line("# All paths above should return or raise - this should never execute")
+        context.add_import("typing", "NoReturn")
+        writer.write_line("assert False, 'Unexpected code path'  # pragma: no cover")
         writer.write_line("")  # Add a blank line for readability
 
     def _write_parsed_return(

@@ -458,6 +458,7 @@ class TestSchemaParser(unittest.TestCase):
 
         # Simulate the first entry using unified system:
         from pyopenapi_gen.core.parsing.unified_cycle_detection import SchemaState
+
         self.context.unified_cycle_context.schema_stack.append(parent_schema_name)
         self.context.unified_cycle_context.schema_states[parent_schema_name] = SchemaState.IN_PROGRESS
 

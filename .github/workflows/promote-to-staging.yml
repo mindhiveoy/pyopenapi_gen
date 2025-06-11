@@ -1,0 +1,65 @@
+name: Promote to Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Source branch to promote (default: develop)'
+        required: false
+        default: 'develop'
+        type: string
+
+jobs:
+  promote-to-staging:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Create or update staging branch
+      run: |
+        SOURCE_BRANCH="${{ github.event.inputs.source_branch || 'develop' }}"
+        echo "Promoting $SOURCE_BRANCH to staging"
+        
+        # Fetch all branches
+        git fetch origin
+        
+        # Check if staging branch exists
+        if git show-ref --verify --quiet refs/remotes/origin/staging; then
+          echo "Staging branch exists, updating it"
+          git checkout staging
+          git pull origin staging
+          git merge origin/$SOURCE_BRANCH --no-ff -m "promote: Merge $SOURCE_BRANCH to staging for release candidate"
+        else
+          echo "Creating new staging branch from $SOURCE_BRANCH"
+          git checkout -b staging origin/$SOURCE_BRANCH
+        fi
+        
+        # Push staging branch
+        git push origin staging
+
+    - name: Create promotion summary
+      run: |
+        SOURCE_BRANCH="${{ github.event.inputs.source_branch || 'develop' }}"
+        COMMITS=$(git log --oneline staging ^origin/main | head -10)
+        
+        echo "## Staging Promotion Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Source Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target Branch**: staging" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit Hash**: $(git rev-parse HEAD)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Recent Changes" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "$COMMITS" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🚀 Staging deployment will begin automatically." >> $GITHUB_STEP_SUMMARY

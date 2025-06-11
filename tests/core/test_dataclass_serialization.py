@@ -9,8 +9,7 @@ converted to dictionaries before being sent in HTTP requests.
 
 import dataclasses
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from unittest.mock import MagicMock
+from typing import Any, Dict, List, Optional
 
 import pytest
 

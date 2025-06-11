@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 import pytest
 from httpx import Response
+
 from pyopenapi_gen.core.http_transport import HttpxTransport
 from pyopenapi_gen.core.pagination import paginate_by_next
 
@@ -79,7 +80,9 @@ def test_cli_with_optional_flags(spec_file: Path, tmp_path: Path) -> None:
     # Test the CLI using subprocess to avoid Typer testing issues
     result = subprocess.run(
         [
-            sys.executable, "-m", "pyopenapi_gen.cli",
+            sys.executable,
+            "-m",
+            "pyopenapi_gen.cli",
             "gen",
             str(spec_file),
             "--project-root",
@@ -98,7 +101,9 @@ def test_cli_with_optional_flags(spec_file: Path, tmp_path: Path) -> None:
     )
 
     # Should fail with non-zero exit code due to invalid options
-    assert result.returncode != 0, f"Expected non-zero exit code, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
+    assert (
+        result.returncode != 0
+    ), f"Expected non-zero exit code, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
 
     # Check for error message about unknown options
     error_output = result.stdout + result.stderr
@@ -112,7 +117,8 @@ def test_cli_with_optional_flags(spec_file: Path, tmp_path: Path) -> None:
     # # Add assertions to check if generated code uses these names (optional)
     #
     # # Core files still generated
-    # out_dir = tmp_path / "out" # This path seems incorrect, gen command outputs based on project_root and output_package
+    # out_dir = tmp_path / "out"
+    # This path seems incorrect, gen command outputs based on project_root and output_package
     # # Corrected path would be tmp_path / pag_client / ... (or wherever output_package resolves)
     # # For now, commenting out since the command is expected to fail
     # # assert (out_dir / "config.py").exists()

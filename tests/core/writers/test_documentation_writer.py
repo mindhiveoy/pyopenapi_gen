@@ -383,7 +383,8 @@ Args:
 def test_render_docstring__arg_prefix_with_unicode__renders_colon_and_space() -> None:
     """
     Scenario:
-        The argument prefix contains unicode characters. We want to verify that the colon and space are handled correctly.
+        The argument prefix contains unicode characters. We want to verify that the colon and space
+        are handled correctly.
 
     Expected Outcome:
         The prefix line ends with a colon, and the description line starts with a space.

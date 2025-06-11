@@ -146,9 +146,9 @@ class TestCycleHelpers(unittest.TestCase):
         # (though other indirect cycles might still set it)
         # For a direct self-reference handled as a stub, it shouldn't set it.
         if not initial_cycle_detected_state:
-            assert not self.context.cycle_detected, (
-                "context.cycle_detected should not be set by a permitted self-ref stub creation"
-            )
+            assert (
+                not self.context.cycle_detected
+            ), "context.cycle_detected should not be set by a permitted self-ref stub creation"
 
     def test_handle_cycle_detection__allow_self_reference_true__existing_stub__returns_stub(self) -> None:
         """

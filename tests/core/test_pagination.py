@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from unittest.mock import AsyncMock
 
 import pytest
+
 from pyopenapi_gen.core.pagination import paginate_by_next
 
 
@@ -104,9 +105,7 @@ async def test_paginate_by_next__with_custom_key_names() -> None:
 
     # Use the paginate_by_next function with custom key names
     collected_items: List[Dict[str, Any]] = []
-    async for item in paginate_by_next(
-        mock_fetch, items_key="data", next_key="page_token"
-    ):
+    async for item in paginate_by_next(mock_fetch, items_key="data", next_key="page_token"):
         collected_items.append(item)
 
     # Verify results

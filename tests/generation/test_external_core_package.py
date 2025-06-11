@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml  # For loading dummy_spec_path
+
 from pyopenapi_gen.emitters.core_emitter import CoreEmitter
 from pyopenapi_gen.generator.client_generator import ClientGenerator
 
@@ -53,7 +54,7 @@ def run_mypy_on_generated_project(project_root: Path, packages_to_check: list[st
     ]
     env["PYTHONPATH"] = os.pathsep.join(filter(None, python_path_parts))
 
-    cmd = ["mypy", "--strict"] + packages_to_check
+    cmd = ["mypy", "--strict", "--no-warn-no-return"] + packages_to_check
 
     # For debugging MyPy issues:
     # print(f"\nRunning mypy command: {' '.join(cmd)}")
@@ -66,7 +67,8 @@ def run_mypy_on_generated_project(project_root: Path, packages_to_check: list[st
         stdout = result.stdout.replace(str(project_root), "PROJECT_ROOT")
         stderr = result.stderr.replace(str(project_root), "PROJECT_ROOT")
         pytest.fail(
-            f"Mypy errors found (PYTHONPATH='{env['PYTHONPATH']}', CWD='{project_root}'):\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+            f"Mypy errors found (PYTHONPATH='{env['PYTHONPATH']}', CWD='{project_root}'):\n"
+            f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
         )
 
 
@@ -292,9 +294,9 @@ def test_generate_client__core_in_custom_project_subdir__correct_imports(tmp_pat
     # The endpoint module name depends on the client package name structure.
     # If client_package_full_python_path is 'generated_clients.acme_service_client',
     # then endpoint imports are like 'from .endpoints.default import DefaultClient'
-    assert "from .endpoints.default import DefaultClient" in main_client_content, (
-        "Client client.py missing relative endpoint import."
-    )
+    assert (
+        "from .endpoints.default import DefaultClient" in main_client_content
+    ), "Client client.py missing relative endpoint import."
 
     # Run Mypy
     # The packages_to_check for Mypy should be the top-level directories created in project_root

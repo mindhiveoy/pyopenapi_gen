@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 from pyopenapi_gen import IRSpec
 from pyopenapi_gen.context.file_manager import FileManager
 from pyopenapi_gen.context.render_context import RenderContext
@@ -25,7 +26,9 @@ def mock_render_context() -> MagicMock:
     return ctx
 
 
-def test_client_emitter__simple_api_spec__generates_client_py_with_imports(tmp_path: Path, mock_render_context: MagicMock) -> None:
+def test_client_emitter__simple_api_spec__generates_client_py_with_imports(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
     """
     Scenario:
         ClientEmitter processes a simple IRSpec with basic API information

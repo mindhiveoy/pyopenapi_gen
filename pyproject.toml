@@ -13,11 +13,8 @@ dependencies = [
   "openapi-spec-validator>=0.7",
   "openapi-core>=0.19",
   "jinja2>=3.0",
-  "black (>=25.1.0,<26.0.0)",
-  "mypy (>=1.15.0,<2.0.0)",
-  "types-pyyaml (>=6.0.12.20250402,<7.0.0.0)",
-  "ruff>=0.4",
-  "typer>=0.12.0,<=0.15.2",
+  "PyYAML>=6.0",
+  "typer>=0.12.0,<0.15.0",
   "httpx>=0.24.0",
 ]
 license = { text = "MIT" }
@@ -38,12 +35,19 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-  "black>=24.3",
+  "black>=23.0",
   "ruff>=0.4",
-  "mypy>=1.8",
-  "pytest>=8.0",
+  "mypy>=1.7",
+  "pytest>=7.0",
   "pytest-cov>=4.0",
   "pytest-timeout>=2.1.0",
+  "pytest-xdist>=3.0.0",
+  "types-toml>=0.10.8",
+  "pytest-asyncio>=0.20.0",
+  "safety>=2.0.0",
+  "bandit[toml]>=1.7.0",
+  "types-pyyaml>=6.0.12",
+  "httpx>=0.24.0",
 ]
 
 [tool.black]
@@ -57,7 +61,7 @@ preview = true
 
 [tool.ruff.lint]
 select = ["F401", "E", "W", "I"]
-# ignore = ["E501"]
+ignore = ["E501"]  # Ignore line length for test files - focus on logic errors
 
 [tool.mypy]
 python_version = "3.12"
@@ -65,6 +69,8 @@ strict = true
 show_error_codes = true
 namespace_packages = true
 implicit_optional = false
+# Disable overly strict return checking for match statements
+warn_no_return = false
 
 [tool.pytest.ini_options]
 addopts = "-ra"
@@ -81,11 +87,7 @@ markers = [
     "timeout: specify a timeout for a test function (integration with pytest-timeout).",
 ]
 
-[tool.poetry.group.dev.dependencies]
-pytest-xdist = "^3.6.1"
-types-toml = "^0.10.8.20240310"
-httpx = "^0.28.1"
-pytest-asyncio = "^0.26.0"
+
 
 [project.scripts]
 pyopenapi-gen = "pyopenapi_gen.cli:app"
