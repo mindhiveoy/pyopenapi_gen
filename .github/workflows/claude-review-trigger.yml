@@ -1,0 +1,68 @@
+name: Notify Claude for PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+jobs:
+  notify-claude:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Check if PR needs Claude review
+        id: needs_review
+        run: |
+          pr_author="${{ github.event.pull_request.user.login }}"
+          pr_title="${{ github.event.pull_request.title }}"
+          pr_base="${{ github.event.pull_request.base.ref }}"
+          
+          echo "PR Author: $pr_author"
+          echo "PR Title: $pr_title"
+          echo "PR Base Branch: $pr_base"
+          
+          # PRs that should get Claude review:
+          # 1. ALL PRs targeting develop branch (main development branch)
+          # 2. Dependabot PRs (dependency updates)
+          # 3. Version bump PRs from devops-mindhive
+          # 4. Documentation PRs from devops-mindhive
+          # 5. PRs with [claude-review] tag
+          
+          needs_review=false
+          
+          if [[ "$pr_base" == "develop" ]] || \
+             [[ "$pr_author" == "dependabot[bot]" ]] || \
+             [[ "$pr_author" == "devops-mindhive" && "$pr_title" =~ ^(release|chore|docs): ]] || \
+             [[ "$pr_title" =~ \[claude-review\] ]]; then
+            needs_review=true
+          fi
+          
+          echo "needs_review=$needs_review" >> $GITHUB_OUTPUT
+          
+          if [[ "$needs_review" == "true" ]]; then
+            echo "✅ PR needs Claude review"
+          else
+            echo "❌ PR does not need automatic Claude review"
+          fi
+
+      - name: Request Claude review
+        if: steps.needs_review.outputs.needs_review == 'true'
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "@claude Please review this PR for code quality, security, and compatibility. If you find any issues:
+          
+          1. **For fixable issues** (formatting, linting, small bugs): Please fix them directly by committing to this PR branch
+          2. **For larger issues**: Comment with specific feedback and create issues if needed
+          3. **If everything looks good**: Approve and merge the PR
+          
+          You have full access to modify code, run tests, and ensure the PR meets our quality standards."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
