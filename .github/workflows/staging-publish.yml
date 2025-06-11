@@ -49,11 +49,13 @@ jobs:
         VERSION=$(poetry version --short)
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Generate staging version with commit hash
+    - name: Generate staging version with timestamp
       id: staging_version
       run: |
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        STAGING_VERSION="${{ steps.current_version.outputs.version }}-dev+$COMMIT_HASH"
+        CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+        TIMESTAMP=$(date +%Y%m%d%H%M%S)
+        BUILD_NUMBER=${GITHUB_RUN_NUMBER:-1}
+        STAGING_VERSION="${CURRENT_VERSION}.dev${BUILD_NUMBER}"
         echo "staging_version=$STAGING_VERSION" >> $GITHUB_OUTPUT
         poetry version $STAGING_VERSION
 
@@ -87,12 +89,20 @@ jobs:
           
           **This is a development release - do not use in production!**
           
-          Version: ${{ steps.staging_version.outputs.staging_version }}
-          Commit: ${{ github.sha }}
+          - **Version**: ${{ steps.staging_version.outputs.staging_version }}
+          - **Commit**: ${{ github.sha }}
+          - **Build**: #${{ github.run_number }}
           
-          Install with:
+          ## Install from TestPyPI
+          
           ```bash
           pip install --index-url https://test.pypi.org/simple/ pyopenapi-gen==${{ steps.staging_version.outputs.staging_version }}
+          ```
+          
+          ## Verify Installation
+          
+          ```bash
+          python -c "import pyopenapi_gen; print(f'Installed version: {pyopenapi_gen.__version__}')"
           ```
         draft: false
         prerelease: true
