@@ -53,6 +53,12 @@ jobs:
       - name: Request Claude review
         if: steps.needs_review.outputs.needs_review == 'true'
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body "@claude Please review this PR for code quality, security, and compatibility. If everything looks good, approve and merge it."
+          gh pr comment ${{ github.event.pull_request.number }} --body "@claude Please review this PR for code quality, security, and compatibility. If you find any issues:
+          
+          1. **For fixable issues** (formatting, linting, small bugs): Please fix them directly by committing to this PR branch
+          2. **For larger issues**: Comment with specific feedback and create issues if needed
+          3. **If everything looks good**: Approve and merge the PR
+          
+          You have full access to modify code, run tests, and ensure the PR meets our quality standards."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
