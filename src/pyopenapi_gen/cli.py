@@ -6,8 +6,6 @@ import yaml
 
 from .generator.client_generator import ClientGenerator, GenerationError
 
-app = typer.Typer(help="PyOpenAPI Generator CLI - Generate Python clients from OpenAPI specs.")
-
 
 def _load_spec(path_or_url: str) -> Union[Dict[str, Any], Any]:
     """Load a spec from a file path or URL."""
@@ -17,8 +15,7 @@ def _load_spec(path_or_url: str) -> Union[Dict[str, Any], Any]:
     raise typer.Exit(code=1)
 
 
-@app.command()
-def gen(
+def main(
     spec: str = typer.Argument(..., help="Path or URL to OpenAPI spec"),
     project_root: Path = typer.Option(
         ...,
@@ -62,6 +59,10 @@ def gen(
     except GenerationError as e:
         typer.echo(f"Generation failed: {e}", err=True)
         raise typer.Exit(code=1)
+
+
+app = typer.Typer(help="PyOpenAPI Generator CLI - Generate Python clients from OpenAPI specs.")
+app.command()(main)
 
 
 if __name__ == "__main__":

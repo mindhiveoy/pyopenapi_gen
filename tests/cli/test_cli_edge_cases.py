@@ -26,7 +26,7 @@ def test_gen_nonexistent_spec_path(tmp_path: Path) -> None:
     # Stdout/stderr redirection might be needed if checking stderr content reliably.
     result = runner.invoke(
         app,
-        ["gen", str(tmp_path / "nonexistent.json"), "--project-root", str(tmp_path), "--output-package", "client"],
+        [str(tmp_path / "nonexistent.json"), "--project-root", str(tmp_path), "--output-package", "client"],
         catch_exceptions=False,  # Let SystemExit propagate
     )
     # We expect SystemExit(1) from _load_spec
@@ -51,13 +51,12 @@ def test_gen_with_docs_flag_does_not_break(tmp_path: Path) -> None:
             sys.executable,
             "-m",
             "pyopenapi_gen.cli",
-            "gen",
             str(spec_file),
             "--project-root",
             str(tmp_path),
             "--output-package",
             "client",
-            "--docs",  # This is an invalid option for the 'gen' command
+            "--docs",  # This is an invalid option for the main command
         ],
         capture_output=True,
         text=True,
@@ -92,15 +91,15 @@ def test_cli_no_args_shows_help_and_exits_cleanly() -> None:
         text=True,
     )
 
-    # CLI should show help and exit cleanly (exit code 0)
+    # CLI should show missing parameter error and exit with code 2 (Click convention for missing parameters)
     assert (
-        result.returncode == 0
-    ), f"Expected exit code 0, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
+        result.returncode == 2
+    ), f"Expected exit code 2, got {result.returncode}. Output: {result.stdout}, Error: {result.stderr}"
 
     # Check for help content
     output = result.stdout + result.stderr  # Help might go to either stdout or stderr
     assert "Usage:" in output, f"Expected 'Usage:' in output, got: {output}"
     assert (
-        "PyOpenAPI Generator CLI" in output or "COMMAND" in output
-    ), f"Expected CLI description or COMMAND in output, got: {output}"
+        "PyOpenAPI Generator CLI" in output or "Missing argument" in output
+    ), f"Expected CLI description or missing argument error in output, got: {output}"
     assert "Missing command" not in output, f"Should not have 'Missing command' error, got: {output}"
