@@ -58,28 +58,21 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
         if hasattr(response, "ref") and response.ref:
             return self._resolve_response_reference(response.ref, context)
 
+        # Handle streaming responses (check before content validation)
+        if hasattr(response, "stream") and response.stream:
+            return self._resolve_streaming_response(response, context)
+
         # Handle responses without content (e.g., 204)
         if not hasattr(response, "content") or not response.content:
             return ResolvedType(python_type="None")
-
-        # Handle streaming responses
-        if hasattr(response, "stream") and response.stream:
-            return self._resolve_streaming_response(response, context)
 
         # Get the content schema
         schema = self._get_response_schema(response)
         if not schema:
             return ResolvedType(python_type="None")
 
-        # Resolve the schema
+        # Resolve the schema directly (no unwrapping)
         resolved = self.schema_resolver.resolve_schema(schema, context, required=True)
-
-        # Check for data unwrapping
-        unwrapped = self._try_unwrap_data_property(schema, context)
-        if unwrapped:
-            unwrapped.was_unwrapped = True
-            return unwrapped
-
         return resolved
 
     def _resolve_response_reference(self, ref: str, context: TypeContext) -> ResolvedType:
@@ -135,27 +128,6 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
             return None
 
         return response.content.get(content_type)
-
-    def _try_unwrap_data_property(self, schema: IRSchema | None, context: TypeContext) -> Optional[ResolvedType]:
-        """
-        Try to unwrap a 'data' property if the schema is a wrapper.
-
-        Returns unwrapped type or None if not applicable.
-        """
-        if not schema or not hasattr(schema, "type") or schema.type != "object":
-            return None
-
-        properties = getattr(schema, "properties", None)
-        if not properties or len(properties) != 1:
-            return None
-
-        # Check for 'data' property
-        data_property = properties.get("data")
-        if not data_property:
-            return None
-
-        logger.info(f"Unwrapping 'data' property from response schema")
-        return self.schema_resolver.resolve_schema(data_property, context, required=True)
 
     def _resolve_streaming_response(self, response: IRResponse, context: TypeContext) -> ResolvedType:
         """

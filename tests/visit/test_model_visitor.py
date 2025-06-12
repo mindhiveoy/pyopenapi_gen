@@ -71,11 +71,11 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
             result = self.model_visitor.visit_IRSchema(schema, context)
 
             # Assert - unified type system correctly generates Optional for nullable types
-            self.assertIn(
-                "config_: Optional[Dict[str, Any]] = None",  # 'config' is sanitized to 'config_'
-                result,  # Use self.assertIn
-                "Failed to handle nullable object with expected output format",
-            )
+            self.assertIn("class TestModel(BaseSchema):", result)  # Should use BaseSchema due to field mapping
+            self.assertIn("config_: Optional[Dict[str, Any]] =", result)  # Field exists with correct type
+            self.assertIn("None", result)  # Has None default (may be multi-line)
+            self.assertIn("class Meta:", result)  # Has Meta class
+            self.assertIn('"config": "config_",', result)  # Has field mapping
             self.assertNotIn(
                 "Dict[str, Any, None]", result, "Invalid type with None parameter was not cleaned"
             )  # Use self.assertNotIn
@@ -195,21 +195,30 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
 
         generated_code = model_visitor.visit_IRSchema(agent_data_source_schema, context)
 
-        # Assertions (mostly unchanged from previous correct version)
-        self.assertIn("class AgentDataSource:", generated_code)
+        # Assertions (updated for BaseSchema support due to field mappings)
+        self.assertIn("class AgentDataSource(BaseSchema):", generated_code)
         self.assertIn("@dataclass", generated_code)
-        self.assertIn("    agent_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
-        self.assertIn("    data_source_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
-        self.assertIn("    description: Optional[str]", generated_code)
-        self.assertIn("    instructions: Optional[str]", generated_code)
-        self.assertIn(
-            "    config_: Optional[Dict[str, Any]]", generated_code
-        )  # additionalProperties: true maps to Dict[str, Any], 'config' is sanitized to 'config_'
-        self.assertIn("    created_at: datetime", generated_code)  # Sanitized
-        self.assertIn("    updated_at: datetime", generated_code)  # Sanitized
+        self.assertIn("agent_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
+        self.assertIn("data_source_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
+        self.assertIn("description: Optional[str]", generated_code)
+        self.assertIn("instructions: Optional[str]", generated_code)
+        self.assertIn("config_: Optional[Dict[str, Any]]", generated_code)  # 'config' is sanitized to 'config_'
+        self.assertIn("created_at:", generated_code)  # Field exists (may be multi-line)
+        self.assertIn("datetime", generated_code)  # Has datetime type
+        self.assertIn("updated_at:", generated_code)  # Field exists (may be multi-line)
         self.assertIn(
             'data_source: "Optional[DataSource]"', generated_code
         )  # Forward reference correctly quoted by unified system
+
+        # Check BaseSchema Meta class and field mappings
+        self.assertIn("class Meta:", generated_code)
+        self.assertIn("key_transform_with_load = {", generated_code)
+        self.assertIn('"agentId": "agent_id",', generated_code)
+        self.assertIn('"config": "config_",', generated_code)
+        self.assertIn('"createdAt": "created_at",', generated_code)
+        self.assertIn('"dataSource": "data_source",', generated_code)
+        self.assertIn('"dataSourceId": "data_source_id",', generated_code)
+        self.assertIn('"updatedAt": "updated_at",', generated_code)
 
         generated_imports = context.import_collector.get_import_statements()
 
@@ -518,7 +527,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # print(f"\nGenerated Array Dataclass Code:\\n{generated_code}") # For debugging
 
         self.assertIn("@dataclass", generated_code, f"Expected @dataclass for array wrapper. Got:\n{generated_code}")
-        self.assertIn("class MyListWrapper:", generated_code)
+        self.assertIn("class MyListWrapper(BaseSchema):", generated_code)
         # Check for the wrapper's description in its docstring
         self.assertIn("A list of (previously anonymous) objects.", generated_code)
 
@@ -605,37 +614,30 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # print(f"\nGenerated Dataclass with Defaults Code:\n{generated_code}")
 
         self.assertIn("@dataclass", generated_code)
-        self.assertIn("class ModelWithDefaults:", generated_code)
+        self.assertIn("class ModelWithDefaults(BaseSchema):", generated_code)
 
-        # Check fields (order matters: required first, then optionals)
-        expected_field_definitions = [
-            "    required_with_default: str",  # Default ignored as it's required
-            '    name: Optional[str] = "Default Name"',
-            "    count: Optional[int] = 0",
-            "    tags: Optional[List[str]] = field(default_factory=list)",
-            "    active: Optional[bool] = True",
-            "    config_: Optional[Dict[str, Any]] = field(default_factory=dict)",  # Assuming object maps to Dict[str,Any], 'config' is sanitized to 'config_'
-            '    nullable_with_default: Optional[str] = "Nullable Default"',
-            "    no_default_optional: Optional[str] = None",  # Implicit default to None for Optional
-        ]
+        # Check specific field patterns (handling multi-line fields)
+        self.assertIn("required_with_default: str", generated_code)  # Required field, no default
+        self.assertIn("active: Optional[bool] = True", generated_code)
+        self.assertIn("config_: Optional[Dict[str, Any]] = field(", generated_code)  # Multi-line field
+        self.assertIn("default_factory=dict", generated_code)
+        self.assertIn("count: Optional[int] = 0", generated_code)
+        self.assertIn('name: Optional[str] = "Default Name"', generated_code)
+        self.assertIn("no_default_optional: Optional[str] = None", generated_code)
+        self.assertIn('nullable_with_default: Optional[str] = "Nullable Default"', generated_code)
+        self.assertIn("tags: Optional[List[str]] = field(default_factory=list)", generated_code)
 
-        # Normalize whitespace in generated code for comparison flexibility
-
-        normalized_generated_code = "\n".join(line.strip() for line in generated_code.splitlines())
-
-        for expected_def in expected_field_definitions:
-            # Normalize expected_def as well, just in case
-            normalized_expected_def = expected_def.strip()
-            self.assertIn(
-                normalized_expected_def,
-                normalized_generated_code,  # Use self.assertIn
-                f"Expected field definition '{normalized_expected_def}' not found. Code:\n{generated_code}",
-            )
+        # Check for BaseSchema Meta class
+        self.assertIn("class Meta:", generated_code)
+        self.assertIn("key_transform_with_load = {", generated_code)
+        self.assertIn('"config": "config_",', generated_code)
 
         # Check imports
         self.assertIn("List", context.import_collector.imports.get("typing", set()))
         self.assertIn("Dict", context.import_collector.imports.get("typing", set()))
         self.assertIn("Any", context.import_collector.imports.get("typing", set()))
         self.assertIn("Optional", context.import_collector.imports.get("typing", set()))
+        self.assertIn("BaseSchema", context.import_collector.imports.get("..core.schemas", set()))
+        self.assertIn("dataclass", context.import_collector.imports.get("dataclasses", set()))
         self.assertIn("dataclasses", context.import_collector.imports)
         self.assertIn("field", context.import_collector.imports["dataclasses"])

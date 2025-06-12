@@ -6,13 +6,13 @@ syntax instead of verbose if-elif-else chains.
 Expected Outcome: Generated code uses match-case for cleaner, more readable response handling.
 """
 
-import unittest.mock
 from unittest.mock import MagicMock
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
 from pyopenapi_gen.ir import IROperation, IRResponse, IRSchema
+from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 from pyopenapi_gen.visit.endpoint.generators.response_handler_generator import EndpointResponseHandlerGenerator
 
 
@@ -54,12 +54,16 @@ class TestMatchCaseResponseGeneration:
         writer = CodeWriter()
         generator = EndpointResponseHandlerGenerator()
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="User",
-        ):
-            # Act
-            generator.generate_response_handling(writer, operation, context)
+        # Create a ResponseStrategy for the 200 response
+        strategy = ResponseStrategy(
+            return_type="User",
+            response_schema=success_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0],  # 200 response
+        )
+
+        # Act
+        generator.generate_response_handling(writer, operation, context, strategy)
 
         # Assert
         generated_code = writer.get_code()
@@ -125,12 +129,16 @@ class TestMatchCaseResponseGeneration:
         writer = CodeWriter()
         generator = EndpointResponseHandlerGenerator()
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="Chat",
-        ):
-            # Act
-            generator.generate_response_handling(writer, operation, context)
+        # Create a ResponseStrategy for the 201 response
+        strategy = ResponseStrategy(
+            return_type="Chat",
+            response_schema=schema,
+            is_streaming=False,
+            response_ir=operation.responses[0],  # 201 response
+        )
+
+        # Act
+        generator.generate_response_handling(writer, operation, context, strategy)
 
         # Assert
         generated_code = writer.get_code()
@@ -170,8 +178,8 @@ class TestMatchCaseResponseGeneration:
         # Verify no unwrapping code appears (since no data wrapper expected)
         assert 'raw_data = response.json().get("data")' not in match_content
 
-        # Should have clean return for success case
-        assert "return cast(Chat, response.json())" in match_content
+        # Should have clean return for success case (now uses BaseSchema)
+        assert "return Chat.from_dict(response.json())" in match_content
 
     def test_default_response_handling__uses_conditional_case__handles_catch_all(self) -> None:
         """
@@ -206,12 +214,17 @@ class TestMatchCaseResponseGeneration:
         writer = CodeWriter()
         generator = EndpointResponseHandlerGenerator()
 
-        with unittest.mock.patch(
-            "pyopenapi_gen.visit.endpoint.generators.response_handler_generator.get_return_type_unified",
-            return_value="Data",
-        ):
-            # Act
-            generator.generate_response_handling(writer, operation, context)
+        # Create a ResponseStrategy for the 200 response
+        data_schema = IRSchema(type="object", name="Data")
+        strategy = ResponseStrategy(
+            return_type="Data",
+            response_schema=data_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0],  # 200 response
+        )
+
+        # Act
+        generator.generate_response_handling(writer, operation, context, strategy)
 
         # Assert
         generated_code = writer.get_code()

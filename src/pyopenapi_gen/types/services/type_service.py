@@ -85,24 +85,6 @@ class UnifiedTypeService:
         resolved = self.response_resolver.resolve_operation_response(operation, type_context)
         return self._format_resolved_type(resolved, context)
 
-    def resolve_operation_response_with_unwrap_info(
-        self, operation: IROperation, context: RenderContext
-    ) -> tuple[str, bool]:
-        """
-        Resolve an operation's response to a Python type string with unwrapping information.
-
-        Args:
-            operation: The operation to resolve
-            context: Render context for imports
-
-        Returns:
-            Tuple of (Python type string, was_unwrapped flag)
-        """
-        type_context = RenderContextAdapter(context)
-        resolved = self.response_resolver.resolve_operation_response(operation, type_context)
-        python_type = self._format_resolved_type(resolved, context)
-        return python_type, resolved.was_unwrapped
-
     def resolve_response_type(self, response: IRResponse, context: RenderContext) -> str:
         """
         Resolve a specific response to a Python type string.

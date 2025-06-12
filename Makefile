@@ -26,7 +26,7 @@ quality: format-check lint typecheck security test
 
 # Testing commands
 test:
-	poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+	poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml:coverage_reports/coverage.xml --cov-fail-under=85
 
 test-no-cov:
 	poetry run pytest
@@ -38,11 +38,12 @@ test-fast:
 	poetry run pytest -x
 
 test-serial:
-	poetry run pytest --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+	poetry run pytest --cov=src --cov-report=term-missing --cov-report=xml:coverage_reports/coverage.xml --cov-fail-under=85
 
 coverage-html:
-	poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=html --cov-fail-under=85
-	open htmlcov/index.html
+	mkdir -p coverage_reports
+	poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=html:coverage_reports/html --cov-fail-under=85
+	open coverage_reports/html/index.html
 
 # Development workflow
 dev-setup:

@@ -455,7 +455,7 @@ class TestEndpointUrlArgsGenerator:
         )
 
         code_writer_mock.write_line.assert_any_call(
-            f"files_data: {files_param_info['type']} = DataclassSerializer.serialize(files)"
+            f"files_data: {files_param_info["type"]} = DataclassSerializer.serialize(files)"
         )
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
         render_context_mock.add_typing_imports_for_type.assert_called_with(files_param_info["type"])

@@ -83,7 +83,6 @@ def test_cli_with_optional_flags(spec_file: Path, tmp_path: Path) -> None:
             sys.executable,
             "-m",
             "pyopenapi_gen.cli",
-            "gen",
             str(spec_file),
             "--project-root",
             str(tmp_path),

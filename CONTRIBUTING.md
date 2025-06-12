@@ -17,7 +17,7 @@ Thank you for your interest in contributing to PyOpenAPI Generator! This guide w
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.12 or higher
 - Poetry (recommended) or pip
 - Git
 
