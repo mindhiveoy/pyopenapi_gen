@@ -42,4 +42,11 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Enable formal PR reviews instead of just comments
+          create_review: true
+          auto_approve: true
+          allowed_tools: |
+            mcp__github__create_pull_request
+            mcp__github__create_review
+            mcp__github__approve_pull_request
 

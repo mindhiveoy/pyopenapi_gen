@@ -31,7 +31,7 @@ jobs:
           echo "PR Base Branch: $pr_base"
           
           # PRs that should get Claude review:
-          # 1. ALL PRs targeting develop branch (main development branch)
+          # 1. ALL PRs targeting develop, staging, or main branches
           # 2. Dependabot PRs (dependency updates)
           # 3. Version bump PRs from devops-mindhive
           # 4. Documentation PRs from devops-mindhive
@@ -40,8 +40,10 @@ jobs:
           needs_review=false
           
           if [[ "$pr_base" == "develop" ]] || \
+             [[ "$pr_base" == "staging" ]] || \
+             [[ "$pr_base" == "main" ]] || \
              [[ "$pr_author" == "dependabot[bot]" ]] || \
-             [[ "$pr_author" == "devops-mindhive" && "$pr_title" =~ ^(release|chore|docs): ]] || \
+             [[ "$pr_author" == "devops-mindhive" && "$pr_title" =~ ^(release|chore|docs|fix): ]] || \
              [[ "$pr_title" =~ \[claude-review\] ]]; then
             needs_review=true
           fi
@@ -57,12 +59,13 @@ jobs:
       - name: Request Claude review
         if: steps.needs_review.outputs.needs_review == 'true'
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body "@claude Please review this PR for code quality, security, and compatibility. If you find any issues:
+          gh pr comment ${{ github.event.pull_request.number }} --body "@claude Please review this PR for code quality, security, and compatibility:
           
-          1. **For fixable issues** (formatting, linting, small bugs): Please fix them directly by committing to this PR branch
+          **Review Actions Required:**
+          1. **For fixable issues** (formatting, linting, small bugs): Fix them directly by committing to this PR branch
           2. **For larger issues**: Comment with specific feedback and create issues if needed
-          3. **If everything looks good**: Approve and merge the PR
+          3. **If everything looks good**: Provide formal GitHub PR approval and auto-merge if all checks pass
           
-          You have full access to modify code, run tests, and ensure the PR meets our quality standards."
+          **Important**: Please use formal GitHub PR review approval, not just comments. You have full access to modify code, run tests, approve, and merge PRs that meet our quality standards."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
