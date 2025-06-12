@@ -17,6 +17,7 @@ from pyopenapi_gen.http_types import HTTPMethod
 
 # Corrected imports based on actual file structure
 from pyopenapi_gen.ir import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
+from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 from pyopenapi_gen.visit.endpoint.processors.import_analyzer import EndpointImportAnalyzer
 
 
@@ -68,17 +69,19 @@ class TestEndpointImportAnalyzer:
             description="Test description",
         )
 
-        with (
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
-            ) as mock_get_param_type,
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="SuccessResponse",
-            ) as mock_get_return_type_unified,
-        ):
+        # Create ResponseStrategy for the test
+        response_strategy = ResponseStrategy(
+            return_type="SuccessResponse",
+            response_schema=mock_success_response_schema,
+            is_streaming=False,
+            response_ir=mock_response,
+        )
+
+        with unittest_patch(
+            "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
+        ) as mock_get_param_type:
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             # Called once in main loop, once in AsyncIterator check
@@ -86,16 +89,8 @@ class TestEndpointImportAnalyzer:
             mock_get_param_type.assert_any_call(param1, render_context_mock, schemas_mock)
             render_context_mock.add_typing_imports_for_type.assert_any_call("str")  # For param
 
-            mock_get_return_type_unified.assert_called_once_with(operation, render_context_mock, schemas_mock)
-            # For return type "SuccessResponse"
+            # Should register imports for the response strategy's return type
             render_context_mock.add_typing_imports_for_type.assert_any_call("SuccessResponse")
-            # Total calls to add_typing_imports_for_type depends on how many distinct types are processed
-            # For ("str") and ("SuccessResponse"), it should be 2 if they are distinct and handled.
-            # If get_param_type is called twice with "str", add_typing_imports_for_type might be called twice for "str"
-            # RenderContext.add_typing_imports_for_type should be idempotent or handle multiple calls gracefully.
-            # Let's check based on distinct types identified.
-            # self.assertEqual(self.render_context_mock.add_typing_imports_for_type.call_count, 2)
-            # This assertion is fragile; focusing on specific any_call for expected types is better.
 
     def test_analyze_and_register_imports_request_body_multipart(
         self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
@@ -110,6 +105,7 @@ class TestEndpointImportAnalyzer:
         # Mock IRRequestBody correctly for content types
         mock_request_body = IRRequestBody(content={"multipart/form-data": IRSchema(type="object")}, required=True)
 
+        no_content_response = IRResponse(status_code="204", description="No Content", content={})
         operation = IROperation(
             operation_id="upload_file",
             method=HTTPMethod.POST,
@@ -117,22 +113,21 @@ class TestEndpointImportAnalyzer:
             tags=["files"],
             parameters=[],
             request_body=mock_request_body,
-            responses=[IRResponse(status_code="204", description="No Content", content={})],
+            responses=[no_content_response],
             summary="Upload file",
             description="Uploads a file via multipart.",
         )
 
-        with (
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
-            ) as mock_get_param_type,  # Parameters list is empty, so this won't be called in param loop
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="None",  # Assuming 204 No Content means None return type
-            ) as mock_get_return_type_unified,
-        ):
+        # Create ResponseStrategy for 204 No Content
+        response_strategy = ResponseStrategy(
+            return_type="None", response_schema=None, is_streaming=False, response_ir=no_content_response
+        )
+
+        with unittest_patch(
+            "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
+        ) as mock_get_param_type:  # Parameters list is empty, so this won't be called in param loop
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             # Imports for multipart body
@@ -142,8 +137,7 @@ class TestEndpointImportAnalyzer:
             # Type registration for the body type string
             render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, IO[Any]]")
 
-            # Return type import
-            mock_get_return_type_unified.assert_called_once_with(operation, render_context_mock, schemas_mock)
+            # Return type import using ResponseStrategy
             render_context_mock.add_typing_imports_for_type.assert_any_call("None")
 
             # get_param_type should be called 0 times in param loop (empty params) + 0 times in async check (empty params)
@@ -162,6 +156,7 @@ class TestEndpointImportAnalyzer:
         json_body_schema = IRSchema(type="object", name="MyJsonPayload")
         mock_request_body = IRRequestBody(content={"application/json": json_body_schema}, required=True)
 
+        created_response = IRResponse(status_code="201", description="Created", content={})
         operation = IROperation(
             operation_id="create_item_json",
             method=HTTPMethod.POST,
@@ -169,9 +164,14 @@ class TestEndpointImportAnalyzer:
             tags=["items"],
             parameters=[],
             request_body=mock_request_body,
-            responses=[IRResponse(status_code="201", description="Created", content={})],
+            responses=[created_response],
             summary="Create item via JSON",
             description="Creates an item using JSON payload.",
+        )
+
+        # Create ResponseStrategy for 201 Created
+        response_strategy = ResponseStrategy(
+            return_type="None", response_schema=None, is_streaming=False, response_ir=created_response
         )
 
         with (
@@ -182,13 +182,9 @@ class TestEndpointImportAnalyzer:
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_request_body_type",
                 return_value="MyJsonPayload",
             ) as mock_get_request_body_type,
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="None",
-            ) as mock_get_return_type_unified,
         ):
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             mock_get_request_body_type.assert_called_once_with(mock_request_body, render_context_mock, schemas_mock)
@@ -212,6 +208,7 @@ class TestEndpointImportAnalyzer:
             content={"application/x-www-form-urlencoded": IRSchema(type="object")}, required=True
         )
 
+        ok_response = IRResponse(status_code="200", description="OK", content={})
         operation = IROperation(
             operation_id="submit_form",
             method=HTTPMethod.POST,
@@ -219,22 +216,21 @@ class TestEndpointImportAnalyzer:
             tags=["forms"],
             parameters=[],
             request_body=mock_request_body,
-            responses=[IRResponse(status_code="200", description="OK", content={})],
+            responses=[ok_response],
             summary="Submit form data",
             description="Submits data via form urlencoded.",
         )
 
-        with (
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
-            ) as mock_get_param_type,
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="None",
-            ) as mock_get_return_type_unified,
-        ):
+        # Create ResponseStrategy for 200 OK
+        response_strategy = ResponseStrategy(
+            return_type="None", response_schema=None, is_streaming=False, response_ir=ok_response
+        )
+
+        with unittest_patch(
+            "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
+        ) as mock_get_param_type:
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             # Imports for form-urlencoded body
@@ -243,7 +239,7 @@ class TestEndpointImportAnalyzer:
             # Type registration for the body type string "Dict[str, Any]"
             render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, Any]")
 
-            # Return type import
+            # Return type import using ResponseStrategy
             render_context_mock.add_typing_imports_for_type.assert_any_call("None")
             assert mock_get_param_type.call_count == 0  # No params
 
@@ -262,6 +258,7 @@ class TestEndpointImportAnalyzer:
             required=True,
         )
 
+        ok_response = IRResponse(status_code="200", description="OK", content={})
         operation = IROperation(
             operation_id="upload_binary",
             method=HTTPMethod.POST,
@@ -269,29 +266,27 @@ class TestEndpointImportAnalyzer:
             tags=["binary"],
             parameters=[],
             request_body=mock_request_body,
-            responses=[IRResponse(status_code="200", description="OK", content={})],
+            responses=[ok_response],
             summary="Upload binary data",
             description="Uploads raw binary data.",
         )
 
-        with (
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
-            ) as mock_get_param_type,
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="None",
-            ) as mock_get_return_type_unified,
-            # get_request_body_type is NOT called in this path
-        ):
+        # Create ResponseStrategy for 200 OK
+        response_strategy = ResponseStrategy(
+            return_type="None", response_schema=None, is_streaming=False, response_ir=ok_response
+        )
+
+        with unittest_patch(
+            "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
+        ) as mock_get_param_type:
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             # Type registration for the body type string "bytes"
             render_context_mock.add_typing_imports_for_type.assert_any_call("bytes")
 
-            # Return type import
+            # Return type import using ResponseStrategy
             render_context_mock.add_typing_imports_for_type.assert_any_call("None")
             assert mock_get_param_type.call_count == 0  # No params
 
@@ -307,6 +302,7 @@ class TestEndpointImportAnalyzer:
         # Arrange
         mock_request_body = IRRequestBody(content={}, required=True)  # Empty content dict
 
+        ok_response = IRResponse(status_code="200", description="OK", content={})
         operation = IROperation(
             operation_id="test_empty_content",
             method=HTTPMethod.POST,
@@ -314,9 +310,14 @@ class TestEndpointImportAnalyzer:
             tags=["test"],
             parameters=[],
             request_body=mock_request_body,
-            responses=[IRResponse(status_code="200", description="OK", content={})],
+            responses=[ok_response],
             summary="Test empty content",
             description="Tests request body with no content types.",
+        )
+
+        # Create ResponseStrategy for 200 OK
+        response_strategy = ResponseStrategy(
+            return_type="None", response_schema=None, is_streaming=False, response_ir=ok_response
         )
 
         with (
@@ -326,13 +327,9 @@ class TestEndpointImportAnalyzer:
             unittest_patch(
                 "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_request_body_type"
             ) as mock_get_request_body_type,  # Should not be called
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="None",
-            ) as mock_get_return_type_unified,
         ):
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             # Ensure add_typing_imports_for_type was not called for any specific body type derived from the empty content
@@ -362,6 +359,7 @@ class TestEndpointImportAnalyzer:
             "collections.abc" should be imported.
         """
         # Arrange
+        streaming_response = IRResponse(status_code="200", description="Streaming data", content={})
         operation = IROperation(
             operation_id="stream_data",
             method=HTTPMethod.GET,
@@ -369,24 +367,24 @@ class TestEndpointImportAnalyzer:
             tags=["streaming"],
             parameters=[],
             request_body=None,
-            responses=[  # Simplified, actual response structure for streaming can vary
-                IRResponse(status_code="200", description="Streaming data", content={})
-            ],
+            responses=[streaming_response],
             summary="Stream data",
             description="Streams data using AsyncIterator.",
         )
 
-        with (
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
-            ) as mock_get_param_type,
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="AsyncIterator[DataItem]",  # Return type includes AsyncIterator
-            ) as mock_get_return_type_unified,
-        ):
+        # Create ResponseStrategy with AsyncIterator return type
+        response_strategy = ResponseStrategy(
+            return_type="AsyncIterator[DataItem]",
+            response_schema=None,
+            is_streaming=True,
+            response_ir=streaming_response,
+        )
+
+        with unittest_patch(
+            "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type", return_value="str"
+        ) as mock_get_param_type:
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             render_context_mock.add_plain_import.assert_called_once_with("collections.abc")
@@ -407,6 +405,7 @@ class TestEndpointImportAnalyzer:
         async_param_schema = IRSchema(type="object")  # Actual type doesn't matter as get_param_type is mocked
         async_param = IRParameter(name="inputStream", param_in="query", required=True, schema=async_param_schema)
 
+        ok_response = IRResponse(status_code="200", description="OK", content={})
         operation = IROperation(
             operation_id="process_stream",
             method=HTTPMethod.POST,
@@ -414,9 +413,14 @@ class TestEndpointImportAnalyzer:
             tags=["streaming"],
             parameters=[async_param],
             request_body=None,
-            responses=[IRResponse(status_code="200", description="OK", content={})],
+            responses=[ok_response],
             summary="Process stream",
             description="Processes an input stream.",
+        )
+
+        # Create ResponseStrategy for simple response (non-AsyncIterator return type)
+        response_strategy = ResponseStrategy(
+            return_type="SimpleResponse", response_schema=None, is_streaming=False, response_ir=ok_response
         )
 
         # Mock get_param_type to return AsyncIterator for the specific param, and something else otherwise
@@ -425,18 +429,12 @@ class TestEndpointImportAnalyzer:
                 return "AsyncIterator[bytes]"
             return "RegularType"
 
-        with (
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type",
-                side_effect=mock_get_param_type_side_effect,
-            ) as mock_get_param_type,
-            unittest_patch(
-                "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_return_type_unified",
-                return_value="SimpleResponse",  # Return type does NOT include AsyncIterator
-            ) as mock_get_return_type_unified,
-        ):
+        with unittest_patch(
+            "pyopenapi_gen.visit.endpoint.processors.import_analyzer.get_param_type",
+            side_effect=mock_get_param_type_side_effect,
+        ) as mock_get_param_type:
             # Act
-            import_analyzer.analyze_and_register_imports(operation, render_context_mock)
+            import_analyzer.analyze_and_register_imports(operation, render_context_mock, response_strategy)
 
             # Assert
             render_context_mock.add_plain_import.assert_called_once_with("collections.abc")

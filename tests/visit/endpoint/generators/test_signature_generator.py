@@ -10,7 +10,8 @@ import pytest
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.http_types import HTTPMethod
-from pyopenapi_gen.ir import IROperation, IRParameter, IRSchema
+from pyopenapi_gen.ir import IROperation, IRParameter, IRResponse, IRSchema
+from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 from pyopenapi_gen.visit.endpoint.generators.signature_generator import EndpointMethodSignatureGenerator
 
 
@@ -73,12 +74,15 @@ class TestEndpointMethodSignatureGenerator:
         writer = CodeWriter()
         ordered_params_from_processor: List[Dict[str, Any]] = []
 
-        with patch(
-            "pyopenapi_gen.visit.endpoint.generators.signature_generator.get_return_type_unified", return_value="None"
-        ):
-            generator.generate_signature(
-                writer, op_for_sig_basic, render_context_mock_for_sig, ordered_params_from_processor
-            )
+        # Create ResponseStrategy for the test
+        response_ir = IRResponse(status_code="204", description="No Content", content={})
+        response_strategy = ResponseStrategy(
+            return_type="None", response_schema=None, is_streaming=False, response_ir=response_ir
+        )
+
+        generator.generate_signature(
+            writer, op_for_sig_basic, render_context_mock_for_sig, ordered_params_from_processor, response_strategy
+        )
 
         generated_code = writer.get_code().strip()
         expected_signature_parts = ["async def get_basic(", "    self,", ") -> None:"]
@@ -113,13 +117,14 @@ class TestEndpointMethodSignatureGenerator:
             },
         ]
 
-        with (
-            patch(
-                "pyopenapi_gen.visit.endpoint.generators.signature_generator.get_return_type_unified",
-                return_value="SomeReturnType",
-            ) as mock_get_return_unified,
-            patch("pyopenapi_gen.visit.endpoint.generators.signature_generator.get_param_type") as mock_get_param_type,
-        ):
+        # Create ResponseStrategy for the test
+        response_schema = IRSchema(type="object", name="SomeReturnType")
+        response_ir = IRResponse(status_code="200", description="OK", content={"application/json": response_schema})
+        response_strategy = ResponseStrategy(
+            return_type="SomeReturnType", response_schema=response_schema, is_streaming=False, response_ir=response_ir
+        )
+
+        with patch("pyopenapi_gen.visit.endpoint.generators.signature_generator.get_param_type") as mock_get_param_type:
             mock_get_param_type.side_effect = lambda param_spec, ctx, schemas_dict: {
                 "id": "int",
                 "limit": "Optional[int]",
@@ -127,7 +132,11 @@ class TestEndpointMethodSignatureGenerator:
             }.get(param_spec.name, "Any")
 
             generator.generate_signature(
-                writer, op_for_sig_with_params, render_context_mock_for_sig, ordered_params_from_processor
+                writer,
+                op_for_sig_with_params,
+                render_context_mock_for_sig,
+                ordered_params_from_processor,
+                response_strategy,
             )
 
         generated_code = writer.get_code().strip()

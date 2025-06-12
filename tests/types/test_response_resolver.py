@@ -148,31 +148,29 @@ class TestOpenAPIResponseResolver:
         assert result.python_type == "Dict[str, Any]"
         mock_schema_resolver.resolve_schema.assert_called_once_with(schema, mock_context, required=True)
 
-    def test_resolve_specific_response__data_unwrapping__returns_unwrapped_type(
+    def test_resolve_specific_response__data_wrapper__returns_wrapper_type(
         self, resolver, mock_context, mock_schema_resolver
     ) -> None:
         """
         Scenario: Resolving response with data wrapper property
-        Expected Outcome: Returns unwrapped type
+        Expected Outcome: Returns wrapper type as-is (no unwrapping)
         """
         # Arrange
         data_schema = IRSchema(type="string")
         wrapper_schema = IRSchema(type="object", properties={"data": data_schema})
         response = IRResponse(status_code="200", description="Success", content={"application/json": wrapper_schema})
 
-        # First call returns wrapper, second call returns unwrapped data
-        mock_schema_resolver.resolve_schema.side_effect = [
-            ResolvedType(python_type="WrapperType"),  # First call for wrapper
-            ResolvedType(python_type="str"),  # Second call for data property
-        ]
+        # Mock returns wrapper type (no unwrapping behavior)
+        expected_result = ResolvedType(python_type="WrapperType")
+        mock_schema_resolver.resolve_schema.return_value = expected_result
 
         # Act
         result = resolver.resolve_specific_response(response, mock_context)
 
         # Assert
-        assert result.python_type == "str"
-        # Should be called twice: once for wrapper, once for data property
-        assert mock_schema_resolver.resolve_schema.call_count == 2
+        assert result.python_type == "WrapperType"
+        # Should be called only once for the wrapper schema (no unwrapping)
+        mock_schema_resolver.resolve_schema.assert_called_once_with(wrapper_schema, mock_context, required=True)
 
     def test_resolve_specific_response__response_reference__resolves_target(
         self, resolver, mock_context, mock_ref_resolver
@@ -227,3 +225,164 @@ class TestOpenAPIResponseResolver:
         assert result.python_type == "Dict[str, Any]"
         # Should resolve the JSON schema, not XML or plain text
         mock_schema_resolver.resolve_schema.assert_called_once_with(json_schema, mock_context, required=True)
+
+    def test_resolve_specific_response__prefers_json_variants(
+        self, resolver, mock_context, mock_schema_resolver
+    ) -> None:
+        """
+        Scenario: Response with JSON variants but no application/json
+        Expected Outcome: Prefers any content type containing 'json'
+        """
+        # Arrange
+        json_api_schema = IRSchema(type="object")
+        xml_schema = IRSchema(type="string")
+        response = IRResponse(
+            status_code="200",
+            description="Success",
+            content={
+                "application/xml": xml_schema,
+                "application/vnd.api+json": json_api_schema,
+                "text/plain": IRSchema(type="string"),
+            },
+        )
+
+        expected_result = ResolvedType(python_type="Dict[str, Any]")
+        mock_schema_resolver.resolve_schema.return_value = expected_result
+
+        # Act
+        result = resolver.resolve_specific_response(response, mock_context)
+
+        # Assert
+        assert result.python_type == "Dict[str, Any]"
+        # Should resolve the JSON API schema
+        mock_schema_resolver.resolve_schema.assert_called_once_with(json_api_schema, mock_context, required=True)
+
+    def test_resolve_specific_response__fallback_to_first_content_type(
+        self, resolver, mock_context, mock_schema_resolver
+    ) -> None:
+        """
+        Scenario: Response with no JSON content types
+        Expected Outcome: Uses first available content type
+        """
+        # Arrange
+        xml_schema = IRSchema(type="string")
+        plain_schema = IRSchema(type="string")
+        response = IRResponse(
+            status_code="200",
+            description="Success",
+            content={
+                "application/xml": xml_schema,
+                "text/plain": plain_schema,
+            },
+        )
+
+        expected_result = ResolvedType(python_type="str")
+        mock_schema_resolver.resolve_schema.return_value = expected_result
+
+        # Act
+        result = resolver.resolve_specific_response(response, mock_context)
+
+        # Assert
+        assert result.python_type == "str"
+        # Should resolve the first content type (XML)
+        mock_schema_resolver.resolve_schema.assert_called_once_with(xml_schema, mock_context, required=True)
+
+    def test_resolve_specific_response__response_ref_not_found(self, resolver, mock_context, mock_ref_resolver) -> None:
+        """
+        Scenario: Response reference cannot be resolved
+        Expected Outcome: Returns None type
+        """
+        # Arrange
+        response = Mock()
+        response.ref = "#/components/responses/NonExistentResponse"
+
+        # Mock ref resolver to return None (not found)
+        mock_ref_resolver.resolve_response_ref.return_value = None
+
+        # Act
+        result = resolver.resolve_specific_response(response, mock_context)
+
+        # Assert
+        assert result.python_type == "None"
+        mock_ref_resolver.resolve_response_ref.assert_called_once_with("#/components/responses/NonExistentResponse")
+
+    def test_resolve_specific_response__streaming_binary_content(self, resolver, mock_context) -> None:
+        """
+        Scenario: Streaming response with binary content
+        Expected Outcome: Returns AsyncIterator[bytes]
+        """
+        # Arrange
+        response = IRResponse(
+            status_code="200",
+            description="Streaming binary",
+            content={"application/octet-stream": IRSchema(type="string", format="binary")},
+            stream=True,
+        )
+
+        # Act
+        result = resolver.resolve_specific_response(response, mock_context)
+
+        # Assert
+        assert result.python_type == "AsyncIterator[bytes]"
+        mock_context.add_import.assert_called_with("typing", "AsyncIterator")
+
+    def test_resolve_specific_response__streaming_event_stream(self, resolver, mock_context) -> None:
+        """
+        Scenario: Streaming response with event stream content
+        Expected Outcome: Returns AsyncIterator[Dict[str, Any]]
+        """
+        # Arrange
+        response = IRResponse(
+            status_code="200",
+            description="Server-sent events",
+            content={"text/event-stream": IRSchema(type="object")},
+            stream=True,
+        )
+
+        # Act
+        result = resolver.resolve_specific_response(response, mock_context)
+
+        # Assert
+        assert result.python_type == "AsyncIterator[Dict[str, Any]]"
+        mock_context.add_import.assert_any_call("typing", "AsyncIterator")
+        mock_context.add_import.assert_any_call("typing", "Dict")
+        mock_context.add_import.assert_any_call("typing", "Any")
+
+    def test_resolve_specific_response__streaming_with_schema(
+        self, resolver, mock_context, mock_schema_resolver
+    ) -> None:
+        """
+        Scenario: Streaming response with resolvable schema
+        Expected Outcome: Returns AsyncIterator[ResolvedType]
+        """
+        # Arrange
+        stream_schema = IRSchema(type="object", name="StreamItem")
+        response = IRResponse(
+            status_code="200", description="Streaming objects", content={"application/json": stream_schema}, stream=True
+        )
+
+        expected_result = ResolvedType(python_type="StreamItem")
+        mock_schema_resolver.resolve_schema.return_value = expected_result
+
+        # Act
+        result = resolver.resolve_specific_response(response, mock_context)
+
+        # Assert
+        assert result.python_type == "AsyncIterator[StreamItem]"
+        mock_context.add_import.assert_called_with("typing", "AsyncIterator")
+        mock_schema_resolver.resolve_schema.assert_called_once_with(stream_schema, mock_context, required=True)
+
+    def test_resolve_specific_response__streaming_no_content(self, resolver, mock_context) -> None:
+        """
+        Scenario: Streaming response with no content
+        Expected Outcome: Returns AsyncIterator[bytes]
+        """
+        # Arrange
+        response = IRResponse(status_code="200", description="Empty stream", content={}, stream=True)
+
+        # Act
+        result = resolver.resolve_specific_response(response, mock_context)
+
+        # Assert
+        assert result.python_type == "AsyncIterator[bytes]"
+        mock_context.add_import.assert_called_with("typing", "AsyncIterator")

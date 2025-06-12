@@ -265,7 +265,8 @@ class TestObjectTypeResolver:
         """
         # Arrange
         result = self.resolver._promote_anonymous_object_schema_if_needed(
-            IRSchema(name=None, type="object"), None  # No proposed name base
+            IRSchema(name=None, type="object"),
+            None,  # No proposed name base
         )
 
         # Assert
@@ -525,7 +526,9 @@ class TestObjectTypeResolver:
         """
         # Arrange
         actual_schema = IRSchema(
-            name="TestModel", generation_name=None, final_module_stem="test_model"  # Missing generation_name
+            name="TestModel",
+            generation_name=None,
+            final_module_stem="test_model",  # Missing generation_name
         )
         self.all_schemas["TestModel"] = actual_schema
 
@@ -543,7 +546,9 @@ class TestObjectTypeResolver:
         """
         # Arrange
         actual_schema = IRSchema(
-            name="TestModel", generation_name="TestModel", final_module_stem=None  # Missing final_module_stem
+            name="TestModel",
+            generation_name="TestModel",
+            final_module_stem=None,  # Missing final_module_stem
         )
         self.all_schemas["TestModel"] = actual_schema
 
@@ -561,7 +566,9 @@ class TestObjectTypeResolver:
         """
         # Arrange
         actual_schema = IRSchema(
-            name="EmptyModel", generation_name=None, final_module_stem="empty_model"  # Missing generation_name
+            name="EmptyModel",
+            generation_name=None,
+            final_module_stem="empty_model",  # Missing generation_name
         )
         self.all_schemas["EmptyModel"] = actual_schema
 
@@ -578,7 +585,9 @@ class TestObjectTypeResolver:
         """
         # Arrange
         actual_schema = IRSchema(
-            name="EmptyModel", generation_name="EmptyModel", final_module_stem=None  # Missing final_module_stem
+            name="EmptyModel",
+            generation_name="EmptyModel",
+            final_module_stem=None,  # Missing final_module_stem
         )
         self.all_schemas["EmptyModel"] = actual_schema
 

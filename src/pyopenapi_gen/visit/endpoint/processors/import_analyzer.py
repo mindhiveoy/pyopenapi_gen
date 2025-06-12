@@ -11,12 +11,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional  # IO for multipart type h
 from pyopenapi_gen.helpers.endpoint_utils import (
     get_param_type,
     get_request_body_type,
-    get_return_type_unified,
 )
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IROperation  # IRParameter for op.parameters type hint
     from pyopenapi_gen.context.render_context import RenderContext
+    from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ class EndpointImportAnalyzer:
         self,
         op: IROperation,
         context: RenderContext,
+        response_strategy: ResponseStrategy,
     ) -> None:
         """Analyzes the operation and registers imports with the RenderContext."""
         for param in op.parameters:  # op.parameters are IRParameter objects
@@ -60,7 +61,8 @@ class EndpointImportAnalyzer:
             if body_param_type:
                 context.add_typing_imports_for_type(body_param_type)
 
-        return_type = get_return_type_unified(op, context, self.schemas)
+        # Use the response strategy's return type for import analysis
+        return_type = response_strategy.return_type
         context.add_typing_imports_for_type(return_type)
 
         # Check for AsyncIterator in return type or parameter types

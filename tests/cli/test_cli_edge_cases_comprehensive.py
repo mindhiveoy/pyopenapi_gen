@@ -56,7 +56,7 @@ class TestCLIInputValidationEdgeCases:
 
                 result = runner.invoke(
                     app,
-                    ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", "test_client"],
+                    [str(spec_file), "--project-root", str(temp_dir), "--output-package", "test_client"],
                     catch_exceptions=True,
                 )
 
@@ -83,7 +83,7 @@ class TestCLIInputValidationEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["gen", str(spec_file), "--project-root", str(temp_path), "--output-package", "test_client"],
+                [str(spec_file), "--project-root", str(temp_path), "--output-package", "test_client"],
                 catch_exceptions=True,
             )
 
@@ -121,7 +121,7 @@ class TestCLIInputValidationEdgeCases:
 
                     result = runner.invoke(
                         app,
-                        ["gen", str(spec_file), "--project-root", str(special_path), "--output-package", "test_client"],
+                        [str(spec_file), "--project-root", str(special_path), "--output-package", "test_client"],
                         catch_exceptions=True,
                     )
 
@@ -162,7 +162,7 @@ class TestCLIParameterEdgeCases:
             for package_name in invalid_package_names:
                 result = runner.invoke(
                     app,
-                    ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", package_name],
+                    [str(spec_file), "--project-root", str(temp_dir), "--output-package", package_name],
                     catch_exceptions=True,
                 )
 
@@ -221,7 +221,7 @@ class TestCLIParameterEdgeCases:
 
             for scenario in conflicting_scenarios:
                 result = runner.invoke(
-                    app, ["gen", str(spec_file), "--project-root", str(temp_dir)] + scenario, catch_exceptions=True
+                    app, [str(spec_file), "--project-root", str(temp_dir)] + scenario, catch_exceptions=True
                 )
 
                 # Should handle conflicting parameters appropriately
@@ -251,7 +251,7 @@ class TestCLIFileSystemEdgeCases:
             try:
                 result = runner.invoke(
                     app,
-                    ["gen", str(spec_file), "--project-root", str(readonly_dir), "--output-package", "test_client"],
+                    [str(spec_file), "--project-root", str(readonly_dir), "--output-package", "test_client"],
                     catch_exceptions=True,
                 )
 
@@ -279,7 +279,7 @@ class TestCLIFileSystemEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["gen", str(spec_file), "--project-root", str(deep_nonexistent), "--output-package", "test_client"],
+                [str(spec_file), "--project-root", str(deep_nonexistent), "--output-package", "test_client"],
                 catch_exceptions=True,
             )
 
@@ -601,7 +601,7 @@ class TestCLIEdgeCaseRecovery:
 
             result = runner.invoke(
                 app,
-                ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", "test_client"],
+                [str(spec_file), "--project-root", str(temp_dir), "--output-package", "test_client"],
                 catch_exceptions=True,
             )
 
@@ -622,7 +622,7 @@ class TestCLIEdgeCaseRecovery:
 
             result = runner.invoke(
                 app,
-                ["gen", str(spec_file), "--project-root", str(temp_dir), "--output-package", "cleanup_test_client"],
+                [str(spec_file), "--project-root", str(temp_dir), "--output-package", "cleanup_test_client"],
                 catch_exceptions=True,
             )
 

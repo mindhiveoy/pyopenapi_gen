@@ -220,7 +220,7 @@ class TypeCleaner:
         if len(unique_members) == 1:
             return unique_members[0]  # A Union with one member is just that member.
 
-        return f"Union[{', '.join(unique_members)}]"
+        return f"Union[{", ".join(unique_members)}]"
 
     @classmethod
     def _clean_list_type(cls, type_str: str) -> str:

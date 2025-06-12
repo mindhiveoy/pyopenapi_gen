@@ -307,7 +307,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         # Sort types for consistent ordering
         resolved_types.sort()
         context.add_import("typing", "Union")
-        union_type = f"Union[{', '.join(resolved_types)}]"
+        union_type = f"Union[{", ".join(resolved_types)}]"
 
         return ResolvedType(python_type=union_type, is_optional=not required)
 
@@ -362,6 +362,6 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         # Sort types for consistent ordering
         resolved_types.sort()
         context.add_import("typing", "Union")
-        union_type = f"Union[{', '.join(resolved_types)}]"
+        union_type = f"Union[{", ".join(resolved_types)}]"
 
         return ResolvedType(python_type=union_type, is_optional=not required)

@@ -145,7 +145,7 @@ def test_models_emitter__object_with_array_property__generates_list_type_annotat
     assert "from dataclasses import dataclass" in result
     assert "from typing import" in result
     assert "@dataclass" in result
-    assert "class PetList:" in result
+    assert "class PetList(BaseSchema):" in result
     # Check for the item model import and type (now using correct same-directory relative imports)
     assert "from .pet_list_items_item import PetListItemsItem" in result
     assert "items: Optional[List[PetListItemsItem]]" in result
@@ -196,7 +196,7 @@ def test_models_emitter_datetime(tmp_path: Path) -> None:
     assert "from typing import" in result
     assert "from datetime import" in result
     assert "@dataclass" in result
-    assert "class Event:" in result
+    assert "class Event(BaseSchema):" in result
     assert "created_at: Optional[datetime]" in result
     assert "date_only: Optional[date]" in result
 
@@ -381,7 +381,7 @@ def test_models_emitter__array_of_models_alias(tmp_path: Path) -> None:
     assert item_model_file.exists()
     item_content = item_model_file.read_text()
     assert "@dataclass" in item_content
-    assert "class Item:" in item_content
+    assert "class Item(BaseSchema):" in item_content
 
     # Check ItemList.py (should be a type alias to List[Item])
     list_model_file: Path = out_dir / "models" / "item_list.py"  # module name sanitized
@@ -594,7 +594,7 @@ def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
     assert "from dataclasses import dataclass, field" in content
     assert "from typing import List, Optional" in content
     assert "@dataclass" in content
-    assert "class Config_:" in content  # 'Config' is sanitized to 'Config_' because 'config' is reserved
+    assert "class Config_(BaseSchema):" in content  # 'Config' is sanitized to 'Config_' because 'config' is reserved
     # Field should be Optional[List[str]] and use field(default_factory=list)
     assert "tags: Optional[List[str]] = field(default_factory=list)" in content
 
@@ -623,7 +623,7 @@ def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> No
     address_file: Path = out_dir / "models" / "address.py"
     assert address_file.exists()
     address_content = address_file.read_text()
-    assert "class Address:" in address_content
+    assert "class Address(BaseSchema):" in address_content
 
     # Check User.py
     user_file: Path = out_dir / "models" / "user.py"

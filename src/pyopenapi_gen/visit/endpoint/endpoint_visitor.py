@@ -2,10 +2,8 @@ import logging
 from typing import Any
 
 from pyopenapi_gen import IROperation
-from pyopenapi_gen.helpers.endpoint_utils import (
-    get_return_type_unified,
-)
 
+# No longer need endpoint utils helpers - using ResponseStrategy pattern
 from ...context.render_context import RenderContext
 from ...core.utils import NameSanitizer
 from ...core.writers.code_writer import CodeWriter
@@ -84,20 +82,3 @@ class EndpointVisitor(Visitor[IROperation, str]):
 
         writer.dedent()  # Dedent to close the class block
         return writer.get_code()
-
-    def _get_response_return_type_details(self, context: RenderContext, op: IROperation) -> tuple[str, bool, bool, str]:
-        """Gets type details for the endpoint response."""
-        # Check if this is a streaming response (either at op level or in schema)
-        is_streaming = any(getattr(resp, "stream", False) for resp in op.responses if resp.status_code.startswith("2"))
-
-        # Get the primary Python type for the operation's success response using unified service
-        return_type = get_return_type_unified(op, context, self.schemas)
-        should_unwrap = False  # Unified service handles unwrapping internally
-
-        # Determine the summary description (for docstring)
-        success_resp = next((r for r in op.responses if r.status_code.startswith("2")), None)
-        return_description = (
-            success_resp.description if success_resp and success_resp.description else "Successful operation"
-        )
-
-        return return_type, should_unwrap, is_streaming, return_description

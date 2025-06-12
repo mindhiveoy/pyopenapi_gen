@@ -4,7 +4,7 @@ Generates Python code for dataclasses from IRSchema objects.
 
 import json
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -81,6 +81,22 @@ class DataclassGenerator:
                 )
         return "None"
 
+    def _requires_field_mapping(self, api_field: str, python_field: str) -> bool:
+        """Check if field mapping is required between API and Python field names."""
+        return api_field != python_field
+
+    def _generate_field_mappings(self, properties: Dict[str, Any], sanitized_names: Dict[str, str]) -> Dict[str, str]:
+        """Generate field mappings for BaseSchema configuration."""
+        mappings = {}
+        for api_name, python_name in sanitized_names.items():
+            if api_name in properties and self._requires_field_mapping(api_name, python_name):
+                mappings[api_name] = python_name
+        return mappings
+
+    def _has_any_mappings(self, properties: Dict[str, Any], sanitized_names: Dict[str, str]) -> bool:
+        """Check if any field mappings are needed."""
+        return bool(self._generate_field_mappings(properties, sanitized_names))
+
     def generate(
         self,
         schema: IRSchema,
@@ -116,6 +132,7 @@ class DataclassGenerator:
 
         class_name = base_name
         fields_data: List[Tuple[str, str, Optional[str], Optional[str]]] = []
+        field_mappings: Dict[str, str] = {}
 
         if schema.type == "array" and schema.items:
             field_name_for_array_content = "items"
@@ -161,6 +178,10 @@ class DataclassGenerator:
                 # Sanitize the property name for use as a Python attribute
                 field_name = NameSanitizer.sanitize_method_name(prop_name)
 
+                # Track field mapping if the names differ
+                if self._requires_field_mapping(prop_name, field_name):
+                    field_mappings[prop_name] = field_name
+
                 py_type = self.type_service.resolve_schema_type(prop_schema, context, required=is_required)
                 py_type = TypeFinalizer(context)._clean_type(py_type)
 
@@ -168,18 +189,28 @@ class DataclassGenerator:
                 if not is_required:
                     default_expr = self._get_field_default(prop_schema, context)
 
+                # Enhance field documentation for mapped fields
                 field_doc = prop_schema.description
+                if field_mappings.get(prop_name) == field_name and prop_name != field_name:
+                    if field_doc:
+                        field_doc = f"{field_doc} (maps from '{prop_name}')"
+                    else:
+                        field_doc = f"Maps from '{prop_name}'"
+
                 fields_data.append((field_name, py_type, default_expr, field_doc))
 
         # logger.debug(
         #     f"DataclassGenerator: Preparing to render dataclass '{class_name}' with fields: {fields_data}."
         # )
 
+        # Always use BaseSchema for better developer experience
+        # Only include field mappings if there are actual mappings needed
         rendered_code = self.renderer.render_dataclass(
             class_name=class_name,
             fields=fields_data,
             description=schema.description,
             context=context,
+            field_mappings=field_mappings if field_mappings else None,
         )
 
         assert rendered_code.strip(), "Generated dataclass code cannot be empty."
