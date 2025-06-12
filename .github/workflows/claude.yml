@@ -42,11 +42,19 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Enable formal PR reviews instead of just comments
-          create_review: true
-          auto_approve: true
-          allowed_tools: |
-            mcp__github__create_pull_request
-            mcp__github__create_review
-            mcp__github__approve_pull_request
+          direct_prompt: |
+            Review this PR for code quality, security, and compatibility:
+            
+            **For hotfixes and minor fixes:**
+            1. If code quality is good and tests pass, fix any minor issues directly
+            2. Provide detailed analysis in comments
+            3. Note if manual approval is recommended
+            
+            **For larger changes:**
+            1. Provide comprehensive review feedback
+            2. Create issues for complex problems
+            3. Suggest improvements and alternatives
+            
+            Focus on: syntax errors, security issues, type safety, and compatibility.
+          timeout_minutes: 60
 
