@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "0.8.4"
+version = "0.8.6"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
 authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
 maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
@@ -14,8 +14,8 @@ dependencies = [
   "openapi-spec-validator>=0.7",
   "openapi-core>=0.19",
   "PyYAML>=6.0",
-  "typer>=0.12.0,<0.14.0",
-  "click>=8.0.0,<8.2.0",
+  "typer>=0.12.0",
+  "click>=8.0.0",
   "httpx>=0.24.0",
   "dataclass-wizard>=0.22.0",
 ]

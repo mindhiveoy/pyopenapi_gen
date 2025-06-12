@@ -263,6 +263,10 @@ class Formatter:
     """Helper to format code using Black, falling back to unformatted content if Black is unavailable or errors."""
 
     def __init__(self) -> None:
+        from typing import Any, Callable, Optional
+
+        self._file_mode: Optional[Any] = None
+        self._format_str: Optional[Callable[..., str]] = None
         try:
             from black import FileMode, format_str
 
@@ -278,14 +282,15 @@ class Formatter:
             self._file_mode = FileMode()
             self._format_str = format_str
         except ImportError:
-            self._file_mode = None  # type: ignore[assignment]
-            self._format_str = None  # type: ignore[assignment]
+            self._file_mode = None
+            self._format_str = None
 
     def format(self, code: str) -> str:
         """Format the given code string with Black if possible."""
         if self._format_str is not None and self._file_mode is not None:
             try:
-                return self._format_str(code, mode=self._file_mode)
+                formatted: str = self._format_str(code, mode=self._file_mode)
+                return formatted
             except Exception:
                 # On any Black formatting error, return original code
                 return code
