@@ -121,7 +121,7 @@ markers = [
 
 [tool.poetry.group.dev.dependencies]
 types-pyyaml = "^6.0.12.20250516"
-bandit = {extras = ["toml"], version = "^1.8.3"}
+bandit = {extras = ["toml"], version = "^1.8.5"}
 pytest-timeout = "^2.4.0"
 
 [project.scripts]
