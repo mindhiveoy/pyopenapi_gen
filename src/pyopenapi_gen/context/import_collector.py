@@ -286,7 +286,7 @@ class ImportCollector:
             ):
                 try:
                     relative_module = make_relative_import(current_module_dot_path_to_use, module_name)
-                    import_statement = f"from {relative_module} import {", ".join(names)}"
+                    import_statement = f"from {relative_module} import {', '.join(names)}"
                     standard_import_lines.append(import_statement)
                 except ValueError as e:
                     import_statement = f"from {module_name} import {', '.join(names)}"
@@ -331,7 +331,7 @@ class ImportCollector:
 
         for module in stdlib_modules:
             names = sorted(self.imports[module])
-            statements.append(f"from {module} import {", ".join(names)}")
+            statements.append(f"from {module} import {', '.join(names)}")
 
         # Then third-party and app imports
         other_modules = sorted([m for m in self.imports.keys() if not _is_stdlib(m)])
@@ -341,7 +341,7 @@ class ImportCollector:
 
         for module in other_modules:
             names = sorted(self.imports[module])
-            statements.append(f"from {module} import {", ".join(names)}")
+            statements.append(f"from {module} import {', '.join(names)}")
 
         # Then plain imports
         if self.plain_imports:
@@ -357,7 +357,7 @@ class ImportCollector:
 
         for module in sorted(self.relative_imports.keys()):
             names = sorted(self.relative_imports[module])
-            statements.append(f"from {module} import {", ".join(names)}")
+            statements.append(f"from {module} import {', '.join(names)}")
 
         return "\n".join(statements)
 

@@ -864,7 +864,7 @@ class TestCompositionTypeResolver:  # Renamed class
             if non_none_type != "Any":
                 # Sorting is ['None', 'ActualType'] for Union[None, ActualType]
                 actual_types = sorted(["None", non_none_type])
-                expected_intermediate_union = f"Union[{", ".join(actual_types)}]"
+                expected_intermediate_union = f"Union[{', '.join(actual_types)}]"
                 assert result == expected_intermediate_union
             else:
                 assert result == "Any"

@@ -41,7 +41,7 @@ poetry add pyopenapi-gen
 
 ### 1. Generate Your First Client
 ```bash
-pyopenapi-gen gen openapi.yaml \
+pyopenapi-gen openapi.yaml \
   --project-root . \
   --output-package my_api_client
 ```
@@ -69,7 +69,7 @@ asyncio.run(main())
 
 ### Standalone Client (Default)
 ```bash
-pyopenapi-gen gen openapi.yaml \
+pyopenapi-gen openapi.yaml \
   --project-root . \
   --output-package my_api_client
 ```
@@ -77,7 +77,7 @@ Creates self-contained client with embedded core dependencies.
 
 ### Shared Core (Multiple Clients)
 ```bash
-pyopenapi-gen gen openapi.yaml \
+pyopenapi-gen openapi.yaml \
   --project-root . \
   --output-package clients.api_client \
   --core-package clients.core

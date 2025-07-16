@@ -41,6 +41,14 @@ The Claude GitHub App has the following permissions:
 
 PyOpenAPI Generator creates modern, async-first, and strongly-typed Python clients from OpenAPI specifications. Built for enterprise-grade developer experience with advanced cycle detection, unified type resolution, and production-ready generated code. Generated clients are fully independent and require no runtime dependency on this generator.
 
+## _process Folder Management
+
+**IMPORTANT: This project uses `_process/` folder at project root for all AI agent temporal files:**
+- Plans, reports, screenshots, test files, drafts, analysis
+- Anything created during task completion that isn't part of the final project
+- Distinguish between project documentation (belongs in project) vs. process documentation (belongs in `_process/`)
+- Keep project directories clean of AI-generated temporary content
+
 ## Development Environment
 
 **IMPORTANT: This project uses a virtual environment at `.venv/`. Always activate it before running any commands.**
@@ -79,7 +87,7 @@ make typecheck            # Type checking with mypy
 make security             # Security scanning with Bandit
 
 # Testing Options
-make test                 # Run all tests in parallel with 4 workers and coverage (85% required - matches CI)
+make test                 # Run all tests in parallel with 2 workers and coverage (85% required - matches CI)
 make test-serial          # Run tests sequentially (fallback if parallel tests hang)
 make test-no-cov          # Run tests without coverage checking
 make test-fast            # Run tests, stop on first failure
@@ -153,7 +161,7 @@ myproject/
 │   └── my_api_client/    # Generated here
 └── openapi.yaml
 ```
-Command: `pyopenapi-gen gen openapi.yaml --project-root . --output-package pyapis.my_api_client`
+Command: `pyopenapi-gen openapi.yaml --project-root . --output-package pyapis.my_api_client`
 
 **Source Layout:**
 ```
@@ -164,7 +172,7 @@ myproject/
 │       └── business/     # Generated here
 ├── openapi.yaml
 ```
-Command: `pyopenapi-gen gen openapi.yaml --project-root src --output-package pyapis.business`
+Command: `pyopenapi-gen openapi.yaml --project-root src --output-package pyapis.business`
 
 **Multiple Clients with Shared Core:**
 ```
@@ -177,20 +185,20 @@ myproject/
 Commands:
 ```bash
 # Generate first client (creates shared core)
-pyopenapi-gen gen api_a.yaml --project-root . --output-package pyapis.client_a --core-package pyapis.core
+pyopenapi-gen api_a.yaml --project-root . --output-package pyapis.client_a --core-package pyapis.core
 
 # Generate second client (reuses core)
-pyopenapi-gen gen api_b.yaml --project-root . --output-package pyapis.client_b --core-package pyapis.core
+pyopenapi-gen api_b.yaml --project-root . --output-package pyapis.client_b --core-package pyapis.core
 ```
 
 #### CLI Options
 
 ```bash
 # Basic generation
-pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client
+pyopenapi-gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client
 
 # With shared core package (multi-client scenarios)
-pyopenapi-gen gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --core-package pyapis.core
+pyopenapi-gen input/openapi.yaml --project-root . --output-package pyapis.my_api_client --core-package pyapis.core
 
 # Development options
 --force           # Overwrite without diff check (faster iteration)
@@ -434,7 +442,7 @@ Follow cursor rules strictly:
 - **Naming**: `test_<unit_of_work>__<condition>__<expected_outcome>()`
 - **Documentation**: Include "Scenario:" and "Expected Outcome:" sections in docstrings
 - **Structure**: Arrange/Act/Assert with clear separation and comments
-- **Coverage**: ≥90% branch coverage enforced
+- **Coverage**: ≥85% branch coverage enforced
 - **Isolation**: Mock all external dependencies with unittest.mock
 - **Assertions**: Use plain `assert` statements (pytest style)
 - **Exceptions**: Use `pytest.raises` context manager for expected exceptions
@@ -551,7 +559,7 @@ See `docs/` directory for detailed guides:
 source .venv/bin/activate
 
 # Generate client from OpenAPI spec
-pyopenapi-gen gen examples/petstore.yaml --project-root . --output-package pyapis.petstore
+pyopenapi-gen examples/petstore.yaml --project-root . --output-package pyapis.petstore
 
 # Generated structure:
 # pyapis/
@@ -590,10 +598,10 @@ asyncio.run(main())
 ### Multi-Client Setup with Shared Core
 ```bash
 # Generate first client (creates shared core)
-pyopenapi-gen gen api_v1.yaml --project-root . --output-package pyapis.v1 --core-package pyapis.core
+pyopenapi-gen api_v1.yaml --project-root . --output-package pyapis.v1 --core-package pyapis.core
 
 # Generate second client (reuses core)
-pyopenapi-gen gen api_v2.yaml --project-root . --output-package pyapis.v2 --core-package pyapis.core
+pyopenapi-gen api_v2.yaml --project-root . --output-package pyapis.v2 --core-package pyapis.core
 
 # Shared structure:
 # pyapis/
@@ -620,22 +628,22 @@ mypy pyapis/
 ruff check pyapis/
 
 # Regenerate with post-processing if needed
-pyopenapi-gen gen spec.yaml --project-root . --output-package pyapis.client
+pyopenapi-gen spec.yaml --project-root . --output-package pyapis.client
 ```
 
 **Performance Issues with Large Specs**
 ```bash
 # Skip type checking during development
-pyopenapi-gen gen large_spec.yaml --no-postprocess --project-root . --output-package pyapis.large
+pyopenapi-gen large_spec.yaml --no-postprocess --project-root . --output-package pyapis.large
 
 # Increase recursion limits for deeply nested schemas
-PYOPENAPI_MAX_DEPTH=300 pyopenapi-gen gen complex_spec.yaml --project-root . --output-package pyapis.complex
+PYOPENAPI_MAX_DEPTH=300 pyopenapi-gen complex_spec.yaml --project-root . --output-package pyapis.complex
 ```
 
 **Circular Reference Errors**
 ```bash
 # Check cycle detection in action
-pyopenapi-gen gen spec_with_cycles.yaml --verbose --project-root . --output-package pyapis.client
+pyopenapi-gen spec_with_cycles.yaml --verbose --project-root . --output-package pyapis.client
 
 # Generated code will include forward references and placeholders for cycles
 ```

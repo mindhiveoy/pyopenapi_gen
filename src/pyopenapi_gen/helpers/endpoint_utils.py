@@ -308,10 +308,10 @@ def format_method_args(params: list[dict[str, Any]]) -> str:
     optional = [p for p in params if not p.get("required", True)]
     arg_strs = []
     for p in required:
-        arg_strs.append(f"{p["name"]}: {p["type"]}")
+        arg_strs.append(f"{p['name']}: {p['type']}")
     for p in optional:
         default = p["default"]
-        arg_strs.append(f"{p["name"]}: {p["type"]} = {default}")
+        arg_strs.append(f"{p['name']}: {p['type']} = {default}")
     return ", ".join(arg_strs)
 
 
