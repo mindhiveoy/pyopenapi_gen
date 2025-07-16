@@ -262,7 +262,7 @@ class PythonConstructRenderer:
 
             # Sort mappings for consistent output
             for api_field, python_field in sorted(field_mappings.items()):
-                writer.write_line(f"'{api_field}': '{python_field}',")
+                writer.write_line(f'"{api_field}": "{python_field}",')
 
             writer.dedent()
             writer.write_line("}")

@@ -75,7 +75,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
             self.assertIn("config_: Optional[Dict[str, Any]] =", result)  # Field exists with correct type
             self.assertIn("None", result)  # Has None default (may be multi-line)
             self.assertIn("class Meta:", result)  # Has Meta class
-            self.assertIn("'config': 'config_',", result)  # Has field mapping
+            self.assertIn('"config": "config_",', result)  # Has field mapping
             self.assertNotIn(
                 "Dict[str, Any, None]", result, "Invalid type with None parameter was not cleaned"
             )  # Use self.assertNotIn
@@ -213,12 +213,12 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # Check BaseSchema Meta class and field mappings
         self.assertIn("class Meta:", generated_code)
         self.assertIn("key_transform_with_load = {", generated_code)
-        self.assertIn("'agentId': 'agent_id',", generated_code)
-        self.assertIn("'config': 'config_',", generated_code)
-        self.assertIn("'createdAt': 'created_at',", generated_code)
-        self.assertIn("'dataSource': 'data_source',", generated_code)
-        self.assertIn("'dataSourceId': 'data_source_id',", generated_code)
-        self.assertIn("'updatedAt': 'updated_at',", generated_code)
+        self.assertIn('"agentId": "agent_id",', generated_code)
+        self.assertIn('"config": "config_",', generated_code)
+        self.assertIn('"createdAt": "created_at",', generated_code)
+        self.assertIn('"dataSource": "data_source",', generated_code)
+        self.assertIn('"dataSourceId": "data_source_id",', generated_code)
+        self.assertIn('"updatedAt": "updated_at",', generated_code)
 
         generated_imports = context.import_collector.get_import_statements()
 
@@ -630,7 +630,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # Check for BaseSchema Meta class
         self.assertIn("class Meta:", generated_code)
         self.assertIn("key_transform_with_load = {", generated_code)
-        self.assertIn("'config': 'config_',", generated_code)
+        self.assertIn('"config": "config_",', generated_code)
 
         # Check imports
         self.assertIn("List", context.import_collector.imports.get("typing", set()))
