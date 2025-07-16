@@ -72,9 +72,9 @@ class TestPythonConstructRendererBaseSchema:
         assert "with automatic JSON field mapping" in result
         assert "class Meta:" in result
         assert "key_transform_with_load = {" in result
-        assert "'firstName': 'first_name'," in result
-        assert "'id': 'id_'," in result
-        assert "'lastName': 'last_name'," in result
+        assert '"firstName": "first_name",' in result
+        assert '"id": "id_",' in result
+        assert '"lastName": "last_name",' in result
 
     def test_render_dataclass__empty_field_mappings__generates_base_schema_dataclass(self) -> None:
         """
@@ -166,8 +166,8 @@ class TestPythonConstructRendererBaseSchema:
 
         # Assert
         # Find the position of the two mappings
-        a_field_pos = result.find("'aField': 'a_field',")
-        z_field_pos = result.find("'zField': 'z_field',")
+        a_field_pos = result.find('"aField": "a_field",')
+        z_field_pos = result.find('"zField": "z_field",')
 
         # aField should come before zField (alphabetical order)
         assert a_field_pos < z_field_pos
@@ -210,4 +210,4 @@ class TestPythonConstructRendererBaseSchema:
         # Assert
         assert "class User(BaseSchema):" in result
         assert "class Meta:" in result
-        assert "'userId': 'user_id'," in result
+        assert '"userId": "user_id",' in result

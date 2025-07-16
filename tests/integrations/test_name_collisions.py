@@ -144,8 +144,8 @@ def test_name_collision_generation(tmp_path: Path) -> None:
     mypy_output_filename = mypy_output_log_dir / "mypy_name_collision_errors.txt"
 
     mypy_command = ["mypy", "--strict"] + packages_to_check
-    logger.info(f"Running mypy command: {" ".join(mypy_command)} from cwd: {tmp_path}")
-    logger.info(f"PYTHONPATH for mypy: {env.get("PYTHONPATH")}")
+    logger.info(f"Running mypy command: {' '.join(mypy_command)} from cwd: {tmp_path}")
+    logger.info(f"PYTHONPATH for mypy: {env.get('PYTHONPATH')}")
 
     mypy_result = subprocess.run(
         mypy_command,

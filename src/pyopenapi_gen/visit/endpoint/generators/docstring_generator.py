@@ -99,7 +99,7 @@ class EndpointDocstringGenerator:
             for resp in error_codes:
                 # Using a generic HTTPError, specific error classes could be mapped later
                 code_to_raise = "HTTPError"
-                desc = f"{resp.status_code}: {resp.description.strip() if resp.description else "HTTP error."}"
+                desc = f"{resp.status_code}: {resp.description.strip() if resp.description else 'HTTP error.'}"
                 raises.append((code_to_raise, desc))
         else:
             raises.append(("HTTPError", "If the server returns a non-2xx HTTP response."))

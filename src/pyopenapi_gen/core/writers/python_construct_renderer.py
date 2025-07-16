@@ -262,7 +262,7 @@ class PythonConstructRenderer:
 
             # Sort mappings for consistent output
             for api_field, python_field in sorted(field_mappings.items()):
-                writer.write_line(f"'{api_field}': '{python_field}',")
+                writer.write_line(f'"{api_field}": "{python_field}",')
 
             writer.dedent()
             writer.write_line("}")
@@ -302,7 +302,7 @@ class PythonConstructRenderer:
             ```
         """
         writer = CodeWriter()
-        bases = f"({", ".join(base_classes)})" if base_classes else ""
+        bases = f"({', '.join(base_classes)})" if base_classes else ""
         writer.write_line(f"class {class_name}{bases}:")
         writer.indent()
         has_content = False

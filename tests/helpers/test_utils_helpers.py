@@ -231,5 +231,5 @@ def test_formatter__importerror_branch__returns_original_code(monkeypatch: Monke
     finally:
         if original_black is not None:
             sys.modules["black"] = original_black
-        else:
+        elif "black" in sys.modules:
             del sys.modules["black"]
