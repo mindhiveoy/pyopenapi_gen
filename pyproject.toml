@@ -128,6 +128,41 @@ pytest-asyncio = "^1.1.0"
 black = "^25.1.0"
 ruff = "^0.12.3"
 mypy = "^1.17.0"
+commitizen = "^3.29.0"
+python-semantic-release = "^9.12.0"
+pytest-xdist = "^3.8.0"
+pytest-cov = "^6.2.1"
 
 [project.scripts]
 pyopenapi-gen = "pyopenapi_gen.cli:app"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.8.7"
+version_files = [
+    "pyproject.toml:version",
+    "src/pyopenapi_gen/__init__.py:__version__"
+]
+tag_format = "v$version"
+major_version_zero = false
+changelog_file = "CHANGELOG.md"
+changelog_format = "## [$version] - $date\\n\\n$changes"
+commit_parser = "^(?P<change_type>feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\\((?P<scope>[^)]+)\\))?!?:\\s(?P<message>.+)$"
+bump_message = "bump: version $current_version → $new_version"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version", "pyproject.toml:tool.commitizen.version"]
+version_pattern = [
+    "src/pyopenapi_gen/__init__.py:__version__ = \"{version}\""
+]
+branch = "main"
+upload_to_pypi = true
+upload_to_repository = true
+build_command = "poetry build"
+commit_message = "chore(release): {version}"
+tag_commit = true
+changelog_file = "CHANGELOG.md"
+changelog_format = "# Changelog\\n\\n{changelog}"
+hvcs = "github"
+commit_parser = "angular"
+major_on_zero = false

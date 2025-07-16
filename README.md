@@ -300,6 +300,20 @@ make typecheck     # Type checking with mypy
 make security      # Security scanning with Bandit
 ```
 
+### Release Process
+The project uses **automated semantic versioning** with conventional commits:
+
+```bash
+# Conventional commit format triggers automatic releases
+git commit -m "feat(auth): add OAuth2 support"    # → Minor version bump
+git commit -m "fix(parser): resolve memory leak"  # → Patch version bump
+
+# Push to main triggers automatic PyPI release
+git push origin main
+```
+
+All releases are automatically published to PyPI with generated changelogs. See [Release Management](CLAUDE.md#release-management--semantic-versioning) for complete details.
+
 See our [Contributing Guide](CONTRIBUTING.md) for detailed information on:
 - 📋 Development setup and workflow
 - 🧪 Testing guidelines and standards

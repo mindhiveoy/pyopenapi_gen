@@ -42,8 +42,8 @@ __all__ = [
     "WarningCollector",
 ]
 
-# Semantic version of the generator core – bumped manually for now.
-__version__: str = "0.6.0"
+# Semantic version of the generator core – automatically managed by semantic-release.
+__version__: str = "0.8.7"
 
 
 # ---------------------------------------------------------------------------
