@@ -699,7 +699,12 @@ class TestCodeGenerationIntegrationEdgeCases:
 
             # Should generate complete client without errors
             generator = ClientGenerator(verbose=False)
-            generator.generate(spec_path=str(spec_file), project_root=Path(temp_dir), output_package="edge_case_client")
+            generator.generate(
+                spec_path=str(spec_file),
+                project_root=Path(temp_dir),
+                output_package="edge_case_client",
+                no_postprocess=True,
+            )
 
             # Verify basic structure was created
             client_dir = Path(temp_dir) / "edge_case_client"

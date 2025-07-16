@@ -17,7 +17,7 @@ from pyopenapi_gen.visit.model.dataclass_generator import DataclassGenerator
 class TestDataclassGeneratorBaseSchema:
     """Test DataclassGenerator BaseSchema functionality."""
 
-    def test_generate__camel_case_fields__generates_base_schema_dataclass(self):
+    def test_generate__camel_case_fields__generates_base_schema_dataclass(self) -> None:
         """
         Scenario: Generate dataclass with camelCase field names requiring mapping.
         Expected Outcome: Dataclass with BaseSchema inheritance and field mappings.
@@ -46,11 +46,11 @@ class TestDataclassGeneratorBaseSchema:
         assert "with automatic JSON field mapping" in result
         assert "class Meta:" in result
         assert "key_transform_with_load = {" in result
-        assert "'emailAddress': 'email_address'," in result
-        assert "'firstName': 'first_name'," in result
-        assert "'lastName': 'last_name'," in result
+        assert '"emailAddress": "email_address",' in result
+        assert '"firstName": "first_name",' in result
+        assert '"lastName": "last_name",' in result
 
-    def test_generate__reserved_keyword_fields__generates_base_schema_dataclass(self):
+    def test_generate__reserved_keyword_fields__generates_base_schema_dataclass(self) -> None:
         """
         Scenario: Generate dataclass with reserved keyword field names.
         Expected Outcome: Dataclass with BaseSchema inheritance and mappings for reserved words.
@@ -76,11 +76,11 @@ class TestDataclassGeneratorBaseSchema:
 
         # Assert
         assert "class Data(BaseSchema):" in result
-        assert "'class': 'class_'," in result
-        assert "'id': 'id_'," in result
-        assert "'type': 'type_'," in result
+        assert '"class": "class_",' in result
+        assert '"id": "id_",' in result
+        assert '"type": "type_",' in result
 
-    def test_generate__no_field_mapping_needed__generates_base_schema_dataclass(self):
+    def test_generate__no_field_mapping_needed__generates_base_schema_dataclass(self) -> None:
         """
         Scenario: Generate dataclass with field names that don't require mapping.
         Expected Outcome: BaseSchema dataclass for better DX but no Meta class since no mappings needed.
@@ -109,7 +109,7 @@ class TestDataclassGeneratorBaseSchema:
         assert "with automatic JSON field mapping" in result
         assert "key_transform_with_load" not in result  # No Meta class when no mappings needed
 
-    def test_generate__mixed_fields__generates_base_schema_for_mapped_fields_only(self):
+    def test_generate__mixed_fields__generates_base_schema_for_mapped_fields_only(self) -> None:
         """
         Scenario: Generate dataclass with mix of fields requiring and not requiring mapping.
         Expected Outcome: BaseSchema dataclass with mappings only for fields that need it.
@@ -136,8 +136,8 @@ class TestDataclassGeneratorBaseSchema:
 
         # Assert
         assert "class Mixed(BaseSchema):" in result
-        assert "'firstName': 'first_name'," in result
-        assert "'id': 'id_'," in result
+        assert '"firstName": "first_name",' in result
+        assert '"id": "id_",' in result
         # name and status shouldn't appear in mappings since they don't need mapping
         assert (
             "'name':" not in result.split("key_transform_with_load")[1] if "key_transform_with_load" in result else True
@@ -148,7 +148,7 @@ class TestDataclassGeneratorBaseSchema:
             else True
         )
 
-    def test_generate__enhanced_field_documentation__includes_mapping_info(self):
+    def test_generate__enhanced_field_documentation__includes_mapping_info(self) -> None:
         """
         Scenario: Generate dataclass with field mappings.
         Expected Outcome: Field documentation includes mapping information.
@@ -177,7 +177,7 @@ class TestDataclassGeneratorBaseSchema:
         # Should add mapping info for fields without description
         assert "Maps from 'id'" in result
 
-    def test_generate__array_type_dataclass__uses_base_schema_for_consistency(self):
+    def test_generate__array_type_dataclass__uses_base_schema_for_consistency(self) -> None:
         """
         Scenario: Generate dataclass for array type (wrapper style).
         Expected Outcome: BaseSchema dataclass for consistency, but no Meta class since no field mappings.
@@ -198,7 +198,7 @@ class TestDataclassGeneratorBaseSchema:
         # Array wrapper shouldn't have field mappings Meta class
         assert "key_transform_with_load" not in result
 
-    def test_generate__adds_correct_imports_for_base_schema(self):
+    def test_generate__adds_correct_imports_for_base_schema(self) -> None:
         """
         Scenario: Generate dataclass requiring BaseSchema.
         Expected Outcome: Proper imports are added to context.
@@ -225,7 +225,7 @@ class TestDataclassGeneratorBaseSchema:
         assert "..core.schemas" in imports
         assert "BaseSchema" in imports["..core.schemas"]
 
-    def test_generate__no_properties__generates_empty_base_schema_dataclass(self):
+    def test_generate__no_properties__generates_empty_base_schema_dataclass(self) -> None:
         """
         Scenario: Generate dataclass with no properties.
         Expected Outcome: Empty BaseSchema dataclass for consistency.

@@ -92,7 +92,7 @@ def _handle_max_depth_exceeded(original_name: Optional[str], context: ParsingCon
 
     # path_prefix = schema_ir_name_attr if schema_ir_name_attr else "<anonymous_schema>"
     # cycle_path_for_desc = f"{path_prefix} -> MAX_DEPTH_EXCEEDED"
-    description = f"[Maximum recursion depth ({max_depth}) exceeded for '{original_name or "anonymous"}']"
+    description = f"[Maximum recursion depth ({max_depth}) exceeded for '{original_name or 'anonymous'}']"
     logger.warning(description)
 
     placeholder_schema = IRSchema(

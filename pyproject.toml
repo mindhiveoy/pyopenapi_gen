@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "0.8.9"
+version = "0.8.7"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
 authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
 maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
@@ -111,6 +111,7 @@ python_files = ["test_*.py"]
 python_functions = ["test_"]
 log_cli = false
 log_cli_level = "WARNING"
+asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # For details on registering custom marks, see:
 # https://docs.pytest.org/en/stable/how-to/mark.html
@@ -123,6 +124,10 @@ markers = [
 types-pyyaml = "^6.0.12.20250516"
 bandit = {extras = ["toml"], version = "^1.8.3"}
 pytest-timeout = "^2.4.0"
+pytest-asyncio = "^1.1.0"
+black = "^25.1.0"
+ruff = "^0.12.3"
+mypy = "^1.17.0"
 
 [project.scripts]
 pyopenapi-gen = "pyopenapi_gen.cli:app"
