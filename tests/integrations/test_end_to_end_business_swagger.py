@@ -150,7 +150,7 @@ def test_business_swagger_generation(tmp_path: Path) -> None:
         mypy_output_content = "Mypy checks passed."
         Path(mypy_output_filename).write_text(
             mypy_output_content
-            + f"\nSTDOUT:\n{mypy_result.stdout.decode("utf-8", errors="replace") if mypy_result.stdout else ""}\nSTDERR:\n{mypy_result.stderr.decode("utf-8", errors="replace") if mypy_result.stderr else ""}",
+            + f"\nSTDOUT:\n{mypy_result.stdout.decode('utf-8', errors='replace') if mypy_result.stdout else ''}\nSTDERR:\n{mypy_result.stderr.decode('utf-8', errors='replace') if mypy_result.stderr else ''}",
             encoding="utf-8",
         )
 
