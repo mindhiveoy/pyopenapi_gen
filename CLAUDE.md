@@ -610,6 +610,99 @@ pyopenapi-gen api_v2.yaml --project-root . --output-package pyapis.v2 --core-pac
 # └── v2/                # Second client
 ```
 
+## Release Management & Semantic Versioning
+
+### Automated Release Pipeline
+
+The project uses **semantic-release** for automated version bumping, changelog generation, and publishing:
+
+```mermaid
+graph TD
+    A[Conventional Commits] --> B[Push to main]
+    B --> C[Semantic Release Workflow]
+    C --> D{Analyze Commits}
+    D -->|feat:| E[Minor Version Bump]
+    D -->|fix:| F[Patch Version Bump]
+    D -->|BREAKING CHANGE:| G[Major Version Bump]
+    E --> H[Update pyproject.toml & __init__.py]
+    F --> H
+    G --> H
+    H --> I[Generate CHANGELOG.md]
+    I --> J[Create Git Tag]
+    J --> K[Build & Publish to PyPI]
+    K --> L[Create GitHub Release]
+```
+
+### Commit Message Format
+
+Use **Conventional Commits** format for automatic version bumping:
+
+```bash
+# Patch version (0.8.7 → 0.8.8)
+git commit -m "fix(parser): resolve circular reference detection"
+git commit -m "fix(auth): handle expired tokens correctly"
+
+# Minor version (0.8.7 → 0.9.0)  
+git commit -m "feat(cli): add --dry-run option for testing"
+git commit -m "feat(models): support custom serializers"
+
+# Major version (0.8.7 → 1.0.0)
+git commit -m "feat(api): redesign authentication system
+
+BREAKING CHANGE: AuthPlugin interface changed, migrate to new authenticate() method"
+
+# Other types (no version bump)
+git commit -m "docs(readme): update installation instructions"
+git commit -m "chore(deps): update dependencies"
+git commit -m "test(parser): add edge case coverage"
+```
+
+### Release Branches & Environments
+
+```bash
+# Development Releases (TestPyPI)
+git push origin staging          # Auto-publishes to test.pypi.org
+
+# Production Releases (PyPI)  
+git push origin main             # Auto-publishes to pypi.org (if conventional commits found)
+
+# Manual TestPyPI Release
+gh workflow run "Publish to TestPyPI (manual)" -f reason="Testing new feature"
+```
+
+### Version Configuration
+
+Semantic release manages versions in multiple files automatically:
+
+- `pyproject.toml:project.version` - Package version
+- `pyproject.toml:tool.commitizen.version` - Commitizen tracking
+- `src/pyopenapi_gen/__init__.py:__version__` - Runtime version
+
+### Release Notes
+
+Generated automatically from conventional commits:
+
+- **Features** (`feat:`) → "✨ Features" section
+- **Bug Fixes** (`fix:`) → "🐛 Bug Fixes" section  
+- **Breaking Changes** (`BREAKING CHANGE:`) → "💥 Breaking Changes" section
+- **Documentation** (`docs:`) → "📚 Documentation" section
+
+### Testing Tools
+
+```bash
+# Check what the next version would be
+poetry run semantic-release version --print
+
+# Preview changelog generation
+poetry run semantic-release changelog --print
+
+# Validate commit messages
+poetry run cz check --rev-range HEAD~5..HEAD
+
+# Interactive commit helper
+poetry run cz commit
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -646,6 +739,18 @@ PYOPENAPI_MAX_DEPTH=300 pyopenapi-gen complex_spec.yaml --project-root . --outpu
 pyopenapi-gen spec_with_cycles.yaml --verbose --project-root . --output-package pyapis.client
 
 # Generated code will include forward references and placeholders for cycles
+```
+
+**Semantic Release Issues**
+```bash
+# Check current configuration
+poetry run semantic-release generate-config
+
+# Validate commit history
+poetry run semantic-release version --print --noop
+
+# Debug release workflow
+poetry run semantic-release --verbose version --print
 ```
 
 # Documentation Standards

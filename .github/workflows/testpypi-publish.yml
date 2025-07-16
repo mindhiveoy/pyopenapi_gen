@@ -1,8 +1,12 @@
-name: Publish to TestPyPI (pre-release)
+name: Publish to TestPyPI (manual)
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual TestPyPI publish'
+        required: false
+        default: 'Manual testing'
 
 jobs:
   build-and-testpypi:
