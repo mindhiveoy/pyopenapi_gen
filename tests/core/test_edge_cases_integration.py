@@ -227,9 +227,9 @@ class TestNameCollisionEdgeCases:
                     break
 
         # Should find most of the patterns (some may be deduplicated)
-        assert (
-            found_schemas >= len(collision_patterns) // 2
-        ), f"Should find most collision patterns, found {found_schemas} out of {len(collision_patterns)}"
+        assert found_schemas >= len(collision_patterns) // 2, (
+            f"Should find most collision patterns, found {found_schemas} out of {len(collision_patterns)}"
+        )
 
         # At the parsing level, we expect duplicate names since collision resolution
         # happens during code generation in the emitter, not during parsing.
@@ -250,9 +250,9 @@ class TestNameCollisionEdgeCases:
             generation_names = set()
             for schema in result.schemas.values():
                 if hasattr(schema, "generation_name") and schema.generation_name:
-                    assert (
-                        schema.generation_name not in generation_names
-                    ), f"Duplicate generation_name after collision resolution: {schema.generation_name}"
+                    assert schema.generation_name not in generation_names, (
+                        f"Duplicate generation_name after collision resolution: {schema.generation_name}"
+                    )
                     generation_names.add(schema.generation_name)
 
             # Verify models directory was created with files
@@ -594,12 +594,12 @@ class TestMemoryAndPerformanceEdgeCases:
         # Total: ~400 schemas
         expected_min_schemas = 200 * 2  # Main schemas + nested metadata objects
         expected_max_schemas = 200 * 3  # Allow some additional extraction
-        assert (
-            len(result.schemas) >= expected_min_schemas
-        ), f"Expected at least {expected_min_schemas}, got {len(result.schemas)}"
-        assert (
-            len(result.schemas) <= expected_max_schemas
-        ), f"Expected at most {expected_max_schemas}, got {len(result.schemas)}"
+        assert len(result.schemas) >= expected_min_schemas, (
+            f"Expected at least {expected_min_schemas}, got {len(result.schemas)}"
+        )
+        assert len(result.schemas) <= expected_max_schemas, (
+            f"Expected at most {expected_max_schemas}, got {len(result.schemas)}"
+        )
 
     def test_processing_time_with_complex_references(self) -> None:
         """Test processing time with complex reference patterns."""
@@ -699,7 +699,12 @@ class TestCodeGenerationIntegrationEdgeCases:
 
             # Should generate complete client without errors
             generator = ClientGenerator(verbose=False)
-            generator.generate(spec_path=str(spec_file), project_root=Path(temp_dir), output_package="edge_case_client")
+            generator.generate(
+                spec_path=str(spec_file),
+                project_root=Path(temp_dir),
+                output_package="edge_case_client",
+                no_postprocess=True,
+            )
 
             # Verify basic structure was created
             client_dir = Path(temp_dir) / "edge_case_client"
