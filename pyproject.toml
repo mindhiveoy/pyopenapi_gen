@@ -1,25 +1,15 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "pyopenapi-gen"
 version = "0.8.9"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
-authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
-maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
+authors = ["Mindhive Oy <contact@mindhive.fi>"]
+maintainers = ["Ville Venäläinen | Mindhive Oy <ville@mindhive.fi>"]
 readme = "README.md"
-requires-python = ">=3.12,<4.0.0"
-dependencies = [
-  "openapi-spec-validator>=0.7",
-  "openapi-core>=0.19",
-  "PyYAML>=6.0",
-  "typer>=0.12.0,<0.14.0",
-  "click>=8.0.0,<9.0.0",
-  "httpx>=0.24.0",
-  "dataclass-wizard>=0.22.0",
-]
-license = { text = "MIT" }
+license = "MIT"
 keywords = [
   "openapi",
   "swagger", 
@@ -40,46 +30,52 @@ classifiers = [
   "Framework :: AsyncIO",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
-  "Natural Language :: English",
-  "Operating System :: MacOS",
-  "Operating System :: POSIX :: Linux",
-  "Operating System :: Microsoft :: Windows",
+  "Operating System :: OS Independent", 
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3 :: Only",
-  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Topic :: Internet :: WWW/HTTP",
   "Topic :: Software Development :: Code Generators",
   "Topic :: Software Development :: Libraries :: Python Modules",
-  "Topic :: System :: Networking",
-  "Typing :: Typed",
+  "Typing :: Typed"
 ]
+packages = [{include = "pyopenapi_gen", from = "src"}]
 
-[project.urls]
-Homepage = "https://github.com/your-org/pyopenapi-gen"
-Documentation = "https://github.com/your-org/pyopenapi-gen/blob/main/README.md"
-Repository = "https://github.com/your-org/pyopenapi-gen"
-Issues = "https://github.com/your-org/pyopenapi-gen/issues"
-Changelog = "https://github.com/your-org/pyopenapi-gen/blob/main/CHANGELOG.md"
-"Bug Reports" = "https://github.com/your-org/pyopenapi-gen/issues"
-"Source Code" = "https://github.com/your-org/pyopenapi-gen"
+[tool.poetry.urls]
+Homepage = "https://github.com/mindhiveoy/pyopenapi-gen"
+Documentation = "https://github.com/mindhiveoy/pyopenapi-gen/blob/main/README.md"
+Repository = "https://github.com/mindhiveoy/pyopenapi-gen"
+Issues = "https://github.com/mindhiveoy/pyopenapi-gen/issues"
+Changelog = "https://github.com/mindhiveoy/pyopenapi-gen/blob/main/CHANGELOG.md"
+"Bug Reports" = "https://github.com/mindhiveoy/pyopenapi-gen/issues"
+"Source Code" = "https://github.com/mindhiveoy/pyopenapi-gen"
 
-[project.optional-dependencies]
-dev = [
-  "black>=23.0",
-  "ruff>=0.4",
-  "mypy>=1.7",
-  "pytest>=7.0",
-  "pytest-cov>=4.0",
-  "pytest-timeout>=2.1.0",
-  "pytest-xdist>=3.0.0",
-  "types-toml>=0.10.8",
-  "pytest-asyncio>=0.20.0",
-  "safety>=2.0.0",
-  "bandit[toml]>=1.7.0",
-  "types-pyyaml>=6.0.12",
-  "httpx>=0.24.0",
-  "dataclass-wizard>=0.22.0",
-]
+[tool.poetry.dependencies]
+# Ensure Python 3.12.x specifically  
+python = ">=3.12,<3.13"
+openapi-spec-validator = ">=0.7"
+openapi-core = ">=0.19"
+PyYAML = ">=6.0"
+typer = ">=0.12.0,<0.14.0"
+click = ">=8.0.0,<9.0.0"
+httpx = ">=0.24.0"
+dataclass-wizard = ">=0.22.0"
+
+[tool.poetry.group.dev.dependencies]
+black = ">=23.0"
+ruff = ">=0.4"
+mypy = ">=1.7"
+pytest = ">=7.0"
+pytest-cov = ">=4.0"
+pytest-timeout = ">=2.1.0"
+pytest-xdist = ">=3.0.0"
+pytest-asyncio = ">=0.20.0"
+safety = ">=2.0.0"
+bandit = {extras = ["toml"], version = ">=1.7.0"}
+types-pyyaml = ">=6.0.12"
+types-toml = ">=0.10.8"
+
+[tool.poetry.scripts]
+pyopenapi-gen = "pyopenapi_gen.cli:app"
 
 [tool.black]
 line-length = 120
@@ -102,6 +98,23 @@ namespace_packages = true
 implicit_optional = false
 # Disable overly strict return checking for match statements
 warn_no_return = false
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+check_untyped_defs = true
+disallow_untyped_calls = true
+
+[tool.bandit]
+# Skip these specific checks that are acceptable for this project:
+# B101: assert_used - We use assertions for Design by Contract (DbC) as documented
+# B404: import_subprocess - We need subprocess for post-processing (ruff, mypy) 
+# B603: subprocess_without_shell_equals_true - We use controlled subprocess calls to trusted tools
+# B110: try_except_pass - Acceptable for telemetry error handling
+skips = ["B101", "B404", "B603", "B110"]
+
+# Only scan source code, not tests (tests may have different security requirements)
+exclude_dirs = ["tests/", "_process/", "venv/", ".venv/"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
@@ -113,16 +126,7 @@ log_cli = false
 log_cli_level = "WARNING"
 asyncio_default_fixture_loop_scope = "function"
 # For details on registering custom marks, see:
-# https://docs.pytest.org/en/stable/how-to/mark.html
+# https://docs.pytest.org/en/stable/how-to-mark.html
 markers = [
     "timeout: specify a timeout for a test function (integration with pytest-timeout).",
 ]
-
-
-[tool.poetry.group.dev.dependencies]
-types-pyyaml = "^6.0.12.20250516"
-bandit = {extras = ["toml"], version = "^1.8.3"}
-pytest-timeout = "^2.4.0"
-
-[project.scripts]
-pyopenapi-gen = "pyopenapi_gen.cli:app"
