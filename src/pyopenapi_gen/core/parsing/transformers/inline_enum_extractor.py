@@ -179,7 +179,7 @@ def _process_standalone_inline_enum(
 
     logger.debug(
         f"STANDALONE_ENUM_CHECK: Processing node for "
-        f"'{schema_name or schema_obj.name or "anonymous_schema"}' for direct enum properties."
+        f"'{schema_name or schema_obj.name or 'anonymous_schema'}' for direct enum properties."
     )
 
     # Ensure basic enum properties are on schema_obj if not already there from initial _parse_schema pass
