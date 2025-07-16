@@ -12,7 +12,7 @@ class TestBusinessSwaggerIntegration:
     """Test type resolution with business swagger scenarios."""
 
     @pytest.fixture
-    def mock_context(self):
+    def mock_context(self) -> Mock:
         """Mock render context that properly returns expected relative paths."""
         mock_render_context = Mock()
         mock_render_context.current_file = "/project/endpoints/some_endpoint.py"
@@ -27,19 +27,19 @@ class TestBusinessSwaggerIntegration:
 
         return context
 
-    def test_message_batch_response_type_resolution(self, mock_context) -> None:
+    def test_message_batch_response_type_resolution(self, mock_context: Mock) -> None:
         """
         Scenario: Resolving MessageBatchResponse with List[Message] data property
         Expected Outcome: Returns MessageBatchResponse (no unwrapping - use schema as-is)
         """
 
         # Configure mock to return expected relative paths
-        def mock_relative_path(target):
+        def mock_relative_path(target: str) -> str:
             if target == "models.message":
                 return "..models.message"
             elif target == "models.message_batch_response":
                 return "..models.message_batch_response"
-            return f"..models.{target.split(".")[-1]}"
+            return f"..models.{target.split('.')[-1]}"
 
         mock_context.render_context.calculate_relative_path_for_internal_module.side_effect = mock_relative_path
 
@@ -82,19 +82,19 @@ class TestBusinessSwaggerIntegration:
             "..models.message_batch_response", "MessageBatchResponse"
         )
 
-    def test_message_response_type_resolution(self, mock_context) -> None:
+    def test_message_response_type_resolution(self, mock_context: Mock) -> None:
         """
         Scenario: Resolving MessageResponse with Message data property
         Expected Outcome: Returns MessageResponse (no unwrapping - use schema as-is)
         """
 
         # Configure mock to return expected relative paths
-        def mock_relative_path(target):
+        def mock_relative_path(target: str) -> str:
             if target == "models.message":
                 return "..models.message"
             elif target == "models.message_response":
                 return "..models.message_response"
-            return f"..models.{target.split(".")[-1]}"
+            return f"..models.{target.split('.')[-1]}"
 
         mock_context.render_context.calculate_relative_path_for_internal_module.side_effect = mock_relative_path
 
@@ -135,17 +135,17 @@ class TestBusinessSwaggerIntegration:
         assert result == "MessageResponse"
         mock_context.render_context.add_import.assert_any_call("..models.message_response", "MessageResponse")
 
-    def test_schema_reference_resolution(self, mock_context) -> None:
+    def test_schema_reference_resolution(self, mock_context: Mock) -> None:
         """
         Scenario: Resolving schema with $ref to another schema
         Expected Outcome: Correctly resolves to target schema
         """
 
         # Configure mock to return expected relative paths
-        def mock_relative_path(target):
+        def mock_relative_path(target: str) -> str:
             if target == "models.user":
                 return "..models.user"
-            return f"..models.{target.split(".")[-1]}"
+            return f"..models.{target.split('.')[-1]}"
 
         mock_context.render_context.calculate_relative_path_for_internal_module.side_effect = mock_relative_path
 

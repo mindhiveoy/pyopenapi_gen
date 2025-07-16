@@ -42,7 +42,7 @@ def _resolve_ref(
     if not (ref_name_parts and ref_name_parts[-1]):
         logger.warning(
             f"Malformed $ref path '{ref_path_str}' encountered while parsing "
-            f"parent '{parent_schema_name or "anonymous"}'."
+            f"parent '{parent_schema_name or 'anonymous'}'."
         )
         return IRSchema(
             name=None,  # Anonymous placeholder for a bad ref
@@ -60,7 +60,7 @@ def _resolve_ref(
     ref_node = context.raw_spec_schemas.get(ref_name)
     if ref_node is None:
         logger.warning(
-            f"Cannot resolve $ref '{ref_path_str}' for parent '{parent_schema_name or "anonymous"}'. "
+            f"Cannot resolve $ref '{ref_path_str}' for parent '{parent_schema_name or 'anonymous'}'. "
             f"Target '{ref_name}' not in raw_spec_schemas. Returning placeholder."
         )
         return IRSchema(
@@ -142,7 +142,7 @@ def _parse_properties(
     for prop_name, prop_schema_node in properties_node.items():
         if not isinstance(prop_name, str) or not prop_name:
             logger.warning(
-                f"Skipping property with invalid name '{prop_name}' in schema '{parent_schema_name or "anonymous"}'."
+                f"Skipping property with invalid name '{prop_name}' in schema '{parent_schema_name or 'anonymous'}'."
             )
             continue
 
@@ -379,7 +379,7 @@ def _parse_schema(
 
         assert isinstance(
             schema_node, Mapping
-        ), f"Schema node for '{schema_name or "anonymous"}' must be a Mapping (e.g., dict), got {type(schema_node)}"
+        ), f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
 
         # If the current schema_node itself is a $ref, resolve it.
         if "$ref" in schema_node:

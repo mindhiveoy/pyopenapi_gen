@@ -104,43 +104,43 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
     # We'll check specific files by constructing paths relative to models_output_dir.
 
     # 5.1. Check MyItem.py
-    my_item_file = models_output_dir / f"{NameSanitizer.sanitize_module_name("MyItem")}.py"
+    my_item_file = models_output_dir / f"{NameSanitizer.sanitize_module_name('MyItem')}.py"
     assert my_item_file.exists(), f"{my_item_file} was not generated."
     my_item_content = my_item_file.read_text()
     assert "class MyItem(BaseSchema):" in my_item_content
-    assert f"{NameSanitizer.sanitize_method_name("id")}: str" in my_item_content
-    assert f"{NameSanitizer.sanitize_method_name("name")}: str" in my_item_content
+    assert f"{NameSanitizer.sanitize_method_name('id')}: str" in my_item_content
+    assert f"{NameSanitizer.sanitize_method_name('name')}: str" in my_item_content
 
     # 5.2. Check PaginationMeta.py
-    pagination_meta_file = models_output_dir / f"{NameSanitizer.sanitize_module_name("PaginationMeta")}.py"
+    pagination_meta_file = models_output_dir / f"{NameSanitizer.sanitize_module_name('PaginationMeta')}.py"
     assert pagination_meta_file.exists(), f"{pagination_meta_file} was not generated."
     pagination_meta_content = pagination_meta_file.read_text()
     assert "class PaginationMeta(BaseSchema):" in pagination_meta_content
-    assert f"{NameSanitizer.sanitize_method_name("totalItems")}: int" in pagination_meta_content
-    assert f"{NameSanitizer.sanitize_method_name("totalPages")}: int" in pagination_meta_content
+    assert f"{NameSanitizer.sanitize_method_name('totalItems')}: int" in pagination_meta_content
+    assert f"{NameSanitizer.sanitize_method_name('totalPages')}: int" in pagination_meta_content
 
     # 5.3. Check MyItemListResponse.py
-    my_item_list_response_file = models_output_dir / f"{NameSanitizer.sanitize_module_name("MyItemListResponse")}.py"
+    my_item_list_response_file = models_output_dir / f"{NameSanitizer.sanitize_module_name('MyItemListResponse')}.py"
     assert my_item_list_response_file.exists(), f"{my_item_list_response_file} was not generated."
     my_item_list_response_content = my_item_list_response_file.read_text()
     assert "class MyItemListResponse(BaseSchema):" in my_item_list_response_content
     assert "from typing import List" in my_item_list_response_content
-    assert f"from .{NameSanitizer.sanitize_module_name("MyItem")} import MyItem" in my_item_list_response_content
+    assert f"from .{NameSanitizer.sanitize_module_name('MyItem')} import MyItem" in my_item_list_response_content
     assert (
-        f"from .{NameSanitizer.sanitize_module_name("PaginationMeta")} import PaginationMeta"
+        f"from .{NameSanitizer.sanitize_module_name('PaginationMeta')} import PaginationMeta"
         in my_item_list_response_content
     )
-    assert f"{NameSanitizer.sanitize_method_name("data")}: List[MyItem]" in my_item_list_response_content
-    assert f"{NameSanitizer.sanitize_method_name("meta")}: PaginationMeta" in my_item_list_response_content
+    assert f"{NameSanitizer.sanitize_method_name('data')}: List[MyItem]" in my_item_list_response_content
+    assert f"{NameSanitizer.sanitize_method_name('meta')}: PaginationMeta" in my_item_list_response_content
 
     # 5.4. Check __init__.py
     init_file = models_output_dir / "__init__.py"
     assert init_file.exists(), f"{init_file} was not generated."
     init_content = init_file.read_text()
     assert "from typing import List" in init_content
-    assert f"from .{NameSanitizer.sanitize_module_name("MyItem")} import MyItem" in init_content
-    assert f"from .{NameSanitizer.sanitize_module_name("PaginationMeta")} import PaginationMeta" in init_content
-    assert f"from .{NameSanitizer.sanitize_module_name("MyItemListResponse")} import MyItemListResponse" in init_content
+    assert f"from .{NameSanitizer.sanitize_module_name('MyItem')} import MyItem" in init_content
+    assert f"from .{NameSanitizer.sanitize_module_name('PaginationMeta')} import PaginationMeta" in init_content
+    assert f"from .{NameSanitizer.sanitize_module_name('MyItemListResponse')} import MyItemListResponse" in init_content
     assert "__all__: List[str] = [" in init_content
     assert "'MyItem'," in init_content
     assert "'MyItemListResponse'," in init_content
@@ -153,9 +153,9 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
     # Check for any other .py files that shouldn't be there
     generated_py_files = {f.name for f in models_output_dir.glob("*.py")}
     expected_py_files = {
-        f"{NameSanitizer.sanitize_module_name("MyItem")}.py",
-        f"{NameSanitizer.sanitize_module_name("PaginationMeta")}.py",
-        f"{NameSanitizer.sanitize_module_name("MyItemListResponse")}.py",
+        f"{NameSanitizer.sanitize_module_name('MyItem')}.py",
+        f"{NameSanitizer.sanitize_module_name('PaginationMeta')}.py",
+        f"{NameSanitizer.sanitize_module_name('MyItemListResponse')}.py",
         "__init__.py",
     }
     assert (
