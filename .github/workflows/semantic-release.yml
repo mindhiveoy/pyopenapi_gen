@@ -82,11 +82,6 @@ jobs:
           echo "No release-worthy changes found since $LAST_TAG"
         fi
 
-    - name: Build packages
-      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
-      run: |
-        poetry run python -m build
-
     - name: Run semantic-release version
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
       env:
@@ -96,31 +91,112 @@ jobs:
         git config user.email "github-actions[bot]@users.noreply.github.com"
         poetry run semantic-release version --skip-build
 
+    - name: Build packages after version bump
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      run: |
+        echo "🧹 Cleaning old packages..."
+        rm -rf dist/
+        echo "📦 Building packages with updated version..."
+        poetry run python -m build
+        echo "📋 Package contents:"
+        ls -la dist/
+
     - name: Check if packages exist after semantic-release
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
       run: |
         if [ -d "dist" ] && [ "$(ls -A dist/)" ]; then
           echo "✅ Packages exist in dist/"
           ls -la dist/
-          echo "packages_exist=true" >> $GITHUB_ENV
+          
+          # Extract version from package filename
+          PACKAGE_VERSION=$(ls dist/*.whl | sed 's/.*-\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/' | head -1)
+          echo "📦 Built package version: $PACKAGE_VERSION"
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_ENV
+          
+          # Check if version already exists on PyPI
+          PYPI_LATEST=$(curl -s "https://pypi.org/pypi/pyopenapi-gen/json" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['info']['version'])" 2>/dev/null || echo "unknown")
+          echo "📚 PyPI latest version: $PYPI_LATEST"
+          
+          if [ "$PACKAGE_VERSION" = "$PYPI_LATEST" ]; then
+            echo "⚠️ Version $PACKAGE_VERSION already exists on PyPI"
+            echo "This indicates either:"
+            echo "  - No release-worthy changes since last version"
+            echo "  - Semantic-release didn't detect conventional commits"
+            echo "  - Last commit was already a release commit"
+            echo "packages_exist=false" >> $GITHUB_ENV
+            echo "version_conflict=true" >> $GITHUB_ENV
+          else
+            echo "✅ New version $PACKAGE_VERSION ready for publishing (current: $PYPI_LATEST → new: $PACKAGE_VERSION)"
+            echo "packages_exist=true" >> $GITHUB_ENV
+            echo "version_conflict=false" >> $GITHUB_ENV
+          fi
         else
           echo "❌ No packages found, semantic-release may not have triggered a release"
           echo "packages_exist=false" >> $GITHUB_ENV
         fi
 
+    - name: Validate PyPI token availability
+      if: (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch') && env.packages_exist == 'true'
+      env:
+        PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        echo "🔐 Validating PYPI_API_TOKEN secret..."
+        if [ -z "$PYPI_TOKEN" ]; then
+          echo "❌ PYPI_API_TOKEN secret is not configured in GitHub repository"
+          echo ""
+          echo "To fix this:"
+          echo "  1. Go to: https://github.com/mindhiveoy/pyopenapi_gen/settings/secrets/actions"
+          echo "  2. Click 'New repository secret'"
+          echo "  3. Name: PYPI_API_TOKEN"
+          echo "  4. Value: your PyPI token (starts with pypi-)"
+          echo ""
+          echo "Your PyPI token should be the same one that works locally."
+          exit 1
+        fi
+        
+        # Validate token format
+        if [[ ! "$PYPI_TOKEN" =~ ^pypi- ]]; then
+          echo "⚠️ Token doesn't start with 'pypi-' - this may be incorrect"
+          echo "Token length: ${#PYPI_TOKEN} characters"
+        else
+          echo "✅ Token format looks correct (pypi-...)"
+          echo "✅ Token length: ${#PYPI_TOKEN} characters"
+        fi
+
     - name: Publish to PyPI with twine
       if: (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch') && env.packages_exist == 'true'
+      timeout-minutes: 10
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |
         echo "🚀 Publishing to PyPI with twine..."
-        if [ -z "$TWINE_PASSWORD" ]; then
-          echo "❌ PYPI_API_TOKEN secret not configured"
-          exit 1
-        fi
+        
+        echo "✅ Token configured (length: ${#TWINE_PASSWORD})"
+        echo "📦 Checking packages..."
         poetry run twine check dist/*
-        poetry run twine upload --username "$TWINE_USERNAME" --password "$TWINE_PASSWORD" dist/* --verbose
+        
+        echo "🔗 Testing PyPI connectivity..."
+        curl -I https://upload.pypi.org/legacy/ || {
+          echo "⚠️ PyPI upload endpoint not reachable"
+          exit 1
+        }
+        
+        echo "📤 Uploading to PyPI with timeout protection..."
+        timeout 300 poetry run twine upload \
+          --username "$TWINE_USERNAME" \
+          --password "$TWINE_PASSWORD" \
+          --verbose \
+          --disable-progress-bar \
+          dist/* || {
+          echo "❌ Upload failed or timed out after 5 minutes"
+          echo "This could be due to:"
+          echo "  - Network connectivity issues"
+          echo "  - PyPI rate limiting"
+          echo "  - Invalid token permissions"
+          echo "  - Package already exists (version conflict)"
+          exit 1
+        }
 
     - name: Run semantic-release publish (GitHub release only)
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
