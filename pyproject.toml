@@ -132,6 +132,7 @@ commitizen = "^3.29.0"
 python-semantic-release = "^9.12.0"
 pytest-xdist = "^3.8.0"
 pytest-cov = "^6.2.1"
+build = "^1.2.0"
 
 [project.scripts]
 pyopenapi-gen = "pyopenapi_gen.cli:app"
@@ -158,7 +159,7 @@ version_pattern = [
 branch = "main"
 upload_to_pypi = true
 upload_to_repository = true
-build_command = "poetry build"
+build_command = "python -m build"
 commit_message = "chore(release): {version}"
 tag_commit = true
 changelog_file = "CHANGELOG.md"
