@@ -77,6 +77,14 @@ jobs:
           echo "No release-worthy changes found since $LAST_TAG"
         fi
 
+    - name: Add Poetry to PATH
+      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Verify Poetry is available
+      run: |
+        which poetry
+        poetry --version
+
     - name: Python Semantic Release
       id: semantic_release
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
