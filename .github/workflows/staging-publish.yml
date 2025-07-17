@@ -1,4 +1,6 @@
 name: Staging Release (TestPyPI)
+# This workflow handles development releases to TestPyPI
+# Production releases are handled by semantic-release.yml
 
 on:
   push:

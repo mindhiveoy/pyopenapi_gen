@@ -1,0 +1,120 @@
+name: Semantic Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: semantic-release
+      cancel-in-progress: false
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        virtualenvs-path: .venv
+
+    - name: Install dependencies
+      run: |
+        poetry install --with dev
+
+    - name: Run comprehensive quality checks
+      run: |
+        poetry run black --check src/ tests/
+        poetry run ruff check src/ tests/
+        poetry run mypy src/ --strict --no-warn-no-return
+        poetry run bandit -r src/ -f txt -c .bandit
+
+    - name: Run full test suite
+      run: |
+        poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+
+    - name: Check for release-worthy changes
+      id: check_changes
+      run: |
+        # Check if there are any commits since the last tag that would trigger a release
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -n "$LAST_TAG" ]; then
+          COMMITS_SINCE_TAG=$(git log --oneline $LAST_TAG..HEAD | wc -l)
+          RELEASE_WORTHY=$(git log $LAST_TAG..HEAD --grep="^feat" --grep="^fix" --grep="^perf" --grep="BREAKING CHANGE" --oneline | wc -l)
+        else
+          COMMITS_SINCE_TAG=1
+          RELEASE_WORTHY=1
+        fi
+        
+        echo "commits_since_tag=$COMMITS_SINCE_TAG" >> $GITHUB_OUTPUT
+        echo "release_worthy=$RELEASE_WORTHY" >> $GITHUB_OUTPUT
+        echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+        
+        if [ "$RELEASE_WORTHY" -gt 0 ]; then
+          echo "Found release-worthy changes since $LAST_TAG"
+        else
+          echo "No release-worthy changes found since $LAST_TAG"
+        fi
+
+    - name: Python Semantic Release
+      id: semantic_release
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      uses: python-semantic-release/python-semantic-release@v9.12.0
+      with:
+        github_token: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        root_options: "--strict"
+
+    - name: Publish to PyPI
+      if: steps.semantic_release.outputs.released == 'true'
+      env:
+        POETRY_HTTP_BASIC_PYPI_USERNAME: __token__
+        POETRY_HTTP_BASIC_PYPI_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
+        poetry publish
+
+    - name: Create release summary
+      if: steps.semantic_release.outputs.released == 'true'
+      run: |
+        echo "## 🚀 Release Published" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: ${{ steps.semantic_release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: ${{ steps.semantic_release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **PyPI**: [pyopenapi-gen ${{ steps.semantic_release.outputs.version }}](https://pypi.org/project/pyopenapi-gen/${{ steps.semantic_release.outputs.version }}/)" >> $GITHUB_STEP_SUMMARY
+        echo "- **GitHub Release**: [Release Notes](https://github.com/mindhiveoy/pyopenapi_gen/releases/tag/${{ steps.semantic_release.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+
+  notify-completion:
+    needs: release
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Report success
+      if: needs.release.result == 'success'
+      run: |
+        echo "✅ Semantic release completed successfully"
+        
+    - name: Report failure
+      if: needs.release.result == 'failure'
+      run: |
+        echo "❌ Semantic release failed"
+        exit 1 
