@@ -1,6 +1,59 @@
 # CHANGELOG
 
 
+## v0.10.0 (2025-07-17)
+
+### Features
+
+- **ci**: Implement robust twine-based publishing with automated branch synchronization
+  ([`2fe82b1`](https://github.com/mindhiveoy/pyopenapi_gen/commit/2fe82b18b8e830cdbadea99e178c9e3c1aeb7350))
+
+Replace unreliable Poetry publishing with enterprise-grade twine-based automation that resolves
+  persistent 'No module named build' and PyPI authentication failures.
+
+## Key Improvements
+
+### Publishing Infrastructure - Add comprehensive Makefile publish targets (publish, publish-test,
+  publish-force, publish-check) - Replace semantic-release PyPI publishing with dedicated twine
+  workflow - Implement explicit token extraction from Poetry auth configuration - Add robust error
+  handling and validation for all publish operations
+
+### GitHub Actions Enhancements - Migrate from poetry publish to twine upload with PYPI_API_TOKEN -
+  Add automated branch synchronization (main → staging → develop) after releases - Implement smart
+  conflict resolution with automatic PR creation - Add comprehensive release summaries and status
+  reporting
+
+### Developer Experience - Provide multiple publish modes for different development scenarios - Add
+  token validation and clear error messages for authentication issues - Support both production PyPI
+  and TestPyPI publishing workflows - Enable force publishing for CI/CD environments
+
+### Configuration Updates - Add twine ^6.0.1 to development dependencies - Configure
+  semantic-release for version-only operations (no publishing) - Update workflow permissions and
+  environment variable handling - Fix deprecated Poetry sync flag in Makefile dependency management
+
+## Technical Details
+
+The new architecture separates concerns: semantic-release handles versioning and changelog
+  generation, while twine handles reliable PyPI publishing. This resolves Docker container isolation
+  issues that prevented Poetry from accessing the build module in GitHub Actions.
+
+Branch synchronization ensures develop and staging environments automatically receive version
+  updates after successful releases, with graceful fallback to pull requests when merge conflicts
+  occur.
+
+## Breaking Changes
+
+None - all existing workflows remain functional while gaining reliability improvements.
+
+Resolves: persistent semantic-release PyPI authentication failures
+
+Resolves: 'No module named build' errors in GitHub Actions
+
+Resolves: manual branch synchronization after releases
+
+Implements: enterprise-grade publishing automation
+
+
 ## v0.9.0 (2025-07-17)
 
 ### Bug Fixes
