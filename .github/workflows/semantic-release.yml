@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual release'
+        required: false
+        default: 'Manual release'
 
 permissions:
   contents: write
@@ -29,7 +34,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version: '3.12'
 
     - name: Install Poetry
       uses: snok/install-poetry@v1
@@ -77,38 +82,36 @@ jobs:
           echo "No release-worthy changes found since $LAST_TAG"
         fi
 
-    - name: Add Poetry to PATH
-      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-    - name: Verify Poetry is available
-      run: |
-        which poetry
-        poetry --version
-
-    - name: Python Semantic Release
-      id: semantic_release
+    - name: Build packages
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
-      uses: python-semantic-release/python-semantic-release@v9.12.0
-      with:
-        github_token: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-        root_options: "--strict"
-
-    - name: Publish to PyPI
-      if: steps.semantic_release.outputs.released == 'true'
-      env:
-        POETRY_HTTP_BASIC_PYPI_USERNAME: __token__
-        POETRY_HTTP_BASIC_PYPI_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |
-        poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
-        poetry publish
+        poetry run python -m build
+
+    - name: Run semantic-release version
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      env:
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        poetry run semantic-release version --skip-build
+
+    - name: Run semantic-release publish
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      env:
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        poetry run semantic-release publish
 
     - name: Create release summary
-      if: steps.semantic_release.outputs.released == 'true'
+      if: success()
       run: |
         echo "## 🚀 Release Published" >> $GITHUB_STEP_SUMMARY
         echo "- **Version**: ${{ steps.semantic_release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Tag**: ${{ steps.semantic_release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **PyPI**: [pyopenapi-gen ${{ steps.semantic_release.outputs.version }}](https://pypi.org/project/pyopenapi-gen/${{ steps.semantic_release.outputs.version }}/)" >> $GITHUB_STEP_SUMMARY
+        echo "- **PyPI**: [pyopenapi-gen ${{ steps.semantic_release.outputs.version }}](https://pypi.org/project/pyopenapi-gen/${{ steps.semantic_release.outputs.version }}/ )" >> $GITHUB_STEP_SUMMARY
         echo "- **GitHub Release**: [Release Notes](https://github.com/mindhiveoy/pyopenapi_gen/releases/tag/${{ steps.semantic_release.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
 
   notify-completion:
