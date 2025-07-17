@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v0.10.2 (2025-07-17)
+
+### Bug Fixes
+
+- **docs**: Update CLAUDE.md with recent publishing automation improvements
+  ([`a3eb8d2`](https://github.com/mindhiveoy/pyopenapi_gen/commit/a3eb8d24e08e90f38bfa83c7024941a14ae3e599))
+
+Document the successful implementation of: - Twine-based PyPI publishing workflow - Enhanced token
+  validation and error handling - Automated branch synchronization system - PYPI_API_TOKEN secret
+  configuration
+
+This update ensures the documentation reflects the current robust CI/CD publishing state.
+
+
 ## v0.10.1 (2025-07-17)
 
 ### Bug Fixes
