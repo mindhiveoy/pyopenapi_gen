@@ -1,6 +1,21 @@
 # CHANGELOG
 
 
+## v0.10.1 (2025-07-17)
+
+### Bug Fixes
+
+- **ci**: Add comprehensive PyPI token validation and version conflict detection
+  ([`8a096d5`](https://github.com/mindhiveoy/pyopenapi_gen/commit/8a096d5c6a30be7021578bfd904f5e61ffc23d27))
+
+- Add dedicated PYPI_API_TOKEN secret validation step - Implement version conflict detection to
+  prevent duplicate uploads - Rebuild packages after semantic-release version bump to ensure correct
+  versions - Add timeout protection and better error messaging for PyPI uploads - Enhance debugging
+  output for troubleshooting authentication issues
+
+Resolves: PyPI upload hanging due to version conflicts and improper token validation
+
+
 ## v0.10.0 (2025-07-17)
 
 ### Features
