@@ -129,7 +129,7 @@ black = "^25.1.0"
 ruff = "^0.12.3"
 mypy = "^1.17.0"
 commitizen = "^3.29.0"
-python-semantic-release = "^9.12.0"
+python-semantic-release = "^10.3.0"
 pytest-xdist = "^3.8.0"
 pytest-cov = "^6.2.1"
 
