@@ -79,6 +79,29 @@ def parse_parameter(
         base_param_promo_name = f"{operation_id_for_promo}Param" if operation_id_for_promo else ""
         name_for_inline_param_schema = f"{base_param_promo_name}{NameSanitizer.sanitize_class_name(param_name)}"
 
+    # General rule: if a parameter is defined inline but a components parameter exists with the
+    # same name and location, prefer the components schema (often richer: arrays/enums/refs).
+    try:
+        if isinstance(context, ParsingContext):
+            components_params = context.raw_spec_components.get("parameters", {})
+            if isinstance(components_params, Mapping):
+                for comp_key, comp_param in components_params.items():
+                    if not isinstance(comp_param, Mapping):
+                        continue
+                    if comp_param.get("name") == param_name and comp_param.get("in") == node.get("in"):
+                        comp_schema = comp_param.get("schema")
+                        if isinstance(comp_schema, Mapping):
+                            # Prefer component schema if inline is missing or clearly less specific
+                            inline_is_specific = isinstance(sch, Mapping) and (
+                                sch.get("type") in {"array", "object"} or "$ref" in sch or "enum" in sch
+                            )
+                            if not inline_is_specific:
+                                sch = comp_schema
+                        break
+    except Exception:
+        # Be conservative on any unexpected structure
+        pass
+
     # For parameters, we want to avoid creating complex schemas for simple enum arrays
     # Check if this is a simple enum array and handle it specially
     if (
