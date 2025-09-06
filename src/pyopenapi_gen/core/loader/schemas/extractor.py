@@ -127,6 +127,8 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
 
 def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     """Extract inline property enums as unique schemas and update property references.
+    
+    Also ensures top-level enum schemas are properly marked for generation.
 
     Contracts:
         Preconditions:
@@ -136,6 +138,7 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
             - All property schemas with enums have proper names
             - All array item schemas have proper names
             - No duplicate schema names are created
+            - Top-level enum schemas have generation_name set
     """
     assert isinstance(schemas, dict), "schemas must be a dict"
     assert all(isinstance(s, IRSchema) for s in schemas.values()), "all values must be IRSchema objects"
@@ -149,6 +152,19 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
 
     new_enums = {}
     for schema_name, schema in list(schemas.items()):
+        # Handle top-level enum schemas (those defined directly in components/schemas)
+        # These are already enums but need generation_name set
+        if schema.enum and schema.type in ["string", "integer", "number"]:
+            # This is a top-level enum schema
+            # Ensure it has generation_name set (will be properly set by emitter later,
+            # but we can set it here to avoid the warning)
+            if not hasattr(schema, 'generation_name') or not schema.generation_name:
+                schema.generation_name = schema.name
+            # Mark this as a properly processed enum
+            schema._is_top_level_enum = True
+            logger.debug(f"Marked top-level enum schema: {schema_name}")
+        
+        # Extract inline enums from properties
         for prop_name, prop_schema in list(schema.properties.items()):
             if prop_schema.enum and not prop_schema.name:
                 enum_name = (
@@ -167,6 +183,7 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
                     enum=copy.deepcopy(prop_schema.enum),
                     description=prop_schema.description or f"Enum for {schema_name}.{prop_name}",
                 )
+                enum_schema.generation_name = enum_name  # Set generation_name for extracted enums
                 new_enums[enum_name] = enum_schema
 
                 # Update the original property to reference the extracted enum
