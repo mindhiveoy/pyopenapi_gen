@@ -77,9 +77,10 @@ class ClientGenerator:
         else:
             log_msg = f"{timestamp} ({elapsed:.2f}s) {message}"
 
-        # logger.info(log_msg) # Keep commented out to ensure test_gen_nonexistent_spec_path passes
-        # Also print to stdout for CLI users
-        # print(log_msg) # Keep commented out
+        logger.info(log_msg)
+        # Also print to stdout for CLI users when verbose mode is enabled
+        if self.verbose:
+            print(log_msg)
 
     def generate(
         self,
@@ -271,7 +272,8 @@ class ClientGenerator:
                 self._log_progress("Generating client file (temp)", "EMIT_CLIENT_TEMP")
                 client_emitter = ClientEmitter(context=tmp_render_context_for_diff)  # ClientEmitter now takes context
                 client_files = [
-                    Path(p) for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # emit takes ir, str output_dir
+                    Path(p)
+                    for p in client_emitter.emit(ir, str(tmp_out_dir_for_diff))  # emit takes ir, str output_dir
                 ]
                 temp_generated_files += client_files
                 self._log_progress(f"Generated {len(client_files)} client files (temp)", "EMIT_CLIENT_TEMP")
@@ -523,9 +525,23 @@ class ClientGenerator:
         """
         spec_path_obj = Path(path_or_url)
         if spec_path_obj.exists() and spec_path_obj.is_file():  # Added is_file() check
-            import yaml
+            text = spec_path_obj.read_text()
+            # Prefer JSON for .json files to avoid optional PyYAML dependency in tests
+            if spec_path_obj.suffix.lower() == ".json":
+                import json
 
-            data = yaml.safe_load(spec_path_obj.read_text())
+                data = json.loads(text)
+            else:
+                try:
+                    import yaml
+
+                    data = yaml.safe_load(text)
+                except ModuleNotFoundError:
+                    # Fallback: attempt JSON parsing if YAML is unavailable
+                    import json
+
+                    data = json.loads(text)
+
             if not isinstance(data, dict):
                 raise GenerationError("Loaded spec is not a dictionary.")
             return data
