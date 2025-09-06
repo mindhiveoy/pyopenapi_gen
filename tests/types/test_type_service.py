@@ -91,7 +91,7 @@ class TestUnifiedTypeService:
         response = IRResponse(
             status_code="200",
             description="Success",
-            content={"application/json": IRSchema(type="array", items=user_schema)}
+            content={"application/json": IRSchema(type="array", items=user_schema)},
         )
         operation = IROperation(
             operation_id="getUsers",
@@ -118,11 +118,7 @@ class TestUnifiedTypeService:
         # Arrange - Use real response with actual schema content
         # Need generation_name for it to be recognized as a named schema
         user_schema = IRSchema(name="User", generation_name="User", type="object", properties={})
-        response = IRResponse(
-            status_code="200",
-            description="Success",
-            content={"application/json": user_schema}
-        )
+        response = IRResponse(status_code="200", description="Success", content={"application/json": user_schema})
 
         # Act - Call the real method without mocking
         result = service.resolve_response_type(response, mock_context)

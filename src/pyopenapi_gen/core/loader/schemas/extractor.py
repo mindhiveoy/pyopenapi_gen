@@ -127,7 +127,7 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
 
 def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     """Extract inline property enums as unique schemas and update property references.
-    
+
     Also ensures top-level enum schemas are properly marked for generation.
 
     Contracts:
@@ -158,12 +158,12 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
             # This is a top-level enum schema
             # Ensure it has generation_name set (will be properly set by emitter later,
             # but we can set it here to avoid the warning)
-            if not hasattr(schema, 'generation_name') or not schema.generation_name:
+            if not hasattr(schema, "generation_name") or not schema.generation_name:
                 schema.generation_name = schema.name
             # Mark this as a properly processed enum
             schema._is_top_level_enum = True
             logger.debug(f"Marked top-level enum schema: {schema_name}")
-        
+
         # Extract inline enums from properties
         for prop_name, prop_schema in list(schema.properties.items()):
             if prop_schema.enum and not prop_schema.name:

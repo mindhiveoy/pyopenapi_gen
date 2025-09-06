@@ -21,22 +21,19 @@ class TestSchemaResolverEnums:
         ref_resolver = Mock()
         ref_resolver.schemas = {}
         resolver = OpenAPISchemaResolver(ref_resolver)
-        
+
         enum_schema = IRSchema(
-            name="UserRole",
-            type="string",
-            enum=["user", "admin", "system"],
-            description="User role"
+            name="UserRole", type="string", enum=["user", "admin", "system"], description="User role"
         )
         enum_schema.generation_name = "UserRole"
         enum_schema._is_top_level_enum = True
-        
+
         context = Mock()
         context.add_import = Mock()
-        
+
         # Act
         result = resolver._resolve_string(enum_schema, context, required=True)
-        
+
         # Assert
         assert isinstance(result, ResolvedType)
         assert result.python_type == "UserRole"
@@ -53,22 +50,19 @@ class TestSchemaResolverEnums:
         ref_resolver = Mock()
         ref_resolver.schemas = {}
         resolver = OpenAPISchemaResolver(ref_resolver)
-        
+
         enum_schema = IRSchema(
-            name="TenantStatus",
-            type="string",
-            enum=["active", "inactive", "suspended"],
-            description="Tenant status"
+            name="TenantStatus", type="string", enum=["active", "inactive", "suspended"], description="Tenant status"
         )
         # Only marked as top-level, no generation_name
         enum_schema._is_top_level_enum = True
-        
+
         context = Mock()
         context.add_import = Mock()
-        
+
         # Act
         result = resolver._resolve_string(enum_schema, context, required=False)
-        
+
         # Assert
         assert isinstance(result, ResolvedType)
         assert result.python_type == "TenantStatus"
@@ -83,26 +77,23 @@ class TestSchemaResolverEnums:
         """
         # Arrange
         import logging
-        
+
         ref_resolver = Mock()
         ref_resolver.schemas = {}
         resolver = OpenAPISchemaResolver(ref_resolver)
-        
+
         enum_schema = IRSchema(
-            name="SomeProperty",
-            type="string",
-            enum=["option1", "option2", "option3"],
-            description="Some options"
+            name="SomeProperty", type="string", enum=["option1", "option2", "option3"], description="Some options"
         )
         # Not marked as top-level, no generation_name
-        
+
         context = Mock()
         context.add_import = Mock()
-        
+
         # Act - capture log warnings
         with caplog.at_level(logging.WARNING):
             result = resolver._resolve_string(enum_schema, context, required=True)
-        
+
         # Assert
         assert isinstance(result, ResolvedType)
         assert result.python_type == "str"  # Falls back to str
@@ -123,20 +114,17 @@ class TestSchemaResolverEnums:
         ref_resolver = Mock()
         ref_resolver.schemas = {}
         resolver = OpenAPISchemaResolver(ref_resolver)
-        
+
         enum_schema = IRSchema(
-            name=None,  # Unnamed
-            type="string",
-            enum=["red", "green", "blue"],
-            description="Color options"
+            name=None, type="string", enum=["red", "green", "blue"], description="Color options"  # Unnamed
         )
-        
+
         context = Mock()
         context.add_import = Mock()
-        
+
         # Act
         result = resolver._resolve_string(enum_schema, context, required=True)
-        
+
         # Assert
         assert isinstance(result, ResolvedType)
         assert result.python_type == "str"
@@ -153,19 +141,15 @@ class TestSchemaResolverEnums:
         ref_resolver = Mock()
         ref_resolver.schemas = {}
         resolver = OpenAPISchemaResolver(ref_resolver)
-        
-        string_schema = IRSchema(
-            name="Username",
-            type="string",
-            description="User's username"
-        )
-        
+
+        string_schema = IRSchema(name="Username", type="string", description="User's username")
+
         context = Mock()
         context.add_import = Mock()
-        
+
         # Act
         result = resolver._resolve_string(string_schema, context, required=True)
-        
+
         # Assert
         assert isinstance(result, ResolvedType)
         assert result.python_type == "str"
@@ -182,20 +166,17 @@ class TestSchemaResolverEnums:
         ref_resolver = Mock()
         ref_resolver.schemas = {}
         resolver = OpenAPISchemaResolver(ref_resolver)
-        
+
         datetime_schema = IRSchema(
-            name="CreatedAt",
-            type="string",
-            format="date-time",
-            description="Creation timestamp"
+            name="CreatedAt", type="string", format="date-time", description="Creation timestamp"
         )
-        
+
         context = Mock()
         context.add_import = Mock()
-        
+
         # Act
         result = resolver._resolve_string(datetime_schema, context, required=True)
-        
+
         # Assert
         assert isinstance(result, ResolvedType)
         assert result.python_type == "datetime"
@@ -214,28 +195,26 @@ class TestSchemaResolverEnums:
         ref_resolver = Mock()
         ref_resolver.schemas = {}
         resolver = OpenAPISchemaResolver(ref_resolver)
-        
+
         enum_schema = IRSchema(
             name="JobStatus",
             type="string",
             enum=["pending", "running", "completed", "failed"],
-            description="Job status"
+            description="Job status",
         )
         enum_schema.generation_name = "JobStatus"
         enum_schema.final_module_stem = "job_status"
         enum_schema._is_top_level_enum = True
-        
+
         context = Mock()
         context.add_import = Mock()
         context.render_context = Mock()
         context.render_context.current_file = "endpoints/jobs.py"
-        context.render_context.calculate_relative_path_for_internal_module = Mock(
-            return_value="../models/job_status"
-        )
-        
+        context.render_context.calculate_relative_path_for_internal_module = Mock(return_value="../models/job_status")
+
         # Act
         result = resolver.resolve_schema(enum_schema, context, required=True)
-        
+
         # Assert
         assert isinstance(result, ResolvedType)
         assert result.python_type == "JobStatus"

@@ -175,12 +175,13 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         # Check if this is a properly processed enum (has generation_name)
         if hasattr(schema, "enum") and schema.enum:
             # Check if this enum was properly processed (has generation_name or is marked as top-level)
-            if (hasattr(schema, 'generation_name') and schema.generation_name) or \
-               (hasattr(schema, '_is_top_level_enum') and schema._is_top_level_enum):
+            if (hasattr(schema, "generation_name") and schema.generation_name) or (
+                hasattr(schema, "_is_top_level_enum") and schema._is_top_level_enum
+            ):
                 # This is a properly processed enum, it should have been handled earlier
                 # by _resolve_named_schema. If we're here, it might be during initial processing.
                 # Return the enum type name if available
-                if hasattr(schema, 'generation_name') and schema.generation_name:
+                if hasattr(schema, "generation_name") and schema.generation_name:
                     return ResolvedType(python_type=schema.generation_name, is_optional=not required)
                 elif schema.name:
                     return ResolvedType(python_type=schema.name, is_optional=not required)

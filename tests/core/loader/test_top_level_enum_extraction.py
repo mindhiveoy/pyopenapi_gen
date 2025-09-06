@@ -17,24 +17,21 @@ class TestTopLevelEnumExtraction:
         """
         # Arrange
         user_role_schema = IRSchema(
-            name="UserRole",
-            type="string",
-            enum=["user", "admin", "system"],
-            description="User role enumeration"
+            name="UserRole", type="string", enum=["user", "admin", "system"], description="User role enumeration"
         )
         schemas = {"UserRole": user_role_schema}
-        
+
         # Act
         result = extract_inline_enums(schemas)
-        
+
         # Assert
         assert "UserRole" in result
         user_role = result["UserRole"]
         # Check that generation_name was set
-        assert hasattr(user_role, 'generation_name')
+        assert hasattr(user_role, "generation_name")
         assert user_role.generation_name == "UserRole"
         # Check that it was marked as top-level enum
-        assert hasattr(user_role, '_is_top_level_enum')
+        assert hasattr(user_role, "_is_top_level_enum")
         assert user_role._is_top_level_enum is True
         # Enum values should remain
         assert user_role.enum == ["user", "admin", "system"]
@@ -48,23 +45,18 @@ class TestTopLevelEnumExtraction:
             The schema gets generation_name set and is marked as a top-level enum.
         """
         # Arrange
-        priority_schema = IRSchema(
-            name="Priority",
-            type="integer",
-            enum=[1, 2, 3, 4, 5],
-            description="Priority levels"
-        )
+        priority_schema = IRSchema(name="Priority", type="integer", enum=[1, 2, 3, 4, 5], description="Priority levels")
         schemas = {"Priority": priority_schema}
-        
+
         # Act
         result = extract_inline_enums(schemas)
-        
+
         # Assert
         assert "Priority" in result
         priority = result["Priority"]
-        assert hasattr(priority, 'generation_name')
+        assert hasattr(priority, "generation_name")
         assert priority.generation_name == "Priority"
-        assert hasattr(priority, '_is_top_level_enum')
+        assert hasattr(priority, "_is_top_level_enum")
         assert priority._is_top_level_enum is True
         assert priority.enum == [1, 2, 3, 4, 5]
         assert priority.type == "integer"
@@ -78,24 +70,21 @@ class TestTopLevelEnumExtraction:
         """
         # Arrange
         status_schema = IRSchema(
-            name="Status",
-            type="string",
-            enum=["active", "inactive", "pending"],
-            description="Status enumeration"
+            name="Status", type="string", enum=["active", "inactive", "pending"], description="Status enumeration"
         )
         # Simulate emitter already setting generation_name
         status_schema.generation_name = "StatusEnum"
         schemas = {"Status": status_schema}
-        
+
         # Act
         result = extract_inline_enums(schemas)
-        
+
         # Assert
         assert "Status" in result
         status = result["Status"]
         # Should preserve the existing generation_name
         assert status.generation_name == "StatusEnum"
-        assert hasattr(status, '_is_top_level_enum')
+        assert hasattr(status, "_is_top_level_enum")
         assert status._is_top_level_enum is True
 
     def test_extract_inline_enums__mixed_top_level_and_inline_enums__processes_both(self) -> None:
@@ -108,48 +97,35 @@ class TestTopLevelEnumExtraction:
         # Arrange
         # Top-level enum
         role_schema = IRSchema(
-            name="Role",
-            type="string",
-            enum=["viewer", "editor", "owner"],
-            description="Access role"
+            name="Role", type="string", enum=["viewer", "editor", "owner"], description="Access role"
         )
-        
+
         # Schema with inline enum property
         inline_enum_property = IRSchema(
-            name=None,
-            type="string",
-            enum=["draft", "published", "archived"],
-            description="Document status"
+            name=None, type="string", enum=["draft", "published", "archived"], description="Document status"
         )
-        document_schema = IRSchema(
-            name="Document",
-            type="object",
-            properties={"status": inline_enum_property}
-        )
-        
-        schemas = {
-            "Role": role_schema,
-            "Document": document_schema
-        }
-        
+        document_schema = IRSchema(name="Document", type="object", properties={"status": inline_enum_property})
+
+        schemas = {"Role": role_schema, "Document": document_schema}
+
         # Act
         result = extract_inline_enums(schemas)
-        
+
         # Assert
         # Top-level enum should be marked
         assert "Role" in result
         role = result["Role"]
-        assert hasattr(role, 'generation_name')
+        assert hasattr(role, "generation_name")
         assert role.generation_name == "Role"
-        assert hasattr(role, '_is_top_level_enum')
+        assert hasattr(role, "_is_top_level_enum")
         assert role._is_top_level_enum is True
-        
+
         # Inline enum should be extracted
         assert "DocumentStatusEnum" in result
         extracted_enum = result["DocumentStatusEnum"]
         assert extracted_enum.enum == ["draft", "published", "archived"]
         assert extracted_enum.generation_name == "DocumentStatusEnum"
-        
+
         # Document property should reference the extracted enum
         document = result["Document"]
         assert document.properties["status"].name == "DocumentStatusEnum"
@@ -168,20 +144,20 @@ class TestTopLevelEnumExtraction:
             name="InvalidEnum",
             type="object",
             enum=["should", "not", "work"],  # Invalid: objects shouldn't have enum
-            properties={}
+            properties={},
         )
         schemas = {"InvalidEnum": invalid_schema}
-        
+
         # Act
         result = extract_inline_enums(schemas)
-        
+
         # Assert
         assert "InvalidEnum" in result
         invalid = result["InvalidEnum"]
         # Should NOT be marked as top-level enum
-        assert not hasattr(invalid, '_is_top_level_enum') or not invalid._is_top_level_enum
+        assert not hasattr(invalid, "_is_top_level_enum") or not invalid._is_top_level_enum
         # generation_name might not be set
-        if hasattr(invalid, 'generation_name'):
+        if hasattr(invalid, "generation_name"):
             # Even if set, it shouldn't be treated as enum
             assert invalid.type == "object"
 
@@ -197,18 +173,18 @@ class TestTopLevelEnumExtraction:
             name="Rating",
             type="number",
             enum=[1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0],
-            description="Rating values"
+            description="Rating values",
         )
         schemas = {"Rating": rating_schema}
-        
+
         # Act
         result = extract_inline_enums(schemas)
-        
+
         # Assert
         assert "Rating" in result
         rating = result["Rating"]
-        assert hasattr(rating, 'generation_name')
+        assert hasattr(rating, "generation_name")
         assert rating.generation_name == "Rating"
-        assert hasattr(rating, '_is_top_level_enum')
+        assert hasattr(rating, "_is_top_level_enum")
         assert rating._is_top_level_enum is True
         assert rating.type == "number"
