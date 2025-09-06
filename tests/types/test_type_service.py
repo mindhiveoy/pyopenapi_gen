@@ -82,46 +82,53 @@ class TestUnifiedTypeService:
         self, service, mock_context
     ) -> None:
         """
-        Scenario: Resolving operation response type
-        Expected Outcome: Returns resolved response type
+        Scenario: Resolving operation response type with actual response data
+        Expected Outcome: Returns resolved type based on actual response content
         """
-        # Arrange
+        # Arrange - Use real IR objects with actual response data
+        # Create a named schema that represents the User type
+        user_schema = IRSchema(name="User", generation_name="User", type="object", properties={})
+        response = IRResponse(
+            status_code="200",
+            description="Success",
+            content={"application/json": IRSchema(type="array", items=user_schema)}
+        )
         operation = IROperation(
             operation_id="getUsers",
             method="GET",
             path="/users",
             summary="Get users",
             description="Get all users",
-            responses=[],
+            responses=[response],
         )
 
-        with patch.object(service.response_resolver, "resolve_operation_response") as mock_resolve:
-            mock_resolve.return_value = ResolvedType(python_type="List[User]")
+        # Act - Call the real method without mocking internal components
+        result = service.resolve_operation_response_type(operation, mock_context)
 
-            # Act
-            result = service.resolve_operation_response_type(operation, mock_context)
-
-            # Assert
-            assert result == "List[User]"
-            mock_resolve.assert_called_once()
+        # Assert - Verify the actual resolved type
+        assert result == "List[User]"
+        # Verify proper import was added for the List type
+        mock_context.add_import.assert_any_call("typing", "List")
 
     def test_resolve_response_type__specific_response__returns_type(self, service, mock_context) -> None:
         """
-        Scenario: Resolving specific response type
-        Expected Outcome: Returns resolved type
+        Scenario: Resolving specific response type with actual schema
+        Expected Outcome: Returns resolved type based on response content
         """
-        # Arrange
-        response = IRResponse(status_code="200", description="Success", content={})
+        # Arrange - Use real response with actual schema content
+        # Need generation_name for it to be recognized as a named schema
+        user_schema = IRSchema(name="User", generation_name="User", type="object", properties={})
+        response = IRResponse(
+            status_code="200",
+            description="Success",
+            content={"application/json": user_schema}
+        )
 
-        with patch.object(service.response_resolver, "resolve_specific_response") as mock_resolve:
-            mock_resolve.return_value = ResolvedType(python_type="User")
+        # Act - Call the real method without mocking
+        result = service.resolve_response_type(response, mock_context)
 
-            # Act
-            result = service.resolve_response_type(response, mock_context)
-
-            # Assert
-            assert result == "User"
-            mock_resolve.assert_called_once()
+        # Assert - Verify actual type resolution
+        assert result == "User"
 
     def test_format_resolved_type__optional_not_already_wrapped__adds_optional(self, service) -> None:
         """
