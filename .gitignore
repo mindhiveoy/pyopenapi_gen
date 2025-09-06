@@ -190,3 +190,8 @@ temp_test_process/
 .deps-installed
 
 _process/
+
+coverage_reports/
+
+logs
+agent-plan.json

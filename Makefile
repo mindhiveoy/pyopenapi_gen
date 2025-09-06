@@ -76,10 +76,12 @@ quality: format-check lint typecheck security
 # Testing commands
 test: deps
 	@echo "🧪 Running tests with coverage (requires 85%)..."
+	@mkdir -p coverage_reports
 	poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml:coverage_reports/coverage.xml --cov-fail-under=85
 
 test-serial: deps
 	@echo "🧪 Running tests sequentially..."
+	@mkdir -p coverage_reports
 	poetry run pytest --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml:coverage_reports/coverage.xml
 
 test-no-cov: deps
@@ -92,10 +94,12 @@ test-fast: deps
 
 test-cov: deps
 	@echo "🧪 Running tests with coverage report..."
+	@mkdir -p coverage_reports
 	poetry run pytest -n 2 --cov=src --cov-report=term-missing --cov-report=html:coverage_reports/html
 
 coverage-html: deps
 	@echo "📊 Generating HTML coverage report..."
+	@mkdir -p coverage_reports
 	poetry run pytest --cov=src --cov-report=html:coverage_reports/html
 	@echo "📊 Coverage report: coverage_reports/html/index.html"
 
