@@ -174,17 +174,15 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         """Resolve string type, handling enums and formats."""
         # Check if this is a properly processed enum (has generation_name)
         if hasattr(schema, "enum") and schema.enum:
-            # Check if this enum was properly processed (has generation_name or is marked as top-level)
-            if (hasattr(schema, "generation_name") and schema.generation_name) or (
-                hasattr(schema, "_is_top_level_enum") and schema._is_top_level_enum
-            ):
+            # Check if this enum was properly processed (has generation_name)
+            if hasattr(schema, "generation_name") and schema.generation_name:
                 # This is a properly processed enum, it should have been handled earlier
                 # by _resolve_named_schema. If we're here, it might be during initial processing.
-                # Return the enum type name if available
-                if hasattr(schema, "generation_name") and schema.generation_name:
-                    return ResolvedType(python_type=schema.generation_name, is_optional=not required)
-                elif schema.name:
-                    return ResolvedType(python_type=schema.name, is_optional=not required)
+                # Return the enum type name
+                return ResolvedType(python_type=schema.generation_name, is_optional=not required)
+            elif schema.name:
+                # Fall back to schema name if generation_name is not set
+                return ResolvedType(python_type=schema.name, is_optional=not required)
             else:
                 # This is an unprocessed inline enum - log warning but continue
                 logger.warning(f"Found inline enum in string schema that wasn't promoted: {schema.name or 'unnamed'}")

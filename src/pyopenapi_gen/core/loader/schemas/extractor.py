@@ -160,8 +160,8 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
             # but we can set it here to avoid the warning)
             if not hasattr(schema, "generation_name") or not schema.generation_name:
                 schema.generation_name = schema.name
-            # Mark this as a properly processed enum
-            schema._is_top_level_enum = True
+            # Mark this as a properly processed enum by ensuring generation_name is set
+            # This serves as the marker that this enum was properly processed
             logger.debug(f"Marked top-level enum schema: {schema_name}")
 
         # Extract inline enums from properties
