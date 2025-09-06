@@ -1,6 +1,5 @@
 """Tests for top-level enum schema extraction and promotion."""
 
-import pytest
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.loader.schemas.extractor import extract_inline_enums
 

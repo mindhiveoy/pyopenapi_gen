@@ -1,10 +1,10 @@
 """Tests for enum handling in the schema resolver."""
 
 from unittest.mock import Mock
-import pytest
+
 from pyopenapi_gen import IRSchema
-from pyopenapi_gen.types.resolvers.schema_resolver import OpenAPISchemaResolver
 from pyopenapi_gen.types.contracts.types import ResolvedType
+from pyopenapi_gen.types.resolvers.schema_resolver import OpenAPISchemaResolver
 
 
 class TestSchemaResolverEnums:
