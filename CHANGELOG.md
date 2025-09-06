@@ -1,6 +1,146 @@
 # CHANGELOG
 
 
+## v0.11.0 (2025-09-06)
+
+### Bug Fixes
+
+- Remove dynamic attribute to fix mypy type checking
+  ([`b52a1ca`](https://github.com/mindhiveoy/pyopenapi_gen/commit/b52a1cac4987a295ca0d404ed2155b1ab2136ec8))
+
+- Resolve enum type checking and test compatibility issues
+  ([`c9ab9e2`](https://github.com/mindhiveoy/pyopenapi_gen/commit/c9ab9e2272a2f4af822ae311674822f658f4f7d3))
+
+- **parser**: Enhance parameter resolution to prefer component schemas
+  ([`743f6d4`](https://github.com/mindhiveoy/pyopenapi_gen/commit/743f6d46d86f7288ddfeabf1c2896f6a698fccda))
+
+- Add fallback to component parameters when inline schemas are basic - Prefer richer component
+  schemas (arrays/enums/refs) over simple inline ones - Handle simple enum arrays in parameters
+  without creating complex schemas - Improve parameter type resolution for better client generation
+
+- **types**: Improve enum resolution to handle promoted schemas
+  ([`e44d358`](https://github.com/mindhiveoy/pyopenapi_gen/commit/e44d358e5a995a0a93ca19aa3f24ff53855a1666))
+
+Updated schema resolver to properly recognize promoted enum schemas and reduce false-positive
+  warnings.
+
+Implementation changes: - Check for generation_name or _is_top_level_enum marker - Return enum type
+  name for properly processed enums - Log more informative warnings with schema names - Preserve
+  fallback to str for truly inline enums
+
+Technical details in schema_resolver.py: - Modified _resolve_string() to check promotion markers -
+  Return generation_name or name for marked enums - Only warn for unmarked inline enums with
+  descriptive message
+
+This eliminates spurious warnings for properly promoted enums while maintaining detection of actual
+  inline enum issues.
+
+- **visit**: Add fallback for missing response descriptions
+  ([`5c9b853`](https://github.com/mindhiveoy/pyopenapi_gen/commit/5c9b853c7cdab4afa5d49adf1c8e8f186e39b6e8))
+
+- Handle None response descriptions gracefully in signature generator - Provide empty string
+  fallback to prevent AttributeError - Improve robustness when OpenAPI specs have incomplete
+  response metadata
+
+### Chores
+
+- Update build configuration for coverage reports
+  ([`0e6f0ff`](https://github.com/mindhiveoy/pyopenapi_gen/commit/0e6f0ff95c9dbaba0a5920d608641ce29ab1d870))
+
+- Add coverage_reports/ directory to .gitignore - Update Makefile coverage targets to use
+  coverage_reports/ for data storage - Prevent coverage data files from polluting project root
+
+- **deps**: Update project dependencies
+  ([`e4a1469`](https://github.com/mindhiveoy/pyopenapi_gen/commit/e4a146996d1486194ca9503c0788434ba6df409d))
+
+- Update anyio to 4.9.0 for improved async functionality - Update authlib to 1.4.0 for better OAuth2
+  support - Sync poetry.lock with latest dependency resolutions
+
+### Code Style
+
+- Apply Black formatting to all modified files
+  ([`f1d383b`](https://github.com/mindhiveoy/pyopenapi_gen/commit/f1d383b8d8aac31ab5f3fb6536ef88eebb0c242f))
+
+- Fix Ruff linting issues (unused imports)
+  ([`973b82a`](https://github.com/mindhiveoy/pyopenapi_gen/commit/973b82ab1db4e92ac37b1b38740e888e603094b5))
+
+### Features
+
+- **enums**: Add support for top-level enum schema promotion
+  ([`92afb7c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/92afb7c1964d85def7c8432f56d831d5bfa50a81))
+
+Enhanced enum extraction to properly handle top-level enum schemas defined directly in OpenAPI
+  components/schemas (like UserRole, TenantStatus).
+
+Implementation details: - Modified extract_inline_enums() to detect and mark top-level enums - Set
+  generation_name for top-level enums to ensure proper code generation - Added _is_top_level_enum
+  marker for tracking promoted schemas - Preserved existing inline enum extraction from properties
+
+Technical changes in extractor.py: - Added check for schemas with enum values and primitive types -
+  Automatically set generation_name if not already present - Mark schemas with _is_top_level_enum =
+  True for resolver
+
+This ensures all enum schemas generate proper Python Enum classes instead of falling back to plain
+  string types.
+
+Addresses: Inline enum promotion warnings in business_swagger.json
+
+### Refactoring
+
+- **core**: Improve exception handling with optional response object
+  ([`466706f`](https://github.com/mindhiveoy/pyopenapi_gen/commit/466706fb2cf9dbc43f374c5e51548c6c7111efd2))
+
+- Make response parameter optional in HTTPError constructor - Use Union[object, None] type
+  annotation for Python 3.12 compatibility - Enhance error handling flexibility for generated
+  clients
+
+- **generator**: Improve logging and JSON serialization
+  ([`30bf5a4`](https://github.com/mindhiveoy/pyopenapi_gen/commit/30bf5a4ef36df27f3d348f17dbb6fd519b450b88))
+
+- Fix JSONEncoder override method name from 'default' to 'encode' - Add debug logging for spec
+  loading with truncated output - Improve error handling in spec serialization - Enhance debugging
+  capabilities for complex OpenAPI specs
+
+- **loader**: Improve spec validation error handling
+  ([`d42cb7d`](https://github.com/mindhiveoy/pyopenapi_gen/commit/d42cb7da9a8ad5244b8d56285bd7614391b51ef9))
+
+- Add heuristic detection for jsonschema and openapi_spec_validator errors - Use logger.warning for
+  known validation library errors - Preserve explicit warnings for unexpected validation failures -
+  Reduce noise in test output while maintaining error visibility
+
+### Testing
+
+- Add comprehensive business domain OpenAPI spec
+  ([`1710abe`](https://github.com/mindhiveoy/pyopenapi_gen/commit/1710abe46521e148da8217f8236252fe9e93514a))
+
+- Include complex schemas with enums, arrays, and nested objects - Add multi-status response
+  definitions for testing - Include examples of inline and referenced enums - Provide realistic test
+  cases for parameter resolution
+
+- Enhance type resolution test coverage
+  ([`9a0a4e5`](https://github.com/mindhiveoy/pyopenapi_gen/commit/9a0a4e5933a2a20f5aab9e08d77a442768f1a053))
+
+- Add comprehensive tests for enum resolution scenarios - Improve test assertions for optional type
+  handling - Add edge cases for complex schema resolution - Enhance test documentation with clear
+  scenario descriptions
+
+- **enums**: Add comprehensive tests for enum promotion feature
+  ([`8cd7eb2`](https://github.com/mindhiveoy/pyopenapi_gen/commit/8cd7eb2b61cce36fb01f495ad4ee689c6e09d75b))
+
+Added test coverage for top-level enum extraction and resolution to ensure proper handling of
+  various enum patterns.
+
+Test coverage includes: - Top-level string, integer, and number enum schemas - Preservation of
+  existing generation_name values - Mixed scenarios with top-level and inline enums - Schema
+  resolver handling of promoted enums - Warning generation for unprocessed inline enums - Edge cases
+  like object types with enum values
+
+Test files: - test_top_level_enum_extraction.py: 6 test cases - test_schema_resolver_enums.py: 7
+  test cases
+
+All tests pass and verify correct enum promotion behavior.
+
+
 ## v0.10.2 (2025-07-17)
 
 ### Bug Fixes
