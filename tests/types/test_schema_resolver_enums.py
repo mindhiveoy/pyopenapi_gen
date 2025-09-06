@@ -1,5 +1,6 @@
 """Tests for enum handling in the schema resolver."""
 
+import logging
 from unittest.mock import Mock
 
 from pyopenapi_gen import IRSchema
@@ -39,12 +40,12 @@ class TestSchemaResolverEnums:
         assert result.python_type == "UserRole"
         assert result.is_optional is False
 
-    def test_resolve_string__top_level_enum_marked_but_no_generation_name__uses_name(self) -> None:
+    def test_resolve_string__enum_without_generation_name__logs_warning_and_returns_str(self, caplog) -> None:
         """
         Scenario:
-            A string schema marked as top-level enum but without generation_name.
+            A string schema with enum but without generation_name (unprocessed).
         Expected Outcome:
-            Falls back to using the schema name.
+            Logs warning and returns str type since it wasn't properly promoted.
         """
         # Arrange
         ref_resolver = Mock()
@@ -54,19 +55,22 @@ class TestSchemaResolverEnums:
         enum_schema = IRSchema(
             name="TenantStatus", type="string", enum=["active", "inactive", "suspended"], description="Tenant status"
         )
-        # Only marked as top-level, no generation_name
-        enum_schema._is_top_level_enum = True
+        # No generation_name means it wasn't properly processed
 
         context = Mock()
         context.add_import = Mock()
 
         # Act
-        result = resolver._resolve_string(enum_schema, context, required=False)
+        with caplog.at_level(logging.WARNING):
+            result = resolver._resolve_string(enum_schema, context, required=False)
 
         # Assert
         assert isinstance(result, ResolvedType)
-        assert result.python_type == "TenantStatus"
+        assert result.python_type == "str"  # Falls back to str for unprocessed enums
         assert result.is_optional is True
+        # Check that warning was logged
+        assert "Found inline enum" in caplog.text
+        assert "TenantStatus" in caplog.text
 
     def test_resolve_string__inline_enum_without_promotion__returns_str_with_warning(self, caplog) -> None:
         """

@@ -26,12 +26,10 @@ class TestTopLevelEnumExtraction:
         # Assert
         assert "UserRole" in result
         user_role = result["UserRole"]
-        # Check that generation_name was set
+        # Check that generation_name was set (this is the marker for properly processed enums)
         assert hasattr(user_role, "generation_name")
         assert user_role.generation_name == "UserRole"
-        # Check that it was marked as top-level enum
-        assert hasattr(user_role, "_is_top_level_enum")
-        assert user_role._is_top_level_enum is True
+        # The presence of generation_name is the indicator that this was properly processed
         # Enum values should remain
         assert user_role.enum == ["user", "admin", "system"]
         assert user_role.type == "string"
@@ -55,8 +53,7 @@ class TestTopLevelEnumExtraction:
         priority = result["Priority"]
         assert hasattr(priority, "generation_name")
         assert priority.generation_name == "Priority"
-        assert hasattr(priority, "_is_top_level_enum")
-        assert priority._is_top_level_enum is True
+        # The presence of generation_name is the indicator that this was properly processed
         assert priority.enum == [1, 2, 3, 4, 5]
         assert priority.type == "integer"
 
@@ -83,8 +80,7 @@ class TestTopLevelEnumExtraction:
         status = result["Status"]
         # Should preserve the existing generation_name
         assert status.generation_name == "StatusEnum"
-        assert hasattr(status, "_is_top_level_enum")
-        assert status._is_top_level_enum is True
+        # The presence of generation_name is the indicator that this was properly processed
 
     def test_extract_inline_enums__mixed_top_level_and_inline_enums__processes_both(self) -> None:
         """
@@ -116,8 +112,7 @@ class TestTopLevelEnumExtraction:
         role = result["Role"]
         assert hasattr(role, "generation_name")
         assert role.generation_name == "Role"
-        assert hasattr(role, "_is_top_level_enum")
-        assert role._is_top_level_enum is True
+        # The presence of generation_name is the indicator that this was properly processed
 
         # Inline enum should be extracted
         assert "DocumentStatusEnum" in result
@@ -153,8 +148,7 @@ class TestTopLevelEnumExtraction:
         # Assert
         assert "InvalidEnum" in result
         invalid = result["InvalidEnum"]
-        # Should NOT be marked as top-level enum
-        assert not hasattr(invalid, "_is_top_level_enum") or not invalid._is_top_level_enum
+        # Should not have processing marker since it's not a valid enum type
         # generation_name might not be set
         if hasattr(invalid, "generation_name"):
             # Even if set, it shouldn't be treated as enum
@@ -184,6 +178,5 @@ class TestTopLevelEnumExtraction:
         rating = result["Rating"]
         assert hasattr(rating, "generation_name")
         assert rating.generation_name == "Rating"
-        assert hasattr(rating, "_is_top_level_enum")
-        assert rating._is_top_level_enum is True
+        # The presence of generation_name is the indicator that this was properly processed
         assert rating.type == "number"

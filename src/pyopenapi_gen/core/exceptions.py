@@ -1,5 +1,3 @@
-
-
 class HTTPError(Exception):
     """Base HTTP error with status code and message."""
 
