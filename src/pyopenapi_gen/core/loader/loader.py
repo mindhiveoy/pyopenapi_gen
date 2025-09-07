@@ -148,8 +148,10 @@ class SpecLoader:
         )
 
         # Post-condition check
-        assert ir_spec.schemas == schemas_dict, "Schemas mismatch in IRSpec"
-        assert ir_spec.operations == operations, "Operations mismatch in IRSpec"
+        if ir_spec.schemas != schemas_dict:
+            raise RuntimeError("Schemas mismatch in IRSpec")
+        if ir_spec.operations != operations:
+            raise RuntimeError("Operations mismatch in IRSpec")
 
         return ir_spec
 

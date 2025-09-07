@@ -53,9 +53,12 @@ def _finalize_schema_object(
             - Returns a finalized IRSchema instance.
             - If schema has a name and isn't a placeholder, it's in context.parsed_schemas.
     """
-    assert isinstance(node, Mapping), "node must be a Mapping"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext instance"
-    assert callable(parse_fn), "parse_fn must be callable"
+    if not isinstance(node, Mapping):
+        raise TypeError("node must be a Mapping")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext instance")
+    if not callable(parse_fn):
+        raise TypeError("parse_fn must be callable")
     # Remove logger type check to support mock loggers in tests
 
     # If a placeholder for this schema name already exists due to a cycle detected deeper,

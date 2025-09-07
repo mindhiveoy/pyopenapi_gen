@@ -38,11 +38,16 @@ def _parse_any_of_schemas(
             - is_nullable: True if a null type was present.
             - effective_schema_type: Potential schema_type if list becomes empty/None (currently always None).
     """
-    assert isinstance(any_of_nodes, list), "any_of_nodes must be a list"
-    assert all(isinstance(n, Mapping) for n in any_of_nodes), "all items in any_of_nodes must be Mappings"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext instance"
-    assert max_depth >= 0, "max_depth must be non-negative"
-    assert callable(parse_fn), "parse_fn must be a callable"
+    if not isinstance(any_of_nodes, list):
+        raise TypeError("any_of_nodes must be a list")
+    if not all(isinstance(n, Mapping) for n in any_of_nodes):
+        raise TypeError("all items in any_of_nodes must be Mappings")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext instance")
+    if not max_depth >= 0:
+        raise ValueError("max_depth must be non-negative")
+    if not callable(parse_fn):
+        raise TypeError("parse_fn must be a callable")
 
     parsed_schemas_list: List[IRSchema] = []  # Renamed to avoid confusion with module name
     is_nullable_from_any_of = False

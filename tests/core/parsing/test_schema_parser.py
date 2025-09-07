@@ -495,7 +495,7 @@ class TestSchemaParser(unittest.TestCase):
         invalid_node: Any = "not a mapping"
 
         # Act & Assert
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(TypeError) as context:
             _parse_schema(schema_name, invalid_node, self.context, allow_self_reference=False)
 
         self.assertIn("must be a Mapping", str(context.exception))

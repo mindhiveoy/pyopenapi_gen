@@ -169,7 +169,8 @@ class ParsingContext:
             Postconditions:
                 - Returns True if the schema exists in parsed_schemas, False otherwise
         """
-        assert isinstance(schema_name, str), "schema_name must be a string"
+        if not isinstance(schema_name, str):
+            raise TypeError("schema_name must be a string")
         return schema_name in self.parsed_schemas
 
     def get_parsed_schema(self, schema_name: str) -> Optional["IRSchema"]:
@@ -181,5 +182,6 @@ class ParsingContext:
             Postconditions:
                 - Returns the IRSchema if it exists, None otherwise
         """
-        assert isinstance(schema_name, str), "schema_name must be a string"
+        if not isinstance(schema_name, str):
+            raise TypeError("schema_name must be a string")
         return self.parsed_schemas.get(schema_name)

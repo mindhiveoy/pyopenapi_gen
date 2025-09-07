@@ -29,7 +29,7 @@ class TestEnumGeneratorInit:
         # Assert
         assert generator.renderer is mock_renderer
 
-    def test_init__none_renderer__raises_assertion_error(self) -> None:
+    def test_init__none_renderer__raises_error(self) -> None:
         """
         Scenario:
             EnumGenerator is initialized with None as the renderer.
@@ -38,7 +38,9 @@ class TestEnumGeneratorInit:
             An AssertionError should be raised with an appropriate message.
         """
         # Arrange & Act & Assert
-        with pytest.raises(AssertionError, match="PythonConstructRenderer cannot be None"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="PythonConstructRenderer cannot be None"
+        ):
             EnumGenerator(None)  # type: ignore
 
 
@@ -201,7 +203,7 @@ class TestGenerateMemberNameForStringEnum:
         # Assert
         assert result == "MEMBER_EMPTY_STRING"  # No alphanumeric chars remain after sanitization
 
-    def test_generate_member_name_for_string_enum__non_string_input__raises_assertion_error(
+    def test_generate_member_name_for_string_enum__non_string_input__raises_error(
         self, generator: EnumGenerator
     ) -> None:
         """
@@ -215,7 +217,7 @@ class TestGenerateMemberNameForStringEnum:
         value = 123
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Input value must be a string"):
+        with pytest.raises((AssertionError, TypeError, ValueError, RuntimeError), match="Input value must be a string"):
             generator._generate_member_name_for_string_enum(value)  # type: ignore
 
     def test_generate_member_name_for_string_enum__mixed_case_alphanumeric__preserves_alphanumeric(
@@ -345,7 +347,7 @@ class TestGenerateMemberNameForIntegerEnum:
         # Assert
         assert result == "VALUE_5"
 
-    def test_generate_member_name_for_integer_enum__non_string_non_int_value__raises_assertion_error(
+    def test_generate_member_name_for_integer_enum__non_string_non_int_value__raises_error(
         self, generator: EnumGenerator
     ) -> None:
         """
@@ -360,10 +362,13 @@ class TestGenerateMemberNameForIntegerEnum:
         fallback = 0
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Input value for integer enum naming must be str or int"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError),
+            match="Input value for integer enum naming must be str or int",
+        ):
             generator._generate_member_name_for_integer_enum(value, fallback)  # type: ignore
 
-    def test_generate_member_name_for_integer_enum__non_int_fallback__raises_assertion_error(
+    def test_generate_member_name_for_integer_enum__non_int_fallback__raises_error(
         self, generator: EnumGenerator
     ) -> None:
         """
@@ -378,7 +383,9 @@ class TestGenerateMemberNameForIntegerEnum:
         fallback = "not_int"
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Fallback integer value must be an int"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="Fallback integer value must be an int"
+        ):
             generator._generate_member_name_for_integer_enum(value, fallback)  # type: ignore
 
     def test_generate_member_name_for_integer_enum__keyword_string__appends_underscore(
@@ -570,7 +577,7 @@ class TestGenerate:
             context=mock_context,
         )
 
-    def test_generate__none_schema__raises_assertion_error(self, generator: EnumGenerator, mock_context: Mock) -> None:
+    def test_generate__none_schema__raises_error(self, generator: EnumGenerator, mock_context: Mock) -> None:
         """
         Scenario:
             None is passed as the schema parameter.
@@ -579,12 +586,12 @@ class TestGenerate:
             An AssertionError should be raised with appropriate message.
         """
         # Arrange & Act & Assert
-        with pytest.raises(AssertionError, match="Schema cannot be None for enum generation"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="Schema cannot be None for enum generation"
+        ):
             generator.generate(None, "TestEnum", mock_context)  # type: ignore
 
-    def test_generate__schema_with_none_name__raises_assertion_error(
-        self, generator: EnumGenerator, mock_context: Mock
-    ) -> None:
+    def test_generate__schema_with_none_name__raises_error(self, generator: EnumGenerator, mock_context: Mock) -> None:
         """
         Scenario:
             A schema with None name is passed.
@@ -596,12 +603,13 @@ class TestGenerate:
         schema = IRSchema(name=None, type="string", enum=["a", "b"])
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Schema name must be present for enum generation"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError),
+            match="Schema name must be present for enum generation",
+        ):
             generator.generate(schema, "TestEnum", mock_context)
 
-    def test_generate__empty_base_name__raises_assertion_error(
-        self, generator: EnumGenerator, mock_context: Mock
-    ) -> None:
+    def test_generate__empty_base_name__raises_error(self, generator: EnumGenerator, mock_context: Mock) -> None:
         """
         Scenario:
             An empty string is passed as the base_name parameter.
@@ -613,10 +621,12 @@ class TestGenerate:
         schema = IRSchema(name="TestEnum", type="string", enum=["a", "b"])
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Base name cannot be empty for enum generation"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="Base name cannot be empty for enum generation"
+        ):
             generator.generate(schema, "", mock_context)
 
-    def test_generate__none_context__raises_assertion_error(self, generator: EnumGenerator) -> None:
+    def test_generate__none_context__raises_error(self, generator: EnumGenerator) -> None:
         """
         Scenario:
             None is passed as the context parameter.
@@ -628,10 +638,10 @@ class TestGenerate:
         schema = IRSchema(name="TestEnum", type="string", enum=["a", "b"])
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="RenderContext cannot be None"):
+        with pytest.raises((AssertionError, TypeError, ValueError, RuntimeError), match="RenderContext cannot be None"):
             generator.generate(schema, "TestEnum", None)  # type: ignore
 
-    def test_generate__schema_without_enum_values__raises_assertion_error(
+    def test_generate__schema_without_enum_values__raises_error(
         self, generator: EnumGenerator, mock_context: Mock
     ) -> None:
         """
@@ -645,10 +655,13 @@ class TestGenerate:
         schema = IRSchema(name="TestEnum", type="string", enum=None)
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Schema must have enum values for enum generation"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError),
+            match="Schema must have enum values for enum generation",
+        ):
             generator.generate(schema, "TestEnum", mock_context)
 
-    def test_generate__schema_with_invalid_type__raises_assertion_error(
+    def test_generate__schema_with_invalid_type__raises_error(
         self, generator: EnumGenerator, mock_context: Mock
     ) -> None:
         """
@@ -662,10 +675,13 @@ class TestGenerate:
         schema = IRSchema(name="TestEnum", type="object", enum=["a", "b"])
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Enum schema type must be 'string' or 'integer'"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError),
+            match="Enum schema type must be 'string' or 'integer'",
+        ):
             generator.generate(schema, "TestEnum", mock_context)
 
-    def test_generate__renderer_returns_empty_code__raises_assertion_error(
+    def test_generate__renderer_returns_empty_code__raises_error(
         self, generator: EnumGenerator, mock_context: Mock, mock_renderer: Mock
     ) -> None:
         """
@@ -681,10 +697,12 @@ class TestGenerate:
         mock_context.import_collector.imports = {"enum": {"Enum"}}
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Generated enum code cannot be empty"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="Generated enum code cannot be empty"
+        ):
             generator.generate(schema, "TestEnum", mock_context)
 
-    def test_generate__imports_not_registered__raises_assertion_error(
+    def test_generate__imports_not_registered__raises_error(
         self, generator: EnumGenerator, mock_context: Mock, mock_renderer: Mock
     ) -> None:
         """
@@ -700,7 +718,10 @@ class TestGenerate:
         mock_context.import_collector.imports = {}  # No imports registered
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="Enum import was not added to context by renderer"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError),
+            match="Enum import was not added to context by renderer",
+        ):
             generator.generate(schema, "TestEnum", mock_context)
 
     def test_generate__complex_string_enum_values__sanitizes_all_member_names(

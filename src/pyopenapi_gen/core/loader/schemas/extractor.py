@@ -28,8 +28,10 @@ def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Map
             - A ParsingContext is returned with all schemas parsed
             - All schemas in raw_schemas are populated in context.parsed_schemas
     """
-    assert isinstance(raw_schemas, dict), "raw_schemas must be a dict"
-    assert isinstance(raw_components, Mapping), "raw_components must be a Mapping"
+    if not isinstance(raw_schemas, dict):
+        raise TypeError("raw_schemas must be a dict")
+    if not isinstance(raw_components, Mapping):
+        raise TypeError("raw_components must be a Mapping")
 
     context = ParsingContext(raw_spec_schemas=raw_schemas, raw_spec_components=raw_components)
 
@@ -39,7 +41,8 @@ def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Map
             _parse_schema(n, nd, context, allow_self_reference=True)
 
     # Post-condition check
-    assert all(n in context.parsed_schemas for n in raw_schemas), "Not all schemas were parsed"
+    if not all(n in context.parsed_schemas for n in raw_schemas):
+        raise RuntimeError("Not all schemas were parsed")
 
     return context
 
@@ -55,8 +58,10 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
             - All array item schemas have proper names
             - No duplicate schema names are created
     """
-    assert isinstance(schemas, dict), "schemas must be a dict"
-    assert all(isinstance(s, IRSchema) for s in schemas.values()), "all values must be IRSchema objects"
+    if not isinstance(schemas, dict):
+        raise TypeError("schemas must be a dict")
+    if not all(isinstance(s, IRSchema) for s in schemas.values()):
+        raise TypeError("all values must be IRSchema objects")
 
     # Store original schema count for post-condition validation
     original_schema_count = len(schemas)
@@ -119,8 +124,10 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
     schemas.update(new_item_schemas)
 
     # Post-condition checks
-    assert len(schemas) >= original_schema_count, "Schemas count should not decrease"
-    assert original_schemas.issubset(set(schemas.keys())), "Original schemas should still be present"
+    if len(schemas) < original_schema_count:
+        raise RuntimeError("Schemas count should not decrease")
+    if not original_schemas.issubset(set(schemas.keys())):
+        raise RuntimeError("Original schemas should still be present")
 
     return schemas
 
@@ -140,8 +147,10 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
             - No duplicate schema names are created
             - Top-level enum schemas have generation_name set
     """
-    assert isinstance(schemas, dict), "schemas must be a dict"
-    assert all(isinstance(s, IRSchema) for s in schemas.values()), "all values must be IRSchema objects"
+    if not isinstance(schemas, dict):
+        raise TypeError("schemas must be a dict")
+    if not all(isinstance(s, IRSchema) for s in schemas.values()):
+        raise TypeError("all values must be IRSchema objects")
 
     # Store original schema count for post-condition validation
     original_schema_count = len(schemas)
@@ -198,7 +207,9 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     schemas.update(new_enums)
 
     # Post-condition checks
-    assert len(schemas) >= original_schema_count, "Schemas count should not decrease"
-    assert original_schemas.issubset(set(schemas.keys())), "Original schemas should still be present"
+    if len(schemas) < original_schema_count:
+        raise RuntimeError("Schemas count should not decrease")
+    if not original_schemas.issubset(set(schemas.keys())):
+        raise RuntimeError("Original schemas should still be present")
 
     return schemas

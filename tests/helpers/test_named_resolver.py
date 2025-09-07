@@ -408,10 +408,10 @@ class TestNamedTypeResolver:
         assert result == "str"
         self.context.add_import.assert_not_called()
 
-    def test_named_resolver__resolve_schema_reference_missing_generation_name__raises_assertion_error(self):
+    def test_named_resolver__resolve_schema_reference_missing_generation_name__raises_error(self):
         """Scenario: Resolve schema reference where referenced schema lacks generation_name.
 
-        Expected Outcome: AssertionError is raised.
+        Expected Outcome: Error is raised.
         """
         # Arrange
         ref_schema = IRSchema(name="User", generation_name=None, final_module_stem="user")  # Missing generation_name
@@ -420,13 +420,15 @@ class TestNamedTypeResolver:
         schema = IRSchema(name="User")
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="must have generation_name set"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="must have generation_name set"
+        ):
             self.resolver.resolve(schema)
 
-    def test_named_resolver__resolve_schema_reference_missing_final_module_stem__raises_assertion_error(self):
+    def test_named_resolver__resolve_schema_reference_missing_final_module_stem__raises_error(self):
         """Scenario: Resolve schema reference where referenced schema lacks final_module_stem.
 
-        Expected Outcome: AssertionError is raised.
+        Expected Outcome: Error is raised.
         """
         # Arrange
         ref_schema = IRSchema(name="User", generation_name="User", final_module_stem=None)  # Missing final_module_stem
@@ -435,13 +437,15 @@ class TestNamedTypeResolver:
         schema = IRSchema(name="User")
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="must have final_module_stem set"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="must have final_module_stem set"
+        ):
             self.resolver.resolve(schema)
 
-    def test_named_resolver__resolve_schema_reference_missing_ref_schema_name__raises_assertion_error(self):
+    def test_named_resolver__resolve_schema_reference_missing_ref_schema_name__raises_error(self):
         """Scenario: Resolve schema reference where referenced schema has None name.
 
-        Expected Outcome: AssertionError is raised.
+        Expected Outcome: Error is raised.
         """
         # Arrange
         ref_schema = IRSchema(name=None, generation_name="User", final_module_stem="user")  # None name
@@ -450,7 +454,9 @@ class TestNamedTypeResolver:
         schema = IRSchema(name="User")
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="resolved to ref_schema with None name"):
+        with pytest.raises(
+            (AssertionError, TypeError, ValueError, RuntimeError), match="resolved to ref_schema with None name"
+        ):
             self.resolver.resolve(schema)
 
     def test_named_resolver__resolve_complex_package_path(self):

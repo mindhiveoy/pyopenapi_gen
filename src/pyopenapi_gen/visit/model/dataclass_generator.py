@@ -31,7 +31,8 @@ class DataclassGenerator:
             Pre-conditions:
                 - ``renderer`` is not None.
         """
-        assert renderer is not None, "PythonConstructRenderer cannot be None."
+        if renderer is None:
+            raise ValueError("PythonConstructRenderer cannot be None.")
         self.renderer = renderer
         self.all_schemas = all_schemas if all_schemas is not None else {}
         self.type_service = UnifiedTypeService(self.all_schemas)
@@ -56,8 +57,10 @@ class DataclassGenerator:
                 - Returns a valid Python default value string
                   (e.g., "None", "field(default_factory=list)", "\"abc\"") or None.
         """
-        assert ps is not None, "Property schema (ps) cannot be None."
-        assert context is not None, "RenderContext cannot be None."
+        if ps is None:
+            raise ValueError("Property schema (ps) cannot be None.")
+        if context is None:
+            raise ValueError("RenderContext cannot be None.")
 
         if ps.type == "array":
             context.add_import("dataclasses", "field")
@@ -124,10 +127,14 @@ class DataclassGenerator:
                 - Returns a non-empty string containing valid Python code for a dataclass.
                 - ``@dataclass`` decorator is present, implying ``dataclasses.dataclass`` is imported.
         """
-        assert schema is not None, "Schema cannot be None for dataclass generation."
-        assert schema.name is not None, "Schema name must be present for dataclass generation."
-        assert base_name, "Base name cannot be empty for dataclass generation."
-        assert context is not None, "RenderContext cannot be None."
+        if schema is None:
+            raise ValueError("Schema cannot be None for dataclass generation.")
+        if schema.name is None:
+            raise ValueError("Schema name must be present for dataclass generation.")
+        if not base_name:
+            raise ValueError("Base name cannot be empty for dataclass generation.")
+        if context is None:
+            raise ValueError("RenderContext cannot be None.")
         # Additional check for schema type might be too strict here, as ModelVisitor decides eligibility.
 
         class_name = base_name
@@ -136,7 +143,8 @@ class DataclassGenerator:
 
         if schema.type == "array" and schema.items:
             field_name_for_array_content = "items"
-            assert schema.items is not None, "Schema items must be present for array type dataclass field."
+            if schema.items is None:
+                raise ValueError("Schema items must be present for array type dataclass field.")
 
             list_item_py_type = self.type_service.resolve_schema_type(schema.items, context, required=True)
             list_item_py_type = TypeFinalizer(context)._clean_type(list_item_py_type)
@@ -213,16 +221,18 @@ class DataclassGenerator:
             field_mappings=field_mappings if field_mappings else None,
         )
 
-        assert rendered_code.strip(), "Generated dataclass code cannot be empty."
+        if not rendered_code.strip():
+            raise RuntimeError("Generated dataclass code cannot be empty.")
         # PythonConstructRenderer adds the @dataclass decorator and import
-        assert "@dataclass" in rendered_code, "Dataclass code missing @dataclass decorator."
-        assert (
+        if "@dataclass" not in rendered_code:
+            raise RuntimeError("Dataclass code missing @dataclass decorator.")
+        if not (
             "dataclasses" in context.import_collector.imports
             and "dataclass" in context.import_collector.imports["dataclasses"]
-        ), "dataclass import was not added to context by renderer."
+        ):
+            raise RuntimeError("dataclass import was not added to context by renderer.")
         if "default_factory" in rendered_code:  # Check for field import if factory is used
-            assert "field" in context.import_collector.imports.get(
-                "dataclasses", set()
-            ), "'field' import from dataclasses missing when default_factory is used."
+            if "field" not in context.import_collector.imports.get("dataclasses", set()):
+                raise RuntimeError("'field' import from dataclasses missing when default_factory is used.")
 
         return rendered_code

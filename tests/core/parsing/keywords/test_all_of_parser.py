@@ -622,18 +622,18 @@ class TestProcessAllOf(unittest.TestCase):
         )
         self.assertEqual(self.mock_parse_schema_func.call_count, 2)
 
-    def test_process_all_of__node_is_empty_mapping__raises_assertionerror(self) -> None:
+    def test_process_all_of__node_is_empty_mapping__raises_typeerror(self) -> None:
         """
         Scenario:
             - _process_all_of is called with an empty mapping for the node.
         Expected Outcome:
-            - Raises AssertionError due to pre-condition `node must be a non-empty Mapping`.
+            - Raises TypeError due to pre-condition `node must be a non-empty Mapping`.
         """
         # Arrange
         empty_node: Dict[str, Any] = {}
 
         # Act & Assert
-        with self.assertRaisesRegex(AssertionError, "node must be a non-empty Mapping"):
+        with self.assertRaisesRegex(TypeError, "node must be a non-empty Mapping"):
             _process_all_of(empty_node, "TestSchemaEmptyNode", self.context, self.mock_parse_schema_func)
 
 

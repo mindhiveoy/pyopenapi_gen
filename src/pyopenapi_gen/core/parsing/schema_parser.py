@@ -326,7 +326,8 @@ def _parse_schema(
     Parse a schema node and return an IRSchema object.
     """
     # Pre-conditions
-    assert context is not None, "Context cannot be None for _parse_schema"
+    if context is None:
+        raise ValueError("Context cannot be None for _parse_schema")
 
     # Set allow_self_reference flag on unified context
     context.unified_cycle_context.allow_self_reference = allow_self_reference
@@ -377,9 +378,10 @@ def _parse_schema(
         if schema_node is None:
             return IRSchema(name=NameSanitizer.sanitize_class_name(schema_name) if schema_name else None)
 
-        assert isinstance(
-            schema_node, Mapping
-        ), f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
+        if not isinstance(schema_node, Mapping):
+            raise TypeError(
+                f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
+            )
 
         # If the current schema_node itself is a $ref, resolve it.
         if "$ref" in schema_node:

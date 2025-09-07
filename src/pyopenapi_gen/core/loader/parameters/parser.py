@@ -27,8 +27,10 @@ def resolve_parameter_node_if_ref(param_node_data: Mapping[str, Any], context: P
             - Returns the resolved parameter node or the original if not a ref
             - If a reference, the parameter is looked up in components
     """
-    assert isinstance(param_node_data, Mapping), "param_node_data must be a Mapping"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext"
+    if not isinstance(param_node_data, Mapping):
+        raise TypeError("param_node_data must be a Mapping")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext")
 
     if "$ref" in param_node_data and isinstance(param_node_data.get("$ref"), str):
         ref_path = param_node_data["$ref"]
@@ -62,9 +64,12 @@ def parse_parameter(
             - Returns a properly populated IRParameter
             - Complex parameter schemas are given appropriate names
     """
-    assert isinstance(node, Mapping), "node must be a Mapping"
-    assert "name" in node, "Parameter node must have a name"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext"
+    if not isinstance(node, Mapping):
+        raise TypeError("node must be a Mapping")
+    if "name" not in node:
+        raise ValueError("Parameter node must have a name")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext")
 
     sch = node.get("schema")
     param_name = node["name"]
@@ -164,7 +169,9 @@ def parse_parameter(
     )
 
     # Post-condition check
-    assert param.name == node["name"], "Parameter name mismatch"
-    assert param.schema is not None, "Parameter schema must be created"
+    if param.name != node["name"]:
+        raise RuntimeError("Parameter name mismatch")
+    if param.schema is None:
+        raise RuntimeError("Parameter schema must be created")
 
     return param

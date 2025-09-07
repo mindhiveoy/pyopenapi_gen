@@ -42,12 +42,10 @@ class ModelsEmitter:
         # )
 
         # Assert that de-collided names have been set by the emit() method's preprocessing.
-        assert (
-            schema_ir.generation_name is not None
-        ), f"Schema '{schema_ir.name}' must have generation_name set before file generation."
-        assert (
-            schema_ir.final_module_stem is not None
-        ), f"Schema '{schema_ir.name}' must have final_module_stem set before file generation."
+        if schema_ir.generation_name is None:
+            raise RuntimeError(f"Schema '{schema_ir.name}' must have generation_name set before file generation.")
+        if schema_ir.final_module_stem is None:
+            raise RuntimeError(f"Schema '{schema_ir.name}' must have final_module_stem set before file generation.")
 
         file_path = models_dir / f"{schema_ir.final_module_stem}.py"
 
@@ -138,12 +136,10 @@ class ModelsEmitter:
 
         for s_schema in sorted_schemas_for_init:
             # These should have been set in the emit() preprocessing step.
-            assert (
-                s_schema.generation_name is not None
-            ), f"Schema '{s_schema.name}' missing generation_name in __init__ generation."
-            assert (
-                s_schema.final_module_stem is not None
-            ), f"Schema '{s_schema.name}' missing final_module_stem in __init__ generation."
+            if s_schema.generation_name is None:
+                raise RuntimeError(f"Schema '{s_schema.name}' missing generation_name in __init__ generation.")
+            if s_schema.final_module_stem is None:
+                raise RuntimeError(f"Schema '{s_schema.name}' missing final_module_stem in __init__ generation.")
 
             if s_schema._from_unresolved_ref:  # Check this flag if it's relevant
                 # logger.debug(
@@ -184,8 +180,10 @@ class ModelsEmitter:
                 - All models are properly formatted and type-annotated
                 - Returns a list of file paths generated
         """
-        assert isinstance(spec, IRSpec), "spec must be an IRSpec"
-        assert output_root, "output_root must be a non-empty string"
+        if not isinstance(spec, IRSpec):
+            raise TypeError("spec must be an IRSpec")
+        if not output_root:
+            raise ValueError("output_root must be a non-empty string")
 
         output_dir = Path(output_root.rstrip("/"))
         models_dir = output_dir / "models"

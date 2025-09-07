@@ -24,8 +24,10 @@ def post_process_operation(op: IROperation, context: ParsingContext) -> None:
         Postconditions:
             - All request body and response schemas are properly named and registered
     """
-    assert isinstance(op, IROperation), "op must be an IROperation"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext"
+    if not isinstance(op, IROperation):
+        raise TypeError("op must be an IROperation")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext")
 
     # Handle request body schemas
     if op.request_body:

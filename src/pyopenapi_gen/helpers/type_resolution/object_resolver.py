@@ -113,12 +113,14 @@ class ObjectTypeResolver:
                     # If this named object is a component schema, ensure it's imported.
                     if schema.name and schema.name in self.all_schemas:
                         actual_schema_def = self.all_schemas[schema.name]
-                        assert (
-                            actual_schema_def.generation_name is not None
-                        ), f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have generation_name."
-                        assert (
-                            actual_schema_def.final_module_stem is not None
-                        ), f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have final_module_stem."
+                        if actual_schema_def.generation_name is None:
+                            raise RuntimeError(
+                                f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have generation_name."
+                            )
+                        if actual_schema_def.final_module_stem is None:
+                            raise RuntimeError(
+                                f"Actual schema '{actual_schema_def.name}' for '{schema.name}' must have final_module_stem."
+                            )
 
                         class_name_to_use = actual_schema_def.generation_name
                         module_stem_to_use = actual_schema_def.final_module_stem
@@ -162,14 +164,16 @@ class ObjectTypeResolver:
                     schema.name and schema.name in self.all_schemas
                 ):  # Named object, no properties, AND it's a known component
                     actual_schema_def = self.all_schemas[schema.name]
-                    assert actual_schema_def.generation_name is not None, (
-                        f"Actual schema (no props) '{actual_schema_def.name}' "
-                        f"for '{schema.name}' must have generation_name."
-                    )
-                    assert actual_schema_def.final_module_stem is not None, (
-                        f"Actual schema (no props) '{actual_schema_def.name}' "
-                        f"for '{schema.name}' must have final_module_stem."
-                    )
+                    if actual_schema_def.generation_name is None:
+                        raise RuntimeError(
+                            f"Actual schema (no props) '{actual_schema_def.name}' "
+                            f"for '{schema.name}' must have generation_name."
+                        )
+                    if actual_schema_def.final_module_stem is None:
+                        raise RuntimeError(
+                            f"Actual schema (no props) '{actual_schema_def.name}' "
+                            f"for '{schema.name}' must have final_module_stem."
+                        )
 
                     class_name_to_use = actual_schema_def.generation_name
                     module_stem_to_use = actual_schema_def.final_module_stem

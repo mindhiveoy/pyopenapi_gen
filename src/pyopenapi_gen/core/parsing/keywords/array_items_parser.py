@@ -51,9 +51,12 @@ def _parse_array_items_schema(
     """
     # Pre-conditions
     # items_node_data is checked later, as it can be non-Mapping to return None
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext instance"
-    assert callable(parse_fn), "parse_fn must be callable"
-    assert isinstance(max_depth, int) and max_depth >= 0, "max_depth must be a non-negative integer"
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext instance")
+    if not callable(parse_fn):
+        raise TypeError("parse_fn must be callable")
+    if not (isinstance(max_depth, int) and max_depth >= 0):
+        raise ValueError("max_depth must be a non-negative integer")
 
     item_name_for_parse = f"{parent_schema_name}Item" if parent_schema_name else None
     if (

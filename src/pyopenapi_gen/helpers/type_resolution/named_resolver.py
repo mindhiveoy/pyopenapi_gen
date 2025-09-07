@@ -75,15 +75,14 @@ class NamedTypeResolver:
         if schema.name and schema.name in self.all_schemas:
             # This schema is a REFERENCE to a globally defined schema (e.g., in components/schemas)
             ref_schema = self.all_schemas[schema.name]  # Get the actual definition
-            assert ref_schema.name is not None, f"Schema '{schema.name}' resolved to ref_schema with None name."
+            if ref_schema.name is None:
+                raise RuntimeError(f"Schema '{schema.name}' resolved to ref_schema with None name.")
 
             # NEW: Use generation_name and final_module_stem from the referenced schema
-            assert (
-                ref_schema.generation_name is not None
-            ), f"Referenced schema '{ref_schema.name}' must have generation_name set."
-            assert (
-                ref_schema.final_module_stem is not None
-            ), f"Referenced schema '{ref_schema.name}' must have final_module_stem set."
+            if ref_schema.generation_name is None:
+                raise RuntimeError(f"Referenced schema '{ref_schema.name}' must have generation_name set.")
+            if ref_schema.final_module_stem is None:
+                raise RuntimeError(f"Referenced schema '{ref_schema.name}' must have final_module_stem set.")
 
             class_name_for_ref = ref_schema.generation_name
             module_name_for_ref = ref_schema.final_module_stem

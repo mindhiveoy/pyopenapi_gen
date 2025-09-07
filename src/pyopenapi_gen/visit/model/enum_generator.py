@@ -19,7 +19,8 @@ class EnumGenerator:
 
     def __init__(self, renderer: PythonConstructRenderer):
         # Pre-condition
-        assert renderer is not None, "PythonConstructRenderer cannot be None"
+        if renderer is None:
+            raise ValueError("PythonConstructRenderer cannot be None")
         self.renderer = renderer
 
     def _generate_member_name_for_string_enum(self, value: str) -> str:
@@ -32,7 +33,8 @@ class EnumGenerator:
             Post-conditions:
                 - Returns a non-empty string that is a valid Python identifier, typically uppercase.
         """
-        assert isinstance(value, str), "Input value must be a string."
+        if not isinstance(value, str):
+            raise TypeError("Input value must be a string.")
         base_member_name = str(value).upper().replace("-", "_").replace(" ", "_")
         sanitized_member_name = re.sub(r"[^A-Z0-9_]", "", base_member_name)
 
@@ -58,10 +60,11 @@ class EnumGenerator:
         if not re.match(r"^[A-Z_]", sanitized_member_name.upper()):
             sanitized_member_name = f"MEMBER_{sanitized_member_name}"
 
-        assert sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()), (
-            f"Generated string enum member name '{sanitized_member_name}' "
-            f"is not a valid Python identifier from value '{value}'."
-        )
+        if not (sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper())):
+            raise ValueError(
+                f"Generated string enum member name '{sanitized_member_name}' "
+                f"is not a valid Python identifier from value '{value}'."
+            )
         return sanitized_member_name
 
     def _generate_member_name_for_integer_enum(self, value: str | int, int_value_for_fallback: int) -> str:
@@ -75,8 +78,10 @@ class EnumGenerator:
             Post-conditions:
                 - Returns a non-empty string that is a valid Python identifier, typically uppercase.
         """
-        assert isinstance(value, (str, int)), "Input value for integer enum naming must be str or int."
-        assert isinstance(int_value_for_fallback, int), "Fallback integer value must be an int."
+        if not isinstance(value, (str, int)):
+            raise TypeError("Input value for integer enum naming must be str or int.")
+        if not isinstance(int_value_for_fallback, int):
+            raise TypeError("Fallback integer value must be an int.")
 
         name_basis = str(value)  # Use string representation as basis for name
         base_member_name = name_basis.upper().replace("-", "_").replace(" ", "_").replace(".", "_DOT_")
@@ -105,10 +110,11 @@ class EnumGenerator:
             if not sanitized_member_name:  # Should be impossible
                 sanitized_member_name = f"ENUM_MEMBER_UNKNOWN_{abs(int_value_for_fallback)}"
 
-        assert sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper()), (
-            f"Generated integer enum member name '{sanitized_member_name}' "
-            f"is not a valid Python identifier from value '{value}'."
-        )
+        if not (sanitized_member_name and re.match(r"^[A-Z_][A-Z0-9_]*$", sanitized_member_name.upper())):
+            raise ValueError(
+                f"Generated integer enum member name '{sanitized_member_name}' "
+                f"is not a valid Python identifier from value '{value}'."
+            )
         return sanitized_member_name
 
     def generate(
@@ -138,12 +144,18 @@ class EnumGenerator:
                 - Returns a non-empty string containing valid Python code for an enum.
                 - ``Enum`` from the ``enum`` module is imported in the context.
         """
-        assert schema is not None, "Schema cannot be None for enum generation."
-        assert schema.name is not None, "Schema name must be present for enum generation."
-        assert base_name, "Base name cannot be empty for enum generation."
-        assert context is not None, "RenderContext cannot be None."
-        assert schema.enum, "Schema must have enum values for enum generation."
-        assert schema.type in ("string", "integer"), "Enum schema type must be 'string' or 'integer'."
+        if schema is None:
+            raise ValueError("Schema cannot be None for enum generation.")
+        if schema.name is None:
+            raise ValueError("Schema name must be present for enum generation.")
+        if not base_name:
+            raise ValueError("Base name cannot be empty for enum generation.")
+        if context is None:
+            raise ValueError("RenderContext cannot be None.")
+        if not schema.enum:
+            raise ValueError("Schema must have enum values for enum generation.")
+        if schema.type not in ("string", "integer"):
+            raise ValueError("Enum schema type must be 'string' or 'integer'.")
 
         enum_class_name = base_name  # PythonConstructRenderer will sanitize this class name
         base_type = "str" if schema.type == "string" else "int"
@@ -192,9 +204,9 @@ class EnumGenerator:
             context=context,
         )
 
-        assert rendered_code.strip(), "Generated enum code cannot be empty."
-        assert (
-            "enum" in context.import_collector.imports and "Enum" in context.import_collector.imports["enum"]
-        ), "Enum import was not added to context by renderer."
+        if not rendered_code.strip():
+            raise RuntimeError("Generated enum code cannot be empty.")
+        if not ("enum" in context.import_collector.imports and "Enum" in context.import_collector.imports["enum"]):
+            raise RuntimeError("Enum import was not added to context by renderer.")
 
         return rendered_code
