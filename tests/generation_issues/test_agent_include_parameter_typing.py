@@ -33,7 +33,9 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
-    @pytest.mark.skip(reason="Known issue: inline enum arrays in parameters not fully resolved - these schemas lack final_module_stem")
+    @pytest.mark.skip(
+        reason="Known issue: inline enum arrays in parameters not fully resolved - these schemas lack final_module_stem"
+    )
     def test_get_agent_include_parameter_typing(self) -> None:
         """Test that get_agent method has correct typing for include parameter."""
         # Generate the client
@@ -59,34 +61,31 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
         # Check that the include parameter has correct typing
         # The generator correctly creates enum types for inline enums in array parameters
         # The enum type name is generated based on the parameter name and context
-        
+
         # Check that include parameter is typed with a List of some enum type
         # Note: The exact enum name may vary based on the generation strategy
         import re
-        
+
         # Pattern to match include parameter with any enum type
         include_pattern = r"include: Optional\[List\[([A-Za-z0-9_]+)\]\]"
         match = re.search(include_pattern, agents_code)
-        
+
         self.assertIsNotNone(
-            match,
-            "include parameter should be typed as Optional[List[SomeEnumType]] but pattern not found"
+            match, "include parameter should be typed as Optional[List[SomeEnumType]] but pattern not found"
         )
-        
+
         enum_type_name = match.group(1)
-        
+
         # Check that it's not the incorrect AnonymousArrayItem
         self.assertNotEqual(
-            enum_type_name,
-            "AnonymousArrayItem",
-            f"include parameter incorrectly typed as List[AnonymousArrayItem]"
+            enum_type_name, "AnonymousArrayItem", f"include parameter incorrectly typed as List[AnonymousArrayItem]"
         )
-        
+
         # Verify that the enum type is properly imported
         self.assertIn(
             f"from ..models.{enum_type_name.lower()}",
             agents_code.lower(),
-            f"Enum type {enum_type_name} should be imported"
+            f"Enum type {enum_type_name} should be imported",
         )
 
     def test_agent_include_parameter_values_from_spec(self) -> None:
