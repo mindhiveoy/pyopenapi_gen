@@ -3,7 +3,6 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
 import yaml
 
 from pyopenapi_gen.context.render_context import RenderContext

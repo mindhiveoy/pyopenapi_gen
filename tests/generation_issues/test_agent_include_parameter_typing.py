@@ -13,8 +13,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import pytest
-
 # Add the src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
@@ -82,7 +80,8 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
         # Verify that the enum type is properly imported
         # Convert enum type name to snake_case for import check
         import re
-        snake_case_name = re.sub(r'(?<!^)(?=[A-Z])', '_', enum_type_name).lower()
+
+        snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", enum_type_name).lower()
         self.assertIn(
             f"from ..models.{snake_case_name} import",
             agents_code.lower(),
