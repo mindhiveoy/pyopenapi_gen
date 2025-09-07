@@ -114,12 +114,38 @@ def parse_parameter(
         and "enum" in sch["items"]
         and "$ref" not in sch["items"]
     ):
-        # This is an array of string enums - for parameters, we can treat this as List[str]
-        # rather than creating complex named schemas
+        # This is an array of string enums - create a proper enum schema for the items
+        # Give it a name based on the parameter and operation
+        enum_name = None
+        if operation_id_for_promo and param_name:
+            # Create a name for this inline enum when we have operation context
+            enum_name = f"{operation_id_for_promo}Param{NameSanitizer.sanitize_class_name(param_name)}Item"
+        elif param_name:
+            # For component parameters without operation context, use just the parameter name
+            enum_name = f"{NameSanitizer.sanitize_class_name(param_name)}Item"
+
+        if enum_name:
+            items_schema = IRSchema(
+                name=enum_name,
+                type="string",
+                enum=sch["items"]["enum"],
+                generation_name=enum_name,  # Mark it as promoted
+            )
+            logger.debug(
+                f"Created enum schema '{enum_name}' for array parameter '{param_name}' with values {sch['items']['enum'][:3]}..."
+            )
+        else:
+            # Fallback if we don't have enough info to create a good name
+            items_schema = IRSchema(name=None, type="string", enum=sch["items"]["enum"])
+            logger.warning(
+                f"Could not create proper enum name for parameter array items with values {sch['items']['enum'][:3]}... "
+                f"This will generate a warning during type resolution."
+            )
+
         schema_ir = IRSchema(
             name=None,
             type="array",
-            items=IRSchema(name=None, type="string", enum=sch["items"]["enum"]),
+            items=items_schema,
             description=sch.get("description"),
         )
     else:

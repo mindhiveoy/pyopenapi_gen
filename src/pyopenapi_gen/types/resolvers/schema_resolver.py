@@ -181,8 +181,15 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 # Return the enum type name
                 return ResolvedType(python_type=schema.generation_name, is_optional=not required)
             else:
-                # This is an unprocessed inline enum - log warning but continue
-                logger.warning(f"Found inline enum in string schema that wasn't promoted: {schema.name or 'unnamed'}")
+                # This is an unprocessed inline enum - log warning with details
+                enum_values = schema.enum[:5] if len(schema.enum) > 5 else schema.enum
+                more = f" (and {len(schema.enum) - 5} more)" if len(schema.enum) > 5 else ""
+                context_info = f"name='{schema.name}'" if schema.name else "unnamed"
+                logger.warning(
+                    f"Found inline enum in string schema that wasn't promoted: "
+                    f"{context_info}, type={schema.type}, enum_values={enum_values}{more}. "
+                    f"This will be treated as plain 'str' instead of a proper Enum type."
+                )
                 return ResolvedType(python_type="str", is_optional=not required)
 
         # Handle string formats
