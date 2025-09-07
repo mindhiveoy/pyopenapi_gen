@@ -1,25 +1,37 @@
 # CHANGELOG
 
-## [Unreleased]
 
-### Fixed
-- **Critical Fix**: Inline enum array parameters now generate properly importable model files
-  - Root cause: Inline enum schemas in array parameters were created but never registered in `context.parsed_schemas`
-  - Missing `final_module_stem` attribute prevented proper import generation
-  - Fix: Modified `src/pyopenapi_gen/core/loader/parameters/parser.py` to:
-    - Register inline enum schemas in `context.parsed_schemas`
-    - Set `final_module_stem` for proper import path generation
-  - Impact: All inline enum array parameters (like `agentInclude` with values `["tenant", "agentSettings", "credentials", "dataSourceConnections"]`) now generate proper model files and imports
-  - Test coverage: Added comprehensive tests in `tests/core/loader/parameters/test_inline_enum_array_params.py`
-  - Verification: `tests/generation_issues/test_agent_include_parameter_typing.py` now passes
+## v0.12.1 (2025-09-07)
 
-## v0.12.0 (2025-09-07)
+### Bug Fixes
 
-### Fixed
-- **Security**: Replaced all assert statements with proper if/raise patterns to fix Bandit B101 violations (121 instances)
-  - All assert statements in source code replaced with TypeError/ValueError/RuntimeError
-  - Test expectations updated to match new error types
-  - Zero-error security policy now enforced
+- **parser**: Register inline enum array parameters in parsed_schemas
+  ([`b1629e2`](https://github.com/mindhiveoy/pyopenapi_gen/commit/b1629e27cce4773e9bec1bb3ac92eeb858a4fa38))
+
+Critical fix for inline enum array parameters not generating importable model files.
+
+Root cause: - Inline enum schemas in array parameters were created but never registered - Missing
+  final_module_stem attribute prevented proper import generation - Generated clients failed with
+  NameError when importing enum types
+
+Solution: - Register inline enum schemas in context.parsed_schemas - Set final_module_stem for
+  proper import path generation - Add comprehensive test coverage for inline enum parameters
+
+Impact: - All inline enum array parameters now generate proper model files - Generated clients can
+  be imported without NameError - Fixes business_swagger.json generation issues
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Code Style
+
+- Apply Black formatting and fix linting issues
+  ([`1252f3b`](https://github.com/mindhiveoy/pyopenapi_gen/commit/1252f3bfa37568ba9743f283b6cceb3b52a54a1d))
+
+- Apply Black formatting to maintain code style consistency - Remove unused imports flagged by Ruff
+  - All quality checks passing except low-severity security issues
+
 
 ## v0.12.0 (2025-09-07)
 
