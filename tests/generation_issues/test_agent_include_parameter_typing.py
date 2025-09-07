@@ -34,9 +34,6 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
-    @pytest.mark.skip(
-        reason="Known issue: inline enum arrays in parameters not fully resolved - these schemas lack final_module_stem"
-    )
     def test_get_agent_include_parameter_typing(self) -> None:
         """Test that get_agent method has correct typing for include parameter."""
         # Generate the client
@@ -83,10 +80,13 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
         )
 
         # Verify that the enum type is properly imported
+        # Convert enum type name to snake_case for import check
+        import re
+        snake_case_name = re.sub(r'(?<!^)(?=[A-Z])', '_', enum_type_name).lower()
         self.assertIn(
-            f"from ..models.{enum_type_name.lower()}",
+            f"from ..models.{snake_case_name} import",
             agents_code.lower(),
-            f"Enum type {enum_type_name} should be imported",
+            f"Enum type {enum_type_name} should be imported from models.{snake_case_name}",
         )
 
     def test_agent_include_parameter_values_from_spec(self) -> None:

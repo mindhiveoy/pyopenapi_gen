@@ -135,7 +135,16 @@ def parse_parameter(
                 type="string",
                 enum=sch["items"]["enum"],
                 generation_name=enum_name,  # Mark it as promoted
+                final_module_stem=NameSanitizer.sanitize_module_name(enum_name),  # Set module stem for imports
             )
+            
+            # Register this inline enum schema so it gets generated as a model file
+            if isinstance(context, ParsingContext) and enum_name not in context.parsed_schemas:
+                context.parsed_schemas[enum_name] = items_schema
+                logger.debug(
+                    f"Registered enum schema '{enum_name}' for array parameter '{param_name}' with values {sch['items']['enum'][:3]}..."
+                )
+            
             logger.debug(
                 f"Created enum schema '{enum_name}' for array parameter '{param_name}' with values {sch['items']['enum'][:3]}..."
             )

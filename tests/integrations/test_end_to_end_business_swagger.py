@@ -15,7 +15,6 @@ from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
-@pytest.mark.skip(reason="Known issue: inline enum arrays in parameters not being generated/imported correctly")
 def test_business_swagger_generation(tmp_path: Path) -> None:
     """
     Scenario:
