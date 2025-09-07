@@ -2595,14 +2595,14 @@ keyring = ["keyring (>=21.2.0)"]
 
 [[package]]
 name = "typer"
-version = "0.13.1"
+version = "0.17.4"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "typer-0.13.1-py3-none-any.whl", hash = "sha256:5b59580fd925e89463a29d363e0a43245ec02765bde9fb77d39e5d0f29dd7157"},
-    {file = "typer-0.13.1.tar.gz", hash = "sha256:9d444cb96cc268ce6f8b94e13b4335084cef4c079998a9f4851a90229a3bd25c"},
+    {file = "typer-0.17.4-py3-none-any.whl", hash = "sha256:015534a6edaa450e7007eba705d5c18c3349dcea50a6ad79a5ed530967575824"},
+    {file = "typer-0.17.4.tar.gz", hash = "sha256:b77dc07d849312fd2bb5e7f20a7af8985c7ec360c45b051ed5412f64d8dc1580"},
 ]
 
 [package.dependencies]
@@ -2809,4 +2809,4 @@ dev = ["bandit", "black", "dataclass-wizard", "httpx", "mypy", "pytest", "pytest
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0.0"
-content-hash = "36b5d11152e24688ec142676a391c1740c19d03d47d46408955950637b0da94e"
+content-hash = "91d7f95b8e669c3e87c24cd3676aa1728a5b307b1303507b2c09415bb2ffafbe"
