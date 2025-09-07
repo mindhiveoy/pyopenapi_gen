@@ -185,6 +185,7 @@ output
 output_*
 **/.claude/settings.local.json
 out
+test_output/
 test_outputs
 temp_test_process/
 .deps-installed
