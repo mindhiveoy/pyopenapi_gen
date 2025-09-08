@@ -31,7 +31,7 @@ jobs:
       
       - name: Get PR number
         id: pr_number
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             let prNumber = null;
