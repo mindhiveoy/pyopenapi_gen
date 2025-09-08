@@ -430,7 +430,7 @@ def _parse_schema(
                 extracted_type = "null"
                 logger.warning(
                     f"Schema{f' {schema_name}' if schema_name else ''} uses type 'None'. "
-                    "Converting to nullable object. Use 'type: [\"object\", \"null\"]' for nullable types."
+                    'Converting to nullable object. Use \'type: ["object", "null"]\' for nullable types.'
                 )
             else:
                 extracted_type = raw_type_field

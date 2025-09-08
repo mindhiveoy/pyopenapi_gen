@@ -112,25 +112,29 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 "all_of": len(getattr(schema, "all_of", []) or []) if hasattr(schema, "all_of") else 0,
                 "one_of": len(getattr(schema, "one_of", []) or []) if hasattr(schema, "one_of") else 0,
             }
-            
+
             # Remove None values for cleaner output
             schema_details = {k: v for k, v in schema_details.items() if v is not None}
-            
+
             # Create detailed error message
             error_msg = f"Unknown schema type '{schema_type}' encountered."
             if schema_details.get("name"):
                 error_msg += f" Schema name: '{schema_details['name']}'."
             if schema_details.get("ref"):
                 error_msg += f" Reference: '{schema_details['ref']}'."
-            
+
             # Log full details with actionable advice
             logger.warning(f"{error_msg} Full details: {schema_details}")
-            
+
             # Provide specific guidance based on the unknown type
             if schema_type == "Any":
-                logger.info("Schema type 'Any' will be mapped to typing.Any. Consider using a more specific type in your OpenAPI spec.")
+                logger.info(
+                    "Schema type 'Any' will be mapped to typing.Any. Consider using a more specific type in your OpenAPI spec."
+                )
             elif schema_type == "None" or schema_type is None:
-                logger.info("Schema type 'None' detected - likely an optional field or null type. This will be mapped to Optional[Any].")
+                logger.info(
+                    "Schema type 'None' detected - likely an optional field or null type. This will be mapped to Optional[Any]."
+                )
                 return self._resolve_null(context, required)
             elif schema_type and isinstance(schema_type, str):
                 # Unknown string type - provide helpful suggestions
@@ -139,7 +143,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 logger.info("  2. Using a schema name as type (should use $ref instead)")
                 logger.info("  3. Custom type not supported by OpenAPI (consider using allOf/oneOf/anyOf)")
                 logger.info(f"  Location: Check your OpenAPI spec for schemas with type='{schema_type}'")
-            
+
             return self._resolve_any(context)
 
     def _resolve_reference(
@@ -160,7 +164,9 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         if not module_stem:
             logger.warning(f"Named schema '{schema.name}' missing final_module_stem attribute.")
             logger.info(f"  This usually means the schema wasn't properly processed during parsing.")
-            logger.info(f"  Check if '{schema.name}' is defined in components/schemas or if it's an inline schema that should be promoted.")
+            logger.info(
+                f"  Check if '{schema.name}' is defined in components/schemas or if it's an inline schema that should be promoted."
+            )
             logger.info(f"  The schema will be treated as 'Any' type for now.")
             return ResolvedType(python_type=class_name or "Any", is_optional=not required)
 
@@ -298,7 +304,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             schema_name = getattr(schema, "name", "unnamed")
             logger.warning(f"Array schema '{schema_name}' missing 'items' definition.")
             logger.info("  Arrays in OpenAPI must define the type of items they contain.")
-            logger.info("  Example: { \"type\": \"array\", \"items\": { \"type\": \"string\" } }")
+            logger.info('  Example: { "type": "array", "items": { "type": "string" } }')
             logger.info("  This will be mapped to List[Any] - consider fixing the OpenAPI spec.")
             context.add_import("typing", "List")
             context.add_import("typing", "Any")
