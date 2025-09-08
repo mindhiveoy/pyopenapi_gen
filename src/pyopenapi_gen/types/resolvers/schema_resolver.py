@@ -1,7 +1,6 @@
 """Schema type resolver implementation."""
 
 import logging
-from typing import Optional
 
 from pyopenapi_gen import IRSchema
 
