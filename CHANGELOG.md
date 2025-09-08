@@ -1,6 +1,73 @@
 # CHANGELOG
 
 
+## v0.13.0 (2025-09-08)
+
+### Bug Fixes
+
+- **parser**: Handle non-standard schema types automatically
+  ([`b9a82bd`](https://github.com/mindhiveoy/pyopenapi_gen/commit/b9a82bd1fe5b1cde73c48a2c8e3148506fb5d029))
+
+- Convert 'Any' type to 'object' with helpful warning messages - Convert 'None' type to nullable
+  object with guidance - Default schemas without explicit type to 'object' per OpenAPI spec - Use
+  'object' instead of 'Any' for arrays without items specification - Infer type from enum values
+  when type is missing - Fix empty composition handling (anyOf/allOf/oneOf with empty arrays) -
+  Update tests to match improved type handling behavior
+
+These changes eliminate the 'Unknown schema type' errors for 'Any' and 'None' that were appearing
+  during client generation, making the generator more robust when handling non-standard or
+  incomplete OpenAPI specifications.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Code Style
+
+- Apply Black formatting to fix CI
+  ([`7a89d96`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7a89d96c7eeddaa80cb624ae394c70f574c419bb))
+
+Applied Black formatting to schema_parser.py and schema_resolver.py to pass the CI quality checks.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Remove unused import to fix CI
+  ([`82334e9`](https://github.com/mindhiveoy/pyopenapi_gen/commit/82334e99d1aa196d316f71d7a36085bc5f6c35fb))
+
+Removed unused Optional import from schema_resolver.py that was causing ruff linting to fail in CI.
+
+### Documentation
+
+- Add comprehensive release automation documentation
+  ([`46f6f37`](https://github.com/mindhiveoy/pyopenapi_gen/commit/46f6f37d5b933db620f57627d48d4e785f63f6b9))
+
+- Document how semantic-release automation works - Explain conventional commit triggers for version
+  bumps - Show real example of v0.12.1 hotfix release - Include configuration details and best
+  practices - Add troubleshooting guide for common issues
+
+This ensures team members understand how to trigger automatic releases and why fixes are immediately
+  available to users.
+
+### Features
+
+- **errors**: Enhance error reporting for unknown schema types
+  ([`0f199e5`](https://github.com/mindhiveoy/pyopenapi_gen/commit/0f199e511a0d3c2d3bac0db439411dfceab5e8d4))
+
+- Add detailed error messages with full schema context - Include actionable guidance for common
+  issues - Provide specific suggestions based on the unknown type - Help users identify and fix
+  OpenAPI spec issues quickly
+
+Examples of improved messages: - Unknown type 'Any' → Suggests using specific types - Unknown type
+  'None' → Explains optional field mapping - Custom types → Lists common causes and solutions -
+  Missing items in arrays → Shows correct syntax - Missing final_module_stem → Explains processing
+  issues
+
+This makes debugging OpenAPI spec issues much easier by providing clear, actionable error messages
+  instead of generic warnings.
+
+
 ## v0.12.1 (2025-09-07)
 
 ### Bug Fixes
