@@ -54,11 +54,12 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
 
         # Handle composition types (any_of, all_of, one_of)
         # These are processed for inline compositions or when generating the alias for a named composition
-        if hasattr(schema, "any_of") and schema.any_of:
+        # Check for the attribute existence, not just truthiness, to handle empty lists
+        if hasattr(schema, "any_of") and schema.any_of is not None:
             return self._resolve_any_of(schema, context, required, resolve_underlying)
-        elif hasattr(schema, "all_of") and schema.all_of:
+        elif hasattr(schema, "all_of") and schema.all_of is not None:
             return self._resolve_all_of(schema, context, required, resolve_underlying)
-        elif hasattr(schema, "one_of") and schema.one_of:
+        elif hasattr(schema, "one_of") and schema.one_of is not None:
             return self._resolve_one_of(schema, context, required, resolve_underlying)
 
         # Handle named schemas without generation_name (fallback for references)
@@ -393,10 +394,8 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             if hasattr(sub_schema, "type") and sub_schema.type:
                 return self.resolve_schema(sub_schema, context, required, resolve_underlying)
 
-        # Fallback to first schema
-        if schema.all_of:
-            return self.resolve_schema(schema.all_of[0], context, required, resolve_underlying)
-
+        # Fallback - if no schema has a concrete type, return Any
+        # Don't recurse into schemas with no type as that causes warnings
         return self._resolve_any(context)
 
     def _resolve_one_of(

@@ -517,7 +517,8 @@ class TestSchemaParser(unittest.TestCase):
         # Assert
         self.assertIsNotNone(schema_ir)
         self.assertEqual(schema_ir.name, schema_name)
-        self.assertIsNone(schema_ir.type)
+        # Empty schemas default to 'object' type per OpenAPI spec
+        self.assertEqual(schema_ir.type, "object")
         self.assertEqual(schema_ir.properties, {})
         self.assertEqual(schema_ir.required, [])
 
