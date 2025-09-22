@@ -125,7 +125,7 @@ types-pyyaml = "^6.0.12.20250516"
 bandit = {extras = ["toml"], version = "^1.8.6"}
 pytest-timeout = "^2.4.0"
 pytest-asyncio = "^1.1.0"
-black = "^25.1.0"
+black = "^25.9.0"
 ruff = "^0.12.3"
 mypy = "^1.17.0"
 commitizen = "^3.29.0"
