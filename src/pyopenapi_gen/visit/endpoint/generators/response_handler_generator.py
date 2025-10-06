@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
 
+from pyopenapi_gen.core.http_status_codes import get_exception_class_name
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.helpers.endpoint_utils import (
     _get_primary_response,
@@ -353,8 +354,8 @@ class EndpointResponseHandlerGenerator:
                         else:
                             writer.write_line("return None")
                 else:
-                    # Error responses
-                    error_class_name = f"Error{status_code_val}"
+                    # Error responses - use human-readable exception names
+                    error_class_name = get_exception_class_name(status_code_val)
                     context.add_import(f"{context.core_package_name}", error_class_name)
                     writer.write_line(f"raise {error_class_name}(response=response)")
 
