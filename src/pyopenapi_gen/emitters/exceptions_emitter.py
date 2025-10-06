@@ -61,6 +61,8 @@ class ExceptionsEmitter:
 
         generated_imports = context.render_imports()
 
+        alias_names.sort()
+
         # Add __all__ list with proper spacing (2 blank lines after last class - Ruff E305)
         if alias_names:
             all_list_str = ", ".join([f'"{name}"' for name in alias_names])
