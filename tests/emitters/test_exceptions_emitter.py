@@ -12,7 +12,8 @@ def test_exceptions_emitter__numeric_response_codes__generates_error_aliases(tmp
 
     Expected Outcome:
         The emitter should generate exception_aliases.py with corresponding
-        Error404 and Error500 classes that inherit from appropriate base exceptions.
+        NotFoundError and InternalServerError classes (human-readable names)
+        that inherit from appropriate base exceptions.
     """
     # Create IR operations with numeric response codes
     resp1 = IRResponse(status_code="404", description="Not found", content={})
@@ -44,11 +45,14 @@ def test_exceptions_emitter__numeric_response_codes__generates_error_aliases(tmp
     alias_file = Path(out_dir) / "exception_aliases.py"
     assert alias_file.exists(), "exception_aliases.py not generated"
     content = alias_file.read_text()
-    # Should have aliases for 404 and 500
-    assert "class Error404(ClientError)" in content
-    assert "class Error500(ServerError)" in content
+    # Should have human-readable aliases for 404 and 500
+    assert "class NotFoundError(ClientError)" in content
+    assert "class InternalServerError(ServerError)" in content
     # Should import from the core package
     assert "from core.exceptions import" in content
-    assert "HTTPError" in content
+    # Should NOT import HTTPError (it's not used in exception_aliases.py)
     assert "ClientError" in content
     assert "ServerError" in content
+    # Should have human-readable docstrings
+    assert "HTTP 404 Not Found" in content
+    assert "HTTP 500 Internal Server Error" in content

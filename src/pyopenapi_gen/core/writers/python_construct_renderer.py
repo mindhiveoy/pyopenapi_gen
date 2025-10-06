@@ -312,7 +312,11 @@ class PythonConstructRenderer:
             has_content = True
         if body_lines:
             for line in body_lines:
-                writer.write_line(line)
+                # Handle empty lines without adding indentation (Ruff W293)
+                if line == "":
+                    writer.writer.newline()  # Just add a newline, no indent
+                else:
+                    writer.write_line(line)
             has_content = True
 
         if not has_content:

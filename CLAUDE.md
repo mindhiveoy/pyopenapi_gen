@@ -94,11 +94,6 @@ make test-fast            # Run tests, stop on first failure
 make test-cov             # Run tests in parallel with coverage report (85% required)
 pytest -n auto            # Run tests in parallel (faster, use with --timeout=300 if needed)
 
-# Legacy Commands (still work)
-pytest --cov=src --cov-report=html  # Generate coverage report
-ruff check --fix src/     # Auto-fix linting issues
-mypy src/ --strict        # Strict type checking
-
 # Development
 make build                # Build package
 make clean                # Clean build artifacts

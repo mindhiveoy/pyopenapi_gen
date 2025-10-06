@@ -185,7 +185,7 @@ class TestEndpointResponseHandlerGenerator:
     def test_generate_response_handling_error_404(self, generator, code_writer_mock, render_context_mock) -> None:
         """
         Scenario: Test response handling for a 404 Not Found error
-        Expected Outcome: Generated code raises Error404(response=response) and imports are added
+        Expected Outcome: Generated code raises NotFoundError(response=response) with human-readable name
         """
         # Arrange
         operation = IROperation(
@@ -209,11 +209,13 @@ class TestEndpointResponseHandlerGenerator:
 
         assert "match response.status_code:" in written_code
         assert "case 404:" in written_code
+        # Now expects human-readable NotFoundError instead of Error404
         assert any(
-            c[0][0].strip() == "raise Error404(response=response)" for c in code_writer_mock.write_line.call_args_list
+            c[0][0].strip() == "raise NotFoundError(response=response)"
+            for c in code_writer_mock.write_line.call_args_list
         )
 
-        render_context_mock.add_import.assert_any_call(f"{render_context_mock.core_package_name}", "Error404")
+        render_context_mock.add_import.assert_any_call(f"{render_context_mock.core_package_name}", "NotFoundError")
         render_context_mock.add_import.assert_any_call(
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )

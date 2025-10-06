@@ -203,7 +203,7 @@ class ClientGenerator:
                     overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
                 )
                 exception_files_list, exception_alias_names = exceptions_emitter.emit(
-                    ir, str(tmp_core_dir_for_diff)
+                    ir, str(tmp_core_dir_for_diff), client_package_name=output_package
                 )  # Emit TO temp core dir
                 exception_files = [Path(p) for p in exception_files_list]
                 temp_generated_files += exception_files
@@ -374,7 +374,9 @@ class ClientGenerator:
                 core_package_name=resolved_core_package_fqn,
                 overall_project_root=str(project_root),
             )
-            exception_files_list, exception_alias_names = exceptions_emitter.emit(ir, str(core_dir))
+            exception_files_list, exception_alias_names = exceptions_emitter.emit(
+                ir, str(core_dir), client_package_name=output_package
+            )
             generated_files += [Path(p) for p in exception_files_list]
             self._log_progress(f"Generated {len(exception_files_list)} exception files", "EMIT_EXCEPTIONS")
 
