@@ -126,7 +126,7 @@ bandit = {extras = ["toml"], version = "^1.8.6"}
 pytest-timeout = "^2.4.0"
 pytest-asyncio = "^1.1.0"
 black = "^25.1.0"
-ruff = "^0.12.3"
+ruff = "^0.13.3"
 mypy = "^1.17.0"
 commitizen = "^3.29.0"
 python-semantic-release = "^9.12.0"
