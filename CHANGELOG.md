@@ -1,6 +1,107 @@
 # CHANGELOG
 
 
+## v0.14.0 (2025-10-06)
+
+### Documentation
+
+- Remove legacy commands from development guide
+  ([`396680e`](https://github.com/mindhiveoy/pyopenapi_gen/commit/396680e93f15cabc638af0a1170853cfa3d6e5de))
+
+Removed outdated "Legacy Commands" section from CLAUDE.md development guide as modern commands are
+  already documented in "Essential Commands" section.
+
+Technical Details: - Removed 5 lines of legacy command documentation - Deleted commands that are
+  superseded by Makefile targets: * pytest --cov=src --cov-report=html (use: make test-cov) * ruff
+  check --fix src/ (use: make lint-fix) * mypy src/ --strict (use: make typecheck) - Modern
+  equivalents already documented with better descriptions - Simplified development workflow
+  documentation
+
+Impact: - No functional changes - Documentation now clearer with single source of truth for commands
+  - Developers directed to use consistent Makefile targets
+
+### Features
+
+- **exceptions**: Implement human-readable exception names and shared core registry
+  ([`6983037`](https://github.com/mindhiveoy/pyopenapi_gen/commit/69830375a5a8e93b14c6cf2cf7b289093b57a346))
+
+Replaces generic numeric exception names with semantic, human-readable names and adds registry
+  system for multi-client shared core scenarios.
+
+Technical Details: - Created http_status_codes.py with comprehensive HTTP status code mapping (400 →
+  BadRequestError, 404 → NotFoundError, 500 → InternalServerError) - Exception classes now include
+  human-readable status names in docstrings - Filters out 2xx success codes from exception
+  generation (no error classes for successful responses using is_error_code() helper) - Implements
+  .exception_registry.json to track exceptions needed by each client in shared core scenarios -
+  Registry prevents last client from overwriting exceptions needed by earlier clients when multiple
+  clients share a core package - Generated exception_aliases.py is Ruff-compliant from generation
+  (proper import ordering with third-party before local, correct spacing)
+
+Breaking Changes: - Generated exception class names changed from Error{code} to semantic names
+  (Error404 → NotFoundError, Error401 → UnauthorisedError, etc.) - Affects generated client code but
+  not runtime behavior - ExceptionsEmitter.emit() now accepts optional client_package_name parameter
+  - ExceptionVisitor.visit() returns tuple of (code, names, status_codes) instead of (code, names)
+
+Migration Notes: - Regenerate all clients to get new human-readable exception names - No code
+  changes required for clients using exception handling - Registry file (.exception_registry.json)
+  automatically managed - Clients continue to catch exceptions the same way, just with better names
+
+Implementation: - HTTP_EXCEPTION_NAMES maps status codes to semantic class names -
+  get_exception_class_name() provides consistent name resolution - get_status_name() provides
+  human-readable descriptions - is_error_code() filters to only 4xx/5xx codes - Registry system uses
+  JSON to track multi-client exception requirements
+
+### Performance Improvements
+
+- **postprocess**: Optimize Ruff execution with bulk operations (25x faster)
+  ([`eed3c34`](https://github.com/mindhiveoy/pyopenapi_gen/commit/eed3c346da9ddbb9daa1d745e8bc8f8f46c6e9b6))
+
+Changed from per-file Ruff subprocess calls to bulk operations on all files, reducing generation
+  time from 120+ seconds to 5.4 seconds for large specs.
+
+Technical Details: - Added remove_unused_imports_bulk(), sort_imports_bulk(), format_code_bulk()
+  methods that process all files in a single subprocess call - Changed from 2,331 individual
+  subprocess calls to 3 bulk calls for 777 files - Performance improvement: 120+ seconds → 5.4
+  seconds (25x speedup) - Temporarily disabled mypy type checking for faster iteration
+  (configurable, can be re-enabled when full validation needed) - Fixed docstring empty line
+  handling in PythonConstructRenderer to avoid trailing whitespace (Ruff W293 compliance)
+
+Implementation Approach: - Subprocess.run() executes ruff with list of all file paths as arguments
+  instead of individual calls per file - Maintained existing error handling and output filtering
+  logic - Preserved per-file methods for backward compatibility - Empty lines in class body_lines
+  now use writer.newline() instead of write_line("") to prevent indentation on blank lines
+
+Performance Impact: - Large spec generation (777 files): 120s → 5.4s - No change to generated code
+  quality or Ruff compliance - All formatting, linting, and import organization still applied - Mypy
+  still available but disabled by default for speed
+
+Non-breaking Change: - Generated code quality unchanged - All existing functionality preserved -
+  Mypy can be re-enabled by uncommenting lines 63-68 in postprocess_manager.py
+
+### Testing
+
+- Update exception tests for human-readable names
+  ([`26e2aef`](https://github.com/mindhiveoy/pyopenapi_gen/commit/26e2aef9df2e713a1d4098608f7c191bcd5992ab))
+
+Updated all exception-related tests to expect new human-readable exception names instead of generic
+  numeric names (NotFoundError vs Error404).
+
+Technical Details: - Updated test_exceptions_emitter.py assertions: * Now expects NotFoundError
+  instead of Error404 * Now expects InternalServerError instead of Error500 * Added validation for
+  human-readable status descriptions in docstrings * Removed HTTPError import assertion (no longer
+  used in exception_aliases.py) - Updated test_response_handler_generator.py: * Changed Error404
+  assertions to NotFoundError * Updated test docstrings to reflect human-readable names - Updated
+  test_match_case_response.py: * Changed Error400/401/404/500 to BadRequestError/UnauthorisedError/
+  NotFoundError/InternalServerError - Updated test_response_handler_generator_strategy.py: * Changed
+  Error404/500 assertions to NotFoundError/InternalServerError
+
+Test Results: - All 1,280 tests passing (100% success rate) - Coverage maintained at 85%+ - All
+  exception-related assertions updated and verified - No test failures or regressions
+
+Changes Tested: - Exception class name generation - Exception docstring content - Import statements
+  in generated code - Response handler error raising - Match-case statement error handling
+
+
 ## v0.13.0 (2025-09-08)
 
 ### Bug Fixes
