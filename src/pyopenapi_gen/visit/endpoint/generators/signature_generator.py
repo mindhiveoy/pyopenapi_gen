@@ -68,17 +68,9 @@ class EndpointMethodSignatureGenerator:
             p = p_orig.copy()  # Work with a copy
             arg_str = f"{NameSanitizer.sanitize_method_name(p['name'])}: {p['type']}"  # Ensure param name is sanitized
             if not p.get("required", False):
-                # Default value handling: if default is None, it should be ' = None'
-                # If default is a string, it should be ' = "default_value"'
-                # Otherwise, ' = default_value'
-                default_val = p.get("default")
-                if default_val is None and not p.get("required", False):  # Explicitly check for None for Optional types
-                    arg_str += f" = None"
-                elif default_val is not None:  # Only add if default is not None
-                    if isinstance(default_val, str):
-                        arg_str += f' = "{default_val}"'
-                    else:
-                        arg_str += f" = {default_val}"
+                # For optional parameters, always default to None to avoid type mismatches
+                # (e.g., enum-typed params with string defaults)
+                arg_str += " = None"
             args.append(arg_str)
 
         actual_return_type = return_type

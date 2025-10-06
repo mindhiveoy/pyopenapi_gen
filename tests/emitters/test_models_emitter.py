@@ -512,10 +512,10 @@ def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path: 
     assert model_file.exists()
     content = model_file.read_text()
 
-    # Check for necessary imports for Any type (modern style doesn't need Optional for default None)
+    # Check for necessary imports for Any type
     assert "from typing import Any" in content
-    # Check that the field uses the modern style for optional with default
-    assert "flexible_field: Any = None" in content
+    # When type is None/null, it should be Optional[Any]
+    assert "flexible_field: Optional[Any] = None" in content
 
 
 def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path) -> None:

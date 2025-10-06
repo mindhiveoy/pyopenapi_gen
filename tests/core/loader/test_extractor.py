@@ -108,36 +108,36 @@ class TestBuildSchemas:
         assert node_schema.type == "object"
         assert "children" in node_schema.properties
 
-    def test_build_schemas__invalid_raw_schemas_type__raises_assertion_error(self) -> None:
+    def test_build_schemas__invalid_raw_schemas_type__raises_type_error(self) -> None:
         """
         Scenario:
             Invalid type (not dict) is passed as raw_schemas.
 
         Expected Outcome:
-            AssertionError is raised with appropriate message.
+            TypeError is raised with appropriate message.
         """
         # Arrange
         raw_schemas = ["not", "a", "dict"]  # Invalid type
         raw_components = {}
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="raw_schemas must be a dict"):
+        with pytest.raises(TypeError, match="raw_schemas must be a dict"):
             build_schemas(raw_schemas, raw_components)  # type: ignore
 
-    def test_build_schemas__invalid_raw_components_type__raises_assertion_error(self) -> None:
+    def test_build_schemas__invalid_raw_components_type__raises_type_error(self) -> None:
         """
         Scenario:
             Invalid type (not Mapping) is passed as raw_components.
 
         Expected Outcome:
-            AssertionError is raised with appropriate message.
+            TypeError is raised with appropriate message.
         """
         # Arrange
         raw_schemas = {}
         raw_components = ["not", "a", "mapping"]  # Invalid type
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="raw_components must be a Mapping"):
+        with pytest.raises(TypeError, match="raw_components must be a Mapping"):
             build_schemas(raw_schemas, raw_components)  # type: ignore
 
     @patch("pyopenapi_gen.core.loader.schemas.extractor._parse_schema")
@@ -346,28 +346,28 @@ class TestExtractInlineArrayItems:
         assert extracted_item.any_of is not None
         assert len(extracted_item.any_of) == 2
 
-    def test_extract_inline_array_items__invalid_schemas_type__raises_assertion_error(self) -> None:
+    def test_extract_inline_array_items__invalid_schemas_type__raises_type_error(self) -> None:
         """
         Scenario:
             Invalid type (not dict) is passed as schemas.
 
         Expected Outcome:
-            AssertionError is raised with appropriate message.
+            TypeError is raised with appropriate message.
         """
         # Arrange
         schemas = ["not", "a", "dict"]  # Invalid type
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="schemas must be a dict"):
+        with pytest.raises(TypeError, match="schemas must be a dict"):
             extract_inline_array_items(schemas)  # type: ignore
 
-    def test_extract_inline_array_items__invalid_schema_values__raises_assertion_error(self) -> None:
+    def test_extract_inline_array_items__invalid_schema_values__raises_type_error(self) -> None:
         """
         Scenario:
             Dictionary contains values that are not IRSchema objects.
 
         Expected Outcome:
-            AssertionError is raised about IRSchema requirement.
+            TypeError is raised about IRSchema requirement.
         """
         # Arrange
         schemas = {
@@ -376,7 +376,7 @@ class TestExtractInlineArrayItems:
         }
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="all values must be IRSchema objects"):
+        with pytest.raises(TypeError, match="all values must be IRSchema objects"):
             extract_inline_array_items(schemas)  # type: ignore
 
     def test_extract_inline_array_items__nested_arrays__handles_recursively(self) -> None:
@@ -683,28 +683,28 @@ class TestExtractInlineEnums:
         extracted_enum = result["ColorPrimaryEnum"]
         assert extracted_enum.description == "Enum for Color.primary"
 
-    def test_extract_inline_enums__invalid_schemas_type__raises_assertion_error(self) -> None:
+    def test_extract_inline_enums__invalid_schemas_type__raises_type_error(self) -> None:
         """
         Scenario:
             Invalid type (not dict) is passed as schemas.
 
         Expected Outcome:
-            AssertionError is raised with appropriate message.
+            TypeError is raised with appropriate message.
         """
         # Arrange
         schemas = ["not", "a", "dict"]  # Invalid type
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="schemas must be a dict"):
+        with pytest.raises(TypeError, match="schemas must be a dict"):
             extract_inline_enums(schemas)  # type: ignore
 
-    def test_extract_inline_enums__invalid_schema_values__raises_assertion_error(self) -> None:
+    def test_extract_inline_enums__invalid_schema_values__raises_type_error(self) -> None:
         """
         Scenario:
             Dictionary contains values that are not IRSchema objects.
 
         Expected Outcome:
-            AssertionError is raised about IRSchema requirement.
+            TypeError is raised about IRSchema requirement.
         """
         # Arrange
         schemas = {
@@ -713,7 +713,7 @@ class TestExtractInlineEnums:
         }
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="all values must be IRSchema objects"):
+        with pytest.raises(TypeError, match="all values must be IRSchema objects"):
             extract_inline_enums(schemas)  # type: ignore
 
     def test_extract_inline_enums__complex_nested_structure__processes_all_levels(self) -> None:

@@ -197,7 +197,8 @@ class EndpointsEmitter:
             self._deduplicate_operation_ids(ops_for_tag)
 
             # EndpointVisitor must exist here due to check above
-            assert self.visitor is not None, "EndpointVisitor not initialized"
+            if self.visitor is None:
+                raise RuntimeError("EndpointVisitor not initialized")
             methods = [self.visitor.visit(op, self.context) for op in ops_for_tag]
             class_content = self.visitor.emit_endpoint_client_class(canonical_tag_name, methods, self.context)
 

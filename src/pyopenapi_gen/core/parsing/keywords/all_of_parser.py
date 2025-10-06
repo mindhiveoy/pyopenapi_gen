@@ -43,10 +43,14 @@ def _process_all_of(
                 - parsed_all_of_components: List of IRSchema for each item in 'allOf' (empty if 'allOf' not present).
     """
     # Pre-conditions
-    assert isinstance(node, Mapping) and node, "node must be a non-empty Mapping"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext instance"
-    assert callable(_parse_schema_func), "_parse_schema_func must be callable"
-    assert isinstance(max_depth, int) and max_depth >= 0, "max_depth must be a non-negative integer"
+    if not (isinstance(node, Mapping) and node):
+        raise TypeError("node must be a non-empty Mapping")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext instance")
+    if not callable(_parse_schema_func):
+        raise TypeError("_parse_schema_func must be callable")
+    if not (isinstance(max_depth, int) and max_depth >= 0):
+        raise ValueError("max_depth must be a non-negative integer")
 
     parsed_all_of_components: List[IRSchema] = []
     merged_required: Set[str] = set(node.get("required", []))

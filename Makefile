@@ -13,7 +13,7 @@ setup-poetry:
 		poetry install --with dev; \
 	else \
 		echo "🔄 Updating dependencies..."; \
-		poetry install --with dev --sync; \
+		poetry install --with dev; \
 	fi
 	@touch .deps-installed
 
@@ -76,10 +76,12 @@ quality: format-check lint typecheck security
 # Testing commands
 test: deps
 	@echo "🧪 Running tests with coverage (requires 85%)..."
+	@mkdir -p coverage_reports
 	poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml:coverage_reports/coverage.xml --cov-fail-under=85
 
 test-serial: deps
 	@echo "🧪 Running tests sequentially..."
+	@mkdir -p coverage_reports
 	poetry run pytest --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml:coverage_reports/coverage.xml
 
 test-no-cov: deps
@@ -92,10 +94,12 @@ test-fast: deps
 
 test-cov: deps
 	@echo "🧪 Running tests with coverage report..."
+	@mkdir -p coverage_reports
 	poetry run pytest -n 2 --cov=src --cov-report=term-missing --cov-report=html:coverage_reports/html
 
 coverage-html: deps
 	@echo "📊 Generating HTML coverage report..."
+	@mkdir -p coverage_reports
 	poetry run pytest --cov=src --cov-report=html:coverage_reports/html
 	@echo "📊 Coverage report: coverage_reports/html/index.html"
 
@@ -107,6 +111,44 @@ build: deps quality test
 install: deps
 	@echo "📦 Installing package in development mode..."
 	poetry install
+
+# Publishing commands
+publish-check: deps
+	@echo "🔍 Checking package for publishing..."
+	poetry run twine check dist/*
+
+publish-test: build publish-check
+	@echo "🧪 Publishing to TestPyPI..."
+	@PYPI_TOKEN=$$(cat "/Users/$(USER)/Library/Application Support/pypoetry/auth.toml" 2>/dev/null | grep 'password' | cut -d'"' -f2); \
+	if [ -z "$$PYPI_TOKEN" ]; then \
+		echo "❌ PyPI token not found in Poetry auth.toml"; \
+		echo "Run: poetry config http-basic.pypi __token__ YOUR_TOKEN"; \
+		exit 1; \
+	fi; \
+	poetry run twine upload --repository testpypi --username __token__ --password "$$PYPI_TOKEN" dist/*
+
+publish: build publish-check
+	@echo "🚀 Publishing to PyPI..."
+	@PYPI_TOKEN=$$(cat "/Users/$(USER)/Library/Application Support/pypoetry/auth.toml" 2>/dev/null | grep 'password' | cut -d'"' -f2); \
+	if [ -z "$$PYPI_TOKEN" ]; then \
+		echo "❌ PyPI token not found in Poetry auth.toml"; \
+		echo "Run: poetry config http-basic.pypi __token__ YOUR_TOKEN"; \
+		exit 1; \
+	fi; \
+	poetry run twine upload --username __token__ --password "$$PYPI_TOKEN" dist/*
+
+publish-force: deps
+	@echo "🚀 Force publishing to PyPI (skips quality checks)..."
+	@if [ ! -d "dist" ] || [ -z "$(shell ls -A dist/ 2>/dev/null)" ]; then \
+		echo "📦 Building package..."; \
+		poetry build; \
+	fi
+	@PYPI_TOKEN=$$(cat "/Users/$(USER)/Library/Application Support/pypoetry/auth.toml" 2>/dev/null | grep 'password' | cut -d'"' -f2); \
+	if [ -z "$$PYPI_TOKEN" ]; then \
+		echo "❌ PyPI token not found in Poetry auth.toml"; \
+		exit 1; \
+	fi; \
+	poetry run twine upload --username __token__ --password "$$PYPI_TOKEN" dist/*
 
 # Development commands
 dev: dev-setup quality-fix test-fast
@@ -140,5 +182,11 @@ help:
 	@echo "Build commands:"
 	@echo "  build         - Build package (runs quality + tests)"
 	@echo "  install       - Install package in development mode"
+	@echo ""
+	@echo "Publishing commands:"
+	@echo "  publish       - Publish to PyPI (runs build + quality + tests)"
+	@echo "  publish-test  - Publish to TestPyPI for testing"
+	@echo "  publish-check - Check package before publishing"
+	@echo "  publish-force - Force publish (skips quality checks, for CI)"
 
 .DEFAULT_GOAL := help 

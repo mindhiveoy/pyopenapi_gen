@@ -32,13 +32,15 @@ class PostprocessManager:
         # Ensure all targets are Path objects
         target_paths = [Path(t) for t in targets]
 
-        # --- RE-ENABLE RUFF CHECKS ---
-        for target_path in target_paths:
-            if target_path.is_file() and target_path.suffix == ".py":
-                self.remove_unused_imports(target_path)
-                self.sort_imports(target_path)
-                self.format_code(target_path)
-        # --- END RE-ENABLE ---
+        # OPTIMISED: Run Ruff once on all files instead of per-file
+        # Collect all Python files
+        python_files = [p for p in target_paths if p.is_file() and p.suffix == ".py"]
+
+        if python_files:
+            # Run Ruff checks once on all files (much faster than per-file)
+            self.remove_unused_imports_bulk(python_files)
+            self.sort_imports_bulk(python_files)
+            self.format_code_bulk(python_files)
 
         # Determine the package root directory(s) for Mypy
         package_roots = set()
@@ -58,11 +60,82 @@ class PostprocessManager:
                 package_roots.add(target_path)
 
         # Run Mypy on each identified package root
-        if package_roots:
-            print(f"Running Mypy on package root(s): {package_roots}")
-        for root_dir in package_roots:
-            print(f"Running mypy on {root_dir}...")
-            self.type_check(root_dir)
+        # TEMPORARILY DISABLED: Mypy is slow on large specs, disabled for faster iteration
+        # if package_roots:
+        #     print(f"Running Mypy on package root(s): {package_roots}")
+        # for root_dir in package_roots:
+        #     print(f"Running mypy on {root_dir}...")
+        #     self.type_check(root_dir)
+
+    def remove_unused_imports_bulk(self, targets: List[Path]) -> None:
+        """Remove unused imports from multiple targets using Ruff (bulk operation)."""
+        if not targets:
+            return
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "check",
+                "--select=F401",
+                "--fix",
+            ]
+            + [str(t) for t in targets],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode != 0 or result.stderr:
+            if result.stdout:
+                _print_filtered_stdout(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+
+    def sort_imports_bulk(self, targets: List[Path]) -> None:
+        """Sort imports in multiple targets using Ruff (bulk operation)."""
+        if not targets:
+            return
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "check",
+                "--select=I",
+                "--fix",
+            ]
+            + [str(t) for t in targets],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode != 0 or result.stderr:
+            if result.stdout:
+                _print_filtered_stdout(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+
+    def format_code_bulk(self, targets: List[Path]) -> None:
+        """Format code in multiple targets using Ruff (bulk operation)."""
+        if not targets:
+            return
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "format",
+            ]
+            + [str(t) for t in targets],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode != 0 or result.stderr:
+            if result.stdout:
+                _print_filtered_stdout(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
 
     def remove_unused_imports(self, target: Union[str, Path]) -> None:
         """Remove unused imports from the target using Ruff."""

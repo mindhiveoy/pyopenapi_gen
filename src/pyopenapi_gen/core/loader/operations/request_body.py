@@ -33,10 +33,14 @@ def parse_request_body(
             - Returns a properly populated IRRequestBody or None if invalid
             - All content media types are properly mapped to schemas
     """
-    assert isinstance(rb_node, Mapping), "rb_node must be a Mapping"
-    assert isinstance(raw_request_bodies, Mapping), "raw_request_bodies must be a Mapping"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext"
-    assert operation_id, "operation_id must be provided"
+    if not isinstance(rb_node, Mapping):
+        raise TypeError("rb_node must be a Mapping")
+    if not isinstance(raw_request_bodies, Mapping):
+        raise TypeError("raw_request_bodies must be a Mapping")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext")
+    if not operation_id:
+        raise ValueError("operation_id must be provided")
 
     # Handle $ref in request body
     if (
@@ -80,6 +84,7 @@ def parse_request_body(
     request_body = IRRequestBody(required=required_flag, content=content_map, description=desc)
 
     # Post-condition check
-    assert request_body.content == content_map, "Request body content mismatch"
+    if request_body.content != content_map:
+        raise RuntimeError("Request body content mismatch")
 
     return request_body

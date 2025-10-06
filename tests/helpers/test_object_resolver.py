@@ -522,7 +522,7 @@ class TestObjectTypeResolver:
     def test_object_resolver__schema_assertions_fail_generation_name(self):
         """Scenario: Schema in all_schemas missing generation_name.
 
-        Expected Outcome: AssertionError is raised.
+        Expected Outcome: Error is raised.
         """
         # Arrange
         actual_schema = IRSchema(
@@ -536,13 +536,13 @@ class TestObjectTypeResolver:
         schema = IRSchema(name="TestModel", type="object", properties=properties)
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="must have generation_name"):
+        with pytest.raises((AssertionError, TypeError, ValueError, RuntimeError), match="must have generation_name"):
             self.resolver.resolve(schema)
 
     def test_object_resolver__schema_assertions_fail_final_module_stem(self):
         """Scenario: Schema in all_schemas missing final_module_stem.
 
-        Expected Outcome: AssertionError is raised.
+        Expected Outcome: Error is raised.
         """
         # Arrange
         actual_schema = IRSchema(
@@ -556,13 +556,13 @@ class TestObjectTypeResolver:
         schema = IRSchema(name="TestModel", type="object", properties=properties)
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="must have final_module_stem"):
+        with pytest.raises((AssertionError, TypeError, ValueError, RuntimeError), match="must have final_module_stem"):
             self.resolver.resolve(schema)
 
     def test_object_resolver__schema_assertions_fail_no_properties_generation_name(self):
         """Scenario: Schema with no properties in all_schemas missing generation_name.
 
-        Expected Outcome: AssertionError is raised.
+        Expected Outcome: Error is raised.
         """
         # Arrange
         actual_schema = IRSchema(
@@ -575,13 +575,13 @@ class TestObjectTypeResolver:
         schema = IRSchema(name="EmptyModel", type="object", properties=None)
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="must have generation_name"):
+        with pytest.raises((AssertionError, TypeError, ValueError, RuntimeError), match="must have generation_name"):
             self.resolver.resolve(schema)
 
     def test_object_resolver__schema_assertions_fail_no_properties_final_module_stem(self):
         """Scenario: Schema with no properties in all_schemas missing final_module_stem.
 
-        Expected Outcome: AssertionError is raised.
+        Expected Outcome: Error is raised.
         """
         # Arrange
         actual_schema = IRSchema(
@@ -594,7 +594,7 @@ class TestObjectTypeResolver:
         schema = IRSchema(name="EmptyModel", type="object", properties=None)
 
         # Act & Assert
-        with pytest.raises(AssertionError, match="must have final_module_stem"):
+        with pytest.raises((AssertionError, TypeError, ValueError, RuntimeError), match="must have final_module_stem"):
             self.resolver.resolve(schema)
 
     def test_object_resolver__no_properties_package_root_configuration_paths(self):

@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
 
+from pyopenapi_gen.core.http_status_codes import get_exception_class_name
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.helpers.endpoint_utils import (
     _get_primary_response,
@@ -353,8 +354,8 @@ class EndpointResponseHandlerGenerator:
                         else:
                             writer.write_line("return None")
                 else:
-                    # Error responses
-                    error_class_name = f"Error{status_code_val}"
+                    # Error responses - use human-readable exception names
+                    error_class_name = get_exception_class_name(status_code_val)
                     context.add_import(f"{context.core_package_name}", error_class_name)
                     writer.write_line(f"raise {error_class_name}(response=response)")
 
@@ -388,7 +389,7 @@ class EndpointResponseHandlerGenerator:
         # All code paths should be covered by the match statement above
         writer.write_line("# All paths above should return or raise - this should never execute")
         context.add_import("typing", "NoReturn")
-        writer.write_line("assert False, 'Unexpected code path'  # pragma: no cover")
+        writer.write_line("raise RuntimeError('Unexpected code path')  # pragma: no cover")
         writer.write_line("")  # Add a blank line for readability
 
     def _write_strategy_based_return(

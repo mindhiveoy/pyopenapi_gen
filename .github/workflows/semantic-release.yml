@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual release'
+        required: false
+        default: 'Manual release'
 
 permissions:
   contents: write
@@ -29,7 +34,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version: '3.12'
 
     - name: Install Poetry
       uses: snok/install-poetry@v1
@@ -77,39 +82,210 @@ jobs:
           echo "No release-worthy changes found since $LAST_TAG"
         fi
 
-    - name: Add Poetry to PATH
-      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-    - name: Verify Poetry is available
-      run: |
-        which poetry
-        poetry --version
-
-    - name: Python Semantic Release
-      id: semantic_release
+    - name: Run semantic-release version
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
-      uses: python-semantic-release/python-semantic-release@v9.12.0
-      with:
-        github_token: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-        root_options: "--strict"
-
-    - name: Publish to PyPI
-      if: steps.semantic_release.outputs.released == 'true'
       env:
-        POETRY_HTTP_BASIC_PYPI_USERNAME: __token__
-        POETRY_HTTP_BASIC_PYPI_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
       run: |
-        poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
-        poetry publish
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        poetry run semantic-release version --skip-build
+
+    - name: Build packages after version bump
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      run: |
+        echo "🧹 Cleaning old packages..."
+        rm -rf dist/
+        echo "📦 Building packages with updated version..."
+        poetry run python -m build
+        echo "📋 Package contents:"
+        ls -la dist/
+
+    - name: Check if packages exist after semantic-release
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      run: |
+        if [ -d "dist" ] && [ "$(ls -A dist/)" ]; then
+          echo "✅ Packages exist in dist/"
+          ls -la dist/
+          
+          # Extract version from package filename
+          PACKAGE_VERSION=$(ls dist/*.whl | sed 's/.*-\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/' | head -1)
+          echo "📦 Built package version: $PACKAGE_VERSION"
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_ENV
+          
+          # Check if version already exists on PyPI
+          PYPI_LATEST=$(curl -s "https://pypi.org/pypi/pyopenapi-gen/json" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['info']['version'])" 2>/dev/null || echo "unknown")
+          echo "📚 PyPI latest version: $PYPI_LATEST"
+          
+          if [ "$PACKAGE_VERSION" = "$PYPI_LATEST" ]; then
+            echo "⚠️ Version $PACKAGE_VERSION already exists on PyPI"
+            echo "This indicates either:"
+            echo "  - No release-worthy changes since last version"
+            echo "  - Semantic-release didn't detect conventional commits"
+            echo "  - Last commit was already a release commit"
+            echo "packages_exist=false" >> $GITHUB_ENV
+            echo "version_conflict=true" >> $GITHUB_ENV
+          else
+            echo "✅ New version $PACKAGE_VERSION ready for publishing (current: $PYPI_LATEST → new: $PACKAGE_VERSION)"
+            echo "packages_exist=true" >> $GITHUB_ENV
+            echo "version_conflict=false" >> $GITHUB_ENV
+          fi
+        else
+          echo "❌ No packages found, semantic-release may not have triggered a release"
+          echo "packages_exist=false" >> $GITHUB_ENV
+        fi
+
+    - name: Validate PyPI token availability
+      if: (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch') && env.packages_exist == 'true'
+      env:
+        PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        echo "🔐 Validating PYPI_API_TOKEN secret..."
+        if [ -z "$PYPI_TOKEN" ]; then
+          echo "❌ PYPI_API_TOKEN secret is not configured in GitHub repository"
+          echo ""
+          echo "To fix this:"
+          echo "  1. Go to: https://github.com/mindhiveoy/pyopenapi_gen/settings/secrets/actions"
+          echo "  2. Click 'New repository secret'"
+          echo "  3. Name: PYPI_API_TOKEN"
+          echo "  4. Value: your PyPI token (starts with pypi-)"
+          echo ""
+          echo "Your PyPI token should be the same one that works locally."
+          exit 1
+        fi
+        
+        # Validate token format
+        if [[ ! "$PYPI_TOKEN" =~ ^pypi- ]]; then
+          echo "⚠️ Token doesn't start with 'pypi-' - this may be incorrect"
+          echo "Token length: ${#PYPI_TOKEN} characters"
+        else
+          echo "✅ Token format looks correct (pypi-...)"
+          echo "✅ Token length: ${#PYPI_TOKEN} characters"
+        fi
+
+    - name: Publish to PyPI with twine
+      if: (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch') && env.packages_exist == 'true'
+      timeout-minutes: 10
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        echo "🚀 Publishing to PyPI with twine..."
+        
+        echo "✅ Token configured (length: ${#TWINE_PASSWORD})"
+        echo "📦 Checking packages..."
+        poetry run twine check dist/*
+        
+        echo "🔗 Testing PyPI connectivity..."
+        curl -I https://upload.pypi.org/legacy/ || {
+          echo "⚠️ PyPI upload endpoint not reachable"
+          exit 1
+        }
+        
+        echo "📤 Uploading to PyPI with timeout protection..."
+        timeout 300 poetry run twine upload \
+          --username "$TWINE_USERNAME" \
+          --password "$TWINE_PASSWORD" \
+          --verbose \
+          --disable-progress-bar \
+          dist/* || {
+          echo "❌ Upload failed or timed out after 5 minutes"
+          echo "This could be due to:"
+          echo "  - Network connectivity issues"
+          echo "  - PyPI rate limiting"
+          echo "  - Invalid token permissions"
+          echo "  - Package already exists (version conflict)"
+          exit 1
+        }
+
+    - name: Run semantic-release publish (GitHub release only)
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      env:
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      run: |
+        echo "📝 Creating GitHub release with semantic-release..."
+        poetry run semantic-release publish
+
+    - name: Get release version
+      if: success() && (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch')
+      id: get_version
+      run: |
+        # Get the latest tag as the released version
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        echo "released_version=$LATEST_TAG" >> $GITHUB_OUTPUT
+        echo "Released version: $LATEST_TAG"
+
+    - name: Sync version to staging branch
+      if: success() && steps.get_version.outputs.released_version != ''
+      env:
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🔄 Syncing main to staging branch..."
+        
+        # Fetch all branches
+        git fetch origin staging:staging || echo "Staging branch doesn't exist, skipping"
+        
+        if git show-ref --verify --quiet refs/heads/staging; then
+          # Switch to staging and merge main
+          git checkout staging
+          git merge main --no-edit || {
+            echo "⚠️ Merge conflict detected, creating PR instead"
+            git merge --abort
+            gh pr create \
+              --title "chore: sync version ${{ steps.get_version.outputs.released_version }} from main to staging" \
+              --body "Automated sync of semantic release version ${{ steps.get_version.outputs.released_version }} from main branch" \
+              --base staging \
+              --head main \
+              --label "automated,version-sync" || echo "PR may already exist"
+          } && {
+            echo "✅ Successfully merged main into staging"
+            git push origin staging || echo "Failed to push to staging"
+          }
+        else
+          echo "ℹ️ Staging branch doesn't exist, skipping sync"
+        fi
+
+    - name: Sync version to develop branch  
+      if: success() && steps.get_version.outputs.released_version != ''
+      env:
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🔄 Syncing main to develop branch..."
+        
+        # Fetch all branches
+        git fetch origin develop:develop || echo "Develop branch doesn't exist, skipping"
+        
+        if git show-ref --verify --quiet refs/heads/develop; then
+          # Switch to develop and merge main
+          git checkout develop
+          git merge main --no-edit || {
+            echo "⚠️ Merge conflict detected, creating PR instead"
+            git merge --abort
+            gh pr create \
+              --title "chore: sync version ${{ steps.get_version.outputs.released_version }} from main to develop" \
+              --body "Automated sync of semantic release version ${{ steps.get_version.outputs.released_version }} from main branch" \
+              --base develop \
+              --head main \
+              --label "automated,version-sync" || echo "PR may already exist"
+          } && {
+            echo "✅ Successfully merged main into develop"
+            git push origin develop || echo "Failed to push to develop"
+          }
+        else
+          echo "ℹ️ Develop branch doesn't exist, skipping sync"
+        fi
 
     - name: Create release summary
-      if: steps.semantic_release.outputs.released == 'true'
+      if: success()
       run: |
         echo "## 🚀 Release Published" >> $GITHUB_STEP_SUMMARY
-        echo "- **Version**: ${{ steps.semantic_release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Tag**: ${{ steps.semantic_release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **PyPI**: [pyopenapi-gen ${{ steps.semantic_release.outputs.version }}](https://pypi.org/project/pyopenapi-gen/${{ steps.semantic_release.outputs.version }}/)" >> $GITHUB_STEP_SUMMARY
-        echo "- **GitHub Release**: [Release Notes](https://github.com/mindhiveoy/pyopenapi_gen/releases/tag/${{ steps.semantic_release.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: ${{ steps.get_version.outputs.released_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **PyPI**: [pyopenapi-gen ${{ steps.get_version.outputs.released_version }}](https://pypi.org/project/pyopenapi-gen/${{ steps.get_version.outputs.released_version }})" >> $GITHUB_STEP_SUMMARY
+        echo "- **GitHub Release**: [Release Notes](https://github.com/mindhiveoy/pyopenapi_gen/releases/tag/${{ steps.get_version.outputs.released_version }})" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -n "${{ steps.get_version.outputs.released_version }}" ]; then
+          echo "- **Branch Sync**: Version synced to staging and develop branches" >> $GITHUB_STEP_SUMMARY
+        fi
 
   notify-completion:
     needs: release

@@ -77,9 +77,10 @@ class ClientGenerator:
         else:
             log_msg = f"{timestamp} ({elapsed:.2f}s) {message}"
 
-        # logger.info(log_msg) # Keep commented out to ensure test_gen_nonexistent_spec_path passes
-        # Also print to stdout for CLI users
-        # print(log_msg) # Keep commented out
+        logger.info(log_msg)
+        # Also print to stdout for CLI users when verbose mode is enabled
+        if self.verbose:
+            print(log_msg)
 
     def generate(
         self,
@@ -202,7 +203,7 @@ class ClientGenerator:
                     overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
                 )
                 exception_files_list, exception_alias_names = exceptions_emitter.emit(
-                    ir, str(tmp_core_dir_for_diff)
+                    ir, str(tmp_core_dir_for_diff), client_package_name=output_package
                 )  # Emit TO temp core dir
                 exception_files = [Path(p) for p in exception_files_list]
                 temp_generated_files += exception_files
@@ -373,7 +374,9 @@ class ClientGenerator:
                 core_package_name=resolved_core_package_fqn,
                 overall_project_root=str(project_root),
             )
-            exception_files_list, exception_alias_names = exceptions_emitter.emit(ir, str(core_dir))
+            exception_files_list, exception_alias_names = exceptions_emitter.emit(
+                ir, str(core_dir), client_package_name=output_package
+            )
             generated_files += [Path(p) for p in exception_files_list]
             self._log_progress(f"Generated {len(exception_files_list)} exception files", "EMIT_EXCEPTIONS")
 
@@ -523,9 +526,23 @@ class ClientGenerator:
         """
         spec_path_obj = Path(path_or_url)
         if spec_path_obj.exists() and spec_path_obj.is_file():  # Added is_file() check
-            import yaml
+            text = spec_path_obj.read_text()
+            # Prefer JSON for .json files to avoid optional PyYAML dependency in tests
+            if spec_path_obj.suffix.lower() == ".json":
+                import json
 
-            data = yaml.safe_load(spec_path_obj.read_text())
+                data = json.loads(text)
+            else:
+                try:
+                    import yaml
+
+                    data = yaml.safe_load(text)
+                except ModuleNotFoundError:
+                    # Fallback: attempt JSON parsing if YAML is unavailable
+                    import json
+
+                    data = json.loads(text)
+
             if not isinstance(data, dict):
                 raise GenerationError("Loaded spec is not a dictionary.")
             return data

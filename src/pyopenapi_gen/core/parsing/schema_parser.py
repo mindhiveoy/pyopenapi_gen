@@ -17,6 +17,8 @@ from .keywords.any_of_parser import _parse_any_of_schemas
 from .keywords.one_of_parser import _parse_one_of_schemas
 from .unified_cycle_detection import CycleAction
 
+logger = logging.getLogger(__name__)
+
 # Environment variables for configurable limits, with defaults
 try:
     MAX_CYCLES = int(os.environ.get("PYOPENAPI_MAX_CYCLES", "0"))  # Default 0 means no explicit cycle count limit
@@ -26,8 +28,6 @@ try:
     ENV_MAX_DEPTH = int(os.environ.get("PYOPENAPI_MAX_DEPTH", "150"))  # Default 150
 except ValueError:
     ENV_MAX_DEPTH = 150  # Fallback to 150 if env var is invalid
-
-logger = logging.getLogger(__name__)
 
 
 def _resolve_ref(
@@ -326,7 +326,8 @@ def _parse_schema(
     Parse a schema node and return an IRSchema object.
     """
     # Pre-conditions
-    assert context is not None, "Context cannot be None for _parse_schema"
+    if context is None:
+        raise ValueError("Context cannot be None for _parse_schema")
 
     # Set allow_self_reference flag on unified context
     context.unified_cycle_context.allow_self_reference = allow_self_reference
@@ -377,9 +378,10 @@ def _parse_schema(
         if schema_node is None:
             return IRSchema(name=NameSanitizer.sanitize_class_name(schema_name) if schema_name else None)
 
-        assert isinstance(
-            schema_node, Mapping
-        ), f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
+        if not isinstance(schema_node, Mapping):
+            raise TypeError(
+                f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
+            )
 
         # If the current schema_node itself is a $ref, resolve it.
         if "$ref" in schema_node:
@@ -415,7 +417,23 @@ def _parse_schema(
         raw_type_field = schema_node.get("type")
 
         if isinstance(raw_type_field, str):
-            extracted_type = raw_type_field
+            # Handle non-standard type values that might appear
+            if raw_type_field in ["Any", "any"]:
+                # Convert 'Any' to None - will be handled as object later
+                extracted_type = None
+                logger.warning(
+                    f"Schema{f' {schema_name}' if schema_name else ''} uses non-standard type 'Any'. "
+                    "Converting to 'object'. Use standard OpenAPI types: string, number, integer, boolean, array, object."
+                )
+            elif raw_type_field == "None":
+                # Convert 'None' string to null handling
+                extracted_type = "null"
+                logger.warning(
+                    f"Schema{f' {schema_name}' if schema_name else ''} uses type 'None'. "
+                    'Converting to nullable object. Use \'type: ["object", "null"]\' for nullable types.'
+                )
+            else:
+                extracted_type = raw_type_field
         elif isinstance(raw_type_field, list):
             if "null" in raw_type_field:
                 is_nullable_from_type_field = True
@@ -444,10 +462,33 @@ def _parse_schema(
             if props_from_comp or "allOf" in schema_node or "properties" in schema_node:
                 current_final_type = "object"
             elif any_of_irs or one_of_irs:
+                # Keep None for composition types - they'll be handled by resolver
                 current_final_type = None
+            elif "enum" in schema_node:
+                # Enum without explicit type - infer from enum values
+                enum_values = schema_node.get("enum", [])
+                if enum_values:
+                    first_val = enum_values[0]
+                    if isinstance(first_val, str):
+                        current_final_type = "string"
+                    elif isinstance(first_val, (int, float)):
+                        current_final_type = "number"
+                    elif isinstance(first_val, bool):
+                        current_final_type = "boolean"
+                    else:
+                        # Fallback to object for complex enum values
+                        current_final_type = "object"
+                else:
+                    current_final_type = "string"  # Default for empty enums
+            else:
+                # No type specified and no clear indicators - default to object
+                # This is safer than 'Any' and matches OpenAPI spec defaults
+                current_final_type = "object"
 
         if current_final_type == "null":
-            current_final_type = None
+            # Explicit null type - mark as nullable but use object type
+            is_nullable_overall = True
+            current_final_type = "object"
 
         if current_final_type == "object":
             # Properties from allOf have already been handled by _parse_composition_keywords
@@ -509,7 +550,13 @@ def _parse_schema(
                 else:
                     items_ir = actual_item_ir
             else:
-                items_ir = IRSchema(type="Any")
+                # Array without items specification - use object as safer default
+                # Log warning to help developers fix their specs
+                logger.warning(
+                    f"Array type without 'items' specification found{f' in {schema_name}' if schema_name else ''}. "
+                    "Using 'object' as item type. Consider adding 'items' to your OpenAPI spec for better type safety."
+                )
+                items_ir = IRSchema(type="object")
 
         schema_ir_name_attr = NameSanitizer.sanitize_class_name(schema_name) if schema_name else None
 
