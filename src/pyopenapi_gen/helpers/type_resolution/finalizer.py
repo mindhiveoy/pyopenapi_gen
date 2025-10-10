@@ -26,26 +26,32 @@ class TypeFinalizer:
             self.context.add_import("typing", "Any")
             py_type = "Any"
 
-        optional_type = self._wrap_with_optional_if_needed(py_type, schema, required)
-        cleaned_type = self._clean_type(optional_type)
+        # CRITICAL: Clean BEFORE wrapping to prevent TypeCleaner from breaking "Union[X] | None" patterns
+        cleaned_type = self._clean_type(py_type)
+        optional_type = self._wrap_with_optional_if_needed(cleaned_type, schema, required)
 
-        # Ensure imports for common typing constructs that might have been introduced by cleaning
-        if "dict[" in cleaned_type or cleaned_type == "Dict":
+        # Ensure imports for common typing constructs that might have been introduced by cleaning or wrapping
+        final_type = optional_type  # Use the wrapped type for import analysis
+        if "dict[" in final_type or final_type == "Dict":
             self.context.add_import("typing", "Dict")
-        if "List[" in cleaned_type or cleaned_type == "List":
+        if "List[" in final_type or final_type == "List":
             self.context.add_import("typing", "List")
-        if "Tuple[" in cleaned_type or cleaned_type == "Tuple":  # Tuple might also appear bare
+        if "Tuple[" in final_type or final_type == "Tuple":  # Tuple might also appear bare
             self.context.add_import("typing", "Tuple")
-        if "Union[" in cleaned_type:
+        if "Union[" in final_type:
             self.context.add_import("typing", "Union")
         # Optional is now handled entirely by _wrap_with_optional_if_needed and not here
-        if cleaned_type == "Any":  # Ensure Any is imported if it's the final type
+        if final_type == "Any" or final_type == "Any | None":  # Ensure Any is imported if it's the final type
             self.context.add_import("typing", "Any")
 
-        return cleaned_type
+        return final_type
 
     def _wrap_with_optional_if_needed(self, py_type: str, schema_being_wrapped: IRSchema, required: bool) -> str:
-        """Wraps the Python type string with `... | None` if necessary."""
+        """Wraps the Python type string with `... | None` if necessary.
+
+        Note: Modern Python 3.10+ uses X | None syntax exclusively.
+        Optional[X] should NEVER appear here - our unified type system generates X | None directly.
+        """
         is_considered_optional_by_usage = not required or schema_being_wrapped.is_nullable is True
 
         if not is_considered_optional_by_usage:
@@ -54,13 +60,23 @@ class TypeFinalizer:
         # At this point, usage implies optional. Now check if py_type inherently is.
 
         if py_type == "Any":
-            self.context.add_import("typing", "Optional")
+            # Modern Python 3.10+ doesn't need Optional import for | None syntax
             return "Any | None"  # Any is special, always wrap if usage is optional.
 
-        # If already Optional (old style) or has | None (new style), don't add again
-        if py_type.startswith("Optional["):
-            return py_type  # Already explicitly Optional.
+        # SANITY CHECK: Unified type system should never produce Optional[X]
+        if py_type.startswith("Optional[") and py_type.endswith("]"):
+            logger.error(
+                f"❌ ARCHITECTURE VIOLATION: Received legacy Optional[X] type: {py_type}. "
+                f"This should NEVER happen - unified type system generates X | None directly. "
+                f"Schema: {schema_being_wrapped.name or 'anonymous'}. "
+                f"This indicates a bug in the type resolution pipeline."
+            )
+            # Defensive conversion (but this indicates a serious bug upstream)
+            inner_type = py_type[9:-1]  # Remove "Optional[" and "]"
+            logger.warning(f"⚠️ Converted to modern syntax: {inner_type} | None")
+            return f"{inner_type} | None"
 
+        # If already has | None (modern style), don't add again
         if " | None" in py_type or py_type.endswith("| None"):
             return py_type  # Already has | None union syntax.
 
@@ -81,8 +97,7 @@ class TypeFinalizer:
             if referenced_schema.is_nullable:
                 return py_type
 
-        # Only now add the Optional import and wrap the type
-        self.context.add_import("typing", "Optional")
+        # Wrap type with modern | None syntax (no Optional import needed in Python 3.10+)
         return f"{py_type} | None"
 
     def _clean_type(self, type_str: str) -> str:

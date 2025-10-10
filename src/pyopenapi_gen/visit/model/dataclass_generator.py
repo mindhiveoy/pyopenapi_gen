@@ -146,15 +146,15 @@ class {class_name}(BaseSchema):
         """Truthy if contains data."""
         return bool(self._data)
 
-    def keys(self):
+    def keys(self) -> Any:
         """Return dictionary keys."""
         return self._data.keys()
 
-    def values(self):
+    def values(self) -> Any:
         """Return dictionary values."""
         return self._data.values()
 
-    def items(self):
+    def items(self) -> Any:
         """Return dictionary items."""
         return self._data.items()
 '''
@@ -278,7 +278,6 @@ class {class_name}(BaseSchema):
                 raise ValueError("Schema items must be present for array type dataclass field.")
 
             list_item_py_type = self.type_service.resolve_schema_type(schema.items, context, required=True)
-            list_item_py_type = TypeFinalizer(context)._clean_type(list_item_py_type)
             field_type_str = f"List[{list_item_py_type}]"
 
             final_field_type_str = TypeFinalizer(context).finalize(
@@ -322,7 +321,6 @@ class {class_name}(BaseSchema):
                     field_mappings[prop_name] = field_name
 
                 py_type = self.type_service.resolve_schema_type(prop_schema, context, required=is_required)
-                py_type = TypeFinalizer(context)._clean_type(py_type)
 
                 default_expr: str | None = None
                 if not is_required:

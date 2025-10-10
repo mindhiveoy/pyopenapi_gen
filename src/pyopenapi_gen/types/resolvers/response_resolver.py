@@ -164,9 +164,8 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
         # For event streams (text/event-stream) or JSON streams
         is_event_stream = any("event-stream" in ct for ct in content_types)
         if is_event_stream:
-            context.add_import("typing", "Dict")
             context.add_import("typing", "Any")
-            return ResolvedType(python_type="AsyncIterator[Dict[str, Any]]")
+            return ResolvedType(python_type="AsyncIterator[dict[str, Any]]")
 
         # For other streaming content, try to resolve the schema
         schema = self._get_response_schema(response)

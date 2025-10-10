@@ -69,7 +69,6 @@ class AliasGenerator:
 
         alias_name = NameSanitizer.sanitize_class_name(base_name)
         target_type = self.type_service.resolve_schema_type(schema, context, required=True, resolve_underlying=True)
-        target_type = TypeFinalizer(context)._clean_type(target_type)
 
         # logger.debug(f"AliasGenerator: Rendering alias '{alias_name}' for target type '{target_type}'.")
 

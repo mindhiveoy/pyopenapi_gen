@@ -168,8 +168,9 @@ class EndpointResponseHandlerGenerator:
         }:
             return False
 
-        # Skip typing constructs (both uppercase and lowercase)
-        if base_type.startswith(("dict[", "List[", "Optional[", "Union[", "Tuple[", "dict[", "list[", "tuple[")):
+        # Skip typing constructs
+        # Note: Modern Python 3.10+ uses | None instead of Optional[X]
+        if base_type.startswith(("dict[", "List[", "Union[", "Tuple[", "dict[", "list[", "tuple[")):
             return False
 
         # Check if this is a type alias (array or non-array) - these should NOT use BaseSchema
@@ -181,7 +182,7 @@ class EndpointResponseHandlerGenerator:
         # or if it's a simple class name that's likely a generated model (starts with uppercase)
         return "." in base_type or (
             base_type[0].isupper()
-            and base_type not in {"Dict", "List", "Optional", "Union", "Tuple", "dict", "list", "tuple"}
+            and base_type not in {"Dict", "List", "Union", "Tuple", "dict", "list", "tuple"}
         )
 
     def _get_base_schema_deserialization_code(self, return_type: str, data_expr: str) -> str:
@@ -203,8 +204,29 @@ class EndpointResponseHandlerGenerator:
                 item_type = return_type[5:-1]  # Remove 'list[' and ']'
             return f"[{item_type}.from_dict(item) for item in {data_expr}]"
         elif return_type.startswith("Optional["):
-            # Handle Model | None types
-            inner_type = return_type[9:-1]  # Remove '' and ' | None'
+            # SANITY CHECK: Unified type system should never produce Optional[X]
+            logger.error(
+                f"❌ ARCHITECTURE VIOLATION: Received legacy Optional[X] type in response handler: {return_type}. "
+                f"Unified type system must generate X | None directly."
+            )
+            # Defensive conversion (but this indicates a serious bug upstream)
+            inner_type = return_type[9:-1]  # Remove 'Optional[' and ']'
+            logger.warning(f"⚠️ Converting to modern syntax internally for: {inner_type} | None")
+
+            # Check if inner type is also a list
+            if inner_type.startswith("List[") or inner_type.startswith("list["):
+                list_code = self._get_base_schema_deserialization_code(inner_type, data_expr)
+                return f"{list_code} if {data_expr} is not None else None"
+            else:
+                return f"{inner_type}.from_dict({data_expr}) if {data_expr} is not None else None"
+        elif " | None" in return_type or return_type.endswith("| None"):
+            # Handle Model | None types (modern Python 3.10+ syntax)
+            # Extract base type from "X | None" pattern
+            if " | None" in return_type:
+                inner_type = return_type.replace(" | None", "").strip()
+            else:
+                inner_type = return_type.replace("| None", "").strip()
+
             # Check if inner type is also a list
             if inner_type.startswith("List[") or inner_type.startswith("list["):
                 list_code = self._get_base_schema_deserialization_code(inner_type, data_expr)

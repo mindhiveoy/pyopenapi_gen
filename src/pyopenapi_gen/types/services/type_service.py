@@ -122,12 +122,33 @@ class UnifiedTypeService:
         return self._format_resolved_type(resolved, context)
 
     def _format_resolved_type(self, resolved: ResolvedType, context: RenderContext | None = None) -> str:
-        """Format a ResolvedType into a Python type string."""
+        """Format a ResolvedType into a Python type string.
+
+        Architecture Guarantee: This method produces ONLY modern Python 3.10+ syntax (X | None).
+        Optional[X] is NEVER generated - unified type system uses | None exclusively.
+        """
         python_type = resolved.python_type
 
-        if resolved.is_optional and not python_type.startswith("Optional["):
-            if context:
-                context.add_import("typing", "Optional")
+        # SANITY CHECK: Unified system should never produce Optional[X] internally
+        if python_type.startswith("Optional["):
+            logger.error(
+                f"❌ ARCHITECTURE VIOLATION: Resolver produced legacy Optional[X]: {python_type}. "
+                f"Unified type system must generate X | None directly. "
+                f"This indicates a bug in schema/response/reference resolver."
+            )
+            # This should never happen in our unified system
+            raise ValueError(
+                f"Type resolver produced legacy Optional[X] syntax: {python_type}. "
+                f"Unified type system must use X | None exclusively."
+            )
+
+        # Quote forward references BEFORE adding | None so we get: "DataSource" | None not "DataSource | None"
+        if resolved.is_forward_ref and not python_type.startswith('"'):
+            python_type = f'"{python_type}"'
+
+        # Add modern | None syntax if needed
+        # Modern Python 3.10+ uses | None syntax without needing Optional import
+        if resolved.is_optional and not python_type.endswith("| None"):
             python_type = f"{python_type} | None"
 
             # DEBUG: Check for malformed type strings
@@ -136,8 +157,5 @@ class UnifiedTypeService:
                     f"MALFORMED TYPE: Bracket mismatch in '{python_type}'. "
                     f"Original: '{resolved.python_type}', is_optional: {resolved.is_optional}"
                 )
-
-        if resolved.is_forward_ref and not python_type.startswith('"'):
-            python_type = f'"{python_type}"'
 
         return python_type
