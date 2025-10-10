@@ -108,12 +108,16 @@ class EndpointsEmitter:
         self.formatter = Formatter()
         self.visitor: EndpointVisitor | None = None
 
-    def _deduplicate_operation_ids(self, operations: List[IROperation]) -> None:
+    def _deduplicate_operation_ids_globally(self, operations: List[IROperation]) -> None:
         """
-        Ensures all operations have unique method names within a tag.
+        Ensures all operations have unique method names globally across all tags.
+
+        This prevents the bug where operations with multiple tags share the same
+        IROperation object reference, causing _deduplicate_operation_ids() to
+        modify the same object multiple times and accumulate _2_2 suffixes.
 
         Args:
-            operations: List of operations for a single tag.
+            operations: List of all operations across all tags.
         """
         seen_methods: dict[str, int] = {}
         for op in operations:
@@ -156,6 +160,10 @@ class EndpointsEmitter:
         if self.visitor is None:
             self.visitor = EndpointVisitor(current_parsed_schemas)  # Pass the (potentially defaulted) dict
 
+        # Deduplicate operation IDs globally BEFORE tag grouping to prevent
+        # multi-tag operations from accumulating _2_2 suffixes
+        self._deduplicate_operation_ids_globally(operations)
+
         tag_key_to_ops: dict[str, List[IROperation]] = {}
         tag_key_to_candidates: dict[str, List[str]] = {}
         for op in operations:
@@ -194,7 +202,7 @@ class EndpointsEmitter:
             # This will set current_file and reset+reinit import_collector's context
             self.context.set_current_file(str(file_path))
 
-            self._deduplicate_operation_ids(ops_for_tag)
+            # Deduplication now done globally before tag grouping (see above)
 
             # EndpointVisitor must exist here due to check above
             if self.visitor is None:
