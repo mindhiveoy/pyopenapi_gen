@@ -1,6 +1,29 @@
 # CHANGELOG
 
 
+## v0.14.2 (2025-10-10)
+
+### Bug Fixes
+
+- **endpoints**: Prevent _2_2 suffix accumulation in multi-tag operations
+  ([`89e500f`](https://github.com/mindhiveoy/pyopenapi_gen/commit/89e500f9c9963492454bc3177fabf872052baac5))
+
+Operations with multiple tags previously accumulated duplicate suffixes (_2_2, _2_2_2) because the
+  same IROperation object was modified multiple times during per-tag deduplication.
+
+**Root Cause:** When an operation has multiple tags (e.g., ["Users", "Admin", "Internal"]), the SAME
+  IROperation object reference was added to multiple tag group lists. The per-tag deduplication
+  modified the same object repeatedly, causing suffix accumulation.
+
+**Solution:** - Implement global deduplication BEFORE tag grouping - New method:
+  _deduplicate_operation_ids_globally() - Called once before tag splitting - Ensures each operation
+  is renamed at most once - Removed per-tag deduplication call
+
+**Testing:** - Existing test for single-tag duplicates still passes - New test verifies multi-tag
+  operations get consistent naming - Reproduction test confirms fix resolves _2_2 accumulation - All
+  1299 tests pass with 88.16% coverage
+
+
 ## v0.14.1 (2025-10-10)
 
 ### Bug Fixes
