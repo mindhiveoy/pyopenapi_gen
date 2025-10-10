@@ -14,31 +14,31 @@ class TestTypeCleaner:
         "test_id, input_type, expected_type",
         [
             # Simple cases
-            ("simple_dict", "Dict[str, Any]", "Dict[str, Any]"),
+            ("simple_dict", "dict[str, Any]", "dict[str, Any]"),
             ("simple_list", "List[str]", "List[str]"),
-            ("simple_optional", "Optional[str]", "Optional[str]"),
+            ("simple_optional", "str | None", "str | None"),
             # Common error cases from OpenAPI 3.1 nullable handling
-            ("dict_with_none", "Dict[str, Any, None]", "Dict[str, Any]"),
+            ("dict_with_none", "dict[str, Any, None]", "dict[str, Any]"),
             ("list_with_none", "List[JsonValue, None]", "List[JsonValue]"),
-            ("optional_with_none", "Optional[Any, None]", "Optional[Any]"),
+            ("optional_with_none", "Optional[Any, None]", "Any | None"),
             # More complex nested types
-            ("nested_dict", "Dict[str, Dict[str, Any, None]]", "Dict[str, Dict[str, Any]]"),
+            ("nested_dict", "dict[str, dict[str, Any, None]]", "dict[str, dict[str, Any]]"),
             ("nested_list", "List[List[str, None]]", "List[List[str]]"),
             (
                 "complex_union",
-                "Union[Dict[str, Any, None], List[str, None], Optional[int, None]]",
-                "Union[Dict[str, Any], List[str], Optional[int]]",
+                "Union[dict[str, Any, None], List[str, None], Optional[int, None]]",
+                "Union[dict[str, Any], List[str], int | None]",
             ),
             # OpenAPI 3.1 complex nullable cases
-            ("openapi_31_list_none", "List[Union[Dict[str, Any], None]]", "List[Union[Dict[str, Any], None]]"),
+            ("openapi_31_list_none", "List[Union[dict[str, Any], None]]", "List[Union[dict[str, Any], None]]"),
             ("list_with_multi_params", "List[str, int, bool, None]", "List[str]"),
-            ("dict_with_multi_params", "Dict[str, int, bool, None]", "Dict[str, int]"),
+            ("dict_with_multi_params", "dict[str, int, bool, None]", "dict[str, int]"),
             # Edge cases
             ("empty_string", "", ""),
             ("no_brackets", "AnyType", "AnyType"),
-            ("incomplete_syntax", "Dict[str,", "Dict[str,"),
+            ("incomplete_syntax", "dict[str,", "dict[str,"),
             ("empty_union", "Union[]", "Any"),
-            ("optional_none", "Optional[None]", "Optional[Any]"),
+            ("optional_none", "Optional[None]", "Any | None"),
         ],
     )
     def test_clean_type_parameters(self, test_id: str, input_type: str, expected_type: str) -> None:
@@ -63,15 +63,15 @@ class TestTypeCleaner:
         """
         # The exact string with no whitespace between parts
         complex_type = (
-            "Union[Dict[str, List[Dict[str, Any, None], None]], "
-            "List[Union[Dict[str, Any, None], str, None]], "
-            "Optional[Dict[str, Union[str, int, None], None]]]"
+            "Union[dict[str, List[dict[str, Any, None], None]], "
+            "List[Union[dict[str, Any, None], str, None]], "
+            "Optional[dict[str, Union[str, int, None], None]]]"
         )
 
         expected = (
-            "Union[Dict[str, List[Dict[str, Any]]], "
-            "List[Union[Dict[str, Any], str, None]], "
-            "Optional[Dict[str, Union[str, int, None]]]]"
+            "Union[dict[str, List[dict[str, Any]]], "
+            "List[Union[dict[str, Any], str, None]], "
+            "dict[str, Union[str, int, None]] | None]"
         )
 
         result = TypeCleaner.clean_type_parameters(complex_type)
@@ -89,14 +89,14 @@ class TestTypeCleaner:
         # Case from EmbeddingFlat.py that caused the linter error
         embedding_flat_type = (
             "Union["
-            "Dict[str, Any], "
+            "dict[str, Any], "
             "List["
             "Union["
-            "Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None"
+            "dict[str, Any], List[JsonValue], Any | None, bool, float, str, None"
             "], "
             "None"
             "], "
-            "Optional[Any], "
+            "Any | None, "
             "bool, "
             "float, "
             "str"
@@ -105,13 +105,13 @@ class TestTypeCleaner:
 
         expected = (
             "Union["
-            "Dict[str, Any], "
+            "dict[str, Any], "
             "List["
             "Union["
-            "Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None"
+            "dict[str, Any], List[JsonValue], Any | None, bool, float, str, None"
             "]"
             "], "
-            "Optional[Any], "
+            "Any | None, "
             "bool, "
             "float, "
             "str"
@@ -154,8 +154,8 @@ class TestTypeCleaner:
         """
         # This tests the _clean_simple_patterns method which isn't directly exposed
         # but we can trigger it through specific input patterns
-        result = TypeCleaner.clean_type_parameters("Dict[str, int, bool, None]")
-        assert result == "Dict[str, int]"
+        result = TypeCleaner.clean_type_parameters("dict[str, int, bool, None]")
+        assert result == "dict[str, int]"
 
     def test_clean_simple_patterns__list_with_extra_params(self) -> None:
         """
@@ -177,7 +177,7 @@ class TestTypeCleaner:
             - Should clean Optional to only have the main type
         """
         result = TypeCleaner.clean_type_parameters("Optional[str, None]")
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
     def test_union_edge_cases(self) -> None:
         """
@@ -219,16 +219,16 @@ class TestTypeCleaner:
             - Should handle edge cases with appropriate defaults
         """
         # Test empty Dict
-        result = TypeCleaner.clean_type_parameters("Dict[]")
-        assert result == "Dict[Any, Any]"
+        result = TypeCleaner.clean_type_parameters("dict[]")
+        assert result == "dict[Any, Any]"
 
         # Test Dict with only key type
-        result = TypeCleaner.clean_type_parameters("Dict[str]")
-        assert result == "Dict[str, Any]"
+        result = TypeCleaner.clean_type_parameters("dict[str]")
+        assert result == "dict[str, Any]"
 
         # Test Dict with more than 2 parameters
-        result = TypeCleaner.clean_type_parameters("Dict[str, int, bool, float]")
-        assert result == "Dict[str, int]"
+        result = TypeCleaner.clean_type_parameters("dict[str, int, bool, float]")
+        assert result == "dict[str, int]"
 
     def test_optional_edge_cases(self) -> None:
         """
@@ -240,15 +240,15 @@ class TestTypeCleaner:
         """
         # Test empty Optional
         result = TypeCleaner.clean_type_parameters("Optional[]")
-        assert result == "Optional[Any]"
+        assert result == "Any | None"
 
         # Test Optional with multiple parameters
         result = TypeCleaner.clean_type_parameters("Optional[str, int, bool]")
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
         # Test Optional[None] after cleaning
         result = TypeCleaner.clean_type_parameters("Optional[None]")
-        assert result == "Optional[Any]"
+        assert result == "Any | None"
 
     def test_remove_none_from_lists__simple_case(self) -> None:
         """
@@ -275,8 +275,8 @@ class TestTypeCleaner:
         assert result == "List[Union[str, int]]"
 
         # Test deeply nested case
-        result = TypeCleaner.clean_type_parameters("List[Dict[str, List[int, None]], None]")
-        assert result == "List[Dict[str, List[int]]]"
+        result = TypeCleaner.clean_type_parameters("List[dict[str, List[int, None]], None]")
+        assert result == "List[dict[str, List[int]]]"
 
     def test_get_container_type__edge_cases(self) -> None:
         """
@@ -300,13 +300,13 @@ class TestTypeCleaner:
         """
         # Test the complex pattern matching logic
         complex_input = (
-            "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
-            "Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]"
+            "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], "
+            "Any | None, bool, float, str, None], None], Any | None, bool, float, str]"
         )
 
         expected = (
-            "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
-            "Optional[Any], bool, float, str, None]], Optional[Any], bool, float, str]"
+            "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], "
+            "Any | None, bool, float, str, None]], Any | None, bool, float, str]"
         )
 
         result = TypeCleaner.clean_type_parameters(complex_input)
@@ -321,7 +321,7 @@ class TestTypeCleaner:
             - Should recursively clean all nested type parameters
         """
         # Test deeply nested structure that requires recursive cleaning
-        nested_type = "Union[List[Dict[str, Optional[Union[str, int, None], None], None], None], None]"
+        nested_type = "Union[List[dict[str, Optional[Union[str, int, None], None], None], None], None]"
         result = TypeCleaner.clean_type_parameters(nested_type)
 
         # Should recursively clean each level
@@ -339,16 +339,16 @@ class TestTypeCleaner:
         from pyopenapi_gen.helpers.type_cleaner import TypeCleaner
 
         # Test Dict pattern with exact regex match
-        result = TypeCleaner._clean_simple_patterns("Dict[key, value, extra, None]")
-        assert "Dict[key, value]" in result
+        result = TypeCleaner._clean_simple_patterns("dict[key, value, extra, None]")
+        assert "dict[key, value]" in result
 
         # Test List pattern with exact regex match
         result = TypeCleaner._clean_simple_patterns("List[item, extra, None]")
         assert "List[item]" in result
 
-        # Test Optional pattern with exact regex match
+        # Test Optional pattern with exact regex match - converts to union syntax
         result = TypeCleaner._clean_simple_patterns("Optional[type, None]")
-        assert "Optional[type]" in result
+        assert "type | None" in result
 
     def test_union_empty_after_cleaning(self) -> None:
         """
@@ -385,12 +385,12 @@ class TestTypeCleaner:
             - Should handle edge cases and log warnings appropriately
         """
         # Test Dict with more than 2 parameters (already covered but ensure warning path)
-        result = TypeCleaner.clean_type_parameters("Dict[a, b, c, d, e]")
-        assert result == "Dict[a, b]"
+        result = TypeCleaner.clean_type_parameters("dict[a, b, c, d, e]")
+        assert result == "dict[a, b]"
 
         # Test Dict with no parameters after split (edge case)
-        result = TypeCleaner.clean_type_parameters("Dict[]")
-        assert result == "Dict[Any, Any]"
+        result = TypeCleaner.clean_type_parameters("dict[]")
+        assert result == "dict[Any, Any]"
 
     def test_optional_warning_cases(self) -> None:
         """
@@ -402,11 +402,11 @@ class TestTypeCleaner:
         """
         # Test Optional with multiple parameters (warning case)
         result = TypeCleaner.clean_type_parameters("Optional[a, b, c]")
-        assert result == "Optional[a]"
+        assert result == "a | None"
 
         # Test Optional with no parameters after split (edge case)
         result = TypeCleaner.clean_type_parameters("Optional[]")
-        assert result == "Optional[Any]"
+        assert result == "Any | None"
 
     def test_remove_none_from_lists_complex_bracket_counting(self) -> None:
         """
@@ -417,16 +417,16 @@ class TestTypeCleaner:
             - Should correctly identify and remove None from Lists with complex nesting
         """
         # Test the bracket counting logic with deeply nested structures
-        complex_nested = "List[Dict[str, List[Union[int, str], None]], None]"
+        complex_nested = "List[dict[str, List[Union[int, str], None]], None]"
         result = TypeCleaner.clean_type_parameters(complex_nested)
 
         # Should remove the outer None but preserve inner structure
         assert ", None]" not in result.split("List[", 1)[1].rsplit("]", 1)[0] if "List[" in result else True
 
         # Test case with multiple closing brackets
-        multi_bracket = "List[Union[Dict[str, int], List[str]], None]"
+        multi_bracket = "List[Union[dict[str, int], List[str]], None]"
         result = TypeCleaner.clean_type_parameters(multi_bracket)
-        expected = "List[Union[Dict[str, int], List[str]]]"
+        expected = "List[Union[dict[str, int], List[str]]]"
         assert result == expected
 
     def test_special_none_removal_patterns(self) -> None:
@@ -447,6 +447,54 @@ class TestTypeCleaner:
         result = TypeCleaner.clean_type_parameters(union_list)
         assert result == "List[Union[str, int]]"
 
+    def test_clean_type_parameters__modern_union_syntax_with_list__preserves_full_type(self) -> None:
+        """
+        Scenario:
+            - Test modern Python union syntax (X | Y) with List types
+            - This tests the fix for the truncation bug where "List[X] | None" became "List[X] | Non]"
+
+        Expected Outcome:
+            - Should preserve the full type string without truncation
+            - The | None part should not be truncated by container cleaning
+        """
+        # Test the exact bug scenario that was fixed
+        result = TypeCleaner.clean_type_parameters("List[DataSourceEvent] | None")
+        assert result == "List[DataSourceEvent] | None"
+        assert "Non]" not in result  # Ensure no truncation
+
+        # Test with other complex types
+        result = TypeCleaner.clean_type_parameters("List[dict[str, Any]] | None")
+        assert result == "List[dict[str, Any]] | None"
+
+        # Test with multiple union parts at top level
+        result = TypeCleaner.clean_type_parameters("List[str] | int | None")
+        assert result == "List[str] | int | None"
+
+        # Note: Nested unions inside dict/List parameters have limitations
+        # The primary fix was for top-level union syntax (List[X] | None)
+        # which was the actual bug causing "List[X] | Non]" truncation
+
+    def test_clean_type_parameters__modern_union_syntax_nested__handles_correctly(self) -> None:
+        """
+        Scenario:
+            - Test modern union syntax in nested structures
+
+        Expected Outcome:
+            - Top-level modern union syntax is preserved (fixed)
+            - Nested modern union inside containers may have limitations (known issue)
+        """
+        # Test top-level modern union - FIXED: should preserve full type
+        result = TypeCleaner.clean_type_parameters("dict[str, User] | None")
+        assert result == "dict[str, User] | None"
+
+        # Test modern union at top level with List - FIXED
+        result = TypeCleaner.clean_type_parameters("List[User] | Admin | None")
+        assert result == "List[User] | Admin | None"
+
+        # Note: Nested modern union inside container parameters is a known limitation
+        # The primary fix was for top-level union syntax which was causing the
+        # "List[X] | None" → "List[X] | Non]" truncation bug in business_swagger.json
+
     def test_handle_special_cases_pattern_matching_edge_case(self) -> None:
         """
         Scenario:
@@ -457,8 +505,8 @@ class TestTypeCleaner:
         """
         # Test the specific pattern matching condition on lines 109-127
         test_pattern = (
-            "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
-            "Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]"
+            "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], "
+            "Any | None, bool, float, str, None], None], Any | None, bool, float, str]"
         )
 
         result = TypeCleaner.clean_type_parameters(test_pattern)
@@ -466,13 +514,13 @@ class TestTypeCleaner:
         # Should trigger the special case handling
         expected_pattern = (
             "Union["
-            "Dict[str, Any], "
+            "dict[str, Any], "
             "List["
             "Union["
-            "Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None"
+            "dict[str, Any], List[JsonValue], Any | None, bool, float, str, None"
             "]"
             "], "
-            "Optional[Any], "
+            "Any | None, "
             "bool, "
             "float, "
             "str"
