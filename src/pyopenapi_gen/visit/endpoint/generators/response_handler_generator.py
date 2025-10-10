@@ -181,8 +181,7 @@ class EndpointResponseHandlerGenerator:
         # Check if it's a model type (contains a dot indicating it's from models package)
         # or if it's a simple class name that's likely a generated model (starts with uppercase)
         return "." in base_type or (
-            base_type[0].isupper()
-            and base_type not in {"Dict", "List", "Union", "Tuple", "dict", "list", "tuple"}
+            base_type[0].isupper() and base_type not in {"Dict", "List", "Union", "Tuple", "dict", "list", "tuple"}
         )
 
     def _get_base_schema_deserialization_code(self, return_type: str, data_expr: str) -> str:

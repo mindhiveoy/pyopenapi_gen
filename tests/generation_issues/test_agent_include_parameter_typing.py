@@ -136,7 +136,9 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
             if not is_circular_placeholder:
                 # If not a circular reference, it should be related to chat messages
                 self.assertIn("message", content.lower(), "AnonymousArrayItem appears to be a message-related type")
-                self.assertIn("role", content.lower(), "AnonymousArrayItem appears to be a message-related type with role")
+                self.assertIn(
+                    "role", content.lower(), "AnonymousArrayItem appears to be a message-related type with role"
+                )
 
             # It should NOT be used for include parameters
             # This test documents the current incorrect behavior
