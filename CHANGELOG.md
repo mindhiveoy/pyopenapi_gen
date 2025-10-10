@@ -1,6 +1,195 @@
 # CHANGELOG
 
 
+## v0.14.1 (2025-10-10)
+
+### Bug Fixes
+
+- **exceptions**: Sort alias names before generating __all__ list
+  ([`3a623ec`](https://github.com/mindhiveoy/pyopenapi_gen/commit/3a623ecde7457410ab3c0ed2a62adfdb378d3f6a))
+
+- **helpers**: Modernize TypeCleaner for Python 3.9+ type syntax and union preservation
+  ([`856fc33`](https://github.com/mindhiveoy/pyopenapi_gen/commit/856fc330752fa1046aac0fb028376329569d8b99))
+
+Extended TypeCleaner to handle modern Python type syntax patterns:
+
+1. Dict/dict case sensitivity (Lines 69, 261-296): - Added "or container == 'dict'" to container
+  type detection - Updated _clean_dict_type() to handle both Dict[] and dict[] - Always outputs
+  lowercase dict[] per Python 3.9+ conventions - Preserves backward compatibility during transition
+  period
+
+2. Modern union syntax preservation (Lines 45-51): - Added early handling for " | " to prevent type
+  truncation - Detects top-level unions before container parsing - Splits by pipe, cleans parts
+  independently, rejoins with union operator - Prevents "List[X] | None" being treated as malformed
+  List type
+
+3. Optional to modern union conversion: - Updated special cases to convert Optional[X] to X | None
+  format - Removed Optional from imports (no longer needed) - Modernizes type annotations throughout
+  cleaned output
+
+Bug fixes resolved: - 36 syntax errors from union truncation: "List[X] | None" → "List[X] | Non]" -
+  Case sensitivity failures after Ruff auto-formatting Dict → dict - Inconsistent type syntax in
+  generated code
+
+Impact: Fixes business_swagger.json client generation errors
+
+Quality gates: All 1278 tests passing, zero regressions
+
+- **parsing**: Add type annotation for additionalProperties field to resolve mypy error
+  ([`6d4244a`](https://github.com/mindhiveoy/pyopenapi_gen/commit/6d4244a00a35d375c666510ec61754c1d36774e8))
+
+Define explicit type for additional_properties_value parameter in _parse_schema(): - Type
+  annotation: bool | IRSchema | None - Resolves mypy strict mode error on line 566 - Supports three
+  OpenAPI additionalProperties patterns: * bool: true/false for allowing/disallowing additional
+  properties * IRSchema: schema object defining additional property validation * None:
+  additionalProperties not specified in OpenAPI spec
+
+Technical context: - mypy --strict requires explicit types for union type assignments - Field can
+  receive different types based on OpenAPI specification structure - Conditional assignment at line
+  573 assigns bool, dict-parsed IRSchema, or None - No functional changes, only type safety
+  improvement for static analysis
+
+Resolves: mypy error "Incompatible types in assignment (expression has type...)"
+
+### Code Style
+
+- **format**: Apply Black formatting to modernised type syntax changes
+  ([`3fb6baa`](https://github.com/mindhiveoy/pyopenapi_gen/commit/3fb6baaf6d1e2c1918cd0d64935f7d5a390daadc))
+
+- **format**: Apply Ruff auto-formatting to entire codebase
+  ([`3b0ab6b`](https://github.com/mindhiveoy/pyopenapi_gen/commit/3b0ab6bcabe4caeee33a0e09f83bf28f58bfde76))
+
+Applied Ruff formatting to 116 files for code style consistency: - Executed: make quality-fix (Ruff
+  format + lint --fix) - Changes: Import sorting, line breaks, whitespace normalization - No
+  functional changes, only formatting adjustments
+
+Files affected: - src/pyopenapi_gen/: 72 files (core, helpers, types, visit, emitters) - tests/: 44
+  files (all test modules) - input/business_swagger.json: Reformatted JSON structure
+
+Formatting changes: - Import statement ordering per PEP 8 - Line length normalization (120 char
+  limit) - Trailing whitespace removal - Consistent indentation and spacing
+
+Quality gates: ✅ make format-check: PASSED ✅ make lint: PASSED ✅ make typecheck: PASSED ✅ make test:
+  1278 passed, 88.48% coverage
+
+No functional changes, zero test regressions
+
+- **lint**: Remove unused TypeFinalizer import from alias_generator
+  ([`7b27e7c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7b27e7c5306c252bd816661e6815395ec431f2ce))
+
+### Refactoring
+
+- **types**: Enforce modern Python 3.10+ type syntax across unified type system
+  ([`f642a67`](https://github.com/mindhiveoy/pyopenapi_gen/commit/f642a679760d84aa7f3c3fdbefd856056b8a02bd))
+
+Eliminate legacy Optional[X] syntax in favour of modern X | None throughout the unified type
+  resolution pipeline, establishing architectural guarantees with three-layer protection against
+  Optional[X] leaks.
+
+Technical changes:
+
+1. UnifiedTypeService (_format_resolved_type): - Added SANITY CHECK raising ValueError for
+  Optional[X] production - Reordered formatting: quote forward refs BEFORE adding | None - Modern
+  syntax: "DataSource" | None (not "DataSource | None") - Architecture guarantee: ONLY X | None
+  syntax, NEVER Optional[X]
+
+2. TypeFinalizer (_wrap_with_optional_if_needed): - Added SANITY CHECK with error logging for
+  Optional[X] reception - Removed all Optional import statements (not needed in Python 3.10+) -
+  Fixed operation order: clean BEFORE wrapping prevents TypeCleaner breaking patterns - Defensive
+  conversion with warning for architectural violations
+
+3. ResponseHandlerGenerator (_get_base_schema_deserialization_code): - Added SANITY CHECK for
+  Optional[X] in response deserialization - New code path for modern X | None syntax handling -
+  Removed Optional from type checking and model detection - Maintains backward compatibility with
+  defensive conversion
+
+4. SchemaResolver: - Fixed null schema handling to respect required parameter - Changed
+  _resolve_any() to accept required parameter for correct optionality - Updated all Any fallbacks to
+  respect required throughout resolver chain
+
+5. ResponseResolver: - Modernised AsyncIterator[Dict[str, Any]] to AsyncIterator[dict[str, Any]] -
+  Removed unnecessary Dict import (uses lowercase dict)
+
+6. AliasGenerator & DataclassGenerator: - Removed duplicate TypeCleaner calls (already handled by
+  TypeFinalizer) - TypeFinalizer now performs cleaning in correct order - Added type hints to
+  dict-like methods (keys, values, items)
+
+Three-layer protection against Optional[X]: - Layer 1: UnifiedTypeService raises exception if
+  Optional[X] produced - Layer 2: TypeFinalizer logs error if Optional[X] received - Layer 3:
+  ResponseHandlerGenerator logs error if Optional[X] in deserialization
+
+Breaking changes: None (defensive conversions maintain compatibility)
+
+All tests passing: 1298 tests, zero regressions
+
+### Testing
+
+- Update test assertions for modern Python 3.10+ type syntax
+  ([`9644bf7`](https://github.com/mindhiveoy/pyopenapi_gen/commit/9644bf72d41769510b3d9a6774521ee5fd75b6c9))
+
+Update test expectations to align with unified type system's modern X | None syntax, removing
+  assertions for Optional import presence and modernising type checking patterns.
+
+Test changes:
+
+1. test_type_helper.py: - Removed 8 assertions checking for Optional import (not needed in Python
+  3.10+) - Updated finalize() expectations to use X | None syntax - Fixed Union type expectations:
+  Union[int, float] | None (not Optional[Union[...]])
+
+2. test_loader.py: - Updated regex to match modern dict[str, Any] (not Dict[str, Any]) - Updated
+  both params and query_params patterns
+
+3. test_endpoints_emitter.py: - Accept both Dict and dict in type checking - Removed strict Optional
+  import requirement
+
+4. test_models_emitter.py: - Updated datetime test: Python 3.10+ doesn't need Optional import -
+  Updated optional list factory test: only List import needed - Updated union anyof test: accepts
+  modern syntax
+
+5. test_type_cleaner.py: - Fixed test to use public API instead of private _clean_simple_patterns -
+  Tests now verify clean_type_parameters() public interface
+
+6. test_agent_include_parameter_typing.py: - Added circular reference placeholder detection - Test
+  now handles unified cycle detection properly
+
+7. test_response_resolver.py, test_schema_resolver.py, test_business_swagger_message_type.py: -
+  Updated type expectations for modern syntax - Removed Optional-specific assertions
+
+All test updates are assertion-only (no logic changes) Test results: 1298 tests passing, 2 warnings
+  (expected from edge case tests)
+
+- **regression**: Add comprehensive coverage for three critical bug classes
+  ([`0b5a7ba`](https://github.com/mindhiveoy/pyopenapi_gen/commit/0b5a7ba44d7b58007ef5ed0d446547ec34f8199f))
+
+Added 8 regression tests protecting against recently discovered bugs:
+
+1. JsonValue wrapper class generation (1 test) File: tests/visit/model/test_json_value_wrapper.py
+  Scenario: Schema with additionalProperties: {nullable: true} Bug: Generated empty class instead of
+  dict-like wrapper with __getitem__ Protection: Validates wrapper class structure and dict-like
+  interface
+
+2. Null schema resolution (4 tests) File: tests/types/test_schema_resolver.py Bug: Schemas with
+  type=None resolved to None instead of Any Impact: Type name collisions across unrelated fields in
+  generated code Tests cover: - test_resolve_schema__null_type_schema__returns_any -
+  test_resolve_schema__null_type_schema_optional__returns_any_with_optional_flag -
+  test_resolve_schema__schema_no_type_no_generation_name__returns_any -
+  test_resolve_schema__schema_no_type_but_has_generation_name__resolves_as_named
+
+3. Modern union syntax preservation (2 tests) File: tests/helpers/test_type_cleaner.py Bug:
+  Top-level unions "List[X] | None" truncated to "List[X] | Non]" Impact: 36 syntax errors in
+  business_swagger.json client Tests cover: -
+  test_clean_type_parameters__modern_union_syntax_with_list__preserves_full_type -
+  test_clean_type_parameters__modern_union_syntax_nested__handles_correctly
+
+4. Integration test (1 test) File: tests/visit/model/test_json_value_integration.py End-to-end
+  validation of wrapper generation pipeline
+
+Test execution results: - New tests: 8/8 PASSING - Total suite: 1278 passed - Coverage: 88.48%
+  (above 85% requirement) - Zero regressions introduced
+
+Protects against: business_swagger.json generation failures discovered in production
+
+
 ## v0.14.0 (2025-10-06)
 
 ### Documentation
