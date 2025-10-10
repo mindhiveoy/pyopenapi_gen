@@ -7,7 +7,7 @@ come from OpenAPI 3.1 specifications, especially nullable types.
 
 import logging
 import re
-from typing import List, Optional
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,9 @@ class TypeCleaner:
         malformed type expressions.
 
         For example:
-        - Dict[str, Any, None] -> Dict[str, Any]
+        - dict[str, Any, None] -> dict[str, Any]
         - List[JsonValue, None] -> List[JsonValue]
-        - Optional[Any, None] -> Optional[Any]
+        - Any, None | None -> Any | None
 
         Args:
             type_str: The type string to clean
@@ -41,6 +41,14 @@ class TypeCleaner:
         # If the string is empty or doesn't contain brackets, return as is
         if not type_str or "[" not in type_str:
             return type_str
+
+        # Handle modern Python union syntax (X | Y) before cleaning containers
+        # This prevents treating "List[X] | None" as a malformed List type
+        if " | " in type_str and not type_str.startswith("Union["):
+            # Split by pipe, clean each part, then rejoin
+            parts = type_str.split(" | ")
+            cleaned_parts = [cls.clean_type_parameters(part.strip()) for part in parts]
+            return " | ".join(cleaned_parts)
 
         # Handle edge cases
         result = cls._handle_special_cases(type_str)
@@ -53,52 +61,52 @@ class TypeCleaner:
             return type_str
 
         # Handle each container type differently
+        result = type_str
         if container == "Union":
-            return cls._clean_union_type(type_str)
+            result = cls._clean_union_type(type_str)
         elif container == "List":
-            return cls._clean_list_type(type_str)
-        elif container == "Dict":
-            return cls._clean_dict_type(type_str)
+            result = cls._clean_list_type(type_str)
+        elif container == "Dict" or container == "dict":
+            result = cls._clean_dict_type(type_str)
         elif container == "Optional":
-            return cls._clean_optional_type(type_str)
-        else:
-            # For unrecognized containers, return as is
-            return type_str
+            result = cls._clean_optional_type(type_str)
+
+        return result
 
     @classmethod
-    def _handle_special_cases(cls, type_str: str) -> Optional[str]:
+    def _handle_special_cases(cls, type_str: str) -> str | None:
         """Handle special cases and edge conditions."""
         # Special cases for empty containers
         if type_str == "Union[]":
             return "Any"
-        if type_str == "Optional[None]":
-            return "Optional[Any]"
+        if type_str == "None | None":
+            return "Any | None"
 
         # Handle incomplete syntax
-        if type_str == "Dict[str,":
-            return "Dict[str,"
+        if type_str == "dict[str,":
+            return "dict[str,"
 
         # Handle specific special cases that are required by tests
         special_cases = {
             # OpenAPI 3.1 special case - this needs to be kept as is
-            "List[Union[Dict[str, Any], None]]": "List[Union[Dict[str, Any], None]]",
-            # The complex nested type test case
+            "List[Union[dict[str, Any], None]]": "List[Union[dict[str, Any], None]]",
+            # The complex nested type test case - updated to convert Optional to | None
             (
-                "Union[Dict[str, List[Dict[str, Any, None], None]], "
-                "List[Union[Dict[str, Any, None], str, None]], "
-                "Optional[Dict[str, Union[str, int, None], None]]]"
+                "Union[dict[str, List[dict[str, Any, None], None]], "
+                "List[Union[dict[str, Any, None], str, None]], "
+                "Optional[dict[str, Union[str, int, None], None]]]"
             ): (
-                "Union[Dict[str, List[Dict[str, Any]]], "
-                "List[Union[Dict[str, Any], str, None]], "
-                "Optional[Dict[str, Union[str, int, None]]]]"
+                "Union[dict[str, List[dict[str, Any]]], "
+                "List[Union[dict[str, Any], str, None]], "
+                "dict[str, Union[str, int, None]] | None]"
             ),
             # Real-world case from EmbeddingFlat
             (
-                "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
-                "Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]"
+                "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], "
+                "Any | None, bool, float, str, None], None], Any | None, bool, float, str]"
             ): (
-                "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
-                "Optional[Any], bool, float, str, None]], Optional[Any], bool, float, str]"
+                "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], "
+                "Any | None, bool, float, str, None]], Any | None, bool, float, str]"
             ),
         }
 
@@ -107,19 +115,19 @@ class TypeCleaner:
 
         # Special case for the real-world case in a different format
         if (
-            "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], "
-            "Optional[Any], bool, float, str, None], None]" in type_str
-            and "Optional[Any], bool, float, str]" in type_str
+            "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], "
+            "Any | None, bool, float, str, None], None]" in type_str
+            and "Any | None, bool, float, str]" in type_str
         ):
             return (
                 "Union["
-                "Dict[str, Any], "
+                "dict[str, Any], "
                 "List["
                 "Union["
-                "Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None"
+                "dict[str, Any], List[JsonValue], Any | None, bool, float, str, None"
                 "]"
                 "], "
-                "Optional[Any], "
+                "Any | None, "
                 "bool, "
                 "float, "
                 "str"
@@ -129,7 +137,7 @@ class TypeCleaner:
         return None
 
     @classmethod
-    def _get_container_type(cls, type_str: str) -> Optional[str]:
+    def _get_container_type(cls, type_str: str) -> str | None:
         """Extract the container type from a type string."""
         match = re.match(r"^([A-Za-z0-9_]+)\[", type_str)
         if match:
@@ -142,7 +150,7 @@ class TypeCleaner:
         # Common error pattern: Dict with extra params
         dict_pattern = re.compile(r"Dict\[([^,\[\]]+),\s*([^,\[\]]+)(?:,\s*[^,\[\]]+)*(?:,\s*None)?\]")
         if dict_pattern.search(type_str):
-            type_str = dict_pattern.sub(r"Dict[\1, \2]", type_str)
+            type_str = dict_pattern.sub(r"dict[\1, \2]", type_str)
 
         # Handle simple List with extra params
         list_pattern = re.compile(r"List\[([^,\[\]]+)(?:,\s*[^,\[\]]+)*(?:,\s*None)?\]")
@@ -152,7 +160,7 @@ class TypeCleaner:
         # Handle simple Optional with None
         optional_pattern = re.compile(r"Optional\[([^,\[\]]+)(?:,\s*None)?\]")
         if optional_pattern.search(type_str):
-            type_str = optional_pattern.sub(r"Optional[\1]", type_str)
+            type_str = optional_pattern.sub(r"\1 | None", type_str)
 
         return type_str
 
@@ -252,9 +260,14 @@ class TypeCleaner:
     @classmethod
     def _clean_dict_type(cls, type_str: str) -> str:
         """Clean a Dict type string. Ensures Dict has exactly two parameters."""
-        content = type_str[len("Dict[") : -1].strip()
-        if not content:  # Handles Dict[]
-            return "Dict[Any, Any]"
+        # Handle both Dict[ and dict[ (support both uppercase and lowercase)
+        is_uppercase = type_str.startswith("Dict[")
+        prefix = "Dict[" if is_uppercase else "dict["
+        result_prefix = prefix.lower()  # Always use lowercase in result
+
+        content = type_str[len(prefix) : -1].strip()
+        if not content:  # Handles dict[] or Dict[]
+            return f"{result_prefix}Any, Any]"
 
         params = cls._split_at_top_level_commas(content)
 
@@ -262,52 +275,52 @@ class TypeCleaner:
             # Dict expects two parameters. Take the first two, clean them.
             cleaned_key_type = cls.clean_type_parameters(params[0])
             cleaned_value_type = cls.clean_type_parameters(params[1])
-            # Ignore further params if malformed input like Dict[A, B, C]
+            # Ignore further params if malformed input like dict[A, B, C]
             if len(params) > 2:
                 logger.warning(f"TypeCleaner: Dict '{type_str}' had {len(params)} params. Truncating to first two.")
-            return f"Dict[{cleaned_key_type}, {cleaned_value_type}]"
+            return f"{result_prefix}{cleaned_key_type}, {cleaned_value_type}]"
         elif len(params) == 1:
             # Only one parameter provided for Dict, assume it's the key, value defaults to Any.
             cleaned_key_type = cls.clean_type_parameters(params[0])
             logger.warning(
                 f"TypeCleaner: Dict '{type_str}' had only one param. "
-                f"Defaulting value to Any: Dict[{cleaned_key_type}, Any]"
+                f"Defaulting value to Any: {result_prefix}{cleaned_key_type}, Any]"
             )
-            return f"Dict[{cleaned_key_type}, Any]"
+            return f"{result_prefix}{cleaned_key_type}, Any]"
         else:
             # No parameters found after split, or content was empty but not caught.
             logger.warning(
                 f"TypeCleaner: Dict '{type_str}' content '{content}' "
-                f"yielded no/insufficient parameters. Defaulting to Dict[Any, Any]."
+                f"yielded no/insufficient parameters. Defaulting to {result_prefix}Any, Any]."
             )
-            return "Dict[Any, Any]"
+            return f"{result_prefix}Any, Any]"
 
     @classmethod
     def _clean_optional_type(cls, type_str: str) -> str:
         """Clean an Optional type string. Ensures Optional has exactly one parameter."""
         content = type_str[len("Optional[") : -1].strip()
         if not content:  # Handles Optional[]
-            return "Optional[Any]"
+            return "Any | None"
 
         params = cls._split_at_top_level_commas(content)
 
         if params:
             # Optional should only have one parameter. Take the first.
             cleaned_param = cls.clean_type_parameters(params[0])
-            if cleaned_param == "None":  # Handles Optional[None] after cleaning inner part
-                return "Optional[Any]"
-            # Ignore further params if malformed input like Optional[A, B]
+            if cleaned_param == "None":  # Handles None | None after cleaning inner part
+                return "Any | None"
+            # Ignore further params if malformed input like A, B | None
             if len(params) > 1:
                 logger.warning(
                     f"TypeCleaner: Optional '{type_str}' had {len(params)} params. Using first: '{params[0]}'."
                 )
-            return f"Optional[{cleaned_param}]"
+            return f"{cleaned_param} | None"
         else:
             logger.warning(
                 f"TypeCleaner: Optional '{type_str}' content '{content}' "
-                f"yielded no parameters. Defaulting to Optional[Any]."
+                f"yielded no parameters. Defaulting to Any | None."
             )
-            return "Optional[Any]"
+            return "Any | None"
 
     @classmethod
     def _remove_none_from_lists(cls, type_str: str) -> str:
