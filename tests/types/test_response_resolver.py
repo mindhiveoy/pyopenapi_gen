@@ -345,7 +345,7 @@ class TestOpenAPIResponseResolver:
         # Assert
         assert result.python_type == "AsyncIterator[dict[str, Any]]"
         mock_context.add_import.assert_any_call("typing", "AsyncIterator")
-        mock_context.add_import.assert_any_call("typing", "Dict")
+        # Note: Modern dict[str, Any] doesn't require Dict import (Python 3.10+)
         mock_context.add_import.assert_any_call("typing", "Any")
 
     def test_resolve_specific_response__streaming_with_schema(

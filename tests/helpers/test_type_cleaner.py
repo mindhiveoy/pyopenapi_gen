@@ -330,25 +330,25 @@ class TestTypeCleaner:
     def test_clean_simple_patterns_direct_regex_cases(self) -> None:
         """
         Scenario:
-            - Test specific regex patterns in _clean_simple_patterns that aren't triggered by main flow
+            - Test specific regex patterns that clean dict/List/Optional with extra params
 
         Expected Outcome:
-            - Should handle regex-based cleaning correctly
+            - Should handle regex-based cleaning correctly through the full pipeline
         """
-        # Create a custom TypeCleaner subclass to test _clean_simple_patterns directly
+        # Test Dict pattern - use public API instead of internal _clean_simple_patterns
         from pyopenapi_gen.helpers.type_cleaner import TypeCleaner
 
         # Test Dict pattern with exact regex match
-        result = TypeCleaner._clean_simple_patterns("dict[key, value, extra, None]")
-        assert "dict[key, value]" in result
+        result = TypeCleaner.clean_type_parameters("dict[key, value, extra, None]")
+        assert result == "dict[key, value]"
 
         # Test List pattern with exact regex match
-        result = TypeCleaner._clean_simple_patterns("List[item, extra, None]")
-        assert "List[item]" in result
+        result = TypeCleaner.clean_type_parameters("List[item, extra, None]")
+        assert result == "List[item]"
 
         # Test Optional pattern with exact regex match - converts to union syntax
-        result = TypeCleaner._clean_simple_patterns("Optional[type, None]")
-        assert "type | None" in result
+        result = TypeCleaner.clean_type_parameters("Optional[type, None]")
+        assert result == "type | None"
 
     def test_union_empty_after_cleaning(self) -> None:
         """

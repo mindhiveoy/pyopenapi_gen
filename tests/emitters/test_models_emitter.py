@@ -194,7 +194,7 @@ def test_models_emitter_datetime(tmp_path: Path) -> None:
     result: str = "\n".join(lines)
 
     assert "from dataclasses import dataclass" in result
-    assert "from typing import" in result
+    # Python 3.10+ doesn't need typing.Optional for | None syntax, only datetime imports
     assert "from datetime import" in result
     assert "@dataclass" in result
     assert "class Event(BaseSchema):" in result
@@ -593,7 +593,7 @@ def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
     assert model_file.exists()
     content = model_file.read_text()
     assert "from dataclasses import dataclass, field" in content
-    assert "from typing import List, Optional" in content
+    assert "from typing import List" in content  # Python 3.10+ doesn't need Optional import for | None syntax
     assert "@dataclass" in content
     assert "class Config_(BaseSchema):" in content  # 'Config' is sanitized to 'Config_' because 'config' is reserved
     # Field should be List[str] | None and use field(default_factory=list)
@@ -689,7 +689,8 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     union_file: Path = out_dir / "models" / "my_optional_union.py"
     assert union_file.exists()
     union_content = union_file.read_text()
-    assert "from typing import TypeAlias, Union" in union_content
+    # Optional import is added for | None syntax (though not strictly needed in Python 3.10+)
+    assert "from typing import" in union_content and "TypeAlias" in union_content and "Union" in union_content
     assert "from .schema_opt_a import SchemaOptA" in union_content
     assert "from .schema_opt_b import SchemaOptB" in union_content
     assert '__all__ = ["MyOptionalUnion"]' in union_content

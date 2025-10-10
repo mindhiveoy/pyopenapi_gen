@@ -225,11 +225,11 @@ def test_codegen__analytics_with_query_params__generates_params_dict(
     assert analytics_file.exists(), "analytics.py not generated"
     content = analytics_file.read_text()
 
-    # Updated pattern to match - the newer code may use a different format
-    match = re.search(r"params: Dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
+    # Updated pattern to match - uses modern dict syntax (lowercase)
+    match = re.search(r"params: dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
     if not match:
-        # Try alternate pattern, also with Dict
-        match = re.search(r"query_params: Dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
+        # Try alternate pattern with query_params
+        match = re.search(r"query_params: dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
 
     assert match, "params/query_params dict assignment not found in generated code"
     params_block = match.group(1)

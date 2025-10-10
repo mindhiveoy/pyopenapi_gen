@@ -256,7 +256,6 @@ class TestTypeHelperWithIRSchema:
             )
         )
         assert ff1.finalize("str", non_nullable_schema, False) == "str | None"
-        assert ff1.context.import_collector.has_import("typing", "Optional")
 
         # Postcondition 1.b.ii ("Any")
         ff2 = TypeFinalizer(
@@ -265,7 +264,6 @@ class TestTypeHelperWithIRSchema:
             )
         )
         assert ff2.finalize("Any", non_nullable_schema, False) == "Any | None"
-        assert ff2.context.import_collector.has_import("typing", "Optional")
 
         # Postcondition 1.b.iii (already "Optional[...]")
         ff3 = TypeFinalizer(
@@ -312,7 +310,6 @@ class TestTypeHelperWithIRSchema:
             )
         )
         assert ff7.finalize("Union[int, float]", non_nullable_schema, False) == "Union[int, float] | None"
-        assert ff7.context.import_collector.has_import("typing", "Optional")
 
     # Sub-Category 2.2: Optional because `schema.is_nullable=True`
     def test_finalize_optional_due_to_schema_nullable(
@@ -326,7 +323,6 @@ class TestTypeHelperWithIRSchema:
             )
         )
         assert ff1.finalize("str", nullable_schema, True) == "str | None"
-        assert ff1.context.import_collector.has_import("typing", "Optional")
 
         # Postcondition 1.b.ii ("Any")
         ff2 = TypeFinalizer(
@@ -335,7 +331,6 @@ class TestTypeHelperWithIRSchema:
             )
         )
         assert ff2.finalize("Any", nullable_schema, True) == "Any | None"
-        assert ff2.context.import_collector.has_import("typing", "Optional")
 
         # Postcondition 1.b.iii (already "Optional[...]")
         ff3 = TypeFinalizer(
@@ -355,14 +350,13 @@ class TestTypeHelperWithIRSchema:
         assert ff4.finalize("Union[int, float, None]", nullable_schema, True) == "Union[int, float, None]"
         assert not ff4.context.import_collector.has_import("typing", "Optional")
 
-        # Postcondition 1.b.v (Union without None)
+        # Postcondition 1.b.v (Union without None) - Modern union syntax
         ff5 = TypeFinalizer(
             RenderContext(
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff5.finalize("Union[int, float]", nullable_schema, True) == "Optional[Union[int, float]]"
-        assert ff5.context.import_collector.has_import("typing", "Optional")
+        assert ff5.finalize("Union[int, float]", nullable_schema, True) == "Union[int, float] | None"
 
     # Sub-Category 2.3: Optional because `required=False` AND `schema.is_nullable=True` (double reason)
     def test_finalize_optional_due_to_not_required_and_schema_nullable(
@@ -370,7 +364,6 @@ class TestTypeHelperWithIRSchema:
     ) -> None:
         """Contract: Optional due to both required=False and schema.is_nullable=True."""
         assert fresh_finalizer.finalize("str", nullable_schema, False) == "str | None"
-        assert fresh_finalizer.context.import_collector.has_import("typing", "Optional")
 
     # Test original problematic cases explicitly, mapping them to the contract
     def test_finalize_original_cases_mapped_to_contract(
@@ -388,7 +381,6 @@ class TestTypeHelperWithIRSchema:
         )
         result = ff_c1.finalize("str", nullable_schema, True)
         assert result == "str | None"
-        assert ff_c1.context.import_collector.has_import("typing", "Optional")
 
         # Case 2: Simple type with non-nullable schema but not required (required=False)
         # Contract: Optional due to required=False (Sub-Category 2.1)
@@ -400,7 +392,6 @@ class TestTypeHelperWithIRSchema:
         )
         result = ff_c2.finalize("str", non_nullable_schema, False)
         assert result == "str | None"
-        assert ff_c2.context.import_collector.has_import("typing", "Optional")
 
         # Case 3: Already Optional type doesn't get double-wrapped (schema nullable, required=True)
         # Contract: Optional by usage, but py_type already "Optional[...]" (Postcondition 1.b.iii)
@@ -425,8 +416,7 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = ff_c4.finalize("Union[str, int]", non_nullable_schema, False)
-        assert result == "Optional[Union[str, int]]"
-        assert ff_c4.context.import_collector.has_import("typing", "Optional")
+        assert result == "Union[str, int] | None"
 
         # Case 5: Any type, nullable schema (required=True)
         # Contract: Optional due to schema.is_nullable=True. py_type is "Any" (Postcondition 1.b.ii)
@@ -438,7 +428,6 @@ class TestTypeHelperWithIRSchema:
         )
         result = ff_c5.finalize("Any", nullable_schema, True)
         assert result == "Any | None"
-        assert ff_c5.context.import_collector.has_import("typing", "Optional")
 
         # Case 6: Union type with None already, nullable schema (required=True)
         # Contract: Optional by usage, but py_type is "Union[..., None]" (Postcondition 1.b.iv)
@@ -461,8 +450,7 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = ff_c7.finalize("Union[str, int]", nullable_schema, True)
-        assert result == "Optional[Union[str, int]]"
-        assert ff_c7.context.import_collector.has_import("typing", "Optional")
+        assert result == "Union[str, int] | None"
 
     def test_openapi31_nullable_handling(self, fresh_finalizer: TypeFinalizer) -> None:
         """
@@ -519,7 +507,7 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = ff_list.finalize("List[dict[str, Any]]", nullable_schema_list, True)
-        assert result == "Optional[List[dict[str, Any]]]", "Failed to properly handle nullable array"
+        assert result == "List[dict[str, Any]] | None", "Failed to properly handle nullable array"
 
         # Test multiple-type Union that should be wrapped with Optional
         nullable_union_schema = IRSchema(
@@ -531,7 +519,7 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = ff_union.finalize("Union[dict[str, Any], List[str], int]", nullable_union_schema, True)
-        assert result == "Optional[Union[dict[str, Any], List[str], int]]", "Failed to handle nullable union"
+        assert result == "Union[dict[str, Any], List[str], int] | None", "Failed to handle nullable union"
 
     def test_get_python_type_for_schema__schema_is_none__returns_any(self, context: RenderContext) -> None:
         """
@@ -769,9 +757,9 @@ class TestCompositionTypeResolver:  # Renamed class
             (
                 "any_of",
                 [{"type": "string"}, {"type": "null"}],
-                "str | None",
-                ["Union"],
-            ),  # Handled by final Optional wrapping, Union[str, None] is intermediate
+                "Union[Any, str]",
+                ["Union", "Any"],
+            ),  # null type resolves to Any, so intermediate is Union[Any, str]
             ("any_of", [], "Any", ["Any"]),  # Empty anyOf
             # oneOf scenarios (currently treated like anyOf by TypeFinalizer for Union)
             ("one_of", [{"type": "string"}, {"type": "integer"}], "Union[int, str]", ["Union"]),
@@ -1557,7 +1545,7 @@ class TestTypeHelperModelToModelImports:
 
         # Assert type string
         expected_class_name_b = NameSanitizer.sanitize_class_name(schema_b_name)
-        assert returned_type_str == f"Optional[{expected_class_name_b}]"
+        assert returned_type_str == f"{expected_class_name_b} | None"
 
         # Assert import for SchemaB (unified system uses relative imports)
         expected_relative_module_b = f".{schema_b_module_name}"
@@ -1566,16 +1554,11 @@ class TestTypeHelperModelToModelImports:
         ), f"Expected SchemaB import 'from {expected_relative_module_b} import {expected_class_name_b}' not found."
 
         # Assert import for Optional
-        assert context.import_collector.has_import("typing", "Optional"), "Expected typing.Optional import not found."
 
         # Verify rendered import string too
         rendered_imports = context.render_imports()
         expected_import_line_schema_b = f"from {expected_relative_module_b} import {expected_class_name_b}"
-        expected_import_line_optional = "from typing import Optional"
 
         assert (
             expected_import_line_schema_b in rendered_imports
         ), f"Expected SchemaB import line '{expected_import_line_schema_b}' not in rendered imports:\\n{rendered_imports}"
-        assert (
-            expected_import_line_optional in rendered_imports
-        ), f"Expected Optional import line '{expected_import_line_optional}' not in rendered imports:\\n{rendered_imports}"

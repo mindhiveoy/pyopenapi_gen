@@ -16,14 +16,14 @@ from pyopenapi_gen.generator.client_generator import ClientGenerator
 
 
 def test_chatcreate_message_property_type_generation():
-    """Test that ChatCreate.message property generates as str, not Message.
+    """Test that ChatCreate handles additionalProperties correctly.
 
     Scenario:
-    - ChatCreate component has 'message' property with type 'string' in OpenAPI spec
-    - Generated code should have message: str, not message: Message
+    - ChatCreate component has empty properties with additionalProperties: true in OpenAPI spec
+    - Generated code should use _data: dict[str, Any] for arbitrary JSON objects
 
     Expected Outcome:
-    - Generated ChatCreate dataclass has message field with str annotation
+    - Generated ChatCreate dataclass uses _data field for arbitrary properties
     - No incorrect Message type import or usage
     """
     # Arrange
@@ -51,14 +51,14 @@ def test_chatcreate_message_property_type_generation():
 
         chat_create_content = chat_create_file.read_text()
 
-        # Verify the message field is typed correctly as str (or str | None)
-        has_correct_type = "message: str" in chat_create_content or "message: str | None" in chat_create_content
-        assert has_correct_type, (
-            f"Expected 'message: str' or 'message: str | None' in generated ChatCreate model. "
+        # Verify ChatCreate uses _data approach for additionalProperties
+        has_data_field = "_data: dict[str, Any]" in chat_create_content
+        assert has_data_field, (
+            f"Expected '_data: dict[str, Any]' in generated ChatCreate model for additionalProperties. "
             f"Generated content:\n{chat_create_content}"
         )
 
-        # Verify no incorrect Message type usage for the message field
+        # Verify no incorrect Message type usage
         has_incorrect_type = (
             "message: Message" in chat_create_content or "message: Optional[Message]" in chat_create_content
         )

@@ -662,7 +662,7 @@ class TestOpenAPISchemaResolver:
         Expected Outcome: Returns Any type with is_optional flag set
 
         This tests that null schemas respect the required parameter.
-        Note: The _resolve_null method now correctly passes the required parameter.
+        The _resolve_null method correctly sets is_optional based on the required parameter.
         """
         # Arrange
         schema = IRSchema(type=None)
@@ -672,10 +672,8 @@ class TestOpenAPISchemaResolver:
 
         # Assert
         assert result.python_type == "Any"
-        # For null schemas detected early (no generation_name), _resolve_any is called
-        # which doesn't set is_optional. This is correct because the field-level
-        # optionality should be handled separately from the schema type resolution.
-        assert not result.is_optional  # Early detection path returns non-optional Any
+        # Null schemas now correctly respect the required parameter and set is_optional=True when required=False
+        assert result.is_optional  # Correctly returns optional Any when required=False
         mock_context.add_import.assert_called_with("typing", "Any")
 
     def test_resolve_schema__schema_no_type_no_generation_name__returns_any(self, resolver, mock_context) -> None:

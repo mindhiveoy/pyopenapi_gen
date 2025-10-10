@@ -221,13 +221,10 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
 
         generated_imports = context.import_collector.get_import_statements()
 
-        typing_import_found = any(
-            ("from typing import Optional, Dict, Any" in imp)
-            or ("from typing import Any, Dict, Optional" in imp)
-            or ("from typing import Dict, Any, Optional" in imp)
-            for imp in generated_imports
-        )
-        self.assertTrue(typing_import_found, "Expected 'from typing import Optional, Dict, Any' (or permutation)")
+        # Modern Python 3.10+ uses | None instead of Optional, dict instead of Dict
+        # Check for Any import (still needed for dict[str, Any])
+        typing_import_found = any("from typing import" in imp and "Any" in imp for imp in generated_imports)
+        self.assertTrue(typing_import_found, "Expected 'from typing import ... Any' for dict[str, Any] types")
         self.assertIn("from datetime import datetime", generated_imports)
 
         # Note: DataSource is quoted as forward reference, so no import is expected
@@ -551,9 +548,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn(
             "List", context.import_collector.imports.get("typing", set()), "List should be imported from typing"
         )
-        self.assertIn(
-            "Optional", context.import_collector.imports.get("typing", set()), "Optional should be imported from typing"
-        )
+        # Modern Python 3.10+ doesn't need Optional imports (uses | None syntax)
         self.assertIn(
             "field",
             context.import_collector.imports.get("dataclasses", set()),
@@ -635,7 +630,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("List", context.import_collector.imports.get("typing", set()))
         self.assertIn("Dict", context.import_collector.imports.get("typing", set()))
         self.assertIn("Any", context.import_collector.imports.get("typing", set()))
-        self.assertIn("Optional", context.import_collector.imports.get("typing", set()))
+        # Modern Python 3.10+ doesn't need Optional imports (uses | None syntax)
         self.assertIn("BaseSchema", context.import_collector.imports.get("..core.schemas", set()))
         self.assertIn("dataclass", context.import_collector.imports.get("dataclasses", set()))
         self.assertIn("dataclasses", context.import_collector.imports)

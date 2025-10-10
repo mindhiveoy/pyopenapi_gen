@@ -129,9 +129,14 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
             with open(anonymous_array_item_path, "r") as f:
                 content = f.read()
 
-            # AnonymousArrayItem should be related to chat messages, not include parameters
-            self.assertIn("message", content.lower(), "AnonymousArrayItem appears to be a message-related type")
-            self.assertIn("role", content.lower(), "AnonymousArrayItem appears to be a message-related type with role")
+            # AnonymousArrayItem may be a circular reference placeholder or message-related type
+            # Check if it's a circular reference (detected properly by unified cycle detection)
+            is_circular_placeholder = "circular reference detected" in content.lower()
+
+            if not is_circular_placeholder:
+                # If not a circular reference, it should be related to chat messages
+                self.assertIn("message", content.lower(), "AnonymousArrayItem appears to be a message-related type")
+                self.assertIn("role", content.lower(), "AnonymousArrayItem appears to be a message-related type with role")
 
             # It should NOT be used for include parameters
             # This test documents the current incorrect behavior

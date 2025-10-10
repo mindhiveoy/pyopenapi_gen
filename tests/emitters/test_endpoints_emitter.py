@@ -322,7 +322,8 @@ def test_endpoints_emitter__complex_operation_with_mixed_params__includes_requir
     # Accept any superset of the expected import line
     assert "from typing import Any" in content
     assert "AsyncIterator" in content
-    assert "Dict" in content
+    # Accept both Dict (old style) and dict (modern Python 3.10+)
+    assert "dict[" in content or "Dict[" in content
     assert "IO" in content
     # Note: With T | None syntax, Optional should not be imported
     assert "Optional" not in content or "| None" in content  # Either no Optional or uses union syntax
