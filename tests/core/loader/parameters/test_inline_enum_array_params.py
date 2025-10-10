@@ -104,7 +104,7 @@ def test_inline_enum_array_parameter_generation():
             "from ..models.get_agent_param_include_item import GetAgentParamIncludeItem" in endpoint_content
         ), "Endpoint should import the enum type"
         assert (
-            "include: Optional[List[GetAgentParamIncludeItem]]" in endpoint_content
+            "include: List[GetAgentParamIncludeItem] | None" in endpoint_content
         ), "Parameter should be typed with the enum"
 
         # Try to import the generated client

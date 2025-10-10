@@ -4,7 +4,7 @@ Tests for the _parse_array_items_schema helper function.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, cast
+from typing import Any, Mapping, cast
 from unittest.mock import Mock
 
 import pytest
@@ -187,7 +187,7 @@ class TestParseArrayItemsSchema:
         """
         # Arrange
         parent_name = "MyArrayWithEmptyItem"
-        items_data: Dict[str, Any] = {}  # Empty dictionary
+        items_data: dict[str, Any] = {}  # Empty dictionary
         expected_item_name_for_parse_fn = "MyArrayWithEmptyItemItem"
 
         # Act

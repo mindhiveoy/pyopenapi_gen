@@ -1,5 +1,5 @@
 import unittest
-from typing import Any, Callable, Dict, Mapping, Optional, cast
+from typing import Any, Callable, Mapping, Optional, cast
 from unittest.mock import MagicMock
 
 from pyopenapi_gen import IRSchema
@@ -15,13 +15,13 @@ class TestProcessAllOf(unittest.TestCase):
         self.mock_parse_schema_func = MagicMock()
 
         # Type hint for the mock function
-        MockParseSchema = Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext], IRSchema]
+        MockParseSchema = Callable[[str | None, Optional[Mapping[str, Any]], ParsingContext], IRSchema]
 
         def side_effect_parse_schema(
-            schema_name: Optional[str],
+            schema_name: str | None,
             schema_node: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth_override: Optional[int] = None,
+            max_depth_override: int | None = None,
             allow_self_reference: bool = False,
         ) -> IRSchema:
             if schema_node and "$ref" in schema_node:
@@ -109,7 +109,7 @@ class TestProcessAllOf(unittest.TestCase):
             - Required fields from both sub-schemas are accumulated.
             - Two component IRSchema objects (one for each item in `allOf`) are returned.
         """
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {
                     "type": "object",
@@ -145,7 +145,7 @@ class TestProcessAllOf(unittest.TestCase):
             - Required fields from both sources are accumulated.
             - The number of parsed components reflects only those in the `allOf` list.
         """
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {
                     "type": "object",
@@ -186,10 +186,10 @@ class TestProcessAllOf(unittest.TestCase):
         original_side_effect = self.mock_parse_schema_func.side_effect
 
         def custom_side_effect(
-            name: Optional[str],
+            name: str | None,
             node_data: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth: Optional[int] = None,
+            max_depth: int | None = None,
         ) -> IRSchema:
             if name == "TestSchemaOverride.propA" and node_data and node_data.get("description") == "Direct Version":
                 return prop_a_direct
@@ -204,7 +204,7 @@ class TestProcessAllOf(unittest.TestCase):
 
         self.mock_parse_schema_func.side_effect = custom_side_effect
 
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {"type": "object", "properties": {"propA": {"type": "string", "description": "Version 1"}}},
                 {"type": "object", "properties": {"propA": {"type": "integer", "description": "Version 2"}}},
@@ -257,10 +257,10 @@ class TestProcessAllOf(unittest.TestCase):
         comp2_ir = IRSchema(name=None, properties={"propX": prop_x_from_comp2}, type="object")
 
         def custom_side_effect(
-            name: Optional[str],
+            name: str | None,
             node_data: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth: Optional[int] = None,
+            max_depth: int | None = None,
         ) -> IRSchema:
             if node_data == comp1_node_data:
                 return comp1_ir
@@ -272,7 +272,7 @@ class TestProcessAllOf(unittest.TestCase):
 
         self.mock_parse_schema_func.side_effect = custom_side_effect
 
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "current_schema_name": "TestSchemaAllOfConflictFirstWins",
             "allOf": [
                 comp1_node_data,  # propX from comp1 (string)
@@ -311,7 +311,7 @@ class TestProcessAllOf(unittest.TestCase):
             - The `merged_req` set should be a union of all `required` fields from the direct node
               and all `allOf` components.
         """
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {"type": "object", "properties": {"propA": {"type": "string"}}, "required": ["propA"]},
                 {"type": "object", "properties": {"propB": {"type": "integer"}}, "required": ["propB"]},
@@ -337,7 +337,7 @@ class TestProcessAllOf(unittest.TestCase):
             - The merged properties and required fields should only come from the direct definitions on the node.
             - The `parsed_components` list should be empty.
         """
-        node: Dict[str, Any] = {"allOf": [], "properties": {"propA": {"type": "string"}}, "required": ["propA"]}
+        node: dict[str, Any] = {"allOf": [], "properties": {"propA": {"type": "string"}}, "required": ["propA"]}
         merged_props, merged_req, parsed_components = _process_all_of(
             node, "TestSchemaEmptyAllOf", self.context, self.mock_parse_schema_func
         )
@@ -366,10 +366,10 @@ class TestProcessAllOf(unittest.TestCase):
         call_count = 0
 
         def no_props_side_effect(
-            name: Optional[str],
+            name: str | None,
             node_data: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth: Optional[int] = None,
+            max_depth: int | None = None,
         ) -> IRSchema:
             nonlocal call_count
             call_count += 1
@@ -383,7 +383,7 @@ class TestProcessAllOf(unittest.TestCase):
 
         self.mock_parse_schema_func.side_effect = no_props_side_effect
 
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {"type": "object"},
                 {"description": "A descriptive schema part"},
@@ -417,10 +417,10 @@ class TestProcessAllOf(unittest.TestCase):
         direct_prop_schema = IRSchema(name="TestSchemaRefsInComponents.directProp", type="boolean")
 
         def ref_side_effect(
-            name: Optional[str],
+            name: str | None,
             node_data: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth: Optional[int] = None,
+            max_depth: int | None = None,
         ) -> IRSchema:
             if node_data and node_data.get("$ref") == "#/components/schemas/RefA":
                 return ref_schema_a
@@ -437,7 +437,7 @@ class TestProcessAllOf(unittest.TestCase):
 
         self.mock_parse_schema_func.side_effect = ref_side_effect
 
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {"$ref": "#/components/schemas/RefA"},
                 {"type": "object", "properties": {"directPropInAllOf": {"type": "integer"}}},
@@ -470,7 +470,7 @@ class TestProcessAllOf(unittest.TestCase):
             - Both components are treated as object schemas and their properties are merged.
             - The implicitly typed object schema is correctly parsed and contributes its properties.
         """
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {"properties": {"propA": {"type": "string"}}},  # Implicitly object
                 {"type": "object", "properties": {"propB": {"type": "integer"}}},
@@ -519,10 +519,10 @@ class TestProcessAllOf(unittest.TestCase):
         schemas_to_return = [schema_no_props1, schema_with_props, schema_no_props2]
 
         def side_effect_no_props_components(
-            name: Optional[str],
+            name: str | None,
             node_data: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth: Optional[int] = None,
+            max_depth: int | None = None,
         ) -> IRSchema:
             nonlocal call_idx
             # Return schema from list for allOf components
@@ -538,7 +538,7 @@ class TestProcessAllOf(unittest.TestCase):
 
         self.mock_parse_schema_func.side_effect = side_effect_no_props_components
 
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "allOf": [
                 {"custom_marker": 0, "description": "Ref to string type"},  # -> schema_no_props1
                 {"custom_marker": 1, "description": "Actual object with props"},  # -> schema_with_props
@@ -567,7 +567,7 @@ class TestProcessAllOf(unittest.TestCase):
             - The `parsed_components` list should be empty.
             - The `_parse_schema_func` should be called for each direct property.
         """
-        node: Dict[str, Any] = {
+        node: dict[str, Any] = {
             "properties": {
                 "propX": {"type": "string"},
                 "propY": {"type": "integer"},
@@ -581,10 +581,10 @@ class TestProcessAllOf(unittest.TestCase):
         prop_y_schema = IRSchema(name=f"{current_schema_name}.propY", type="integer")
 
         def side_effect_for_direct_props(
-            name: Optional[str],
+            name: str | None,
             node_data: Optional[Mapping[str, Any]],
             context: ParsingContext,
-            max_depth: Optional[int] = None,
+            max_depth: int | None = None,
         ) -> IRSchema:
             if name == f"{current_schema_name}.propX":
                 return prop_x_schema
@@ -630,7 +630,7 @@ class TestProcessAllOf(unittest.TestCase):
             - Raises TypeError due to pre-condition `node must be a non-empty Mapping`.
         """
         # Arrange
-        empty_node: Dict[str, Any] = {}
+        empty_node: dict[str, Any] = {}
 
         # Act & Assert
         with self.assertRaisesRegex(TypeError, "node must be a non-empty Mapping"):

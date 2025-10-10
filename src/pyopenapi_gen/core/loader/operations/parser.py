@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any, List, Mapping, Optional, cast
+from typing import Any, List, Mapping, cast
 
 from pyopenapi_gen import HTTPMethod, IROperation, IRParameter, IRRequestBody, IRResponse
 from pyopenapi_gen.core.loader.operations.post_processor import post_process_operation
@@ -96,7 +96,7 @@ def parse_operations(
                     params.append(parse_parameter(resolved_p_param_node, context, operation_id_for_promo=operation_id))
 
                 # Parse request body
-                rb: Optional[IRRequestBody] = None
+                rb: IRRequestBody | None = None
                 if "requestBody" in node_op:
                     rb = parse_request_body(
                         cast(Mapping[str, Any], node_op["requestBody"]),

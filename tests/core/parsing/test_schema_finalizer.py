@@ -4,7 +4,7 @@ Tests for the _finalize_schema_object function in schema_finalizer.py.
 
 import logging
 import unittest
-from typing import Any, Callable, Dict, Mapping, Optional, Set
+from typing import Any, Callable, Mapping, Optional, Set
 from unittest.mock import MagicMock, patch
 
 from pyopenapi_gen import IRSchema
@@ -17,7 +17,7 @@ class TestFinalizeSchemaObject(unittest.TestCase):
         self.logger = logging.getLogger("test_schema_finalizer")
         self.logger.setLevel(logging.CRITICAL)
         self.mock_parse_fn = MagicMock(
-            spec=Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
+            spec=Callable[[str | None, Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
         )
         self.default_parse_fn_side_effect = lambda name, node, context, max_depth: IRSchema(
             name=name or "ParsedAnon", type="string"
@@ -33,7 +33,7 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_basic_object_creation_no_special_conditions(self) -> None:
         name = "MySimpleObject"
-        node: Dict[str, Any] = {"type": "object", "properties": {"id": {"type": "string"}}}
+        node: dict[str, Any] = {"type": "object", "properties": {"id": {"type": "string"}}}
         schema_type = "object"
         final_properties_map = {"id": IRSchema(name="id", type="string")}
         merged_required_set: Set[str] = {"id"}
@@ -65,7 +65,7 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_is_data_wrapper_flag_true(self) -> None:
         name = "DataWrapperSchema"
-        node: Dict[str, Any] = {"type": "object", "properties": {"data": {"type": "string"}}, "required": ["data"]}
+        node: dict[str, Any] = {"type": "object", "properties": {"data": {"type": "string"}}, "required": ["data"]}
         schema_type = "object"
         final_properties_map = {"data": IRSchema(name="data", type="string")}
         merged_required_set: Set[str] = {"data"}
@@ -94,9 +94,9 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_type_becomes_object_if_none_and_properties_exist(self) -> None:
         name = "InferredObject"
-        node: Dict[str, Any] = {"properties": {"key": {"type": "integer"}}}
+        node: dict[str, Any] = {"properties": {"key": {"type": "integer"}}}
         schema_type = None
-        final_properties_map: Dict[str, IRSchema] = {"key": IRSchema(name="key", type="integer")}
+        final_properties_map: dict[str, IRSchema] = {"key": IRSchema(name="key", type="integer")}
         schema_obj = _finalize_schema_object(
             name=name,
             node=node,
@@ -122,12 +122,12 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_additional_properties_as_dict(self) -> None:
         name = "ObjWithAddProps"
-        node: Dict[str, Any] = {"type": "object"}
+        node: dict[str, Any] = {"type": "object"}
         additional_props_node_dict = {"type": "string", "format": "email"}
         expected_add_props_schema = IRSchema(name="ParsedAnon", type="string", format="email")
 
         def specific_parse_fn_side_effect(
-            n_arg: Optional[str], nd_arg: Optional[Mapping[str, Any]], c_arg: ParsingContext, md_arg: int
+            n_arg: str | None, nd_arg: Optional[Mapping[str, Any]], c_arg: ParsingContext, md_arg: int
         ) -> IRSchema:
             if nd_arg == additional_props_node_dict:
                 return expected_add_props_schema
@@ -161,7 +161,7 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_updates_existing_typeless_schema_in_context(self) -> None:
         name = "ExistingSchema"
-        node: Dict[str, Any] = {"type": "integer"}
+        node: dict[str, Any] = {"type": "integer"}
         schema_type = "integer"
         self.context.parsed_schemas[name] = IRSchema(name=name, type=None)
         schema_obj = _finalize_schema_object(
@@ -189,8 +189,8 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_type_becomes_object_for_zod_shape(self) -> None:
         name = "ZodSchema"
-        node: Dict[str, Any] = {"_def": {"typeName": "ZodObject", "shape": {"field1": {}}}}
-        final_properties_map: Dict[str, IRSchema] = {}
+        node: dict[str, Any] = {"_def": {"typeName": "ZodObject", "shape": {"field1": {}}}}
+        final_properties_map: dict[str, IRSchema] = {}
         schema_type = None
         schema_obj = _finalize_schema_object(
             name=name,
@@ -217,9 +217,9 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_inline_property_type_defaults_to_object(self) -> None:
         name = "Parent.InlineProp"
-        node: Dict[str, Any] = {}
+        node: dict[str, Any] = {}
         schema_type = None
-        final_properties_map: Dict[str, IRSchema] = {}
+        final_properties_map: dict[str, IRSchema] = {}
         schema_obj = _finalize_schema_object(
             name=name,
             node=node,
@@ -245,7 +245,7 @@ class TestFinalizeSchemaObject(unittest.TestCase):
 
     def test_ensures_schema_in_context_is_updated_post_enum_processing(self) -> None:
         name = "EnumProcessedSchema"
-        node: Dict[str, Any] = {"type": "string", "enum": ["A", "B"]}
+        node: dict[str, Any] = {"type": "string", "enum": ["A", "B"]}
         schema_type = "string"
         initial_schema_obj_in_context = IRSchema(name=name, type=schema_type)
         self.context.parsed_schemas[name] = initial_schema_obj_in_context

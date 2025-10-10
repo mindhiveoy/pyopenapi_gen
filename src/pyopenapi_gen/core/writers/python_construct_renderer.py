@@ -7,7 +7,7 @@ It handles all the details of formatting, import registration, and docstring gen
 for these constructs.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 
 from pyopenapi_gen.context.render_context import RenderContext
 
@@ -35,7 +35,7 @@ class PythonConstructRenderer:
         self,
         alias_name: str,
         target_type: str,
-        description: Optional[str],
+        description: str | None,
         context: RenderContext,
     ) -> str:
         """
@@ -80,7 +80,7 @@ class PythonConstructRenderer:
         enum_name: str,
         base_type: str,  # 'str' or 'int'
         values: List[Tuple[str, str | int]],  # List of (MEMBER_NAME, value)
-        description: Optional[str],
+        description: str | None,
         context: RenderContext,
     ) -> str:
         """
@@ -143,10 +143,10 @@ class PythonConstructRenderer:
     def render_dataclass(
         self,
         class_name: str,
-        fields: List[Tuple[str, str, Optional[str], Optional[str]]],  # name, type_hint, default_expr, description
-        description: Optional[str],
+        fields: List[Tuple[str, str, str | None, str | None]],  # name, type_hint, default_expr, description
+        description: str | None,
         context: RenderContext,
-        field_mappings: Optional[Dict[str, str]] = None,
+        field_mappings: dict[str, str] | None = None,
     ) -> str:
         """
         Render a dataclass as Python code with BaseSchema support.
@@ -168,7 +168,7 @@ class PythonConstructRenderer:
                 \"\"\"User information with automatic JSON field mapping.\"\"\"
                 id_: str
                 first_name: str
-                email: Optional[str] = None
+                email: str | None = None
                 is_active: bool = True
 
                 class Meta:
@@ -274,9 +274,9 @@ class PythonConstructRenderer:
     def render_class(
         self,
         class_name: str,
-        base_classes: Optional[List[str]],
-        docstring: Optional[str],
-        body_lines: Optional[List[str]],
+        base_classes: List[str] | None,
+        docstring: str | None,
+        body_lines: List[str] | None,
         context: RenderContext,
     ) -> str:
         """

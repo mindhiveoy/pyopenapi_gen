@@ -1,7 +1,7 @@
 """Protocols for type resolution components."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 
@@ -25,11 +25,11 @@ class ReferenceResolver(ABC):
     """Resolves OpenAPI $ref references to target schemas."""
 
     # Concrete implementations should have these attributes
-    schemas: Dict[str, IRSchema]
-    responses: Dict[str, IRResponse]
+    schemas: dict[str, IRSchema]
+    responses: dict[str, IRResponse]
 
     @abstractmethod
-    def resolve_ref(self, ref: str) -> Optional[IRSchema]:
+    def resolve_ref(self, ref: str) -> IRSchema | None:
         """
         Resolve a $ref string to the target schema.
 
@@ -42,7 +42,7 @@ class ReferenceResolver(ABC):
         pass
 
     @abstractmethod
-    def resolve_response_ref(self, ref: str) -> Optional[IRResponse]:
+    def resolve_response_ref(self, ref: str) -> IRResponse | None:
         """
         Resolve a response $ref to the target response.
 

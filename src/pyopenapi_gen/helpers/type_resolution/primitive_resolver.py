@@ -1,7 +1,6 @@
 """Resolves IRSchema to Python primitive types."""
 
 import logging
-from typing import Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -15,7 +14,7 @@ class PrimitiveTypeResolver:
     def __init__(self, context: RenderContext):
         self.context = context
 
-    def resolve(self, schema: IRSchema) -> Optional[str]:
+    def resolve(self, schema: IRSchema) -> str | None:
         """
         Resolves an IRSchema to a Python primitive type string based on its 'type' and 'format'.
 

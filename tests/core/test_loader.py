@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -438,7 +438,7 @@ class TestParseSchemaAllOfMerging:
                 - 'all_of' attribute still contains the IRSchema representations of the schemas in the allOf list.
         """
         # Arrange
-        raw_schemas_dict: Dict[str, Any] = {
+        raw_schemas_dict: dict[str, Any] = {
             "BaseSchema": {
                 "type": "object",
                 "properties": {
@@ -533,7 +533,7 @@ class TestParseSchemaAllOfMerging:
             - Properties and required fields should solely come from the 'allOf' components.
         """
         # Arrange
-        raw_schemas_dict: Dict[str, Any] = {
+        raw_schemas_dict: dict[str, Any] = {
             "BaseSchema": {
                 "type": "object",
                 "properties": {"base_prop": {"type": "string"}},
@@ -571,7 +571,7 @@ class TestParseSchemaAllOfMerging:
             - Properties and required fields should come directly from the schema itself.
         """
         # Arrange
-        raw_schemas_dict: Dict[str, Any] = {
+        raw_schemas_dict: dict[str, Any] = {
             "DirectOnly": {
                 "type": "object",
                 "properties": {"direct_prop": {"type": "integer"}},

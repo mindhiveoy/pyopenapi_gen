@@ -62,12 +62,12 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
         # Note: The exact enum name may vary based on the generation strategy
         import re
 
-        # Pattern to match include parameter with any enum type
-        include_pattern = r"include: Optional\[List\[([A-Za-z0-9_]+)\]\]"
+        # Pattern to match include parameter with any enum type (using union syntax)
+        include_pattern = r"include: List\[([A-Za-z0-9_]+)\] \| None"
         match = re.search(include_pattern, agents_code)
 
         self.assertIsNotNone(
-            match, "include parameter should be typed as Optional[List[SomeEnumType]] but pattern not found"
+            match, "include parameter should be typed as List[SomeEnumType] | None but pattern not found"
         )
 
         enum_type_name = match.group(1)

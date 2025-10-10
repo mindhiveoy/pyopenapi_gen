@@ -4,7 +4,7 @@ Tests for the _parse_properties helper function in keywords.properties_parser.
 
 import logging
 import unittest
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 from unittest.mock import MagicMock, patch
 
 from pyopenapi_gen import IRSchema
@@ -23,12 +23,12 @@ class TestParseProperties(unittest.TestCase):
         self.logger.setLevel(logging.CRITICAL)  # Keep logs quiet during most tests
 
         self.mock_recursive_parse_fn = MagicMock(
-            spec=Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
+            spec=Callable[[str | None, Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
         )
 
         # A default side effect for the main parse_fn passed to _parse_properties
         def default_recursive_parse_side_effect(
-            name: Optional[str],
+            name: str | None,
             node: Optional[Mapping[str, Any]],
             context: ParsingContext,
             max_depth: int,
@@ -50,7 +50,7 @@ class TestParseProperties(unittest.TestCase):
             - The recursive `parse_fn` should not be called.
         """
         # Arrange
-        node_properties: Dict[str, Any] = {}
+        node_properties: dict[str, Any] = {}
 
         # Act
         parsed_props = _parse_properties(
@@ -72,7 +72,7 @@ class TestParseProperties(unittest.TestCase):
             - The final parsed property in the result dictionary is the IRSchema returned by `parse_fn`.
         """
         # Arrange
-        node_properties: Dict[str, Any] = {"name": {"type": "string"}}
+        node_properties: dict[str, Any] = {"name": {"type": "string"}}
         parent_schema_name = "ParentSchema"
         expected_prop_schema_name = "ParentSchemaName"
 
@@ -116,7 +116,7 @@ class TestParseProperties(unittest.TestCase):
             - The IRSchema for the enum (returned by `parse_fn`) is used in the result.
         """
         # Arrange
-        node_properties: Dict[str, Any] = {"status": {"type": "string", "enum": ["active", "inactive"]}}
+        node_properties: dict[str, Any] = {"status": {"type": "string", "enum": ["active", "inactive"]}}
         parent_schema_name = "MySchema"
         expected_prop_schema_name = "MySchemaStatus"
 
@@ -128,7 +128,7 @@ class TestParseProperties(unittest.TestCase):
 
         # Set side_effect for this test specifically to ensure correct mock return
         def specific_parse_fn_for_enum_test(
-            name: Optional[str],
+            name: str | None,
             node: Optional[Mapping[str, Any]],
             context: ParsingContext,
             max_depth: int,  # Match spec of self.mock_recursive_parse_fn
@@ -176,7 +176,7 @@ class TestParseProperties(unittest.TestCase):
             - The promoted schema is used in the result.
         """
         # Arrange
-        node_properties: Dict[str, Any] = {"details": {"type": "object", "properties": {"id": {"type": "integer"}}}}
+        node_properties: dict[str, Any] = {"details": {"type": "object", "properties": {"id": {"type": "integer"}}}}
         parent_schema_name = "Order"
         expected_prop_schema_name = "OrderDetails"
 
@@ -187,7 +187,7 @@ class TestParseProperties(unittest.TestCase):
 
         # Replace return_value with a specific side_effect for this test case
         def specific_parse_fn_side_effect(
-            name: Optional[str],
+            name: str | None,
             node: Optional[Mapping[str, Any]],
             context: ParsingContext,
             max_depth: int,
@@ -236,7 +236,7 @@ class TestParseProperties(unittest.TestCase):
             - Parsing proceeds normally.
         """
         # Arrange
-        node_properties: Dict[str, Any] = {"data": {"type": "string"}}
+        node_properties: dict[str, Any] = {"data": {"type": "string"}}
         parent_schema_name = None  # Key aspect of this test
         expected_prop_schema_name = "Data_"  # 'data' is sanitized to 'data_'
 
@@ -287,7 +287,7 @@ class TestParseProperties(unittest.TestCase):
         """
         # Arrange
         parent_schema_name = "ComplexSchema"
-        node_properties: Dict[str, Any] = {
+        node_properties: dict[str, Any] = {
             "id": {"type": "string"},
             "status": {"type": "string", "enum": ["active", "pending"]},
             "config": {"type": "object", "properties": {"timeout": {"type": "integer"}}},
@@ -308,7 +308,7 @@ class TestParseProperties(unittest.TestCase):
 
         # General mock setup
         def selective_parse_fn_side_effect(
-            name: Optional[str], node: Optional[Mapping[str, Any]], context: ParsingContext, max_depth: int
+            name: str | None, node: Optional[Mapping[str, Any]], context: ParsingContext, max_depth: int
         ) -> IRSchema:
             if name == expected_id_name:
                 return id_schema
@@ -327,7 +327,7 @@ class TestParseProperties(unittest.TestCase):
 
         # Side effect for _attempt_promote_inline_object for this specific test
         def object_promoter_side_effect(
-            parent_name_arg: Optional[str],
+            parent_name_arg: str | None,
             prop_key_arg: str,
             property_schema_obj_arg: IRSchema,
             context: ParsingContext,
@@ -399,7 +399,7 @@ class TestParseProperties(unittest.TestCase):
         """
         # Arrange
         # Invalid: property schema is a list, not a dict
-        node_properties: Dict[str, Any] = {"invalid_list_prop": ["not", "a", "dict"]}
+        node_properties: dict[str, Any] = {"invalid_list_prop": ["not", "a", "dict"]}
         parent_schema_name = "BadProps"
         expected_prop_schema_name = "BadPropsInvalidListProp"
 
@@ -410,7 +410,7 @@ class TestParseProperties(unittest.TestCase):
         )
 
         def side_effect_for_invalid_node(
-            name: Optional[str],
+            name: str | None,
             node: Optional[Mapping[str, Any]],  # Note: actual node will be List here
             context: ParsingContext,
             max_depth: int,

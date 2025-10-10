@@ -182,7 +182,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         )
 
         strategy = ResponseStrategy(
-            return_type="AsyncIterator[Dict[str, Any]]",
+            return_type="AsyncIterator[dict[str, Any]]",
             response_schema=IRSchema(type="object"),
             is_streaming=True,
             response_ir=operation.responses[0],

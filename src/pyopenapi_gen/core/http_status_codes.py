@@ -8,10 +8,8 @@ References:
     - IANA HTTP Status Code Registry: https://www.iana.org/assignments/http-status-codes/
 """
 
-from typing import Dict
-
 # Standard HTTP status codes with human-readable names
-HTTP_STATUS_CODES: Dict[int, str] = {
+HTTP_STATUS_CODES: dict[int, str] = {
     # 1xx Informational
     100: "Continue",
     101: "Switching Protocols",
@@ -144,7 +142,7 @@ def is_success_code(code: int) -> bool:
 
 # Mapping of HTTP status codes to Python exception class names
 # These are semantically meaningful names that Python developers expect
-HTTP_EXCEPTION_NAMES: Dict[int, str] = {
+HTTP_EXCEPTION_NAMES: dict[int, str] = {
     # 4xx Client Errors
     400: "BadRequestError",
     401: "UnauthorisedError",

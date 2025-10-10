@@ -2,7 +2,7 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import pytest
 
@@ -15,7 +15,7 @@ class User(BaseSchema):
 
     name: str
     age: int
-    email: Optional[str] = None
+    email: str | None = None
     active: bool = True
 
 
@@ -41,7 +41,7 @@ class Address(BaseSchema):
 
     street: str
     city: str
-    postal_code: Optional[str] = None
+    postal_code: str | None = None
 
 
 @dataclass
@@ -68,9 +68,9 @@ class ComplexData(BaseSchema):
     int_field: int
     float_field: float
     bool_field: bool
-    optional_field: Optional[str] = None
+    optional_field: str | None = None
     list_field: List[str] = field(default_factory=list)
-    dict_field: Dict[str, str] = field(default_factory=dict)
+    dict_field: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -79,7 +79,7 @@ class UserWithMapping(BaseSchema):
 
     name: str
     age: int
-    email: Optional[str] = None
+    email: str | None = None
 
     class Meta:
         key_transform_with_load = {"user_name": "name", "user_age": "age", "email_address": "email"}

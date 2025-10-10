@@ -238,7 +238,7 @@ class TestResponseStrategyResolver:
     def test_resolve__event_stream__returns_dict_iterator(self, resolver, mock_context) -> None:
         """
         Scenario: Event stream response
-        Expected Outcome: AsyncIterator[Dict[str, Any]] strategy
+        Expected Outcome: AsyncIterator[dict[str, Any]] strategy
         """
         # Arrange
         response = IRResponse(
@@ -261,7 +261,7 @@ class TestResponseStrategyResolver:
         strategy = resolver.resolve(operation, mock_context)
 
         # Assert
-        assert strategy.return_type == "AsyncIterator[Dict[str, Any]]"
+        assert strategy.return_type == "AsyncIterator[dict[str, Any]]"
         assert strategy.is_streaming is True
         mock_context.add_import.assert_any_call("typing", "Dict")
         mock_context.add_import.assert_any_call("typing", "Any")

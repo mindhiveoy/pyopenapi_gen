@@ -7,7 +7,7 @@ the base Visitor class that all specific visitors inherit from, and a Registry c
 managing visitor method registration.
 """
 
-from typing import Callable, Dict, Generic, Optional, Type, TypeVar
+from typing import Callable, Generic, Type, TypeVar
 
 from ..context.render_context import RenderContext
 
@@ -72,7 +72,7 @@ class Registry(Generic[tNode, tRet]):
 
     def __init__(self) -> None:
         """Initialize an empty visitor registry."""
-        self._registry: Dict[Type[tNode], Callable[[tNode, "RenderContext"], tRet]] = {}
+        self._registry: dict[Type[tNode], Callable[[tNode, "RenderContext"], tRet]] = {}
 
     def register(self, node_type: Type[tNode], visitor: Callable[[tNode, "RenderContext"], tRet]) -> None:
         """
@@ -84,7 +84,7 @@ class Registry(Generic[tNode, tRet]):
         """
         self._registry[node_type] = visitor
 
-    def get_visitor(self, node_type: Type[tNode]) -> Optional[Callable[[tNode, "RenderContext"], tRet]]:
+    def get_visitor(self, node_type: Type[tNode]) -> Callable[[tNode, "RenderContext"], tRet] | None:
         """
         Retrieve the visitor function for a specific node type.
 

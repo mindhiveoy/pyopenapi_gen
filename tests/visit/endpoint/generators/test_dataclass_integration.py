@@ -7,7 +7,7 @@ Expected Outcome: Generated code includes DataclassSerializer calls for body par
 ensuring seamless developer experience with dataclass inputs.
 """
 
-from typing import Any, Dict, List
+from typing import Any, List
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -47,7 +47,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         Expected Outcome: Generated code includes DataclassSerializer call for body parameter
         """
         # Arrange
-        body_param_info: Dict[str, Any] = {
+        body_param_info: dict[str, Any] = {
             "name": "body",
             "param_in": "body",
             "required": True,
@@ -122,7 +122,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             responses=[],
         )
 
-        ordered_parameters: List[Dict[str, Any]] = []
+        ordered_parameters: List[dict[str, Any]] = []
         primary_content_type = "application/x-www-form-urlencoded"
         resolved_body_type = "FormDataRequest"
 
@@ -165,7 +165,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
             responses=[],
         )
 
-        ordered_parameters: List[Dict[str, Any]] = []
+        ordered_parameters: List[dict[str, Any]] = []
 
         # Act
         url_args_generator.generate_url_and_args(
@@ -198,12 +198,12 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         Expected Outcome: DataclassSerializer is used for non-file parts of multipart data
         """
         # Arrange
-        files_param_info: Dict[str, Any] = {
+        files_param_info: dict[str, Any] = {
             "name": "files",
             "param_in": "formData",
             "required": True,
             "original_name": "files",
-            "type": "Dict[str, Any]",  # Could contain dataclass metadata
+            "type": "dict[str, Any]",  # Could contain dataclass metadata
         }
 
         operation = IROperation(
@@ -240,7 +240,7 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
 
         # Should generate files_data with potential serialization
-        code_writer_mock.write_line.assert_any_call("files_data: Dict[str, Any] = DataclassSerializer.serialize(files)")
+        code_writer_mock.write_line.assert_any_call("files_data: dict[str, Any] = DataclassSerializer.serialize(files)")
 
 
 class TestEndpointMethodGeneratorDataclassIntegration:

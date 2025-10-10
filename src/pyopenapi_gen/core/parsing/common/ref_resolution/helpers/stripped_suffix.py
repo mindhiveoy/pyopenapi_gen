@@ -3,7 +3,7 @@ Module for handling stripped suffix fallback strategy.
 """
 
 import logging
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping
 
 from pyopenapi_gen.ir import IRSchema
 
@@ -17,8 +17,8 @@ def try_stripped_suffix_fallback(
     ref_value: str,
     context: ParsingContext,
     max_depth: int,
-    parse_fn: Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema],
-) -> Optional[IRSchema]:
+    parse_fn: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int], IRSchema],
+) -> IRSchema | None:
     """
     Attempts to resolve a reference by stripping common suffixes.
 

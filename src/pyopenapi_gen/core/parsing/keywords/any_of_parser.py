@@ -4,7 +4,7 @@ Parser for 'anyOf' keyword in OpenAPI schemas.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping
 
 from pyopenapi_gen import IRSchema  # Main IR model
 
@@ -21,9 +21,9 @@ def _parse_any_of_schemas(
     context: ParsingContext,
     max_depth: int,
     parse_fn: Callable[  # Accepts the main schema parsing function
-        [Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema
+        [str | None, Mapping[str, Any] | None, ParsingContext, int], IRSchema
     ],
-) -> tuple[Optional[List[IRSchema]], bool, Optional[str]]:
+) -> tuple[List[IRSchema] | None, bool, str | None]:
     """Parses 'anyOf' sub-schemas using a provided parsing function.
 
     Contracts:
@@ -51,7 +51,7 @@ def _parse_any_of_schemas(
 
     parsed_schemas_list: List[IRSchema] = []  # Renamed to avoid confusion with module name
     is_nullable_from_any_of = False
-    effective_schema_type: Optional[str] = None
+    effective_schema_type: str | None = None
 
     for sub_node in any_of_nodes:
         if isinstance(sub_node, dict) and sub_node.get("type") == "null":

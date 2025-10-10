@@ -4,7 +4,7 @@ Parser for 'oneOf' keyword in OpenAPI schemas.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping
 
 from pyopenapi_gen import IRSchema
 
@@ -19,8 +19,8 @@ def _parse_one_of_schemas(
     one_of_nodes: List[Mapping[str, Any]],
     context: ParsingContext,
     max_depth: int,
-    parse_fn: Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema],
-) -> tuple[Optional[List[IRSchema]], bool, Optional[str]]:
+    parse_fn: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int], IRSchema],
+) -> tuple[List[IRSchema] | None, bool, str | None]:
     """Parses 'oneOf' sub-schemas using a provided parsing function.
 
     Contracts:
@@ -48,7 +48,7 @@ def _parse_one_of_schemas(
 
     parsed_schemas_list: List[IRSchema] = []
     is_nullable_from_one_of = False
-    effective_schema_type: Optional[str] = None
+    effective_schema_type: str | None = None
 
     for sub_node in one_of_nodes:
         if isinstance(sub_node, dict) and sub_node.get("type") == "null":

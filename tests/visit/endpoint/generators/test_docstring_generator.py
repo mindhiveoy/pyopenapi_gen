@@ -2,7 +2,7 @@
 Tests for the EndpointDocstringGenerator class.
 """
 
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -76,7 +76,7 @@ def code_writer_mock_for_docstring() -> MagicMock:
 
 
 @pytest.fixture
-def schemas_for_docstring() -> Dict[str, Any]:
+def schemas_for_docstring() -> dict[str, Any]:
     return {
         "MyInputBody": IRSchema(type="object", name="MyInputBody"),
         "MySuccessOutput": IRSchema(
@@ -96,7 +96,7 @@ class TestEndpointDocstringGenerator:
         op_for_docstring: IROperation,
         render_context_mock_for_docstring: MagicMock,
         code_writer_mock_for_docstring: MagicMock,
-        schemas_for_docstring: Dict[str, Any],
+        schemas_for_docstring: dict[str, Any],
     ) -> None:
         """
         Scenario:
@@ -112,15 +112,15 @@ class TestEndpointDocstringGenerator:
         primary_content_type = "application/json"
 
         # Mock helper functions used by generate_docstring internally
-        def mock_get_param_type(param_ir: IRParameter, context: RenderContext, schemas: Dict[str, Any]) -> str:
+        def mock_get_param_type(param_ir: IRParameter, context: RenderContext, schemas: dict[str, Any]) -> str:
             if param_ir.name == "path_id":
                 return "int"
             if param_ir.name == "query_opt":
-                return "Optional[str]"
+                return "str | None"
             return "Any"
 
         def mock_get_request_body_type(
-            req_body_ir: IRRequestBody, context: RenderContext, schemas: Dict[str, Any]
+            req_body_ir: IRRequestBody, context: RenderContext, schemas: dict[str, Any]
         ) -> str:
             if req_body_ir.content and "application/json" in req_body_ir.content:
                 schema_name = req_body_ir.content["application/json"].name
@@ -173,7 +173,7 @@ class TestEndpointDocstringGenerator:
         assert "The ID in the path." in written_lines
 
         assert "query_opt" in written_lines
-        assert "(Optional[str])" in written_lines
+        assert "(str | None)" in written_lines
         assert "An optional query param." in written_lines
 
         assert "body" in written_lines
@@ -207,15 +207,15 @@ class TestEndpointDocstringGenerator:
         # The responsibility for these calls lies with the actual helper functions, which should
         # be tested separately.
         # render_context_mock_for_docstring.add_typing_imports_for_type.assert_any_call("int")
-        # render_context_mock_for_docstring.add_typing_imports_for_type.assert_any_call("Optional[str]")
+        # render_context_mock_for_docstring.add_typing_imports_for_type.assert_any_call("str | None")
         # render_context_mock_for_docstring.add_typing_imports_for_type.assert_any_call("MyInputBody")
         # render_context_mock_for_docstring.add_typing_imports_for_type.assert_any_call("MySuccessOutput")
 
         # This import is for Optional itself if it appears in a type string,
         # and add_typing_imports_for_type should handle it if it sees Optional[...].
-        # However, if get_param_type directly returns "Optional[str]", the context needs to see "Optional"
-        # to import it. This test relies on the mock returning "Optional[str]".
-        # Let's assume that add_typing_imports_for_type, if called with "Optional[str]" by the *actual* get_param_type,
+        # However, if get_param_type directly returns "str | None", the context needs to see "Optional"
+        # to import it. This test relies on the mock returning "str | None".
+        # Let's assume that add_typing_imports_for_type, if called with "str | None" by the *actual* get_param_type,
         # would then trigger context.add_import("typing", "Optional"). Since get_param_type is mocked,
         # we cannot directly test that chain here. The EndpointImportAnalyzer tests this more directly.
         # For now, let's remove this too, as it depends on unmocked behavior of a mocked dependency.

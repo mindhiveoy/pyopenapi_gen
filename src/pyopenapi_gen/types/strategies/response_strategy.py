@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -28,11 +27,11 @@ class ResponseStrategy:
     """
 
     return_type: str  # The Python type for method signature
-    response_schema: Optional[IRSchema]  # The response schema as defined in OpenAPI spec
+    response_schema: IRSchema | None  # The response schema as defined in OpenAPI spec
     is_streaming: bool  # Whether this is a streaming response
 
     # Additional context for code generation
-    response_ir: Optional[IRResponse]  # The original response IR
+    response_ir: IRResponse | None  # The original response IR
 
 
 class ResponseStrategyResolver:
@@ -43,7 +42,7 @@ class ResponseStrategyResolver:
     previously spread across multiple components.
     """
 
-    def __init__(self, schemas: Dict[str, IRSchema]):
+    def __init__(self, schemas: dict[str, IRSchema]):
         self.schemas = schemas
         self.type_service = UnifiedTypeService(schemas)
 
@@ -89,7 +88,7 @@ class ResponseStrategyResolver:
             return_type=return_type, response_schema=response_schema, is_streaming=False, response_ir=primary_response
         )
 
-    def _get_primary_response(self, operation: IROperation) -> Optional[IRResponse]:
+    def _get_primary_response(self, operation: IROperation) -> IRResponse | None:
         """Get the primary success response from an operation."""
         if not operation.responses:
             return None
@@ -113,7 +112,7 @@ class ResponseStrategyResolver:
         # First response as fallback
         return operation.responses[0] if operation.responses else None
 
-    def _get_response_schema(self, response: IRResponse) -> Optional[IRSchema]:
+    def _get_response_schema(self, response: IRResponse) -> IRSchema | None:
         """Get the schema from a response's content."""
         if not response.content:
             return None
@@ -164,7 +163,7 @@ class ResponseStrategyResolver:
             context.add_import("typing", "Dict")
             context.add_import("typing", "Any")
             return ResponseStrategy(
-                return_type="AsyncIterator[Dict[str, Any]]",
+                return_type="AsyncIterator[dict[str, Any]]",
                 response_schema=None,
                 is_streaming=True,
                 response_ir=response,

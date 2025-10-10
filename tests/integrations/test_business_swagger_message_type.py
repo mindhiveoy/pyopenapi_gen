@@ -51,10 +51,10 @@ def test_chatcreate_message_property_type_generation():
 
         chat_create_content = chat_create_file.read_text()
 
-        # Verify the message field is typed correctly as str (or Optional[str])
-        has_correct_type = "message: str" in chat_create_content or "message: Optional[str]" in chat_create_content
+        # Verify the message field is typed correctly as str (or str | None)
+        has_correct_type = "message: str" in chat_create_content or "message: str | None" in chat_create_content
         assert has_correct_type, (
-            f"Expected 'message: str' or 'message: Optional[str]' in generated ChatCreate model. "
+            f"Expected 'message: str' or 'message: str | None' in generated ChatCreate model. "
             f"Generated content:\n{chat_create_content}"
         )
 
@@ -62,9 +62,9 @@ def test_chatcreate_message_property_type_generation():
         has_incorrect_type = (
             "message: Message" in chat_create_content or "message: Optional[Message]" in chat_create_content
         )
-        assert not has_incorrect_type, (
-            f"Found incorrect 'message: Message' type annotation. " f"Generated content:\n{chat_create_content}"
-        )
+        assert (
+            not has_incorrect_type
+        ), f"Found incorrect 'message: Message' type annotation. Generated content:\n{chat_create_content}"
 
 
 def test_chatcreate_schema_parsing_isolated():

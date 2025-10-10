@@ -79,7 +79,7 @@ class ClientVisitor:
         # For now, the client_py_content check in the test looks for this for ApiKeyAuth specifically:
         context.add_import(f"{context.core_package_name}.auth.plugins", "ApiKeyAuth")
 
-        context.add_typing_imports_for_type("Optional[HttpTransport]")
+        context.add_typing_imports_for_type("HttpTransport | None")
         context.add_typing_imports_for_type("Any")
         context.add_typing_imports_for_type("Dict")
         # Class definition
@@ -103,7 +103,7 @@ class ClientVisitor:
         summary = "Async API client with pluggable transport, tag-specific clients, and client-level headers."
         args: list[tuple[str, str, str]] = [
             ("config", "ClientConfig", "Client configuration object."),
-            ("transport", "Optional[HttpTransport]", "Custom HTTP transport (optional)."),
+            ("transport", "HttpTransport | None", "Custom HTTP transport (optional)."),
         ]
         for tag, class_name, module_name in tag_tuples:
             args.append((module_name, class_name, f"Client for '{tag}' endpoints."))
@@ -121,9 +121,7 @@ class ClientVisitor:
         writer.indent()  # Back to class indent (1)
         writer.write_line('"""')
         # __init__
-        writer.write_line(
-            "def __init__(self, config: ClientConfig, transport: Optional[HttpTransport] = None) -> None:"
-        )
+        writer.write_line("def __init__(self, config: ClientConfig, transport: HttpTransport | None = None) -> None:")
         writer.indent()
         writer.write_line("self.config = config")
         writer.write_line(
@@ -133,8 +131,8 @@ class ClientVisitor:
         writer.write_line("self._base_url: str = str(self.config.base_url)")
         # Initialize private fields for each tag client
         for tag, class_name, module_name in tag_tuples:
-            context.add_typing_imports_for_type(f"Optional[{class_name}]")
-            writer.write_line(f"self._{module_name}: Optional[{class_name}] = None")
+            context.add_typing_imports_for_type(f"{class_name} | None")
+            writer.write_line(f"self._{module_name}: {class_name} | None = None")
         writer.dedent()
         writer.write_line("")
         # @property for each tag client

@@ -848,14 +848,14 @@ class TestGetTypeForSpecificResponse:
 
         with patch("pyopenapi_gen.helpers.endpoint_utils.UnifiedTypeService") as MockTypeService:
             mock_service = Mock()
-            mock_service.resolve_schema_type.return_value = "List[Dict[str, Any]]"
+            mock_service.resolve_schema_type.return_value = "List[dict[str, Any]]"
             MockTypeService.return_value = mock_service
 
             # Act
             result = get_type_for_specific_response("/users", resp, schemas, ctx, return_unwrap_data_property=True)
 
             # Assert
-            assert result == "List[Dict[str, Any]]"
+            assert result == "List[dict[str, Any]]"
 
     def test_get_type_for_specific_response__object_response_no_unwrap__returns_resolved_type(self) -> None:
         """
@@ -1070,14 +1070,14 @@ class TestGetItemTypeFromSchema:
 
         with patch("pyopenapi_gen.helpers.endpoint_utils.UnifiedTypeService") as MockTypeService:
             mock_service = Mock()
-            mock_service.resolve_schema_type.return_value = "Dict[str, Any]"
+            mock_service.resolve_schema_type.return_value = "dict[str, Any]"
             MockTypeService.return_value = mock_service
 
             # Act
             result = _get_item_type_from_schema(resp, schemas, ctx)
 
             # Assert
-            assert result == "Dict[str, Any]"
+            assert result == "dict[str, Any]"
 
     def test_get_item_type_from_schema__array_with_no_items__returns_resolved_array_type(self) -> None:
         """

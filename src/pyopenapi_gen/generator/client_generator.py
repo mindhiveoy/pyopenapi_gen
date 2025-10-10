@@ -9,7 +9,7 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
@@ -47,9 +47,9 @@ class ClientGenerator:
         """
         self.verbose = verbose
         self.start_time = time.time()
-        self.timings: Dict[str, float] = {}
+        self.timings: dict[str, float] = {}
 
-    def _log_progress(self, message: str, stage: Optional[str] = None) -> None:
+    def _log_progress(self, message: str, stage: str | None = None) -> None:
         """
         Log a progress message with timestamp.
 
@@ -89,7 +89,7 @@ class ClientGenerator:
         output_package: str,
         force: bool = False,
         no_postprocess: bool = False,
-        core_package: Optional[str] = None,
+        core_package: str | None = None,
     ) -> List[Path]:
         """
         Generate the client code from the OpenAPI spec.
@@ -99,10 +99,10 @@ class ClientGenerator:
             project_root (Path): Path to the root of the Python project (absolute or relative).
             output_package (str): Python package path for the generated client (e.g., 'pyapis.my_api_client').
             force (bool): Overwrite output without diff check.
-            name (Optional[str]): Custom client package name (not used).
+            name (str | None): Custom client package name (not used).
             docs (bool): Kept for interface compatibility.
             telemetry (bool): Kept for interface compatibility.
-            auth (Optional[str]): Kept for interface compatibility.
+            auth (str | None): Kept for interface compatibility.
             no_postprocess (bool): Skip post-processing (type checking, etc.).
             core_package (str): Python package path for the core package.
 

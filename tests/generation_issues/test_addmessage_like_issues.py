@@ -87,14 +87,14 @@ def test_generate_types_for_addmessage_like_scenario(temp_project_dir: Path) -> 
     # Note: Due to cycle detection issues, Entry might not have properties generated
     try:
         assert (
-            find_field_annotation_in_class(entry_class_node, "id") == "Optional[str]"
+            find_field_annotation_in_class(entry_class_node, "id") == "str | None"
         )  # Assuming optional if not in required for now
-        assert find_field_annotation_in_class(entry_class_node, "content") == "Optional[str]"
+        assert find_field_annotation_in_class(entry_class_node, "content") == "str | None"
         # entry_specific_role should be an enum, it's named EntrySpecificRole
-        assert find_field_annotation_in_class(entry_class_node, "entry_specific_role") == "Optional[EntrySpecificRole]"
+        assert find_field_annotation_in_class(entry_class_node, "entry_specific_role") == "EntrySpecificRole | None"
         # Recursive fields should use forward string references
-        assert find_field_annotation_in_class(entry_class_node, "related_entries") == "Optional[List['Entry']]"
-        assert find_field_annotation_in_class(entry_class_node, "parent_entry") == "Optional['Entry']"
+        assert find_field_annotation_in_class(entry_class_node, "related_entries") == "List['Entry'] | None"
+        assert find_field_annotation_in_class(entry_class_node, "parent_entry") == "'Entry' | None"
     except AssertionError as e:
         # Entry schema might have no properties due to cycle detection issues
         # This is a known limitation - just verify the class exists
@@ -178,8 +178,8 @@ def test_generate_types_for_addmessage_like_scenario(temp_project_dir: Path) -> 
     import re
 
     assert re.match(
-        r"Optional\[Entry\d*\]", actual_annotation
-    ), f"Expected Optional[Entry] or Entry variant, got {actual_annotation}"
+        r"Entry\d* \| None", actual_annotation
+    ), f"Expected Entry | None or Entry variant | None, got {actual_annotation}"
 
     # If all assertions pass, the test demonstrates the current state (potentially failing for the right reasons)
     # or passes if the generator handles these cases correctly.

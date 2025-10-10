@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import List, Set
 
 from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -22,15 +22,15 @@ class ModelsEmitter:
     Handles creation of __init__.py and py.typed files.
     """
 
-    def __init__(self, context: RenderContext, parsed_schemas: Dict[str, IRSchema]):
+    def __init__(self, context: RenderContext, parsed_schemas: dict[str, IRSchema]):
         self.context: RenderContext = context
         # Store a reference to the schemas that were passed in.
         # These schemas will have their .generation_name and .final_module_stem updated.
-        self.parsed_schemas: Dict[str, IRSchema] = parsed_schemas
+        self.parsed_schemas: dict[str, IRSchema] = parsed_schemas
         self.import_collector = self.context.import_collector
         self.writer = CodeWriter()
 
-    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> Optional[str]:
+    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> str | None:
         """Generates a single Python file for a given IRSchema."""
         if not schema_ir.name:  # Original name, used for logging/initial identification
             logger.warning(f"Skipping model generation for schema without an original name: {schema_ir}")
@@ -168,7 +168,7 @@ class ModelsEmitter:
         generated_content = init_writer.get_code()
         return generated_content
 
-    def emit(self, spec: IRSpec, output_root: str) -> Dict[str, List[str]]:
+    def emit(self, spec: IRSpec, output_root: str) -> dict[str, List[str]]:
         """Emits all model files derived from IR schemas.
 
         Contracts:
@@ -352,7 +352,7 @@ class ModelsEmitter:
 
                 # Fetch the schema_ir object using the key from all_schemas_for_generation
                 # This ensures we are working with the potentially newly created & named schemas.
-                current_schema_ir_obj: Optional[IRSchema] = all_schemas_for_generation.get(schema_key)
+                current_schema_ir_obj: IRSchema | None = all_schemas_for_generation.get(schema_key)
 
                 if not current_schema_ir_obj:
                     logger.warning(f"Schema key '{schema_key}' from all_schemas_for_generation not found. Skipping.")

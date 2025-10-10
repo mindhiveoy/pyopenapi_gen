@@ -148,7 +148,8 @@ def test_models_emitter__object_with_array_property__generates_list_type_annotat
     assert "class PetList(BaseSchema):" in result
     # Check for the item model import and type (now using correct same-directory relative imports)
     assert "from .pet_list_items_item import PetListItemsItem" in result
-    assert "items: Optional[List[PetListItemsItem]]" in result
+    # Check for the field - it should have the union syntax for optional
+    assert "List[PetListItemsItem] | None" in result
 
     # Also verify the item model was created
     item_model_file: Path = out_dir / "models" / "pet_list_items_item.py"
@@ -197,8 +198,8 @@ def test_models_emitter_datetime(tmp_path: Path) -> None:
     assert "from datetime import" in result
     assert "@dataclass" in result
     assert "class Event(BaseSchema):" in result
-    assert "created_at: Optional[datetime]" in result
-    assert "date_only: Optional[date]" in result
+    assert "created_at: datetime | None" in result
+    assert "date_only: date | None" in result
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="File generation issue in CI environment - works locally")
@@ -514,8 +515,8 @@ def test_models_emitter__optional_any_field__emits_all_typing_imports(tmp_path: 
 
     # Check for necessary imports for Any type
     assert "from typing import Any" in content
-    # When type is None/null, it should be Optional[Any]
-    assert "flexible_field: Optional[Any] = None" in content
+    # When type is None/null, it should be Any | None
+    assert "flexible_field: Any | None = None" in content
 
 
 def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path) -> None:
@@ -595,8 +596,8 @@ def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
     assert "from typing import List, Optional" in content
     assert "@dataclass" in content
     assert "class Config_(BaseSchema):" in content  # 'Config' is sanitized to 'Config_' because 'config' is reserved
-    # Field should be Optional[List[str]] and use field(default_factory=list)
-    assert "tags: Optional[List[str]] = field(default_factory=list)" in content
+    # Field should be List[str] | None and use field(default_factory=list)
+    assert "tags: List[str] | None = field(default_factory=list)" in content
 
 
 def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> None:
@@ -629,9 +630,8 @@ def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> No
     user_file: Path = out_dir / "models" / "user.py"
     assert user_file.exists()
     user_content = user_file.read_text()
-    assert "from typing import Optional" in user_content
     assert "from .address import Address" in user_content
-    assert "address: Optional[Address] = None" in user_content
+    assert "address: Address | None = None" in user_content
 
 
 def test_models_emitter_union_anyof(tmp_path: Path) -> None:
@@ -689,27 +689,23 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     union_file: Path = out_dir / "models" / "my_optional_union.py"
     assert union_file.exists()
     union_content = union_file.read_text()
-    assert "from typing import Optional, TypeAlias, Union" in union_content  # Corrected order
+    assert "from typing import TypeAlias, Union" in union_content
     assert "from .schema_opt_a import SchemaOptA" in union_content
     assert "from .schema_opt_b import SchemaOptB" in union_content
     assert '__all__ = ["MyOptionalUnion"]' in union_content
-    # The alias itself should be Union, Optional wrapping is for where it's USED if the property is optional,
-    # or if the alias schema itself is_nullable.
-    # If MyOptionalUnion.is_nullable = True, then the alias itself should incorporate Optional for ModelVisitor.
+    # The alias itself should be Union, with | None syntax for nullable
+    # If MyOptionalUnion.is_nullable = True, then the alias itself should incorporate | None
     # ModelVisitor -> TypeHelper.get_python_type_for_schema -> _type_to_string
-    # If schema.is_nullable, _type_to_string wraps with Optional.
-    assert "MyOptionalUnion: TypeAlias = Optional[Union[SchemaOptA, SchemaOptB]]" in union_content
+    # If schema.is_nullable, _type_to_string wraps with | None
+    assert "MyOptionalUnion: TypeAlias = Union[SchemaOptA, SchemaOptB] | None" in union_content
 
     container_file: Path = out_dir / "models" / "container.py"
     assert container_file.exists()
     container_content = container_file.read_text()
-    # Optional import may not be present if MyOptionalUnion is the only source of optionality
-    # and it handles its own Optional declaration internally.
-    # assert "from typing import Optional" in container_content  # For the field
+    # MyOptionalUnion already includes | None in its type alias definition
     assert "from .my_optional_union import MyOptionalUnion" in container_content
-    # The field 'payload' uses MyOptionalUnion. The current system explicitly wraps in Optional
-    # even if the alias already includes Optional, for clarity at the usage site.
-    assert "payload: Optional[MyOptionalUnion] = None" in container_content
+    # The field 'payload' uses MyOptionalUnion. With union syntax, it gets | None
+    assert "payload: MyOptionalUnion | None = None" in container_content
 
 
 if __name__ == "__main__":

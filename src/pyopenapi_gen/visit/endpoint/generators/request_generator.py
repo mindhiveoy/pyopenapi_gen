@@ -5,7 +5,7 @@ Helper class for generating the HTTP request call for an endpoint method.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 
@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class EndpointRequestGenerator:
     """Generates the self._transport.request(...) call for an endpoint method."""
 
-    def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
-        self.schemas: Dict[str, Any] = schemas or {}
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
+        self.schemas: dict[str, Any] = schemas or {}
 
     def generate_request_call(
         self,
@@ -30,8 +30,8 @@ class EndpointRequestGenerator:
         op: IROperation,
         context: RenderContext,  # Pass context for potential import needs
         has_header_params: bool,
-        primary_content_type: Optional[str],
-        # resolved_body_type: Optional[str], # May not be directly needed here if logic relies on var names
+        primary_content_type: str | None,
+        # resolved_body_type: str | None, # May not be directly needed here if logic relies on var names
     ) -> None:
         """Writes the self._transport.request call to the CodeWriter."""
         # Logic from EndpointMethodGenerator._write_request

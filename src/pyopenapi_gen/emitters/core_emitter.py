@@ -1,6 +1,6 @@
 import importlib.resources
 import os
-from typing import List, Optional
+from typing import List
 
 from pyopenapi_gen.context.file_manager import FileManager
 
@@ -22,12 +22,10 @@ CORE_README_TEMPLATE_FILENAME = "README.md"
 
 CONFIG_TEMPLATE = """
 from dataclasses import dataclass
-from typing import Optional
-
 @dataclass
 class ClientConfig:
     base_url: str
-    timeout: Optional[float] = 30.0
+    timeout: float | None = 30.0
 """
 
 
@@ -35,7 +33,7 @@ class CoreEmitter:
     """Copies all required runtime files into the generated core module."""
 
     def __init__(
-        self, core_dir: str = "core", core_package: str = "core", exception_alias_names: Optional[List[str]] = None
+        self, core_dir: str = "core", core_package: str = "core", exception_alias_names: List[str] | None = None
     ):
         # core_dir is the relative path WITHIN the output package, e.g., "core" or "shared/core"
         # core_package is the Python import name, e.g., "core" or "shared.core"

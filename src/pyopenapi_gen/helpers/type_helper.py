@@ -1,7 +1,7 @@
 """Helper functions for determining Python types and managing related imports from IRSchema."""
 
 import logging
-from typing import Dict, Optional, Set
+from typing import Set
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -21,10 +21,10 @@ class TypeHelper:
     """
 
     # Cache for circular references detection
-    _circular_refs_cache: Dict[str, Set[str]] = {}
+    _circular_refs_cache: dict[str, Set[str]] = {}
 
     @staticmethod
-    def detect_circular_references(schemas: Dict[str, IRSchema]) -> Set[str]:
+    def detect_circular_references(schemas: dict[str, IRSchema]) -> Set[str]:
         """
         Detect circular references in a set of schemas.
 
@@ -40,7 +40,7 @@ class TypeHelper:
             return TypeHelper._circular_refs_cache[cache_key]
 
         circular_refs: Set[str] = set()
-        visited: Dict[str, Set[str]] = {}
+        visited: dict[str, Set[str]] = {}
 
         def visit(schema_name: str, path: Set[str]) -> None:
             """Visit a schema and check for circular references."""
@@ -80,13 +80,13 @@ class TypeHelper:
 
     @staticmethod
     def get_python_type_for_schema(
-        schema: Optional[IRSchema],
-        all_schemas: Dict[str, IRSchema],
+        schema: IRSchema | None,
+        all_schemas: dict[str, IRSchema],
         context: RenderContext,
         required: bool,
         resolve_alias_target: bool = False,
         render_mode: str = "field",  # Literal["field", "alias_target"]
-        parent_schema_name: Optional[str] = None,
+        parent_schema_name: str | None = None,
     ) -> str:
         """
         Determines the Python type string for a given IRSchema.

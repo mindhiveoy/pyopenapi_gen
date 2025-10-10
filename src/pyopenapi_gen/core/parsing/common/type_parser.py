@@ -7,7 +7,6 @@ from __future__ import annotations
 from typing import (
     Any,
     List,
-    Optional,
     Tuple,
 )
 
@@ -15,8 +14,8 @@ from typing import (
 
 
 def extract_primary_type_and_nullability(
-    type_node: Any, schema_name: Optional[str] = None
-) -> Tuple[Optional[str], bool, List[str]]:
+    type_node: Any, schema_name: str | None = None
+) -> Tuple[str | None, bool, List[str]]:
     """Extract the primary type and nullability from a schema's 'type' field.
 
     Contracts:

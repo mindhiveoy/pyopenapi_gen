@@ -26,7 +26,7 @@ class TestPythonConstructRendererBaseSchema:
         fields = [
             ("name", "str", None, "User name"),
             ("age", "int", None, "User age"),
-            ("email", "Optional[str]", "None", "User email"),
+            ("email", "str | None", "None", "User email"),
         ]
 
         # Act
@@ -41,7 +41,7 @@ class TestPythonConstructRendererBaseSchema:
         assert "@dataclass" in result
         assert "name: str" in result
         assert "age: int" in result
-        assert "email: Optional[str] = None" in result
+        assert "email: str | None = None" in result
 
     def test_render_dataclass__with_field_mappings__generates_base_schema_dataclass(self) -> None:
         """

@@ -1,7 +1,6 @@
 import json
 import os
 from pathlib import Path
-from typing import Optional
 
 from pyopenapi_gen import IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -22,13 +21,13 @@ class ExceptionsEmitter:
     exceptions are available.
     """
 
-    def __init__(self, core_package_name: str = "core", overall_project_root: Optional[str] = None) -> None:
+    def __init__(self, core_package_name: str = "core", overall_project_root: str | None = None) -> None:
         self.visitor = ExceptionVisitor()
         self.core_package_name = core_package_name
         self.overall_project_root = overall_project_root
 
     def emit(
-        self, spec: IRSpec, output_dir: str, client_package_name: Optional[str] = None
+        self, spec: IRSpec, output_dir: str, client_package_name: str | None = None
     ) -> tuple[list[str], list[str]]:
         """Generate exception aliases for the given spec.
 

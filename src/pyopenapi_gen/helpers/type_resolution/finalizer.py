@@ -1,8 +1,6 @@
 """Finalizes and cleans Python type strings."""
 
 import logging
-from typing import Dict  # Alias to avoid clash
-from typing import Optional as TypingOptional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -14,11 +12,11 @@ logger = logging.getLogger(__name__)
 class TypeFinalizer:
     """Handles final wrapping (Optional) and cleaning of type strings."""
 
-    def __init__(self, context: RenderContext, all_schemas: TypingOptional[Dict[str, IRSchema]] = None):
+    def __init__(self, context: RenderContext, all_schemas: dict[str, IRSchema] | None = None):
         self.context = context
         self.all_schemas = all_schemas if all_schemas is not None else {}
 
-    def finalize(self, py_type: TypingOptional[str], schema: IRSchema, required: bool) -> str:
+    def finalize(self, py_type: str | None, schema: IRSchema, required: bool) -> str:
         """Wraps with Optional if needed, cleans the type string, and ensures typing imports."""
         if py_type is None:
             logger.warning(
@@ -32,7 +30,7 @@ class TypeFinalizer:
         cleaned_type = self._clean_type(optional_type)
 
         # Ensure imports for common typing constructs that might have been introduced by cleaning
-        if "Dict[" in cleaned_type or cleaned_type == "Dict":
+        if "dict[" in cleaned_type or cleaned_type == "Dict":
             self.context.add_import("typing", "Dict")
         if "List[" in cleaned_type or cleaned_type == "List":
             self.context.add_import("typing", "List")
@@ -47,7 +45,7 @@ class TypeFinalizer:
         return cleaned_type
 
     def _wrap_with_optional_if_needed(self, py_type: str, schema_being_wrapped: IRSchema, required: bool) -> str:
-        """Wraps the Python type string with `Optional[...]` if necessary."""
+        """Wraps the Python type string with `... | None` if necessary."""
         is_considered_optional_by_usage = not required or schema_being_wrapped.is_nullable is True
 
         if not is_considered_optional_by_usage:
@@ -57,11 +55,14 @@ class TypeFinalizer:
 
         if py_type == "Any":
             self.context.add_import("typing", "Optional")
-            return "Optional[Any]"  # Any is special, always wrap if usage is optional.
+            return "Any | None"  # Any is special, always wrap if usage is optional.
 
-        # If already Optional, don't add import again
+        # If already Optional (old style) or has | None (new style), don't add again
         if py_type.startswith("Optional["):
             return py_type  # Already explicitly Optional.
+
+        if " | None" in py_type or py_type.endswith("| None"):
+            return py_type  # Already has | None union syntax.
 
         is_union_with_none = "Union[" in py_type and (
             ", None]" in py_type or "[None," in py_type or ", None," in py_type or py_type == "Union[None]"
@@ -82,7 +83,7 @@ class TypeFinalizer:
 
         # Only now add the Optional import and wrap the type
         self.context.add_import("typing", "Optional")
-        return f"Optional[{py_type}]"
+        return f"{py_type} | None"
 
     def _clean_type(self, type_str: str) -> str:
         """Cleans a Python type string using TypeCleaner."""

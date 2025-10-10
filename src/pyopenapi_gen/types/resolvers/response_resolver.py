@@ -1,7 +1,10 @@
 """Response type resolver implementation."""
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 
@@ -84,7 +87,7 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
 
         return self.resolve_specific_response(target_response, context)
 
-    def _get_primary_response(self, operation: IROperation) -> Optional[IRResponse]:
+    def _get_primary_response(self, operation: IROperation) -> IRResponse | None:
         """Get the primary success response from an operation."""
         if not operation.responses:
             return None

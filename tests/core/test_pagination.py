@@ -2,7 +2,7 @@
 Tests for the pagination module that provides utilities for paginated API endpoints.
 """
 
-from typing import Any, Dict, List
+from typing import Any, List
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,7 +23,7 @@ async def test_paginate_by_next__iterates_through_single_page() -> None:
     mock_fetch = AsyncMock(return_value={"items": items, "next": None})
 
     # Use the paginate_by_next function with the mock
-    collected_items: List[Dict[str, Any]] = []
+    collected_items: List[dict[str, Any]] = []
     async for item in paginate_by_next(mock_fetch, items_key="items", next_key="next"):
         collected_items.append(item)
 
@@ -48,7 +48,7 @@ async def test_paginate_by_next__iterates_through_multiple_pages() -> None:
     ]
     page_index = 0
 
-    async def fetch_page_side_effect(**kwargs: Any) -> Dict[str, Any]:
+    async def fetch_page_side_effect(**kwargs: Any) -> dict[str, Any]:
         nonlocal page_index
         next_token = kwargs.get("next")
         if page_index == 0:
@@ -62,7 +62,7 @@ async def test_paginate_by_next__iterates_through_multiple_pages() -> None:
     mock_fetch = AsyncMock(side_effect=fetch_page_side_effect)
 
     # Use the paginate_by_next function with the mock
-    collected_items: List[Dict[str, Any]] = []
+    collected_items: List[dict[str, Any]] = []
     async for item in paginate_by_next(mock_fetch, items_key="items", next_key="next"):
         collected_items.append(item)
 
@@ -82,7 +82,7 @@ async def test_paginate_by_next__empty_page_returns_empty_iterator() -> None:
     mock_fetch = AsyncMock(return_value={"items": [], "next": None})
 
     # Use the paginate_by_next function with the mock
-    collected_items: List[Dict[str, Any]] = []
+    collected_items: List[dict[str, Any]] = []
     async for item in paginate_by_next(mock_fetch):
         collected_items.append(item)
 
@@ -104,7 +104,7 @@ async def test_paginate_by_next__with_custom_key_names() -> None:
     mock_fetch = AsyncMock(return_value={"data": items, "page_token": None})
 
     # Use the paginate_by_next function with custom key names
-    collected_items: List[Dict[str, Any]] = []
+    collected_items: List[dict[str, Any]] = []
     async for item in paginate_by_next(mock_fetch, items_key="data", next_key="page_token"):
         collected_items.append(item)
 
@@ -147,9 +147,9 @@ async def test_paginate_by_next__updates_next_token_between_calls() -> None:
     ]
 
     # Track the calls to verify parameters
-    calls: List[Dict[str, Any]] = []
+    calls: List[dict[str, Any]] = []
 
-    async def fetch_page_side_effect(**kwargs: Any) -> Dict[str, Any]:
+    async def fetch_page_side_effect(**kwargs: Any) -> dict[str, Any]:
         calls.append(kwargs.copy())
         if len(calls) == 1:
             return pages[0]
@@ -161,7 +161,7 @@ async def test_paginate_by_next__updates_next_token_between_calls() -> None:
     mock_fetch = AsyncMock(side_effect=fetch_page_side_effect)
 
     # Use the paginate_by_next function
-    collected_items: List[Dict[str, Any]] = []
+    collected_items: List[dict[str, Any]] = []
     async for item in paginate_by_next(mock_fetch):
         collected_items.append(item)
 
@@ -183,7 +183,7 @@ async def test_paginate_by_next__missing_items_key_returns_empty_list() -> None:
     mock_fetch = AsyncMock(return_value={"meta": {}, "next": None})  # No items key
 
     # Use the paginate_by_next function
-    collected_items: List[Dict[str, Any]] = []
+    collected_items: List[dict[str, Any]] = []
     async for item in paginate_by_next(mock_fetch):
         collected_items.append(item)
 

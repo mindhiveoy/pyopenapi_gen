@@ -5,7 +5,7 @@ Tests for the cycle detection functionality in schema parsing.
 import importlib  # For reloading
 import os
 import unittest
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 import pyopenapi_gen.core.parsing.schema_parser as schema_parser  # Import as schema_parser
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -49,7 +49,7 @@ class TestCycleDetection(unittest.TestCase):
     def test_self_reference_cycle_detection(self) -> None:
         """Test detection of a schema that directly references itself."""
         schema_name = "SelfRefSchema"
-        schema_data: Dict[str, Any] = {
+        schema_data: dict[str, Any] = {
             "type": "object",
             "properties": {"name": {"type": "string"}, "self_ref": {"$ref": f"#/components/schemas/{schema_name}"}},
         }
@@ -69,11 +69,11 @@ class TestCycleDetection(unittest.TestCase):
         """Test detection of mutual references between schemas."""
         schema_a_name = "SchemaA"
         schema_b_name = "SchemaB"
-        schema_a: Dict[str, Any] = {
+        schema_a: dict[str, Any] = {
             "type": "object",
             "properties": {"b": {"$ref": f"#/components/schemas/{schema_b_name}"}},
         }
-        schema_b: Dict[str, Any] = {
+        schema_b: dict[str, Any] = {
             "type": "object",
             "properties": {"a": {"$ref": f"#/components/schemas/{schema_a_name}"}},
         }
@@ -97,14 +97,14 @@ class TestCycleDetection(unittest.TestCase):
         """Test detection of cycles in schema composition (allOf, anyOf, oneOf)."""
         schema_a_name = "SchemaA"
         schema_b_name = "SchemaB"
-        schema_a: Dict[str, Any] = {
+        schema_a: dict[str, Any] = {
             "type": "object",
             "allOf": [
                 {"type": "object", "properties": {"name": {"type": "string"}}},
                 {"$ref": f"#/components/schemas/{schema_b_name}"},
             ],
         }
-        schema_b: Dict[str, Any] = {
+        schema_b: dict[str, Any] = {
             "type": "object",
             "anyOf": [
                 {"type": "object", "properties": {"id": {"type": "integer"}}},
@@ -130,7 +130,7 @@ class TestCycleDetection(unittest.TestCase):
     def test_nested_property_cycle_detection(self) -> None:
         """Test detection of cycles in nested properties."""
         schema_name = "NestedSchema"
-        schema_data: Dict[str, Any] = {
+        schema_data: dict[str, Any] = {
             "type": "object",
             "properties": {
                 "nested": {
@@ -160,7 +160,7 @@ class TestCycleDetection(unittest.TestCase):
         """Test handling of maximum recursion depth."""
         schema_name = "DeepSchema"
         # Create a deeply nested schema
-        current_schema: Dict[str, Any] = {"type": "string"}
+        current_schema: dict[str, Any] = {"type": "string"}
         for _ in range(15):  # Exceed max depth of 10 (set by ENV_MAX_DEPTH in setUp)
             current_schema = {"type": "array", "items": current_schema}
 
@@ -222,7 +222,7 @@ class TestCycleDetection(unittest.TestCase):
     def test_array_items_cycle_detection(self) -> None:
         """Test detection of a cycle where array items refer back to the parent schema."""
         schema_name = "ArrayCycleSchema"
-        schema_data: Dict[str, Any] = {
+        schema_data: dict[str, Any] = {
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
@@ -256,15 +256,15 @@ class TestCycleDetection(unittest.TestCase):
         schema_b_name = "SchemaB_Triple"
         schema_c_name = "SchemaC_Triple"
 
-        schema_a: Dict[str, Any] = {
+        schema_a: dict[str, Any] = {
             "type": "object",
             "properties": {"b_ref": {"$ref": f"#/components/schemas/{schema_b_name}"}},
         }
-        schema_b: Dict[str, Any] = {
+        schema_b: dict[str, Any] = {
             "type": "object",
             "properties": {"c_ref": {"$ref": f"#/components/schemas/{schema_c_name}"}},
         }
-        schema_c: Dict[str, Any] = {
+        schema_c: dict[str, Any] = {
             "type": "object",
             "properties": {"a_ref": {"$ref": f"#/components/schemas/{schema_a_name}"}},
         }
@@ -392,7 +392,7 @@ class TestCycleDetection(unittest.TestCase):
         importlib.reload(schema_parser)
 
         schema_name = "DeepPropertySchema"
-        current_schema_dict_level: Dict[str, Any] = {}
+        current_schema_dict_level: dict[str, Any] = {}
         # Build the initial root of the schema for DeepPropertySchema
         self.context.raw_spec_schemas[schema_name] = current_schema_dict_level
 
@@ -480,7 +480,7 @@ class TestCycleDetection(unittest.TestCase):
         importlib.reload(schema_parser)
 
         schema_name = "DeepAllOfSchema"
-        schemas_to_add: Dict[str, Any] = {}
+        schemas_to_add: dict[str, Any] = {}
         current_level_schema_name = schema_name
         # Create schemas A -> B -> C -> D ... via allOf
         # Max depth 3. So, schema_0 allOf schema_1, schema_1 allOf schema_2, schema_2 allOf schema_3.

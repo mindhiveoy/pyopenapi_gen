@@ -12,7 +12,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Set
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -50,13 +50,13 @@ class RenderContext:
 
     def __init__(
         self,
-        file_manager: Optional[FileManager] = None,
+        file_manager: FileManager | None = None,
         core_package_name: str = "core",
-        package_root_for_generated_code: Optional[str] = None,
-        overall_project_root: Optional[str] = None,
-        parsed_schemas: Optional[Dict[str, IRSchema]] = None,
+        package_root_for_generated_code: str | None = None,
+        overall_project_root: str | None = None,
+        parsed_schemas: dict[str, IRSchema] | None = None,
         use_absolute_imports: bool = True,
-        output_package_name: Optional[str] = None,
+        output_package_name: str | None = None,
     ) -> None:
         """
         Initialize a new RenderContext.
@@ -77,15 +77,15 @@ class RenderContext:
         self.file_manager = file_manager or FileManager()
         self.import_collector = ImportCollector()
         self.generated_modules: Set[str] = set()
-        self.current_file: Optional[str] = None
+        self.current_file: str | None = None
         self.core_package_name: str = core_package_name
-        self.package_root_for_generated_code: Optional[str] = package_root_for_generated_code
-        self.overall_project_root: Optional[str] = overall_project_root or os.getcwd()
-        self.parsed_schemas: Optional[Dict[str, IRSchema]] = parsed_schemas
+        self.package_root_for_generated_code: str | None = package_root_for_generated_code
+        self.overall_project_root: str | None = overall_project_root or os.getcwd()
+        self.parsed_schemas: dict[str, IRSchema] | None = parsed_schemas
         self.use_absolute_imports: bool = use_absolute_imports
-        self.output_package_name: Optional[str] = output_package_name
+        self.output_package_name: str | None = output_package_name
         # Dictionary to store conditional imports, keyed by condition
-        self.conditional_imports: Dict[str, Dict[str, Set[str]]] = {}
+        self.conditional_imports: dict[str, dict[str, Set[str]]] = {}
 
     def set_current_file(self, abs_path: str) -> None:
         """
@@ -111,7 +111,7 @@ class RenderContext:
             core_package_name_for_absolute_treatment=self.core_package_name,
         )
 
-    def add_import(self, logical_module: str, name: Optional[str] = None, is_typing_import: bool = False) -> None:
+    def add_import(self, logical_module: str, name: str | None = None, is_typing_import: bool = False) -> None:
         """
         Add an import to the collector.
 

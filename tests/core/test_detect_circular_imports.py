@@ -1,7 +1,7 @@
 """Unit test for detecting circular imports."""
 
 import unittest
-from typing import Dict, Set
+from typing import Set
 
 from pyopenapi_gen import IRSchema
 
@@ -42,7 +42,7 @@ class TestDetectCircularImports(unittest.TestCase):
         )
 
         # Map of all schemas by name
-        schemas: Dict[str, IRSchema] = {"MessageA": schema_a, "MessageB": schema_b}
+        schemas: dict[str, IRSchema] = {"MessageA": schema_a, "MessageB": schema_b}
 
         # Find circular references
         circular_refs = self._find_circular_references(schemas)
@@ -51,14 +51,14 @@ class TestDetectCircularImports(unittest.TestCase):
         self.assertIn("MessageA", circular_refs)
         self.assertIn("MessageB", circular_refs)
 
-    def _find_circular_references(self, schemas: Dict[str, IRSchema]) -> Set[str]:
+    def _find_circular_references(self, schemas: dict[str, IRSchema]) -> Set[str]:
         """
         Find circular references in a set of schemas.
 
         This is a simplified version of what TypeHelper would do.
         """
         circular_refs: Set[str] = set()
-        visited: Dict[str, Set[str]] = {}
+        visited: dict[str, Set[str]] = {}
 
         def visit(schema_name: str, path: Set[str]) -> None:
             """Visit a schema and check for circular references."""

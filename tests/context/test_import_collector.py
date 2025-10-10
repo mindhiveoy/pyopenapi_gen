@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 
 import pytest
 
@@ -582,8 +582,8 @@ class TestImportCollector:
         scenario_id: str,  # for test id
         current_module_dot_path: str,
         package_root: str,
-        core_abs: Optional[str],
-        input_imports_dict: Dict[Tuple[str, Optional[str]], None],  # (module, name_or_None_for_plain)
+        core_abs: str | None,
+        input_imports_dict: dict[Tuple[str, str | None], None],  # (module, name_or_None_for_plain)
         expected_import_strings_list: List[str],
     ) -> None:
         """

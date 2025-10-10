@@ -7,7 +7,7 @@ from pyopenapi_gen.core.auth.base import BaseAuth, CompositeAuth
 
 
 def test_base_auth_method_signature() -> None:
-    """BaseAuth should define authenticate_request(request_args: Dict[str, Any]) -> Dict[str, Any]"""
+    """BaseAuth should define authenticate_request(request_args: dict[str, Any]) -> dict[str, Any]"""
     sig = inspect.signature(BaseAuth.authenticate_request)
     params = sig.parameters
     assert list(params.keys()) == ["self", "request_args"]

@@ -6,7 +6,6 @@ defined in OpenAPI specifications, supporting type aliases, enums, and dataclass
 """
 
 import logging
-from typing import Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -36,7 +35,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
             - All necessary imports for the generated model are registered in the context.
     """
 
-    def __init__(self, schemas: Optional[Dict[str, IRSchema]] = None) -> None:
+    def __init__(self, schemas: dict[str, IRSchema] | None = None) -> None:
         """
         Initialize a new ModelVisitor.
 
@@ -156,7 +155,7 @@ class ModelVisitor(Visitor[IRSchema, str]):
 
         return self.formatter.format(rendered_code)
 
-    def _get_field_default(self, ps: IRSchema, context: RenderContext) -> Optional[str]:
+    def _get_field_default(self, ps: IRSchema, context: RenderContext) -> str | None:
         """
         Determines the default value expression string for a dataclass field.
         This method is called for fields determined to be optional.

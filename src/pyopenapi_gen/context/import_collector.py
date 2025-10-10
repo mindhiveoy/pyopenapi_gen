@@ -9,7 +9,7 @@ direct, relative, and plain imports, with methods to add and query import statem
 import logging
 import sys
 from collections import defaultdict
-from typing import Dict, List, Optional, Set
+from typing import List, Set
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
@@ -143,18 +143,18 @@ class ImportCollector:
     def __init__(self) -> None:
         """Initialize a new ImportCollector with empty collections for all import types."""
         # Standard imports (from x import y)
-        self.imports: Dict[str, Set[str]] = {}
+        self.imports: dict[str, Set[str]] = {}
         # Direct imports like 'from datetime import date'
-        # self.direct_imports: Dict[str, Set[str]] = {} # Removed
+        # self.direct_imports: dict[str, Set[str]] = {} # Removed
         # Relative imports like 'from .models import Pet'
         self.relative_imports: defaultdict[str, set[str]] = defaultdict(set)
         # Plain imports like 'import json'
         self.plain_imports: set[str] = set()
 
         # Path information for the current file, used by get_formatted_imports
-        self._current_file_module_dot_path: Optional[str] = None
-        self._current_file_package_root: Optional[str] = None
-        self._current_file_core_pkg_name_for_abs: Optional[str] = None
+        self._current_file_module_dot_path: str | None = None
+        self._current_file_package_root: str | None = None
+        self._current_file_core_pkg_name_for_abs: str | None = None
 
     def reset(self) -> None:
         """Reset the collector to its initial empty state."""
@@ -167,9 +167,9 @@ class ImportCollector:
 
     def set_current_file_context_for_rendering(
         self,
-        current_module_dot_path: Optional[str],
-        package_root: Optional[str],
-        core_package_name_for_absolute_treatment: Optional[str],
+        current_module_dot_path: str | None,
+        package_root: str | None,
+        core_package_name_for_absolute_treatment: str | None,
     ) -> None:
         """Set the context for the current file, used by get_formatted_imports."""
         self._current_file_module_dot_path = current_module_dot_path
@@ -234,7 +234,7 @@ class ImportCollector:
         """
         self.plain_imports.add(module)
 
-    def has_import(self, module: str, name: Optional[str] = None) -> bool:
+    def has_import(self, module: str, name: str | None = None) -> bool:
         """Check if a specific module or name within a module is already imported."""
         if name:
             # Check absolute/standard imports

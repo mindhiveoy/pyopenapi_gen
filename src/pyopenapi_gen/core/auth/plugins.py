@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable
 
 from .base import BaseAuth
 
@@ -9,7 +9,7 @@ class BearerAuth(BaseAuth):
     def __init__(self, token: str) -> None:
         self.token = token
 
-    async def authenticate_request(self, request_args: Dict[str, Any]) -> Dict[str, Any]:
+    async def authenticate_request(self, request_args: dict[str, Any]) -> dict[str, Any]:
         # Ensure headers dict exists
         headers = dict(request_args.get("headers", {}))
         headers["Authorization"] = f"Bearer {self.token}"
@@ -20,10 +20,10 @@ class BearerAuth(BaseAuth):
 class HeadersAuth(BaseAuth):
     """Authentication plugin for arbitrary headers."""
 
-    def __init__(self, headers: Dict[str, str]) -> None:
+    def __init__(self, headers: dict[str, str]) -> None:
         self.headers = headers
 
-    async def authenticate_request(self, request_args: Dict[str, Any]) -> Dict[str, Any]:
+    async def authenticate_request(self, request_args: dict[str, Any]) -> dict[str, Any]:
         # Merge custom headers
         hdrs = dict(request_args.get("headers", {}))
         hdrs.update(self.headers)
@@ -45,7 +45,7 @@ class ApiKeyAuth(BaseAuth):
         self.location = location
         self.name = name
 
-    async def authenticate_request(self, request_args: Dict[str, Any]) -> Dict[str, Any]:
+    async def authenticate_request(self, request_args: dict[str, Any]) -> dict[str, Any]:
         if self.location == "header":
             headers = dict(request_args.get("headers", {}))
             headers[self.name] = self.key
@@ -66,7 +66,7 @@ class ApiKeyAuth(BaseAuth):
 class OAuth2Auth(BaseAuth):
     """Authentication plugin for OAuth2 Bearer tokens, with optional auto-refresh."""
 
-    def __init__(self, access_token: str, refresh_callback: Optional[Callable[[str], Awaitable[str]]] = None) -> None:
+    def __init__(self, access_token: str, refresh_callback: Callable[[str], Awaitable[str]] | None = None) -> None:
         """
         Args:
             access_token: The OAuth2 access token.
@@ -76,7 +76,7 @@ class OAuth2Auth(BaseAuth):
         self.access_token = access_token
         self.refresh_callback = refresh_callback
 
-    async def authenticate_request(self, request_args: Dict[str, Any]) -> Dict[str, Any]:
+    async def authenticate_request(self, request_args: dict[str, Any]) -> dict[str, Any]:
         # In a real implementation, check expiry and refresh if needed
         if self.refresh_callback is not None:
             # Optionally refresh token (user must implement expiry logic)

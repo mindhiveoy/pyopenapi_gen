@@ -661,7 +661,7 @@ class TestGetRequestBodyType:
             JSON content resolves to "Any" type.
 
         Expected Outcome:
-            The function returns "Dict[str, Any]" for better type hints.
+            The function returns "dict[str, Any]" for better type hints.
         """
         # Arrange
         json_schema = IRSchema(name=None, type="object")
@@ -678,7 +678,7 @@ class TestGetRequestBodyType:
             result = get_request_body_type(body, context, schemas)
 
             # Assert
-            assert result == "Dict[str, Any]"
+            assert result == "dict[str, Any]"
 
     def test_get_request_body_type__non_json_content__returns_any(self) -> None:
         """

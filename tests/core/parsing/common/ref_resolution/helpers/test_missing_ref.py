@@ -19,7 +19,7 @@ class TestHandleMissingRef(unittest.TestCase):
         self.ref_name = "TestSchema"
         self.max_depth = 100
         self.mock_parse_fn = MagicMock(
-            spec=Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
+            spec=Callable[[str | None, Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
         )
 
     def test_handle_missing_ref__no_fallbacks_succeed__returns_unresolved_schema(self) -> None:

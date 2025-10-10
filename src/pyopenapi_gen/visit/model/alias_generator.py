@@ -3,7 +3,6 @@ Generates Python code for type aliases from IRSchema objects.
 """
 
 import logging
-from typing import Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -21,7 +20,7 @@ class AliasGenerator:
     def __init__(
         self,
         renderer: PythonConstructRenderer,
-        all_schemas: Optional[Dict[str, IRSchema]],
+        all_schemas: dict[str, IRSchema] | None,
     ):
         # Pre-condition
         if renderer is None:

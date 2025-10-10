@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -8,7 +8,7 @@ from pyopenapi_gen.core.auth.plugins import BearerAuth, HeadersAuth
 @pytest.mark.asyncio
 async def test_bearer_auth_adds_authorization_header() -> None:
     auth = BearerAuth("token123")
-    request_args: Dict[str, Any] = {}
+    request_args: dict[str, Any] = {}
     result = await auth.authenticate_request(request_args)
     assert "headers" in result
     assert result["headers"]["Authorization"] == "Bearer token123"
@@ -18,7 +18,7 @@ async def test_bearer_auth_adds_authorization_header() -> None:
 async def test_headers_auth_merges_headers() -> None:
     initial_headers = {"Existing": "val"}
     auth = HeadersAuth({"X-Test": "value", "Y-Other": "otherv"})
-    request_args: Dict[str, Any] = {"headers": initial_headers.copy()}
+    request_args: dict[str, Any] = {"headers": initial_headers.copy()}
     result = await auth.authenticate_request(request_args)
     assert result["headers"]["Existing"] == "val"
     assert result["headers"]["X-Test"] == "value"
@@ -29,7 +29,7 @@ async def test_headers_auth_merges_headers() -> None:
 async def test_auth_composition() -> None:
     ba = BearerAuth("tok")
     ha = HeadersAuth({"X-A": "1"})
-    request_args: Dict[str, Any] = {}
+    request_args: dict[str, Any] = {}
     result1 = await ba.authenticate_request(request_args)
     result2 = await ha.authenticate_request(result1)
     assert result2["headers"]["Authorization"] == "Bearer tok"

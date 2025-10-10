@@ -1,7 +1,6 @@
 """Orchestrates IRSchema to Python type resolution."""
 
 import logging
-from typing import Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 class SchemaTypeResolver:
     """Orchestrates the resolution of IRSchema to Python type strings."""
 
-    def __init__(self, context: RenderContext, all_schemas: Dict[str, IRSchema]):
+    def __init__(self, context: RenderContext, all_schemas: dict[str, IRSchema]):
         self.context = context
         self.all_schemas = all_schemas
 
@@ -37,7 +36,7 @@ class SchemaTypeResolver:
         schema: IRSchema,
         required: bool = True,
         resolve_alias_target: bool = False,
-        current_schema_context_name: Optional[str] = None,
+        current_schema_context_name: str | None = None,
     ) -> str:
         """
         Determines the Python type string for a given IRSchema.

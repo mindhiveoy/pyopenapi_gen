@@ -8,7 +8,7 @@ usage telemetry for PyOpenAPI Generator. Telemetry is opt-in only.
 import json
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class TelemetryClient:
@@ -24,7 +24,7 @@ class TelemetryClient:
         enabled: Whether telemetry is currently enabled
     """
 
-    def __init__(self, enabled: Optional[bool] = None) -> None:
+    def __init__(self, enabled: bool | None = None) -> None:
         """
         Initialize a new TelemetryClient.
 
@@ -38,7 +38,7 @@ class TelemetryClient:
         else:
             self.enabled = enabled
 
-    def track_event(self, event: str, properties: Optional[Dict[str, Any]] = None) -> None:
+    def track_event(self, event: str, properties: dict[str, Any] | None = None) -> None:
         """
         Track a telemetry event if telemetry is enabled.
 
@@ -52,7 +52,7 @@ class TelemetryClient:
         if not self.enabled:
             return
 
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "event": event,
             "properties": properties or {},
             "timestamp": time.time(),

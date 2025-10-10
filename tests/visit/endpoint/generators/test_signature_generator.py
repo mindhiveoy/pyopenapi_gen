@@ -2,7 +2,7 @@
 Tests for the EndpointMethodSignatureGenerator class.
 """
 
-from typing import Any, Dict, List
+from typing import Any, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -55,7 +55,7 @@ def render_context_mock_for_sig() -> MagicMock:
 
 
 @pytest.fixture
-def schemas_for_sig() -> Dict[str, IRSchema]:
+def schemas_for_sig() -> dict[str, IRSchema]:
     return {}
 
 
@@ -64,7 +64,7 @@ class TestEndpointMethodSignatureGenerator:
         self,
         op_for_sig_basic: IROperation,
         render_context_mock_for_sig: MagicMock,
-        schemas_for_sig: Dict[str, IRSchema],
+        schemas_for_sig: dict[str, IRSchema],
     ) -> None:
         """
         Scenario: Operation with no parameters.
@@ -72,7 +72,7 @@ class TestEndpointMethodSignatureGenerator:
         """
         generator = EndpointMethodSignatureGenerator(schemas=schemas_for_sig)
         writer = CodeWriter()
-        ordered_params_from_processor: List[Dict[str, Any]] = []
+        ordered_params_from_processor: List[dict[str, Any]] = []
 
         # Create ResponseStrategy for the test
         response_ir = IRResponse(status_code="204", description="No Content", content={})
@@ -95,21 +95,21 @@ class TestEndpointMethodSignatureGenerator:
         self,
         op_for_sig_with_params: IROperation,
         render_context_mock_for_sig: MagicMock,
-        schemas_for_sig: Dict[str, IRSchema],
+        schemas_for_sig: dict[str, IRSchema],
     ) -> None:
         """
         Scenario: Operation with path, query (optional), and header parameters.
-        Expected: async def create_item(self, id: int, token: str, limit: Optional[int] = None) -> SomeReturnType:
+        Expected: async def create_item(self, id: int, token: str, limit: int | None = None) -> SomeReturnType:
         """
         generator = EndpointMethodSignatureGenerator(schemas=schemas_for_sig)
         writer = CodeWriter()
 
-        ordered_params_from_processor: List[Dict[str, Any]] = [
+        ordered_params_from_processor: List[dict[str, Any]] = [
             {"name": "id", "type": "int", "required": True, "param_in": "path", "original_name": "id"},
             {"name": "token", "type": "str", "required": True, "param_in": "header", "original_name": "token"},
             {
                 "name": "limit",
-                "type": "Optional[int]",
+                "type": "int | None",
                 "required": False,
                 "default": None,
                 "param_in": "query",
@@ -127,7 +127,7 @@ class TestEndpointMethodSignatureGenerator:
         with patch("pyopenapi_gen.visit.endpoint.generators.signature_generator.get_param_type") as mock_get_param_type:
             mock_get_param_type.side_effect = lambda param_spec, ctx, schemas_dict: {
                 "id": "int",
-                "limit": "Optional[int]",
+                "limit": "int | None",
                 "token": "str",
             }.get(param_spec.name, "Any")
 
@@ -145,7 +145,7 @@ class TestEndpointMethodSignatureGenerator:
             "    self,",
             "    id_: int,",  # 'id' is sanitized to 'id_'
             "    token: str,",
-            "    limit: Optional[int] = None,",
+            "    limit: int | None = None,",
             ") -> SomeReturnType:",
         ]
         actual_lines = [line.strip() for line in generated_code.splitlines() if line.strip()]
@@ -154,5 +154,5 @@ class TestEndpointMethodSignatureGenerator:
 
         render_context_mock_for_sig.add_typing_imports_for_type.assert_any_call("int")
         render_context_mock_for_sig.add_typing_imports_for_type.assert_any_call("str")
-        render_context_mock_for_sig.add_typing_imports_for_type.assert_any_call("Optional[int]")
+        render_context_mock_for_sig.add_typing_imports_for_type.assert_any_call("int | None")
         render_context_mock_for_sig.add_typing_imports_for_type.assert_any_call("SomeReturnType")

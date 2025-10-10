@@ -1,7 +1,6 @@
 import logging
 import os  # For path manipulation
 import unittest  # Add this import
-from typing import Dict
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer  # Added import
@@ -48,7 +47,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
                     name="config",
                     type="object",
                     description="Configuration settings",
-                    is_nullable=True,  # This should be rendered as Optional[Dict[str, Any]]
+                    is_nullable=True,  # This should be rendered as dict[str, Any] | None
                 )
             },
         )
@@ -65,19 +64,19 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
 
         with patch(
             "pyopenapi_gen.helpers.type_helper.TypeHelper.get_python_type_for_schema",
-            return_value="Dict[str, Any, None]",
+            return_value="dict[str, Any, None]",
         ):  # Return invalid type
             # Act
             result = self.model_visitor.visit_IRSchema(schema, context)
 
             # Assert - unified type system correctly generates Optional for nullable types
             self.assertIn("class TestModel(BaseSchema):", result)  # Should use BaseSchema due to field mapping
-            self.assertIn("config_: Optional[Dict[str, Any]] =", result)  # Field exists with correct type
+            self.assertIn("config_: dict[str, Any] | None =", result)  # Field exists with correct type
             self.assertIn("None", result)  # Has None default (may be multi-line)
             self.assertIn("class Meta:", result)  # Has Meta class
             self.assertIn('"config": "config_",', result)  # Has field mapping
             self.assertNotIn(
-                "Dict[str, Any, None]", result, "Invalid type with None parameter was not cleaned"
+                "dict[str, Any, None]", result, "Invalid type with None parameter was not cleaned"
             )  # Use self.assertNotIn
 
     def test_visit_IRSchema_for_AgentDataSource_with_properties_generates_correct_fields(self) -> None:
@@ -122,7 +121,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
             description="Configuration settings",
             is_nullable=True,
             properties={},  # Actual sub-properties not needed for this field existence test
-            additional_properties=True,  # Allows Dict[str, Any] behavior if TypeHelper maps this
+            additional_properties=True,  # Allows dict[str, Any] behavior if TypeHelper maps this
         )
         created_at_prop = IRSchema(
             name="createdAt",
@@ -181,7 +180,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIsNotNone(ads_name, "AgentDataSource schema name should not be None for this test")
         assert ads_name is not None
 
-        all_schemas_for_context: Dict[str, IRSchema] = {
+        all_schemas_for_context: dict[str, IRSchema] = {
             ads_name: agent_data_source_schema,
             "DataSource": IRSchema(name="DataSource", type="object", description="A data source object"),
         }
@@ -200,15 +199,15 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("@dataclass", generated_code)
         self.assertIn("agent_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
         self.assertIn("data_source_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
-        self.assertIn("description: Optional[str]", generated_code)
-        self.assertIn("instructions: Optional[str]", generated_code)
-        self.assertIn("config_: Optional[Dict[str, Any]]", generated_code)  # 'config' is sanitized to 'config_'
+        self.assertIn("description: str | None", generated_code)
+        self.assertIn("instructions: str | None", generated_code)
+        self.assertIn("config_: dict[str, Any] | None", generated_code)  # 'config' is sanitized to 'config_'
         self.assertIn("created_at:", generated_code)  # Field exists (may be multi-line)
         self.assertIn("datetime", generated_code)  # Has datetime type
         self.assertIn("updated_at:", generated_code)  # Field exists (may be multi-line)
         self.assertIn(
-            'data_source: "Optional[DataSource]"', generated_code
-        )  # Forward reference correctly quoted by unified system
+            'data_source: "DataSource" | None', generated_code
+        )  # Forward reference correctly quoted by unified system, with union syntax
 
         # Check BaseSchema Meta class and field mappings
         self.assertIn("class Meta:", generated_code)
@@ -514,7 +513,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # and registered back into a global schema list, that's part of a deeper integration.
         # For ModelVisitor unit test, we primarily care it dispatches correctly and DataclassGenerator
         # receives the array_schema correctly flagged (via is_data_wrapper=True).
-        all_schemas_for_context: Dict[str, IRSchema] = {
+        all_schemas_for_context: dict[str, IRSchema] = {
             array_schema.name: array_schema,
             # Do NOT add the item schema here if it's meant to be resolved from anonymous
         }
@@ -531,10 +530,10 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # Check for the wrapper's description in its docstring
         self.assertIn("A list of (previously anonymous) objects.", generated_code)
 
-        # Note: Unified system currently falls back to Dict[str, Any] for anonymous objects
+        # Note: Unified system currently falls back to dict[str, Any] for anonymous objects
         # rather than promoting them to named types. This is correct fallback behavior.
         # TODO: Implement anonymous object promotion feature if needed
-        expected_field_declaration_part1 = "items: Optional[List[Dict[str, Any]]] = field("
+        expected_field_declaration_part1 = "items: List[dict[str, Any]] | None = field("
         expected_field_declaration_part2 = "default_factory=list"
         # We need to check for these parts, accommodating potential whitespace/formatting variations.
 
@@ -547,7 +546,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # Search for the default_factory part
         self.assertIn("default_factory=list", generated_code)
 
-        # Test passes - anonymous objects correctly fall back to Dict[str, Any]
+        # Test passes - anonymous objects correctly fall back to dict[str, Any]
 
         self.assertIn(
             "List", context.import_collector.imports.get("typing", set()), "List should be imported from typing"
@@ -597,7 +596,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
 
         self.assertIsNotNone(schema_with_defaults.name)
         assert schema_with_defaults.name is not None
-        all_schemas: Dict[str, IRSchema] = {schema_with_defaults.name: schema_with_defaults}
+        all_schemas: dict[str, IRSchema] = {schema_with_defaults.name: schema_with_defaults}
         # Prepare schema
         if schema_with_defaults.name:  # Should always be true
             schema_with_defaults.generation_name = NameSanitizer.sanitize_class_name(schema_with_defaults.name)
@@ -618,14 +617,14 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
 
         # Check specific field patterns (handling multi-line fields)
         self.assertIn("required_with_default: str", generated_code)  # Required field, no default
-        self.assertIn("active: Optional[bool] = True", generated_code)
-        self.assertIn("config_: Optional[Dict[str, Any]] = field(", generated_code)  # Multi-line field
+        self.assertIn("active: bool | None = True", generated_code)
+        self.assertIn("config_: dict[str, Any] | None = field(", generated_code)  # Multi-line field
         self.assertIn("default_factory=dict", generated_code)
-        self.assertIn("count: Optional[int] = 0", generated_code)
-        self.assertIn('name: Optional[str] = "Default Name"', generated_code)
-        self.assertIn("no_default_optional: Optional[str] = None", generated_code)
-        self.assertIn('nullable_with_default: Optional[str] = "Nullable Default"', generated_code)
-        self.assertIn("tags: Optional[List[str]] = field(default_factory=list)", generated_code)
+        self.assertIn("count: int | None = 0", generated_code)
+        self.assertIn('name: str | None = "Default Name"', generated_code)
+        self.assertIn("no_default_optional: str | None = None", generated_code)
+        self.assertIn('nullable_with_default: str | None = "Nullable Default"', generated_code)
+        self.assertIn("tags: List[str] | None = field(default_factory=list)", generated_code)
 
         # Check for BaseSchema Meta class
         self.assertIn("class Meta:", generated_code)

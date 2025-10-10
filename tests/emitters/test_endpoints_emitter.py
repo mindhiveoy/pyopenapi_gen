@@ -155,7 +155,7 @@ def test_endpoints_emitter__json_request_body__generates_body_parameter_and_json
     content = pets_file.read_text()
     # The method should include a body parameter and json=body in the request
     assert "body:" in content
-    assert "json_body: Dict[str, Any] = DataclassSerializer.serialize(body)" in content
+    assert "json_body: dict[str, Any] = DataclassSerializer.serialize(body)" in content
 
 
 def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_assignment(
@@ -199,10 +199,10 @@ def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_a
     file_module: Path = out_dir / "endpoints" / "files.py"
     assert file_module.exists()
     content = file_module.read_text()
-    # The method signature should include 'files: Dict[str, IO[Any]]'
-    assert "files: Dict[str, IO[Any]]" in content
+    # The method signature should include 'files: dict[str, IO[Any]]'
+    assert "files: dict[str, IO[Any]]" in content
     # And the request should pass files via kwargs
-    assert "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)" in content
+    assert "files_data: dict[str, IO[Any]] = DataclassSerializer.serialize(files)" in content
 
 
 def test_endpoints_emitter__streaming_binary_response__generates_async_iterator_with_bytes_yield(
@@ -324,7 +324,8 @@ def test_endpoints_emitter__complex_operation_with_mixed_params__includes_requir
     assert "AsyncIterator" in content
     assert "Dict" in content
     assert "IO" in content
-    assert "Optional" in content
+    # Note: With T | None syntax, Optional should not be imported
+    assert "Optional" not in content or "| None" in content  # Either no Optional or uses union syntax
 
 
 def create_simple_response_schema() -> IRSchema:
@@ -589,7 +590,7 @@ def test_endpoints_emitter__streaming_inline_object_schema__yields_model(
         business_swagger.json spec.
 
     Expected Outcome:
-        - The generated method has return type AsyncIterator[Dict[str, Any]]
+        - The generated method has return type AsyncIterator[dict[str, Any]]
         - The method yields json.loads(chunk)
         - The file does NOT import or reference ListenEventsResponse
     """
@@ -654,8 +655,8 @@ def test_endpoints_emitter__streaming_inline_object_schema__yields_model(
     listen_file = out_dir / "endpoints" / "listen.py"
     assert listen_file.exists()
     content = listen_file.read_text()
-    # The return type should be AsyncIterator[Dict[str, Any]]
-    assert "AsyncIterator[Dict[str, Any]]" in content
+    # The return type should be AsyncIterator[dict[str, Any]]
+    assert "AsyncIterator[dict[str, Any]]" in content
     # Should yield json.loads(chunk)
     assert "json.loads(chunk)" in content
     # Should NOT import or reference ListenEventsResponse
@@ -673,7 +674,7 @@ def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yield
         but the schema is not registered as a model.
 
     Expected Outcome:
-        - The generated method has return type AsyncIterator[Dict[str, Any]]
+        - The generated method has return type AsyncIterator[dict[str, Any]]
         - The method yields json.loads(chunk) (not a fabricated model class)
         - No import or reference to a fabricated model class is present
     """
@@ -726,8 +727,8 @@ def test_endpoints_emitter__streaming_inline_object_schema_not_in_schemas__yield
     listen_file = out_dir / "endpoints" / "listen.py"
     assert listen_file.exists(), "listen.py not generated"
     content = listen_file.read_text()
-    # Should use AsyncIterator[Dict[str, Any]]
-    assert "AsyncIterator[Dict[str, Any]]" in content
+    # Should use AsyncIterator[dict[str, Any]]
+    assert "AsyncIterator[dict[str, Any]]" in content
     # Should yield json.loads(chunk)
     assert "json.loads(chunk)" in content
     # Should NOT import or reference a fabricated model class

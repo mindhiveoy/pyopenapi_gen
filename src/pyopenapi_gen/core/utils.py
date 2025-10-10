@@ -8,7 +8,7 @@ import keyword
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, Set, Type, TypeVar, cast
+from typing import Any, Set, Type, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +228,7 @@ class ParamSubstitutor:
     """Helper for rendering path templates with path parameters."""
 
     @staticmethod
-    def render_path(template: str, values: Dict[str, Any]) -> str:
+    def render_path(template: str, values: dict[str, Any]) -> str:
         """Replace placeholders in a URL path template using provided values."""
         rendered = template
         for key, val in values.items():
@@ -240,7 +240,7 @@ class KwargsBuilder:
     """Builder for assembling HTTP request keyword arguments."""
 
     def __init__(self) -> None:
-        self._kwargs: Dict[str, Any] = {}
+        self._kwargs: dict[str, Any] = {}
 
     def with_params(self, **params: Any) -> "KwargsBuilder":
         """Add query parameters, skipping None values."""
@@ -254,7 +254,7 @@ class KwargsBuilder:
         self._kwargs["json"] = body
         return self
 
-    def build(self) -> Dict[str, Any]:
+    def build(self) -> dict[str, Any]:
         """Return the assembled kwargs dictionary."""
         return self._kwargs
 
@@ -263,10 +263,10 @@ class Formatter:
     """Helper to format code using Black, falling back to unformatted content if Black is unavailable or errors."""
 
     def __init__(self) -> None:
-        from typing import Any, Callable, Optional
+        from typing import Any, Callable
 
-        self._file_mode: Optional[Any] = None
-        self._format_str: Optional[Callable[..., str]] = None
+        self._file_mode: Any | None = None
+        self._format_str: Callable[..., str] | None = None
         try:
             from black import FileMode, format_str
 
