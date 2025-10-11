@@ -48,6 +48,12 @@ jobs:
       run: |
         poetry install --with dev
 
+    - name: Validate version synchronisation
+      run: |
+        echo "🔍 Checking that all version files are synchronised..."
+        poetry run python scripts/validate_version_sync.py
+        echo "✅ All version files are in sync"
+
     - name: Run comprehensive quality checks
       run: |
         poetry run black --check src/ tests/
