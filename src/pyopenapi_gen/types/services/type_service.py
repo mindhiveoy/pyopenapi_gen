@@ -144,6 +144,10 @@ class UnifiedTypeService:
 
         # Quote forward references BEFORE adding | None so we get: "DataSource" | None not "DataSource | None"
         if resolved.is_forward_ref and not python_type.startswith('"'):
+            logger.debug(
+                f'Quoting forward ref: {python_type} -> "{python_type}" '
+                f"(is_forward_ref={resolved.is_forward_ref}, needs_import={resolved.needs_import})"
+            )
             python_type = f'"{python_type}"'
 
         # Add modern | None syntax if needed

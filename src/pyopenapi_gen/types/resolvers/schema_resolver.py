@@ -201,10 +201,24 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             # If anything goes wrong with attribute access, assume not a self-reference
             current_file = None
 
-        # Only treat as self-reference if we have a real file path that matches
-        if current_file and isinstance(current_file, str) and current_file.endswith(f"{module_stem}.py"):
+        # Only treat as self-reference if the EXACT filename matches (not just a suffix)
+        # Bug fix: Use basename comparison to avoid false positives with similar names
+        # e.g., "vector_index_with_embedding_response_data.py" should NOT match "embedding_response_data.py"
+        is_self_import = False
+        if current_file and isinstance(current_file, str):
+            import os
+
+            current_filename = os.path.basename(current_file)
+            expected_filename = f"{module_stem}.py"
+            is_self_import = current_filename == expected_filename
+
+        if is_self_import:
             # This is a self-import (importing from the same file), so skip the import
             # and mark as forward reference to require quoting
+            logger.debug(
+                f"Self-import detected: current_file={current_file}, module_stem={module_stem}, "
+                f"class_name={class_name}, returning forward ref WITHOUT import"
+            )
             return ResolvedType(python_type=class_name or "Any", is_optional=not required, is_forward_ref=True)
 
         # Use the render context's relative path calculation to determine proper import path
@@ -226,6 +240,10 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 # If relative path calculation fails, fall back to the default
                 logger.debug(f"Failed to calculate relative path for {module_stem}, using default: {e}")
 
+        logger.debug(
+            f"Adding import for named schema: module={import_module}, name={class_name}, "
+            f"current_file={current_file}, module_stem={module_stem}"
+        )
         context.add_import(import_module, class_name or "Any")
 
         return ResolvedType(
