@@ -412,7 +412,7 @@
         }
       }
     },
-    "/embeddings/{embedModelId}": {
+    "/embeddings/{embeddingId}": {
       "get": {
         "summary": "Get a specific embedding",
         "operationId": "getEmbedding",
@@ -423,7 +423,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "embedModelId",
+            "name": "embeddingId",
             "required": true,
             "schema": {
               "type": "string"
@@ -433,7 +433,14 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/schemas/EmbeddingResponse"
+            "description": "Embedding retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEmbeddingsEmbeddingIdResponse200"
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -459,7 +466,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "embedModelId",
+            "name": "embeddingId",
             "required": true,
             "schema": {
               "type": "string"
@@ -472,14 +479,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutEmbeddingsEmbedModelIdRequestBody"
+                "$ref": "#/components/schemas/PutEmbeddingsEmbeddingIdRequestBody"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "$ref": "#/components/schemas/EmbeddingResponse"
+            "description": "Embedding updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEmbeddingsEmbeddingIdResponse200"
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/BadRequestError"
@@ -508,7 +522,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "embedModelId",
+            "name": "embeddingId",
             "required": true,
             "schema": {
               "type": "string"
@@ -518,7 +532,7 @@
         ],
         "responses": {
           "204": {
-            "$ref": "#/components/responses/NoContentResponse"
+            "description": "Embedding deleted successfully (No Content)"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -588,14 +602,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutEmbeddingsEmbedModelIdRequestBody"
+                "$ref": "#/components/schemas/PutEmbeddingsEmbeddingIdRequestBody"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "$ref": "#/components/schemas/EmbeddingResponse"
+            "description": "Embedding created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEmbeddingsEmbeddingIdResponse200"
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/BadRequestError"
@@ -5094,7 +5115,7 @@
             "in": "query",
             "name": "status",
             "schema": {
-              "$ref": "#/components/schemas/DocumentStatusEnum"
+              "$ref": "#/components/schemas/DocumentStatus"
             },
             "required": false,
             "description": "Filter documents by status"
@@ -5478,7 +5499,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DataSourceResponse"
+                  "$ref": "#/components/schemas/DataSource"
                 }
               }
             }
@@ -8372,14 +8393,15 @@
         "tags": [
           "Indices"
         ],
-        "description": "Returns a specific vector index. Only available to system users.",
+        "description": "Returns a specific vector index with its embedding model. Only available to system users.",
         "parameters": [
           {
             "name": "vectorDatabaseId",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "description": "The ID of the vector database"
           },
@@ -8388,21 +8410,15 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "description": "The ID of the vector index"
           }
         ],
         "responses": {
           "200": {
-            "description": "Vector index details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VectorIndexResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/VectorIndexWithEmbeddingResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -8431,7 +8447,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "description": "The ID of the vector database"
           },
@@ -8440,7 +8457,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "description": "The ID of the vector index"
           }
@@ -8457,14 +8475,7 @@
         },
         "responses": {
           "200": {
-            "description": "Vector index updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VectorIndexResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/VectorIndexWithEmbeddingResponse"
           },
           "400": {
             "$ref": "#/components/responses/BadRequestError"
@@ -8477,6 +8488,19 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFoundError"
+          },
+          "409": {
+            "description": "Conflict - Index with this name already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutVectorDatabasesVectorDatabaseIdIndicesIndexIdResponse409"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -8496,7 +8520,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "description": "The ID of the vector database"
           },
@@ -8505,14 +8530,15 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "description": "The ID of the vector index"
           }
         ],
         "responses": {
           "204": {
-            "description": "Vector index deleted successfully"
+            "description": "Vector index deleted successfully (No Content)"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -8825,7 +8851,7 @@
           "cancelled",
           "scheduled"
         ],
-        "description": "Job status enumeration"
+        "description": "Job status enum"
       },
       "JobType": {
         "type": "string",
@@ -8835,7 +8861,7 @@
           "fileStorage",
           "agentReport"
         ],
-        "description": "Job type enumeration"
+        "description": "Job type enum"
       },
       "Job": {
         "type": "object",
@@ -9359,7 +9385,7 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/TenantStatusEnum"
+            "$ref": "#/components/schemas/TenantStatus"
           },
           "id": {
             "type": "string"
@@ -9505,7 +9531,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceTypeEnum"
+            "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
@@ -9584,10 +9610,10 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/DocumentStatusEnum"
+            "$ref": "#/components/schemas/DocumentStatus"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentTypeEnum"
+            "$ref": "#/components/schemas/DocumentType"
           },
           "id": {
             "type": "string"
@@ -9872,7 +9898,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/FoundationModelTypeEnum"
+            "$ref": "#/components/schemas/FoundationModelType"
           },
           "vendor": {
             "$ref": "#/components/schemas/EmbeddingVendorEnum"
@@ -9944,7 +9970,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/VectorDatabaseTypeEnum"
+            "$ref": "#/components/schemas/VectorDatabaseType"
           },
           "id": {
             "type": "string"
@@ -9991,7 +10017,7 @@
         "type": "object",
         "properties": {
           "metric": {
-            "$ref": "#/components/schemas/VectorIndexMetricEnum"
+            "$ref": "#/components/schemas/VectorMetricType"
           },
           "id": {
             "type": "string"
@@ -10105,7 +10131,7 @@
         "type": "object",
         "properties": {
           "rating": {
-            "$ref": "#/components/schemas/FeedbackRatingEnum"
+            "$ref": "#/components/schemas/FeedbackRating"
           },
           "id": {
             "type": "string"
@@ -10407,7 +10433,7 @@
             "maxLength": 1000
           },
           "status": {
-            "$ref": "#/components/schemas/TenantStatusEnum"
+            "$ref": "#/components/schemas/TenantStatus"
           },
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
@@ -10445,7 +10471,7 @@
             "maxLength": 1000
           },
           "status": {
-            "$ref": "#/components/schemas/TenantStatusEnum"
+            "$ref": "#/components/schemas/TenantStatus"
           },
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
@@ -10666,7 +10692,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentTypeEnum"
+            "$ref": "#/components/schemas/DocumentType"
           },
           "mimeType": {
             "type": "string",
@@ -10698,7 +10724,7 @@
             "minimum": 0
           },
           "status": {
-            "$ref": "#/components/schemas/DocumentStatusEnum"
+            "$ref": "#/components/schemas/DocumentStatus"
           },
           "size": {
             "type": "number",
@@ -10725,7 +10751,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentTypeEnum"
+            "$ref": "#/components/schemas/DocumentType"
           },
           "dataSourceId": {
             "type": "string"
@@ -10760,7 +10786,7 @@
             "minimum": 0
           },
           "status": {
-            "$ref": "#/components/schemas/DocumentStatusEnum"
+            "$ref": "#/components/schemas/DocumentStatus"
           },
           "size": {
             "type": "number",
@@ -11070,7 +11096,7 @@
         "type": "object",
         "properties": {
           "rating": {
-            "$ref": "#/components/schemas/FeedbackRatingEnum"
+            "$ref": "#/components/schemas/FeedbackRating"
           },
           "content": {
             "type": "string",
@@ -11124,7 +11150,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/DataSourceTypeEnum"
+            "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
@@ -11185,7 +11211,7 @@
             "maxLength": 1000
           },
           "type": {
-            "$ref": "#/components/schemas/DataSourceTypeEnum"
+            "$ref": "#/components/schemas/DataSourceType"
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -11223,7 +11249,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceEventCreateTypeEnum"
+            "$ref": "#/components/schemas/DataSourceEventType"
           },
           "message": {
             "type": "string",
@@ -11283,7 +11309,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceEventCreateTypeEnum"
+            "$ref": "#/components/schemas/DataSourceEventType"
           },
           "id": {
             "type": "string"
@@ -11407,6 +11433,72 @@
         ],
         "description": "List of agent data sources with pagination"
       },
+      "EmbeddingCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "internalName": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "number",
+            "minimum": 1
+          },
+          "vendor": {
+            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "config": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "name",
+          "internalName",
+          "dimension",
+          "vendor"
+        ],
+        "description": "Schema for creating an embedding"
+      },
+      "EmbeddingUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "internalName": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "number",
+            "minimum": 1
+          },
+          "vendor": {
+            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "config": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "description": "Schema for updating an embedding"
+      },
       "EmbeddingResponse": {
         "type": "object",
         "properties": {
@@ -11451,7 +11543,7 @@
             "minLength": 1
           },
           "type": {
-            "$ref": "#/components/schemas/FoundationModelTypeEnum"
+            "$ref": "#/components/schemas/FoundationModelType"
           },
           "vendor": {
             "$ref": "#/components/schemas/EmbeddingVendorEnum"
@@ -11491,7 +11583,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/FoundationModelTypeEnum"
+            "$ref": "#/components/schemas/FoundationModelType"
           },
           "vendor": {
             "$ref": "#/components/schemas/EmbeddingVendorEnum"
@@ -11553,7 +11645,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/VectorDatabaseTypeEnum"
+            "$ref": "#/components/schemas/VectorDatabaseType"
           },
           "description": {
             "type": "string",
@@ -11584,7 +11676,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/VectorDatabaseTypeEnum"
+            "$ref": "#/components/schemas/VectorDatabaseType"
           },
           "description": {
             "type": "string",
@@ -11601,6 +11693,18 @@
           }
         },
         "description": "Schema for updating a vector database"
+      },
+      "VectorIndexWithEmbeddingResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/VectorIndexWithEmbeddingResponseData"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "description": "Single vector index with embedding"
       },
       "VectorDatabaseResponse": {
         "type": "object",
@@ -11641,7 +11745,7 @@
             "minimum": 1
           },
           "metric": {
-            "$ref": "#/components/schemas/VectorIndexMetricEnum"
+            "$ref": "#/components/schemas/VectorMetricType"
           },
           "embedModelId": {
             "type": "string",
@@ -11690,7 +11794,7 @@
             "minimum": 1
           },
           "metric": {
-            "$ref": "#/components/schemas/VectorIndexMetricEnum"
+            "$ref": "#/components/schemas/VectorMetricType"
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -11702,7 +11806,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/VectorIndexResponseData"
+            "$ref": "#/components/schemas/VectorIndexWithEmbeddingResponseData"
           }
         },
         "required": [
@@ -11716,7 +11820,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/VectorIndexResponseData"
+              "$ref": "#/components/schemas/VectorIndexListResponseDataItem"
             }
           },
           "meta": {
@@ -11934,7 +12038,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/DataSourceTypeEnum"
+            "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
@@ -12013,6 +12117,134 @@
           "documentId"
         ],
         "description": "Clean document response"
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": [
+          "user",
+          "admin",
+          "system"
+        ],
+        "description": "User role enum"
+      },
+      "TenantStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "prospect",
+          "active",
+          "archived"
+        ],
+        "description": "Tenant status enum"
+      },
+      "DataSourceType": {
+        "type": "string",
+        "enum": [
+          "fileStorage",
+          "webScraper",
+          "wordPressSite",
+          "toolMapping",
+          "dataset",
+          "scrapBook"
+        ],
+        "description": "Data source type enum"
+      },
+      "DataSourceEventType": {
+        "type": "string",
+        "enum": [
+          "created",
+          "configured",
+          "scheduled",
+          "documentAdded",
+          "documentUpdated",
+          "documentRemoved",
+          "error",
+          "info",
+          "warning"
+        ],
+        "description": "Data source event type enum"
+      },
+      "DocumentType": {
+        "type": "string",
+        "enum": [
+          "pdf",
+          "html",
+          "markdown",
+          "docx",
+          "txt",
+          "pptx",
+          "xlsx",
+          "csv",
+          "json",
+          "url",
+          "wordpress",
+          "image",
+          "unknown"
+        ],
+        "description": "Document type enum"
+      },
+      "DocumentStatus": {
+        "type": "string",
+        "enum": [
+          "indexed",
+          "waiting",
+          "processing",
+          "error"
+        ],
+        "description": "Document status enum"
+      },
+      "FoundationModelType": {
+        "type": "string",
+        "enum": [
+          "llm",
+          "image",
+          "tts",
+          "moderation",
+          "audio",
+          "realtime"
+        ],
+        "description": "Foundation model type enum"
+      },
+      "MessageRole": {
+        "type": "string",
+        "enum": [
+          "user",
+          "ai",
+          "function",
+          "error",
+          "thinking"
+        ],
+        "description": "Message role enum"
+      },
+      "VectorDatabaseType": {
+        "type": "string",
+        "enum": [
+          "pinecone",
+          "qdrant",
+          "weaviate",
+          "milvus",
+          "redis",
+          "pgvector"
+        ],
+        "description": "Vector database type enum"
+      },
+      "VectorMetricType": {
+        "type": "string",
+        "enum": [
+          "dot",
+          "cosine",
+          "euclid",
+          "manhattan"
+        ],
+        "description": "Vector metric type enum"
+      },
+      "FeedbackRating": {
+        "type": "string",
+        "enum": [
+          "positive",
+          "negative"
+        ],
+        "description": "Feedback rating enum"
       },
       "Error422ValidationErrorsItem": {
         "type": "object",
@@ -12211,7 +12443,7 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/TenantStatusEnum"
+            "$ref": "#/components/schemas/TenantStatus"
           },
           "id": {
             "type": "string"
@@ -12267,7 +12499,7 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/TenantStatusEnum"
+            "$ref": "#/components/schemas/TenantStatus"
           },
           "id": {
             "type": "string"
@@ -12430,10 +12662,10 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/DocumentStatusEnum"
+            "$ref": "#/components/schemas/DocumentStatus"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentTypeEnum"
+            "$ref": "#/components/schemas/DocumentType"
           },
           "id": {
             "type": "string"
@@ -12691,7 +12923,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceTypeEnum"
+            "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
@@ -12769,7 +13001,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceTypeEnum"
+            "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
@@ -12920,7 +13152,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/FoundationModelTypeEnum"
+            "$ref": "#/components/schemas/FoundationModelType"
           },
           "vendor": {
             "$ref": "#/components/schemas/EmbeddingVendorEnum"
@@ -12987,11 +13219,68 @@
           "updatedAt"
         ]
       },
+      "VectorIndexWithEmbeddingResponseData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "dimension": {
+            "type": "number",
+            "minimum": 1
+          },
+          "metric": {
+            "$ref": "#/components/schemas/VectorMetricType"
+          },
+          "config": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "vectorDatabaseId": {
+            "type": "string"
+          },
+          "embedModelId": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "embedding": {
+            "$ref": "#/components/schemas/EmbeddingResponseData"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "dimension",
+          "vectorDatabaseId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "VectorDatabaseResponseData": {
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/VectorDatabaseTypeEnum"
+            "$ref": "#/components/schemas/VectorDatabaseType"
           },
           "id": {
             "type": "string"
@@ -13033,11 +13322,11 @@
           "updatedAt"
         ]
       },
-      "VectorIndexResponseData": {
+      "VectorIndexListResponseDataItem": {
         "type": "object",
         "properties": {
           "metric": {
-            "$ref": "#/components/schemas/VectorIndexMetricEnum"
+            "$ref": "#/components/schemas/VectorMetricType"
           },
           "id": {
             "type": "string"
@@ -13168,7 +13457,15 @@
           }
         }
       },
-      "PutEmbeddingsEmbedModelIdRequestBody": {
+      "GetEmbeddingsEmbeddingIdResponse200": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Embedding"
+          }
+        }
+      },
+      "PutEmbeddingsEmbeddingIdRequestBody": {
         "type": "object",
         "required": [
           "name",
@@ -13203,7 +13500,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/EmbeddingResponse"
+              "$ref": "#/components/schemas/Embedding"
             }
           }
         }
@@ -13521,7 +13818,7 @@
         ],
         "properties": {
           "rating": {
-            "$ref": "#/components/schemas/FeedbackRatingEnum"
+            "$ref": "#/components/schemas/FeedbackRating"
           }
         }
       },
@@ -13841,7 +14138,7 @@
         ],
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceEventCreateTypeEnum"
+            "$ref": "#/components/schemas/DataSourceEventType"
           },
           "message": {
             "type": "string",
@@ -14171,6 +14468,19 @@
           },
           "tenant": {
             "$ref": "#/components/schemas/GetApiTenantsValidateResponse200Tenant"
+          }
+        }
+      },
+      "PutVectorDatabasesVectorDatabaseIdIndicesIndexIdResponse409": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "An index with this name already exists in the database"
+          },
+          "code": {
+            "type": "string",
+            "example": "DUPLICATE_INDEX_NAME"
           }
         }
       },
@@ -15030,24 +15340,6 @@
           }
         }
       },
-      "UserRole": {
-        "type": "string",
-        "description": "User role enumeration",
-        "enum": [
-          "user",
-          "admin",
-          "system"
-        ]
-      },
-      "TenantStatus": {
-        "type": "string",
-        "description": "Tenant status enumeration",
-        "enum": [
-          "active",
-          "inactive",
-          "pending"
-        ]
-      },
       "JsonObject": {
         "type": "object",
         "description": "Generic JSON object",
@@ -15080,18 +15372,6 @@
       "ChatUpdate": {
         "type": "object",
         "description": "Schema for updating Chat",
-        "properties": {},
-        "additionalProperties": true
-      },
-      "EmbeddingCreate": {
-        "type": "object",
-        "description": "Schema for creating Embedding",
-        "properties": {},
-        "additionalProperties": true
-      },
-      "EmbeddingUpdate": {
-        "type": "object",
-        "description": "Schema for updating Embedding",
         "properties": {},
         "additionalProperties": true
       },
@@ -15178,26 +15458,6 @@
           "subAgent"
         ]
       },
-      "TenantStatusEnum": {
-        "type": "string",
-        "enum": [
-          "draft",
-          "prospect",
-          "active",
-          "archived"
-        ]
-      },
-      "DataSourceTypeEnum": {
-        "type": "string",
-        "enum": [
-          "fileStorage",
-          "webScraper",
-          "wordPressSite",
-          "toolMapping",
-          "dataset",
-          "scrapBook"
-        ]
-      },
       "DataSourceIntervalTypeEnum": {
         "type": "string",
         "enum": [
@@ -15208,33 +15468,6 @@
           "webHook"
         ]
       },
-      "DocumentStatusEnum": {
-        "type": "string",
-        "enum": [
-          "indexed",
-          "waiting",
-          "processing",
-          "error"
-        ]
-      },
-      "DocumentTypeEnum": {
-        "type": "string",
-        "enum": [
-          "pdf",
-          "html",
-          "markdown",
-          "docx",
-          "txt",
-          "pptx",
-          "xlsx",
-          "csv",
-          "json",
-          "url",
-          "wordpress",
-          "image",
-          "unknown"
-        ]
-      },
       "EmbeddingVendorEnum": {
         "type": "string",
         "enum": [
@@ -15242,59 +15475,6 @@
           "anthropic",
           "google",
           "azure"
-        ]
-      },
-      "FoundationModelTypeEnum": {
-        "type": "string",
-        "enum": [
-          "llm",
-          "image",
-          "tts",
-          "moderation",
-          "audio",
-          "realtime"
-        ]
-      },
-      "VectorDatabaseTypeEnum": {
-        "type": "string",
-        "enum": [
-          "pinecone",
-          "qdrant",
-          "weaviate",
-          "milvus",
-          "redis",
-          "pgvector"
-        ]
-      },
-      "VectorIndexMetricEnum": {
-        "type": "string",
-        "nullable": true,
-        "enum": [
-          "dot",
-          "cosine",
-          "euclid",
-          "manhattan"
-        ]
-      },
-      "FeedbackRatingEnum": {
-        "type": "string",
-        "enum": [
-          "positive",
-          "negative"
-        ]
-      },
-      "DataSourceEventCreateTypeEnum": {
-        "type": "string",
-        "enum": [
-          "created",
-          "configured",
-          "scheduled",
-          "documentAdded",
-          "documentUpdated",
-          "documentRemoved",
-          "error",
-          "info",
-          "warning"
         ]
       },
       "PutFoundationModelsModelIdRequestBodyTypeEnum": {
