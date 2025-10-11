@@ -43,7 +43,7 @@ __all__ = [
 ]
 
 # Semantic version of the generator core – automatically managed by semantic-release.
-__version__: str = "0.10.2"
+__version__: str = "0.14.3"
 
 
 # ---------------------------------------------------------------------------
