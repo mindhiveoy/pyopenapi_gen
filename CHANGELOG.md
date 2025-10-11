@@ -1,6 +1,44 @@
 # CHANGELOG
 
 
+## v0.14.3 (2025-10-11)
+
+### Bug Fixes
+
+- **core**: Resolve ImportError for sibling core packages in shared mode
+  ([`5f76cac`](https://github.com/mindhiveoy/pyopenapi_gen/commit/5f76caca6f13ef786e8920fb52dca9e1d02f5dbe))
+
+Fix ImportError when generating clients with shared core packages by using absolute imports instead
+  of relative imports for root-level sibling packages.
+
+Root cause: Python doesn't support relative imports beyond top-level packages. When core/ and
+  businessapi/ are siblings at root, "from ..core" fails because there's no parent package to
+  traverse.
+
+Implementation: - Modified RenderContext.add_import() to use absolute imports for core packages -
+  Added get_core_import_path() helper for import path calculation - Updated dataclass_generator.py
+  and python_construct_renderer.py - Core imports now use: "from core.schemas import BaseSchema" -
+  Previous broken format: "from ..core.schemas import BaseSchema"
+
+Testing: - Added comprehensive test suite with 7 scenarios for import path calculation - Updated
+  existing test assertions to expect absolute import format - All 1306 tests passing with 88.18%
+  coverage - Verified with business_swagger.json (1127 schemas, 117 operations) - Import validation:
+  PYTHONPATH=/path/to/output python -c "from businessapi.client import APIClient"
+
+Files modified: - src/pyopenapi_gen/context/render_context.py -
+  src/pyopenapi_gen/core/writers/python_construct_renderer.py -
+  src/pyopenapi_gen/visit/model/dataclass_generator.py -
+  tests/core/writers/test_python_construct_renderer_json_wizard.py -
+  tests/visit/model/test_dataclass_generator_json_wizard.py - tests/visit/test_model_visitor.py
+
+Files added: - tests/context/test_core_import_path.py
+
+### Chores
+
+- **deps**: Update dependencies in poetry.lock
+  ([`fcfa26c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/fcfa26c47b4cbce01eb7a4ccd68c02f5bf4d8c02))
+
+
 ## v0.14.2 (2025-10-10)
 
 ### Bug Fixes
