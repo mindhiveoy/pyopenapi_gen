@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -225,11 +225,11 @@ def test_codegen__analytics_with_query_params__generates_params_dict(
     assert analytics_file.exists(), "analytics.py not generated"
     content = analytics_file.read_text()
 
-    # Updated pattern to match - the newer code may use a different format
-    match = re.search(r"params: Dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
+    # Updated pattern to match - uses modern dict syntax (lowercase)
+    match = re.search(r"params: dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
     if not match:
-        # Try alternate pattern, also with Dict
-        match = re.search(r"query_params: Dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
+        # Try alternate pattern with query_params
+        match = re.search(r"query_params: dict\[str, Any\] = \{([\s\S]*?)\}\n", content, re.MULTILINE)
 
     assert match, "params/query_params dict assignment not found in generated code"
     params_block = match.group(1)
@@ -438,7 +438,7 @@ class TestParseSchemaAllOfMerging:
                 - 'all_of' attribute still contains the IRSchema representations of the schemas in the allOf list.
         """
         # Arrange
-        raw_schemas_dict: Dict[str, Any] = {
+        raw_schemas_dict: dict[str, Any] = {
             "BaseSchema": {
                 "type": "object",
                 "properties": {
@@ -533,7 +533,7 @@ class TestParseSchemaAllOfMerging:
             - Properties and required fields should solely come from the 'allOf' components.
         """
         # Arrange
-        raw_schemas_dict: Dict[str, Any] = {
+        raw_schemas_dict: dict[str, Any] = {
             "BaseSchema": {
                 "type": "object",
                 "properties": {"base_prop": {"type": "string"}},
@@ -571,7 +571,7 @@ class TestParseSchemaAllOfMerging:
             - Properties and required fields should come directly from the schema itself.
         """
         # Arrange
-        raw_schemas_dict: Dict[str, Any] = {
+        raw_schemas_dict: dict[str, Any] = {
             "DirectOnly": {
                 "type": "object",
                 "properties": {"direct_prop": {"type": "integer"}},

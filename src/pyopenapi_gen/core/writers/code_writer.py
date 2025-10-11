@@ -6,7 +6,7 @@ writing lines and blocks, and supporting wrapped output for code and docstrings.
 to be used by code generation visitors and emitters to ensure consistent, readable output.
 """
 
-from typing import List, Optional
+from typing import List
 
 from .line_writer import LineWriter
 
@@ -88,7 +88,7 @@ class CodeWriter:
         self.writer.max_width = old_width
 
     def write_function_signature(
-        self, name: str, args: List[str], return_type: Optional[str] = None, async_: bool = False
+        self, name: str, args: List[str], return_type: str | None = None, async_: bool = False
     ) -> None:
         """
         Write a function or method signature, with each argument on its own line and correct indentation.

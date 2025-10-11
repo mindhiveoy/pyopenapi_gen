@@ -6,7 +6,7 @@ Provides functions to parse and transform OpenAPI responses into IR format.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Mapping
+from typing import Any, Mapping
 
 from pyopenapi_gen import IRResponse, IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -43,7 +43,7 @@ def parse_response(
     if not operation_id_for_promo:
         raise ValueError("operation_id_for_promo must be provided")
 
-    content: Dict[str, IRSchema] = {}
+    content: dict[str, IRSchema] = {}
     STREAM_FORMATS = {
         "application/octet-stream": "octet-stream",
         "text/event-stream": "event-stream",

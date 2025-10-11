@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import List, Set
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -62,10 +62,10 @@ class CycleDetectionResult:
     """Result of cycle detection check."""
 
     is_cycle: bool
-    cycle_type: Optional[CycleType]
+    cycle_type: CycleType | None
     action: CycleAction
-    cycle_info: Optional[CycleInfo] = None
-    placeholder_schema: Optional[IRSchema] = None
+    cycle_info: CycleInfo | None = None
+    placeholder_schema: IRSchema | None = None
 
 
 @dataclass
@@ -74,8 +74,8 @@ class UnifiedCycleContext:
 
     # Core tracking
     schema_stack: List[str] = field(default_factory=list)
-    schema_states: Dict[str, SchemaState] = field(default_factory=dict)
-    parsed_schemas: Dict[str, IRSchema] = field(default_factory=dict)
+    schema_states: dict[str, SchemaState] = field(default_factory=dict)
+    parsed_schemas: dict[str, IRSchema] = field(default_factory=dict)
     recursion_depth: int = 0
 
     # Detection results
@@ -155,7 +155,7 @@ def create_depth_placeholder(schema_name: str, depth: int) -> IRSchema:
     )
 
 
-def unified_cycle_check(schema_name: Optional[str], context: UnifiedCycleContext) -> CycleDetectionResult:
+def unified_cycle_check(schema_name: str | None, context: UnifiedCycleContext) -> CycleDetectionResult:
     """Unified cycle detection that handles all cases."""
 
     if schema_name is None:
@@ -262,7 +262,7 @@ def unified_cycle_check(schema_name: Optional[str], context: UnifiedCycleContext
     return CycleDetectionResult(False, None, CycleAction.CONTINUE_PARSING)
 
 
-def unified_enter_schema(schema_name: Optional[str], context: UnifiedCycleContext) -> CycleDetectionResult:
+def unified_enter_schema(schema_name: str | None, context: UnifiedCycleContext) -> CycleDetectionResult:
     """Unified entry point that always maintains consistent state."""
     context.recursion_depth += 1
 
@@ -275,7 +275,7 @@ def unified_enter_schema(schema_name: Optional[str], context: UnifiedCycleContex
     return result
 
 
-def unified_exit_schema(schema_name: Optional[str], context: UnifiedCycleContext) -> None:
+def unified_exit_schema(schema_name: str | None, context: UnifiedCycleContext) -> None:
     """Unified exit that always maintains consistent state."""
     if context.recursion_depth > 0:
         context.recursion_depth -= 1
@@ -288,6 +288,6 @@ def unified_exit_schema(schema_name: Optional[str], context: UnifiedCycleContext
         context.schema_states[schema_name] = SchemaState.COMPLETED
 
 
-def get_schema_or_placeholder(schema_name: str, context: UnifiedCycleContext) -> Optional[IRSchema]:
+def get_schema_or_placeholder(schema_name: str, context: UnifiedCycleContext) -> IRSchema | None:
     """Get an existing schema or placeholder from the context."""
     return context.parsed_schemas.get(schema_name)

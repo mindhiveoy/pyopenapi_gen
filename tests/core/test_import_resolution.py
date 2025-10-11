@@ -1,7 +1,6 @@
 """Unit test for import resolution in generated code."""
 
 import unittest
-from typing import Dict
 
 from pyopenapi_gen import IRSchema, IRSpec
 
@@ -43,7 +42,7 @@ class TestImportResolution(unittest.TestCase):
         )
 
         # Create a simple spec with both schemas
-        schemas: Dict[str, IRSchema] = {"MessageA": schema_a, "MessageB": schema_b}
+        schemas: dict[str, IRSchema] = {"MessageA": schema_a, "MessageB": schema_b}
 
         # Create a minimal IR spec
         ir_spec = IRSpec(title="Test API", version="1.0.0", schemas=schemas, operations=[], servers=[])

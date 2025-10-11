@@ -37,7 +37,7 @@ class TestObjectTypeResolver:
     def test_object_resolver__additional_properties_true__returns_dict_str_any(self):
         """Scenario: Resolve object with additionalProperties: true.
 
-        Expected Outcome: Returns Dict[str, Any] and adds imports.
+        Expected Outcome: Returns dict[str, Any] and adds imports.
         """
         # Arrange
         schema = IRSchema(name="TestObject", type="object", additional_properties=True)
@@ -46,14 +46,14 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, Any]"
+        assert result == "dict[str, Any]"
         self.context.add_import.assert_any_call("typing", "Dict")
         self.context.add_import.assert_any_call("typing", "Any")
 
     def test_object_resolver__additional_properties_schema_defined__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties as defined schema.
 
-        Expected Outcome: Returns Dict[str, ResolvedType] and adds imports.
+        Expected Outcome: Returns dict[str, ResolvedType] and adds imports.
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", type="string")
@@ -64,14 +64,14 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, str]"
+        assert result == "dict[str, str]"
         self.context.add_import.assert_any_call("typing", "Dict")
         self.main_resolver.resolve.assert_called_once_with(ap_schema, required=True)
 
     def test_object_resolver__additional_properties_schema_with_format__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties schema that has format.
 
-        Expected Outcome: Returns Dict[str, ResolvedType].
+        Expected Outcome: Returns dict[str, ResolvedType].
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", format="date-time")
@@ -82,13 +82,13 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, datetime]"
+        assert result == "dict[str, datetime]"
         self.main_resolver.resolve.assert_called_once_with(ap_schema, required=True)
 
     def test_object_resolver__additional_properties_schema_with_properties__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties schema that has properties.
 
-        Expected Outcome: Returns Dict[str, ResolvedType].
+        Expected Outcome: Returns dict[str, ResolvedType].
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", properties={"field": IRSchema(type="string")})
@@ -99,12 +99,12 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, AdditionalPropModel]"
+        assert result == "dict[str, AdditionalPropModel]"
 
     def test_object_resolver__additional_properties_schema_with_items__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties schema that has items.
 
-        Expected Outcome: Returns Dict[str, ResolvedType].
+        Expected Outcome: Returns dict[str, ResolvedType].
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", items=IRSchema(type="string"))
@@ -115,12 +115,12 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, List[str]]"
+        assert result == "dict[str, List[str]]"
 
     def test_object_resolver__additional_properties_schema_with_enum__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties schema that has enum.
 
-        Expected Outcome: Returns Dict[str, ResolvedType].
+        Expected Outcome: Returns dict[str, ResolvedType].
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", enum=["val1", "val2"])
@@ -131,12 +131,12 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, TestEnum]"
+        assert result == "dict[str, TestEnum]"
 
     def test_object_resolver__additional_properties_schema_with_any_of__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties schema that has anyOf.
 
-        Expected Outcome: Returns Dict[str, ResolvedType].
+        Expected Outcome: Returns dict[str, ResolvedType].
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", any_of=[IRSchema(type="string"), IRSchema(type="integer")])
@@ -147,12 +147,12 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, Union[str, int]]"
+        assert result == "dict[str, Union[str, int]]"
 
     def test_object_resolver__additional_properties_schema_with_one_of__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties schema that has oneOf.
 
-        Expected Outcome: Returns Dict[str, ResolvedType].
+        Expected Outcome: Returns dict[str, ResolvedType].
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", one_of=[IRSchema(type="string"), IRSchema(type="integer")])
@@ -163,12 +163,12 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, Union[str, int]]"
+        assert result == "dict[str, Union[str, int]]"
 
     def test_object_resolver__additional_properties_schema_with_all_of__returns_dict_with_type(self):
         """Scenario: Resolve object with additionalProperties schema that has allOf.
 
-        Expected Outcome: Returns Dict[str, ResolvedType].
+        Expected Outcome: Returns dict[str, ResolvedType].
         """
         # Arrange
         ap_schema = IRSchema(name="AdditionalProp", all_of=[IRSchema(type="string"), IRSchema(format="email")])
@@ -179,7 +179,7 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, str]"
+        assert result == "dict[str, str]"
 
     def test_object_resolver__anonymous_object_with_properties_promoted__returns_promoted_name(self):
         """Scenario: Resolve anonymous object with properties that gets promoted.
@@ -204,7 +204,7 @@ class TestObjectTypeResolver:
     def test_object_resolver__anonymous_object_with_properties_not_promoted__returns_dict(self):
         """Scenario: Resolve anonymous object with properties that cannot be promoted.
 
-        Expected Outcome: Returns Dict[str, Any] with warning.
+        Expected Outcome: Returns dict[str, Any] with warning.
         """
         # Arrange
         properties = {"field1": IRSchema(type="string")}
@@ -214,7 +214,7 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)  # No parent name provided
 
         # Assert
-        assert result == "Dict[str, Any]"
+        assert result == "dict[str, Any]"
         self.context.add_import.assert_any_call("typing", "Dict")
         self.context.add_import.assert_any_call("typing", "Any")
 
@@ -256,7 +256,7 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema, parent_schema_name_for_anon_promotion="Parent")
 
         # Assert
-        assert result == "Dict[str, Any]"  # Fallback due to promotion failure
+        assert result == "dict[str, Any]"  # Fallback due to promotion failure
 
     def test_object_resolver__promote_anonymous_object_no_base_name__returns_none(self):
         """Scenario: Promote anonymous object with no base name provided.
@@ -329,7 +329,7 @@ class TestObjectTypeResolver:
     def test_object_resolver__named_object_no_properties_not_in_all_schemas__returns_dict(self):
         """Scenario: Resolve named object without properties not in all_schemas.
 
-        Expected Outcome: Returns Dict[str, Any].
+        Expected Outcome: Returns dict[str, Any].
         """
         # Arrange
         schema = IRSchema(name="UnknownModel", type="object", properties=None)
@@ -338,14 +338,14 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, Any]"
+        assert result == "dict[str, Any]"
         self.context.add_import.assert_any_call("typing", "Dict")
         self.context.add_import.assert_any_call("typing", "Any")
 
     def test_object_resolver__anonymous_object_no_properties_additional_properties_none__returns_dict(self):
         """Scenario: Resolve anonymous object with no properties and additionalProperties None.
 
-        Expected Outcome: Returns Dict[str, Any] (default OpenAPI behavior).
+        Expected Outcome: Returns dict[str, Any] (default OpenAPI behavior).
         """
         # Arrange
         schema = IRSchema(name=None, type="object", properties=None, additional_properties=None)
@@ -354,7 +354,7 @@ class TestObjectTypeResolver:
         result = self.resolver.resolve(schema)
 
         # Assert
-        assert result == "Dict[str, Any]"
+        assert result == "dict[str, Any]"
         self.context.add_import.assert_any_call("typing", "Dict")
         self.context.add_import.assert_any_call("typing", "Any")
 

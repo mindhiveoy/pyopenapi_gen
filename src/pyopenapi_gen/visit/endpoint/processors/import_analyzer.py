@@ -5,7 +5,7 @@ Helper class for analyzing an IROperation and registering necessary imports.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional  # IO for multipart type hint
+from typing import TYPE_CHECKING, Any  # IO for multipart type hint
 
 # Necessary helpers for type analysis
 from pyopenapi_gen.helpers.endpoint_utils import (
@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 class EndpointImportAnalyzer:
     """Analyzes an IROperation to determine and register required imports."""
 
-    def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
-        self.schemas: Dict[str, Any] = schemas or {}
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
+        self.schemas: dict[str, Any] = schemas or {}
 
     def analyze_and_register_imports(
         self,
@@ -40,21 +40,21 @@ class EndpointImportAnalyzer:
 
         if op.request_body:
             content_types = op.request_body.content.keys()
-            body_param_type: Optional[str] = None
+            body_param_type: str | None = None
             if "multipart/form-data" in content_types:
-                # Type for multipart is Dict[str, IO[Any]] which requires IO and Any
+                # Type for multipart is dict[str, IO[Any]] which requires IO and Any
                 context.add_import("typing", "Dict")
                 context.add_import("typing", "IO")
                 context.add_import("typing", "Any")
-                # The actual type string "Dict[str, IO[Any]]" will be handled by add_typing_imports_for_type if passed
+                # The actual type string "dict[str, IO[Any]]" will be handled by add_typing_imports_for_type if passed
                 # but ensuring components are imported is key.
-                body_param_type = "Dict[str, IO[Any]]"
+                body_param_type = "dict[str, IO[Any]]"
             elif "application/json" in content_types:
                 body_param_type = get_request_body_type(op.request_body, context, self.schemas)
             elif "application/x-www-form-urlencoded" in content_types:
                 context.add_import("typing", "Dict")
                 context.add_import("typing", "Any")
-                body_param_type = "Dict[str, Any]"
+                body_param_type = "dict[str, Any]"
             elif content_types:  # Fallback for other types like application/octet-stream
                 body_param_type = "bytes"
 

@@ -1,17 +1,15 @@
 import json
-from typing import Any, AsyncIterator, List, Optional
+from typing import Any, AsyncIterator, List
 
 import httpx
 
 
 class SSEEvent:
-    def __init__(
-        self, data: str, event: Optional[str] = None, id: Optional[str] = None, retry: Optional[int] = None
-    ) -> None:
+    def __init__(self, data: str, event: str | None = None, id: str | None = None, retry: int | None = None) -> None:
         self.data: str = data
-        self.event: Optional[str] = event
-        self.id: Optional[str] = id
-        self.retry: Optional[int] = retry
+        self.event: str | None = event
+        self.id: str | None = id
+        self.retry: int | None = retry
 
     def __repr__(self) -> str:
         return f"SSEEvent(data={self.data!r}, event={self.event!r}, id={self.id!r}, retry={self.retry!r})"

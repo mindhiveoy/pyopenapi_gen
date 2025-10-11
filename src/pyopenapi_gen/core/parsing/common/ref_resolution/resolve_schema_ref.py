@@ -3,7 +3,7 @@ Main module for schema reference resolution.
 """
 
 import logging
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping
 
 from pyopenapi_gen.ir import IRSchema
 
@@ -21,7 +21,7 @@ def resolve_schema_ref(
     ref_name: str,
     context: ParsingContext,
     max_depth: int,
-    _parse_schema: Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema],
+    _parse_schema: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int], IRSchema],
 ) -> IRSchema:
     """
     Resolves a schema reference in an OpenAPI specification.

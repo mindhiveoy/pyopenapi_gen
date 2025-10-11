@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, Dict, Mapping
+from typing import Any, Mapping
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -17,7 +17,7 @@ from pyopenapi_gen.core.utils import NameSanitizer
 logger = logging.getLogger(__name__)
 
 
-def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Mapping[str, Any]) -> ParsingContext:
+def build_schemas(raw_schemas: dict[str, Mapping[str, Any]], raw_components: Mapping[str, Any]) -> ParsingContext:
     """Build all named schemas up front, populating a ParsingContext.
 
     Contracts:
@@ -47,7 +47,7 @@ def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Map
     return context
 
 
-def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
+def extract_inline_array_items(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
     """Extract inline array item schemas as unique named schemas and update references.
 
     Contracts:
@@ -132,7 +132,7 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
     return schemas
 
 
-def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
+def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
     """Extract inline property enums as unique schemas and update property references.
 
     Also ensures top-level enum schemas are properly marked for generation.

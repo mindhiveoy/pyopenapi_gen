@@ -1,7 +1,6 @@
 """Unified type resolution service."""
 
 import logging
-from typing import Dict, Optional
 
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -35,7 +34,7 @@ class UnifiedTypeService:
     and operations to Python type strings.
     """
 
-    def __init__(self, schemas: Dict[str, IRSchema], responses: Optional[Dict[str, IRResponse]] = None):
+    def __init__(self, schemas: dict[str, IRSchema], responses: dict[str, IRResponse] | None = None):
         """
         Initialize the type service.
 
@@ -68,7 +67,29 @@ class UnifiedTypeService:
 
         type_context = RenderContextAdapter(context)
         resolved = self.schema_resolver.resolve_schema(schema, type_context, effective_required, resolve_underlying)
-        return self._format_resolved_type(resolved, context)
+
+        # DEBUG: Log resolved type before formatting
+        if resolved.python_type and "[" in resolved.python_type:
+            bracket_count_open = resolved.python_type.count("[")
+            bracket_count_close = resolved.python_type.count("]")
+            if bracket_count_open != bracket_count_close:
+                logger.warning(
+                    f"BRACKET MISMATCH BEFORE FORMAT: '{resolved.python_type}', "
+                    f"schema_name: {getattr(schema, 'name', 'anonymous')}, "
+                    f"schema_type: {getattr(schema, 'type', None)}, "
+                    f"is_optional: {resolved.is_optional}"
+                )
+
+        formatted = self._format_resolved_type(resolved, context)
+
+        # DEBUG: Log final formatted type
+        if formatted and "[" in formatted:
+            bracket_count_open = formatted.count("[")
+            bracket_count_close = formatted.count("]")
+            if bracket_count_open != bracket_count_close:
+                logger.warning(f"BRACKET MISMATCH AFTER FORMAT: '{formatted}', " f"original: '{resolved.python_type}'")
+
+        return formatted
 
     def resolve_operation_response_type(self, operation: IROperation, context: RenderContext) -> str:
         """
@@ -101,15 +122,40 @@ class UnifiedTypeService:
         return self._format_resolved_type(resolved, context)
 
     def _format_resolved_type(self, resolved: ResolvedType, context: RenderContext | None = None) -> str:
-        """Format a ResolvedType into a Python type string."""
+        """Format a ResolvedType into a Python type string.
+
+        Architecture Guarantee: This method produces ONLY modern Python 3.10+ syntax (X | None).
+        Optional[X] is NEVER generated - unified type system uses | None exclusively.
+        """
         python_type = resolved.python_type
 
-        if resolved.is_optional and not python_type.startswith("Optional["):
-            if context:
-                context.add_import("typing", "Optional")
-            python_type = f"Optional[{python_type}]"
+        # SANITY CHECK: Unified system should never produce Optional[X] internally
+        if python_type.startswith("Optional["):
+            logger.error(
+                f"❌ ARCHITECTURE VIOLATION: Resolver produced legacy Optional[X]: {python_type}. "
+                f"Unified type system must generate X | None directly. "
+                f"This indicates a bug in schema/response/reference resolver."
+            )
+            # This should never happen in our unified system
+            raise ValueError(
+                f"Type resolver produced legacy Optional[X] syntax: {python_type}. "
+                f"Unified type system must use X | None exclusively."
+            )
 
+        # Quote forward references BEFORE adding | None so we get: "DataSource" | None not "DataSource | None"
         if resolved.is_forward_ref and not python_type.startswith('"'):
             python_type = f'"{python_type}"'
+
+        # Add modern | None syntax if needed
+        # Modern Python 3.10+ uses | None syntax without needing Optional import
+        if resolved.is_optional and not python_type.endswith("| None"):
+            python_type = f"{python_type} | None"
+
+            # DEBUG: Check for malformed type strings
+            if python_type.count("[") != python_type.count("]"):
+                logger.warning(
+                    f"MALFORMED TYPE: Bracket mismatch in '{python_type}'. "
+                    f"Original: '{resolved.python_type}', is_optional: {resolved.is_optional}"
+                )
 
         return python_type

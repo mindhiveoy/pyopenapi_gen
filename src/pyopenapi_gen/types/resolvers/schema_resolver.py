@@ -44,6 +44,21 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         if hasattr(schema, "ref") and schema.ref:
             return self._resolve_reference(schema.ref, context, required, resolve_underlying)
 
+        # Handle null schemas (schemas with no type and no generation_name) - resolve to Any inline
+        # These are schemas from null schema nodes in the OpenAPI spec
+        # IMPORTANT: Don't treat schemas with names that exist in the registry as null schemas
+        schema_type = getattr(schema, "type", None)
+        if (
+            schema_type is None
+            and not (hasattr(schema, "generation_name") and schema.generation_name)
+            and not (hasattr(schema, "any_of") and schema.any_of)
+            and not (hasattr(schema, "one_of") and schema.one_of)
+            and not (hasattr(schema, "all_of") and schema.all_of)
+            and not (schema.name and schema.name in getattr(self.ref_resolver, "schemas", {}))
+        ):
+            # This is a null schema - respect the required parameter for optionality
+            return self._resolve_null(context, required)
+
         # Handle named schemas with generation_name (fully processed schemas)
         if schema.name and hasattr(schema, "generation_name") and schema.generation_name:
             # If resolve_underlying is True, skip named schema resolution for type aliases
@@ -132,7 +147,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 )
             elif schema_type == "None" or schema_type is None:
                 logger.info(
-                    "Schema type 'None' detected - likely an optional field or null type. This will be mapped to Optional[Any]."
+                    "Schema type 'None' detected - likely an optional field or null type. This will be mapped to Any | None."
                 )
                 return self._resolve_null(context, required)
             elif schema_type and isinstance(schema_type, str):
@@ -143,7 +158,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 logger.info("  3. Custom type not supported by OpenAPI (consider using allOf/oneOf/anyOf)")
                 logger.info(f"  Location: Check your OpenAPI spec for schemas with type='{schema_type}'")
 
-            return self._resolve_any(context)
+            return self._resolve_any(context, required)
 
     def _resolve_reference(
         self, ref: str, context: TypeContext, required: bool, resolve_underlying: bool = False
@@ -287,12 +302,13 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         return ResolvedType(python_type="bool", is_optional=not required)
 
     def _resolve_null(self, context: TypeContext, required: bool) -> ResolvedType:
-        """Resolve null type."""
-        # For null types in schemas, we need to import Any for the Optional[Any] pattern
-        # But the type itself is None for union composition
-        if not required:
-            context.add_import("typing", "Any")
-        return ResolvedType(python_type="None", is_optional=not required)
+        """Resolve null type.
+
+        When a schema has type=null or no type defined (None), we map it to Python's Any type
+        because null schemas represent unknown/arbitrary data rather than the None value.
+        """
+        context.add_import("typing", "Any")
+        return ResolvedType(python_type="Any", is_optional=not required)
 
     def _resolve_array(
         self, schema: IRSchema, context: TypeContext, required: bool, resolve_underlying: bool = False
@@ -337,25 +353,25 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             # Generic object
             context.add_import("typing", "Dict")
             context.add_import("typing", "Any")
-            return ResolvedType(python_type="Dict[str, Any]", is_optional=not required)
+            return ResolvedType(python_type="dict[str, Any]", is_optional=not required)
 
         # Object with properties - should be promoted to named type
         logger.warning("Found object with properties - should be promoted to named type")
         context.add_import("typing", "Dict")
         context.add_import("typing", "Any")
-        return ResolvedType(python_type="Dict[str, Any]", is_optional=not required)
+        return ResolvedType(python_type="dict[str, Any]", is_optional=not required)
 
-    def _resolve_any(self, context: TypeContext) -> ResolvedType:
+    def _resolve_any(self, context: TypeContext, required: bool = True) -> ResolvedType:
         """Resolve to Any type."""
         context.add_import("typing", "Any")
-        return ResolvedType(python_type="Any")
+        return ResolvedType(python_type="Any", is_optional=not required)
 
     def _resolve_any_of(
         self, schema: IRSchema, context: TypeContext, required: bool, resolve_underlying: bool = False
     ) -> ResolvedType:
         """Resolve anyOf composition to Union type."""
         if not schema.any_of:
-            return self._resolve_any(context)
+            return self._resolve_any(context, required)
 
         resolved_types = []
         for sub_schema in schema.any_of:
@@ -392,7 +408,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         # For allOf, we typically need to merge the schemas
         # For now, we'll use the first schema if it has a clear type
         if not schema.all_of:
-            return self._resolve_any(context)
+            return self._resolve_any(context, required)
 
         # Simple implementation: use the first concrete schema
         for sub_schema in schema.all_of:
@@ -401,14 +417,14 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
 
         # Fallback - if no schema has a concrete type, return Any
         # Don't recurse into schemas with no type as that causes warnings
-        return self._resolve_any(context)
+        return self._resolve_any(context, required)
 
     def _resolve_one_of(
         self, schema: IRSchema, context: TypeContext, required: bool, resolve_underlying: bool = False
     ) -> ResolvedType:
         """Resolve oneOf composition to Union type."""
         if not schema.one_of:
-            return self._resolve_any(context)
+            return self._resolve_any(context, required)
 
         resolved_types = []
         for sub_schema in schema.one_of:

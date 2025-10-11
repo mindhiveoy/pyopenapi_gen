@@ -6,7 +6,7 @@ for building comprehensive, type-rich docstrings for generated Python code. It s
 alignment, line wrapping, and section formatting for Args, Returns, and Raises.
 """
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 from .line_writer import LineWriter
 
@@ -16,36 +16,36 @@ class DocumentationBlock:
     Data container for docstring content.
 
     Attributes:
-        summary (Optional[str]): The summary line for the docstring.
-        description (Optional[str]): The detailed description.
+        summary (str | None): The summary line for the docstring.
+        description (str | None): The detailed description.
         args (Optional[List[Union[Tuple[str, str, str], Tuple[str, str]]]]):
             List of arguments as (name, type, desc) or (type, desc) tuples.
-        returns (Optional[Tuple[str, str]]): The return type and description.
-        raises (Optional[List[Tuple[str, str]]]): List of (exception type, description) tuples.
+        returns (Tuple[str, str] | None): The return type and description.
+        raises (List[Tuple[str, str]] | None): List of (exception type, description) tuples.
     """
 
     def __init__(
         self,
-        summary: Optional[str] = None,
-        description: Optional[str] = None,
-        args: Optional[List[Union[Tuple[str, str, str], Tuple[str, str]]]] = None,
-        returns: Optional[Tuple[str, str]] = None,
-        raises: Optional[List[Tuple[str, str]]] = None,
+        summary: str | None = None,
+        description: str | None = None,
+        args: List[Union[Tuple[str, str, str], Tuple[str, str]]] | None = None,
+        returns: Tuple[str, str] | None = None,
+        raises: List[Tuple[str, str]] | None = None,
     ) -> None:
         """
         Initialize a DocumentationBlock.
 
         Args:
-            summary (Optional[str]): The summary line.
-            description (Optional[str]): The detailed description.
+            summary (str | None): The summary line.
+            description (str | None): The detailed description.
             args (Optional[List[Union[Tuple[str, str, str], Tuple[str, str]]]]): Arguments.
-            returns (Optional[Tuple[str, str]]): Return type and description.
-            raises (Optional[List[Tuple[str, str]]]): Exceptions.
+            returns (Tuple[str, str] | None): Return type and description.
+            raises (List[Tuple[str, str]] | None): Exceptions.
         """
-        self.summary: Optional[str] = summary
-        self.description: Optional[str] = description
+        self.summary: str | None = summary
+        self.description: str | None = description
         self.args: List[Union[Tuple[str, str, str], Tuple[str, str]]] = args or []
-        self.returns: Optional[Tuple[str, str]] = returns
+        self.returns: Tuple[str, str] | None = returns
         self.raises: List[Tuple[str, str]] = raises or []
 
 
@@ -58,7 +58,7 @@ class DocumentationFormatter:
         self.width: int = width
         self.min_desc_col: int = min_desc_col
 
-    def wrap(self, text: str, indent: int, prefix: Optional[str] = None) -> List[str]:
+    def wrap(self, text: str, indent: int, prefix: str | None = None) -> List[str]:
         if not text:
             return []
         writer = LineWriter(max_width=self.width)

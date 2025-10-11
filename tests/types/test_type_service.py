@@ -59,7 +59,7 @@ class TestUnifiedTypeService:
             result = service.resolve_schema_type(schema, mock_context, required=False)
 
             # Assert
-            assert result == "Optional[str]"
+            assert result == "str | None"
 
     def test_resolve_schema_type__forward_ref__returns_quoted_type(self, service, mock_context) -> None:
         """
@@ -138,7 +138,7 @@ class TestUnifiedTypeService:
         result = service._format_resolved_type(resolved)
 
         # Assert
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
     def test_format_resolved_type__optional_already_wrapped__no_double_wrap(self, service) -> None:
         """
@@ -146,13 +146,13 @@ class TestUnifiedTypeService:
         Expected Outcome: Doesn't double-wrap
         """
         # Arrange
-        resolved = ResolvedType(python_type="Optional[str]", is_optional=True)
+        resolved = ResolvedType(python_type="str | None", is_optional=True)
 
         # Act
         result = service._format_resolved_type(resolved)
 
         # Assert
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
     def test_format_resolved_type__forward_ref_not_quoted__adds_quotes(self, service) -> None:
         """

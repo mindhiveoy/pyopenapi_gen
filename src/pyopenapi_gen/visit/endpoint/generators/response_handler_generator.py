@@ -5,7 +5,7 @@ Helper class for generating response handling logic for an endpoint method.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from pyopenapi_gen.core.http_status_codes import get_exception_class_name
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
@@ -44,8 +44,8 @@ class DefaultCase(TypedDict):
 class EndpointResponseHandlerGenerator:
     """Generates the response handling logic for an endpoint method."""
 
-    def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
-        self.schemas: Dict[str, Any] = schemas or {}
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
+        self.schemas: dict[str, Any] = schemas or {}
 
     def _is_type_alias_to_array(self, type_name: str) -> bool:
         """
@@ -130,7 +130,7 @@ class EndpointResponseHandlerGenerator:
         Determine if a type should use BaseSchema deserialization.
 
         Args:
-            type_name: The Python type name (e.g., "User", "List[User]", "Optional[User]")
+            type_name: The Python type name (e.g., "User", "List[User]", "User | None")
 
         Returns:
             True if the type should use BaseSchema .from_dict() deserialization
@@ -138,14 +138,14 @@ class EndpointResponseHandlerGenerator:
         # Extract the base type name from complex types
         base_type = type_name
 
-        # Handle List[Type], Optional[Type], etc.
+        # Handle List[Type], Type | None, etc.
         if "[" in base_type and "]" in base_type:
-            # Extract the inner type from List[Type], Optional[Type], etc.
+            # Extract the inner type from List[Type], Type | None, etc.
             start_bracket = base_type.find("[")
             end_bracket = base_type.rfind("]")
             inner_type = base_type[start_bracket + 1 : end_bracket]
 
-            # For Union types like Optional[User] -> Union[User, None], take the first type
+            # For Union types like User | None -> Union[User, None], take the first type
             if ", " in inner_type:
                 inner_type = inner_type.split(", ")[0]
 
@@ -168,8 +168,9 @@ class EndpointResponseHandlerGenerator:
         }:
             return False
 
-        # Skip typing constructs (both uppercase and lowercase)
-        if base_type.startswith(("Dict[", "List[", "Optional[", "Union[", "Tuple[", "dict[", "list[", "tuple[")):
+        # Skip typing constructs
+        # Note: Modern Python 3.10+ uses | None instead of Optional[X]
+        if base_type.startswith(("dict[", "List[", "Union[", "Tuple[", "dict[", "list[", "tuple[")):
             return False
 
         # Check if this is a type alias (array or non-array) - these should NOT use BaseSchema
@@ -180,8 +181,7 @@ class EndpointResponseHandlerGenerator:
         # Check if it's a model type (contains a dot indicating it's from models package)
         # or if it's a simple class name that's likely a generated model (starts with uppercase)
         return "." in base_type or (
-            base_type[0].isupper()
-            and base_type not in {"Dict", "List", "Optional", "Union", "Tuple", "dict", "list", "tuple"}
+            base_type[0].isupper() and base_type not in {"Dict", "List", "Union", "Tuple", "dict", "list", "tuple"}
         )
 
     def _get_base_schema_deserialization_code(self, return_type: str, data_expr: str) -> str:
@@ -203,8 +203,29 @@ class EndpointResponseHandlerGenerator:
                 item_type = return_type[5:-1]  # Remove 'list[' and ']'
             return f"[{item_type}.from_dict(item) for item in {data_expr}]"
         elif return_type.startswith("Optional["):
-            # Handle Optional[Model] types
+            # SANITY CHECK: Unified type system should never produce Optional[X]
+            logger.error(
+                f"❌ ARCHITECTURE VIOLATION: Received legacy Optional[X] type in response handler: {return_type}. "
+                f"Unified type system must generate X | None directly."
+            )
+            # Defensive conversion (but this indicates a serious bug upstream)
             inner_type = return_type[9:-1]  # Remove 'Optional[' and ']'
+            logger.warning(f"⚠️ Converting to modern syntax internally for: {inner_type} | None")
+
+            # Check if inner type is also a list
+            if inner_type.startswith("List[") or inner_type.startswith("list["):
+                list_code = self._get_base_schema_deserialization_code(inner_type, data_expr)
+                return f"{list_code} if {data_expr} is not None else None"
+            else:
+                return f"{inner_type}.from_dict({data_expr}) if {data_expr} is not None else None"
+        elif " | None" in return_type or return_type.endswith("| None"):
+            # Handle Model | None types (modern Python 3.10+ syntax)
+            # Extract base type from "X | None" pattern
+            if " | None" in return_type:
+                inner_type = return_type.replace(" | None", "").strip()
+            else:
+                inner_type = return_type.replace("| None", "").strip()
+
             # Check if inner type is also a list
             if inner_type.startswith("List[") or inner_type.startswith("list["):
                 list_code = self._get_base_schema_deserialization_code(inner_type, data_expr)
@@ -230,7 +251,7 @@ class EndpointResponseHandlerGenerator:
         return_type: str,
         context: RenderContext,
         op: IROperation,
-        response_ir: Optional[IRResponse] = None,
+        response_ir: IRResponse | None = None,
     ) -> str:
         """Determines the code snippet to extract/transform the response body."""
         # Handle None, StreamingResponse, Iterator, etc.
@@ -243,7 +264,7 @@ class EndpointResponseHandlerGenerator:
             if return_type == "AsyncIterator[bytes]":
                 context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_bytes")
                 return "iter_bytes(response)"
-            elif "Dict[str, Any]" in return_type or "dict" in return_type.lower():
+            elif "dict[str, Any]" in return_type or "dict" in return_type.lower():
                 # For event streams that return Dict objects
                 context.add_import(f"{context.core_package_name}.streaming_helpers", "iter_sse_events_text")
                 return "sse_json_stream_marker"  # Special marker handled by _write_parsed_return
@@ -260,7 +281,7 @@ class EndpointResponseHandlerGenerator:
                 return "iter_bytes(response)"
 
         # Special case for "data: Any" unwrapping when the actual schema has no fields/properties
-        if return_type in {"Dict[str, Any]", "Dict[str, object]", "object", "Any"}:
+        if return_type in {"dict[str, Any]", "dict[str, object]", "object", "Any"}:
             context.add_import("typing", "Dict")
             context.add_import("typing", "Any")
 
@@ -273,7 +294,7 @@ class EndpointResponseHandlerGenerator:
             return "response.json()  # Type is Any"
         elif return_type == "None":
             return "None"  # This will be handled by generate_response_handling directly
-        else:  # Includes schema-defined models, List[], Dict[], Optional[]
+        else:  # Includes schema-defined models, List[], dict[], Optional[]
             context.add_typing_imports_for_type(return_type)  # Ensure model itself is imported
 
             # Check if we should use BaseSchema deserialization instead of cast()
@@ -434,7 +455,7 @@ class EndpointResponseHandlerGenerator:
             context.add_import("typing", "cast")
             writer.write_line(f"return cast({strategy.return_type}, response.json())")
 
-    def _get_response_schema(self, response_ir: IRResponse) -> Optional[IRSchema]:
+    def _get_response_schema(self, response_ir: IRResponse) -> IRSchema | None:
         """Extract the schema from a response IR."""
         if not response_ir.content:
             return None

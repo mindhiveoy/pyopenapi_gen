@@ -5,7 +5,7 @@ Helper class for processing parameters for an endpoint method.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.helpers.endpoint_utils import get_param_type, get_request_body_type
@@ -24,12 +24,12 @@ class EndpointParameterProcessor:
     method parameters for the endpoint signature and further processing.
     """
 
-    def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
-        self.schemas: Dict[str, Any] = schemas or {}
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
+        self.schemas: dict[str, Any] = schemas or {}
 
     def process_parameters(
         self, op: IROperation, context: RenderContext
-    ) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[str]]:
+    ) -> Tuple[List[dict[str, Any]], str | None, str | None]:
         """
         Prepares and orders parameters for an endpoint method, including path,
         query, header, and request body parameters.
@@ -40,8 +40,8 @@ class EndpointParameterProcessor:
             - primary_content_type: The dominant content type for the request body.
             - resolved_body_type: The Python type hint for the request body.
         """
-        ordered_params: List[Dict[str, Any]] = []
-        param_details_map: Dict[str, Dict[str, Any]] = {}
+        ordered_params: List[dict[str, Any]] = []
+        param_details_map: dict[str, dict[str, Any]] = {}
 
         for param in op.parameters:
             param_name_sanitized = NameSanitizer.sanitize_method_name(param.name)
@@ -56,21 +56,21 @@ class EndpointParameterProcessor:
             ordered_params.append(param_info)
             param_details_map[param_name_sanitized] = param_info
 
-        primary_content_type: Optional[str] = None
-        resolved_body_type: Optional[str] = None
+        primary_content_type: str | None = None
+        resolved_body_type: str | None = None
 
         if op.request_body:
             content_types = op.request_body.content.keys()
             body_param_name = "body"  # Default name
             context.add_import("typing", "Any")  # General fallback
-            body_specific_param_info: Optional[Dict[str, Any]] = None
+            body_specific_param_info: dict[str, Any] | None = None
 
             if "multipart/form-data" in content_types:
                 primary_content_type = "multipart/form-data"
                 body_param_name = "files"
                 context.add_import("typing", "Dict")
                 context.add_import("typing", "IO")
-                resolved_body_type = "Dict[str, IO[Any]]"
+                resolved_body_type = "dict[str, IO[Any]]"
                 body_specific_param_info = {
                     "name": body_param_name,
                     "type": resolved_body_type,
@@ -95,7 +95,7 @@ class EndpointParameterProcessor:
                 primary_content_type = "application/x-www-form-urlencoded"
                 body_param_name = "form_data"
                 context.add_import("typing", "Dict")
-                resolved_body_type = "Dict[str, Any]"
+                resolved_body_type = "dict[str, Any]"
                 body_specific_param_info = {
                     "name": body_param_name,
                     "type": resolved_body_type,
@@ -138,8 +138,8 @@ class EndpointParameterProcessor:
         return final_ordered_params, primary_content_type, resolved_body_type
 
     def _ensure_path_variables_as_params(
-        self, op: IROperation, current_params: List[Dict[str, Any]], param_details_map: Dict[str, Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, op: IROperation, current_params: List[dict[str, Any]], param_details_map: dict[str, dict[str, Any]]
+    ) -> List[dict[str, Any]]:
         """
         Ensures that all variables in the URL path are present in the list of parameters.
         If a path variable is not already defined as a parameter, it's added as a required string type.

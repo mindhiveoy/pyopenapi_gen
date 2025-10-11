@@ -3,7 +3,7 @@ Module for handling new schema references.
 """
 
 import logging
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Mapping
 
 from pyopenapi_gen.ir import IRSchema
 
@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 def parse_new_schema(
     ref_name: str,
-    node_data: Dict[str, Any],
+    node_data: dict[str, Any],
     context: ParsingContext,
     max_depth: int,
-    parse_fn: Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema],
+    parse_fn: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int], IRSchema],
 ) -> IRSchema:
     """
     Parses a new schema from raw data.

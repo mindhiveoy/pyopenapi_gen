@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping
+from typing import Any, Mapping
 
 import yaml
 
@@ -95,13 +95,13 @@ def test_parse_minimal_string_schema_to_ir() -> None:
         description, and example, without triggering recursive parsing errors on its metadata.
     """
     # Arrange
-    raw_spec: Dict[str, Any] = yaml.safe_load(MINIMAL_STRING_SCHEMA_YAML)
-    raw_schemas: Dict[str, Mapping[str, Any]] = raw_spec.get("components", {}).get("schemas", {})
+    raw_spec: dict[str, Any] = yaml.safe_load(MINIMAL_STRING_SCHEMA_YAML)
+    raw_schemas: dict[str, Mapping[str, Any]] = raw_spec.get("components", {}).get("schemas", {})
     raw_components: Mapping[str, Any] = raw_spec.get("components", {})
 
     # Act
     parsing_context: ParsingContext = build_schemas(raw_schemas=raw_schemas, raw_components=raw_components)
-    parsed_schemas: Dict[str, IRSchema] = parsing_context.parsed_schemas
+    parsed_schemas: dict[str, IRSchema] = parsing_context.parsed_schemas
 
     # Assert
     assert "SimpleString" in parsed_schemas
@@ -137,13 +137,13 @@ def test_parse_list_response_schema_to_ir() -> None:
         - Descriptions preserved.
     """
     # Arrange
-    raw_spec: Dict[str, Any] = yaml.safe_load(MINIMAL_LIST_RESPONSE_SPEC_YAML)
-    raw_schemas: Dict[str, Mapping[str, Any]] = raw_spec.get("components", {}).get("schemas", {})
+    raw_spec: dict[str, Any] = yaml.safe_load(MINIMAL_LIST_RESPONSE_SPEC_YAML)
+    raw_schemas: dict[str, Mapping[str, Any]] = raw_spec.get("components", {}).get("schemas", {})
     raw_components: Mapping[str, Any] = raw_spec.get("components", {})
 
     # Act
     parsing_context: ParsingContext = build_schemas(raw_schemas=raw_schemas, raw_components=raw_components)
-    parsed_schemas: Dict[str, IRSchema] = parsing_context.parsed_schemas
+    parsed_schemas: dict[str, IRSchema] = parsing_context.parsed_schemas
 
     # Assert
     assert "MyItem" in parsed_schemas

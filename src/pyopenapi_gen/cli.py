@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Union
 
 import typer
 import yaml
@@ -7,7 +7,7 @@ import yaml
 from .generator.client_generator import ClientGenerator, GenerationError
 
 
-def _load_spec(path_or_url: str) -> Union[Dict[str, Any], Any]:
+def _load_spec(path_or_url: str) -> Union[dict[str, Any], Any]:
     """Load a spec from a file path or URL."""
     if Path(path_or_url).exists():
         return yaml.safe_load(Path(path_or_url).read_text())
@@ -30,7 +30,7 @@ def main(
     ),
     force: bool = typer.Option(False, "-f", "--force", help="Overwrite without diff check"),
     no_postprocess: bool = typer.Option(False, "--no-postprocess", help="Skip post-processing (type checking, etc.)"),
-    core_package: Optional[str] = typer.Option(
+    core_package: str | None = typer.Option(
         None,
         "--core-package",
         help=(

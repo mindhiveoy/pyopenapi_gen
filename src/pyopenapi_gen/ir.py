@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Union
 
 # Import NameSanitizer at the top for type hints and __post_init__ usage
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -16,33 +16,33 @@ from .http_types import HTTPMethod
 
 @dataclass
 class IRSchema:
-    name: Optional[str] = None
-    type: Optional[str] = None  # E.g., "object", "array", "string", or a reference to another schema name
-    format: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    type: str | None = None  # E.g., "object", "array", "string", or a reference to another schema name
+    format: str | None = None
+    description: str | None = None
     required: List[str] = field(default_factory=list)
-    properties: Dict[str, IRSchema] = field(default_factory=dict)
-    items: Optional[IRSchema] = None  # For type: "array"
-    enum: Optional[List[Any]] = None
-    default: Optional[Any] = None  # Added default value
-    example: Optional[Any] = None  # Added example value
-    additional_properties: Optional[Union[bool, IRSchema]] = None  # True, False, or an IRSchema
+    properties: dict[str, IRSchema] = field(default_factory=dict)
+    items: IRSchema | None = None  # For type: "array"
+    enum: List[Any] | None = None
+    default: Any | None = None  # Added default value
+    example: Any | None = None  # Added example value
+    additional_properties: Union[bool, IRSchema] | None = None  # True, False, or an IRSchema
     is_nullable: bool = False
-    any_of: Optional[List[IRSchema]] = None
-    one_of: Optional[List[IRSchema]] = None
-    all_of: Optional[List[IRSchema]] = None  # Store the list of IRSchema objects from allOf
-    title: Optional[str] = None  # Added title
+    any_of: List[IRSchema] | None = None
+    one_of: List[IRSchema] | None = None
+    all_of: List[IRSchema] | None = None  # Store the list of IRSchema objects from allOf
+    title: str | None = None  # Added title
     is_data_wrapper: bool = False  # True if schema is a simple {{ "data": OtherSchema }} wrapper
 
     # Internal generator flags/helpers
     _from_unresolved_ref: bool = field(
         default=False, repr=False
     )  # If this IRSchema is a placeholder for an unresolvable $ref
-    _refers_to_schema: Optional[IRSchema] = (
+    _refers_to_schema: IRSchema | None = (
         None  # If this schema is a reference (e.g. a promoted property), this can link to the actual definition
     )
     _is_circular_ref: bool = field(default=False, repr=False)  # If this IRSchema is part of a circular reference chain
-    _circular_ref_path: Optional[str] = field(default=None, repr=False)  # Path of the circular reference
+    _circular_ref_path: str | None = field(default=None, repr=False)  # Path of the circular reference
     _max_depth_exceeded_marker: bool = field(
         default=False, repr=False
     )  # If parsing this schema or its components exceeded max depth
@@ -50,13 +50,11 @@ class IRSchema:
     _is_name_derived: bool = field(
         default=False, repr=False
     )  # True if the name was derived (e.g. for promoted inline objects)
-    _inline_name_resolution_path: Optional[str] = field(
-        default=None, repr=False
-    )  # Path used for resolving inline names
+    _inline_name_resolution_path: str | None = field(default=None, repr=False)  # Path used for resolving inline names
 
     # Fields for storing final, de-collided names for code generation
-    generation_name: Optional[str] = field(default=None, repr=True)  # Final class/enum name
-    final_module_stem: Optional[str] = field(default=None, repr=True)  # Final module filename stem
+    generation_name: str | None = field(default=None, repr=True)  # Final class/enum name
+    final_module_stem: str | None = field(default=None, repr=True)  # Final module filename stem
 
     def __post_init__(self) -> None:
         # Ensure name is always a valid Python identifier if set
@@ -119,25 +117,25 @@ class IRParameter:
     param_in: str  # Renamed from 'in' to avoid keyword clash, was in_: str in original __init__.py
     required: bool
     schema: IRSchema
-    description: Optional[str] = None
-    # example: Optional[Any] = None # This was in my latest ir.py but not __init__.py, keeping it from my version
+    description: str | None = None
+    # example: Any | None = None # This was in my latest ir.py but not __init__.py, keeping it from my version
 
 
 # Adding other IR classes from the original __init__.py structure
 @dataclass(slots=True)
 class IRResponse:
     status_code: str  # can be "default" or specific status like "200"
-    description: Optional[str]
-    content: Dict[str, IRSchema]  # media‑type → schema mapping
+    description: str | None
+    content: dict[str, IRSchema]  # media‑type → schema mapping
     stream: bool = False  # Indicates a binary or streaming response
-    stream_format: Optional[str] = None  # Indicates the stream type
+    stream_format: str | None = None  # Indicates the stream type
 
 
 @dataclass(slots=True)
 class IRRequestBody:
     required: bool
-    content: Dict[str, IRSchema]  # media‑type → schema mapping
-    description: Optional[str] = None
+    content: dict[str, IRSchema]  # media‑type → schema mapping
+    description: str | None = None
 
 
 @dataclass(slots=True)
@@ -145,10 +143,10 @@ class IROperation:
     operation_id: str
     method: HTTPMethod  # Enforced via enum for consistency
     path: str  # e.g. "/pets/{petId}"
-    summary: Optional[str]
-    description: Optional[str]
+    summary: str | None
+    description: str | None
     parameters: List[IRParameter] = field(default_factory=list)
-    request_body: Optional[IRRequestBody] = None
+    request_body: IRRequestBody | None = None
     responses: List[IRResponse] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
 
@@ -157,8 +155,8 @@ class IROperation:
 class IRSpec:
     title: str
     version: str
-    description: Optional[str] = None
-    schemas: Dict[str, IRSchema] = field(default_factory=dict)
+    description: str | None = None
+    schemas: dict[str, IRSchema] = field(default_factory=dict)
     operations: List[IROperation] = field(default_factory=list)
     servers: List[str] = field(default_factory=list)
 

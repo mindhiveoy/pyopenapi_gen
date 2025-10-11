@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import (
     MagicMock,
 )
@@ -27,18 +27,18 @@ def render_context_mock() -> MagicMock:
 
 
 @pytest.fixture
-def schemas_mock() -> Dict[str, Any]:
+def schemas_mock() -> dict[str, Any]:
     return {}
 
 
 @pytest.fixture
-def import_analyzer(schemas_mock: Dict[str, Any]) -> EndpointImportAnalyzer:
+def import_analyzer(schemas_mock: dict[str, Any]) -> EndpointImportAnalyzer:
     return EndpointImportAnalyzer(schemas=schemas_mock)
 
 
 class TestEndpointImportAnalyzer:
     def test_analyze_and_register_imports_basic(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -50,7 +50,7 @@ class TestEndpointImportAnalyzer:
         param_schema = IRSchema(type="string", is_nullable=False)
         param1 = IRParameter(name="param1", param_in="query", required=True, schema=param_schema)
 
-        # IRResponse.content is Dict[str, IRSchema], not IRContent
+        # IRResponse.content is dict[str, IRSchema], not IRContent
         # Mock IRResponse correctly
         mock_success_response_schema = IRSchema(type="string", name="SuccessResponse")
         mock_response = IRResponse(
@@ -93,7 +93,7 @@ class TestEndpointImportAnalyzer:
             render_context_mock.add_typing_imports_for_type.assert_any_call("SuccessResponse")
 
     def test_analyze_and_register_imports_request_body_multipart(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -135,7 +135,7 @@ class TestEndpointImportAnalyzer:
             render_context_mock.add_import.assert_any_call("typing", "IO")
             render_context_mock.add_import.assert_any_call("typing", "Any")
             # Type registration for the body type string
-            render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, IO[Any]]")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("dict[str, IO[Any]]")
 
             # Return type import using ResponseStrategy
             render_context_mock.add_typing_imports_for_type.assert_any_call("None")
@@ -144,7 +144,7 @@ class TestEndpointImportAnalyzer:
             assert mock_get_param_type.call_count == 0
 
     def test_analyze_and_register_imports_request_body_json(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -195,7 +195,7 @@ class TestEndpointImportAnalyzer:
             assert mock_get_param_type.call_count == 0  # No params
 
     def test_analyze_and_register_imports_request_body_form_urlencoded(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -236,15 +236,15 @@ class TestEndpointImportAnalyzer:
             # Imports for form-urlencoded body
             render_context_mock.add_import.assert_any_call("typing", "Dict")
             render_context_mock.add_import.assert_any_call("typing", "Any")
-            # Type registration for the body type string "Dict[str, Any]"
-            render_context_mock.add_typing_imports_for_type.assert_any_call("Dict[str, Any]")
+            # Type registration for the body type string "dict[str, Any]"
+            render_context_mock.add_typing_imports_for_type.assert_any_call("dict[str, Any]")
 
             # Return type import using ResponseStrategy
             render_context_mock.add_typing_imports_for_type.assert_any_call("None")
             assert mock_get_param_type.call_count == 0  # No params
 
     def test_analyze_and_register_imports_request_body_octet_stream(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -291,7 +291,7 @@ class TestEndpointImportAnalyzer:
             assert mock_get_param_type.call_count == 0  # No params
 
     def test_analyze_and_register_imports_request_body_empty_content(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -334,23 +334,23 @@ class TestEndpointImportAnalyzer:
             # Assert
             # Ensure add_typing_imports_for_type was not called for any specific body type derived from the empty content
             # It will be called for the return type "None".
-            # We need to check that it wasn't called for e.g. "bytes" or "Dict[str, Any]" due to body path.
+            # We need to check that it wasn't called for e.g. "bytes" or "dict[str, Any]" due to body path.
 
             # Get all calls to add_typing_imports_for_type
             all_add_typing_calls = [c[0][0] for c in render_context_mock.add_typing_imports_for_type.call_args_list]
             # Expected calls are only for parameters (if any) and return type.
             # In this test, no params, return type is "None".
             assert "None" in all_add_typing_calls
-            # Ensure no body-specific types like 'bytes' or 'Dict[str, IO[Any]]' or 'Dict[str, Any]' were added from body path
+            # Ensure no body-specific types like 'bytes' or 'dict[str, IO[Any]]' or 'dict[str, Any]' were added from body path
             assert "bytes" not in all_add_typing_calls
-            assert "Dict[str, IO[Any]]" not in all_add_typing_calls
-            assert "Dict[str, Any]" not in all_add_typing_calls
+            assert "dict[str, IO[Any]]" not in all_add_typing_calls
+            assert "dict[str, Any]" not in all_add_typing_calls
 
             mock_get_request_body_type.assert_not_called()
             assert mock_get_param_type.call_count == 0
 
     def test_analyze_and_register_imports_async_iterator_return(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -393,7 +393,7 @@ class TestEndpointImportAnalyzer:
             assert mock_get_param_type.call_count == 0  # No params
 
     def test_analyze_and_register_imports_async_iterator_param(
-        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: Dict[str, Any]
+        self, import_analyzer: EndpointImportAnalyzer, render_context_mock: MagicMock, schemas_mock: dict[str, Any]
     ) -> None:
         """
         Scenario:
@@ -424,7 +424,7 @@ class TestEndpointImportAnalyzer:
         )
 
         # Mock get_param_type to return AsyncIterator for the specific param, and something else otherwise
-        def mock_get_param_type_side_effect(param: IRParameter, context: RenderContext, schemas: Dict[str, Any]) -> str:
+        def mock_get_param_type_side_effect(param: IRParameter, context: RenderContext, schemas: dict[str, Any]) -> str:
             if param.name == "inputStream":
                 return "AsyncIterator[bytes]"
             return "RegularType"

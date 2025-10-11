@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class ObjectTypeResolver:
     """Resolves IRSchema instances of type 'object'."""
 
-    def __init__(self, context: RenderContext, all_schemas: Dict[str, IRSchema], main_resolver: "SchemaTypeResolver"):
+    def __init__(self, context: RenderContext, all_schemas: dict[str, IRSchema], main_resolver: "SchemaTypeResolver"):
         self.context = context
         self.all_schemas = all_schemas
         self.main_resolver = main_resolver  # For resolving nested types
@@ -25,8 +25,8 @@ class ObjectTypeResolver:
     def _promote_anonymous_object_schema_if_needed(
         self,
         schema_to_promote: IRSchema,
-        proposed_name_base: Optional[str],
-    ) -> Optional[str]:
+        proposed_name_base: str | None,
+    ) -> str | None:
         """Gives a name to an anonymous object schema and registers it."""
         if not proposed_name_base:
             return None
@@ -58,7 +58,7 @@ class ObjectTypeResolver:
         self.context.add_import(module_to_import_from, final_new_name)
         return final_new_name
 
-    def resolve(self, schema: IRSchema, parent_schema_name_for_anon_promotion: Optional[str] = None) -> Optional[str]:
+    def resolve(self, schema: IRSchema, parent_schema_name_for_anon_promotion: str | None = None) -> str | None:
         """
         Resolves an IRSchema of `type: "object"`.
         Args:
@@ -72,7 +72,7 @@ class ObjectTypeResolver:
             if isinstance(schema.additional_properties, bool) and schema.additional_properties:
                 self.context.add_import("typing", "Dict")
                 self.context.add_import("typing", "Any")
-                return "Dict[str, Any]"
+                return "dict[str, Any]"
 
             # Path B: additionalProperties is an IRSchema instance
             if isinstance(schema.additional_properties, IRSchema):
@@ -90,7 +90,7 @@ class ObjectTypeResolver:
                 if is_ap_schema_defined:
                     additional_prop_type = self.main_resolver.resolve(ap_schema_instance, required=True)
                     self.context.add_import("typing", "Dict")
-                    return f"Dict[str, {additional_prop_type}]"
+                    return f"dict[str, {additional_prop_type}]"
 
             # Path C: additionalProperties is False, None, or empty IRSchema.
             if schema.properties:  # Object has its own properties
@@ -104,11 +104,11 @@ class ObjectTypeResolver:
                     # Fallback for unpromoted anonymous object with properties
                     logger.warning(
                         f"[ObjectTypeResolver] Anonymous object with properties not promoted. "
-                        f"-> Dict[str, Any]. Schema: {schema}"
+                        f"-> dict[str, Any]. Schema: {schema}"
                     )
                     self.context.add_import("typing", "Dict")
                     self.context.add_import("typing", "Any")
-                    return "Dict[str, Any]"
+                    return "dict[str, Any]"
                 else:  # Named object with properties
                     # If this named object is a component schema, ensure it's imported.
                     if schema.name and schema.name in self.all_schemas:
@@ -204,12 +204,12 @@ class ObjectTypeResolver:
                 elif schema.name:  # Named object, no properties, but NOT a known component
                     self.context.add_import("typing", "Dict")
                     self.context.add_import("typing", "Any")
-                    return "Dict[str, Any]"
+                    return "dict[str, Any]"
                 else:  # Anonymous object, no properties
                     if schema.additional_properties is None:  # Default OpenAPI behavior allows additional props
                         self.context.add_import("typing", "Dict")
                         self.context.add_import("typing", "Any")
-                        return "Dict[str, Any]"
+                        return "dict[str, Any]"
                     else:  # additionalProperties was False or restrictive empty schema
                         self.context.add_import("typing", "Any")
                         return "Any"

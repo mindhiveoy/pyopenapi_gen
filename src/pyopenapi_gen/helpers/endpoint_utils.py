@@ -5,7 +5,7 @@ Used by EndpointVisitor and related emitters.
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -17,7 +17,7 @@ from ..types.services.type_service import UnifiedTypeService
 logger = logging.getLogger(__name__)
 
 
-def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSchema]) -> List[Dict[str, Any]]:
+def get_params(op: IROperation, context: RenderContext, schemas: dict[str, IRSchema]) -> List[dict[str, Any]]:
     """
     Returns a list of dicts with name, type, default, and required for template rendering.
     Requires the full schema dictionary for type resolution.
@@ -37,7 +37,7 @@ def get_params(op: IROperation, context: RenderContext, schemas: Dict[str, IRSch
     return params
 
 
-def get_param_type(param: IRParameter, context: RenderContext, schemas: Dict[str, IRSchema]) -> str:
+def get_param_type(param: IRParameter, context: RenderContext, schemas: dict[str, IRSchema]) -> str:
     """Returns the Python type hint for a parameter, resolving references using the schemas dict."""
     # Use unified service for type resolution
     type_service = UnifiedTypeService(schemas)
@@ -59,7 +59,7 @@ def get_param_type(param: IRParameter, context: RenderContext, schemas: Dict[str
     return py_type
 
 
-def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: Dict[str, IRSchema]) -> str:
+def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: dict[str, IRSchema]) -> str:
     """Returns the Python type hint for a request body, resolving references using the schemas dict."""
     # Prefer application/json schema if available
     json_schema = body.content.get("application/json")
@@ -70,11 +70,11 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: 
         if py_type.startswith(".") and not py_type.startswith(".."):
             py_type = "models" + py_type
 
-        # If the resolved type is 'Any' for a JSON body, default to Dict[str, Any]
+        # If the resolved type is 'Any' for a JSON body, default to dict[str, Any]
         if py_type == "Any":
             context.add_import("typing", "Dict")
             # context.add_import("typing", "Any") # Already added by the fallback or TypeHelper
-            return "Dict[str, Any]"
+            return "dict[str, Any]"
         return py_type
     # Fallback for other content types (e.g., octet-stream)
     # TODO: Handle other types more specifically if needed
@@ -89,7 +89,7 @@ def get_request_body_type(body: IRRequestBody, context: RenderContext, schemas: 
 def get_return_type(
     op: IROperation,
     context: RenderContext,
-    schemas: Dict[str, IRSchema],
+    schemas: dict[str, IRSchema],
 ) -> tuple[str | None, bool]:
     """
     DEPRECATED: Use get_return_type_unified instead.
@@ -136,7 +136,7 @@ def get_return_type(
     return (py_type, False)
 
 
-def _get_primary_response(op: IROperation) -> Optional[IRResponse]:
+def _get_primary_response(op: IROperation) -> IRResponse | None:
     """Helper to find the best primary success response."""
     resp = None
     # Prioritize 200, 201, 202, 204
@@ -158,7 +158,7 @@ def _get_primary_response(op: IROperation) -> Optional[IRResponse]:
     return None
 
 
-def _get_response_schema_and_content_type(resp: IRResponse) -> tuple[Optional[IRSchema], Optional[str]]:
+def _get_response_schema_and_content_type(resp: IRResponse) -> tuple[IRSchema | None, str | None]:
     """Helper to get the schema and content type from a response."""
     if not resp.content:
         return None, None
@@ -179,7 +179,7 @@ def _get_response_schema_and_content_type(resp: IRResponse) -> tuple[Optional[IR
     return resp.content.get(mt), mt
 
 
-def _find_resource_schema(update_schema_name: str, schemas: Dict[str, IRSchema]) -> Optional[IRSchema]:
+def _find_resource_schema(update_schema_name: str, schemas: dict[str, IRSchema]) -> IRSchema | None:
     """
     Given an update schema name (e.g. 'TenantUpdate'), try to find the corresponding
     resource schema (e.g. 'Tenant') in the schemas dictionary.
@@ -205,7 +205,7 @@ def _find_resource_schema(update_schema_name: str, schemas: Dict[str, IRSchema])
     return None
 
 
-def _infer_type_from_path(path: str, schemas: Dict[str, IRSchema]) -> Optional[IRSchema]:
+def _infer_type_from_path(path: str, schemas: dict[str, IRSchema]) -> IRSchema | None:
     """
     Infers a response type from a path. This is used when a response schema is not specified.
 
@@ -350,8 +350,8 @@ def merge_params_with_model_fields(
     op: IROperation,
     model_schema: IRSchema,
     context: RenderContext,
-    schemas: Dict[str, IRSchema],
-) -> List[Dict[str, Any]]:
+    schemas: dict[str, IRSchema],
+) -> List[dict[str, Any]]:
     """
     Merge endpoint parameters with required model fields for function signatures.
     - Ensures all required model fields are present as parameters (without duplication).
@@ -484,7 +484,7 @@ def get_type_for_specific_response(
         ctx.add_import("typing", "AsyncIterator")
         ctx.add_import("typing", "Dict")
         ctx.add_import("typing", "Any")
-        return "AsyncIterator[Dict[str, Any]]"
+        return "AsyncIterator[dict[str, Any]]"
 
     return final_py_type
 
@@ -504,9 +504,7 @@ def _is_binary_stream_content(resp_ir: IRResponse) -> bool:
     )
 
 
-def _get_item_type_from_schema(
-    resp_ir: IRResponse, all_schemas: dict[str, IRSchema], ctx: RenderContext
-) -> Optional[str]:
+def _get_item_type_from_schema(resp_ir: IRResponse, all_schemas: dict[str, IRSchema], ctx: RenderContext) -> str | None:
     """Extract item type from schema for streaming responses."""
     schema, _ = _get_response_schema_and_content_type(resp_ir)
     if not schema:
@@ -528,7 +526,7 @@ def get_python_type_for_response_body(resp_ir: IRResponse, all_schemas: dict[str
     return type_service.resolve_schema_type(schema, ctx, required=True)
 
 
-def get_schema_from_response(resp_ir: IRResponse, all_schemas: dict[str, IRSchema]) -> Optional[IRSchema]:
+def get_schema_from_response(resp_ir: IRResponse, all_schemas: dict[str, IRSchema]) -> IRSchema | None:
     """Get the schema from a response object."""
     schema, _ = _get_response_schema_and_content_type(resp_ir)
     return schema

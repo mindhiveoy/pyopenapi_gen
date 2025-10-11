@@ -2,7 +2,7 @@
 
 import os
 import unittest
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pyopenapi_gen.core.parsing.schema_parser as schema_parser_module
@@ -59,7 +59,7 @@ class TestLogging(unittest.TestCase):
 
         # Create a deeply nested schema that will exceed depth 2 (root is depth 1)
         # Item -> ItemPropertiesItem -> ItemPropertiesItemPropertiesItem (depth 3, exceeds 2)
-        schema: Dict[str, Any] = {
+        schema: dict[str, Any] = {
             "type": "object",  # Depth 1: DeepSchema
             "properties": {
                 "level1": {  # Depth 2: anonymous object for level1, name passed to _parse_schema might be DeepSchemaLevel1 or None
@@ -162,7 +162,7 @@ class TestLogging(unittest.TestCase):
         context = ParsingContext()
 
         # Create a schema with invalid reference
-        schema: Dict[str, Any] = {
+        schema: dict[str, Any] = {
             "type": "object",
             "properties": {"invalid": {"$ref": "#/components/schemas/NonExistent"}},
         }

@@ -1,7 +1,6 @@
 """Core types for type resolution."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 class TypeResolutionError(Exception):
@@ -16,8 +15,8 @@ class ResolvedType:
 
     python_type: str
     needs_import: bool = False
-    import_module: Optional[str] = None
-    import_name: Optional[str] = None
+    import_module: str | None = None
+    import_name: str | None = None
     is_optional: bool = False
     is_forward_ref: bool = False
 

@@ -3,13 +3,11 @@ Generates Python code for type aliases from IRSchema objects.
 """
 
 import logging
-from typing import Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
-from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
 logger = logging.getLogger(__name__)
@@ -21,7 +19,7 @@ class AliasGenerator:
     def __init__(
         self,
         renderer: PythonConstructRenderer,
-        all_schemas: Optional[Dict[str, IRSchema]],
+        all_schemas: dict[str, IRSchema] | None,
     ):
         # Pre-condition
         if renderer is None:
@@ -70,7 +68,6 @@ class AliasGenerator:
 
         alias_name = NameSanitizer.sanitize_class_name(base_name)
         target_type = self.type_service.resolve_schema_type(schema, context, required=True, resolve_underlying=True)
-        target_type = TypeFinalizer(context)._clean_type(target_type)
 
         # logger.debug(f"AliasGenerator: Rendering alias '{alias_name}' for target type '{target_type}'.")
 

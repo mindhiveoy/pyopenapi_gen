@@ -6,7 +6,7 @@ Provides functions to parse and transform OpenAPI parameters into IR format.
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping, Optional, cast
+from typing import Any, Mapping, cast
 
 from pyopenapi_gen import IRParameter, IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -51,7 +51,7 @@ def resolve_parameter_node_if_ref(param_node_data: Mapping[str, Any], context: P
 def parse_parameter(
     node: Mapping[str, Any],
     context: ParsingContext,
-    operation_id_for_promo: Optional[str] = None,
+    operation_id_for_promo: str | None = None,
 ) -> IRParameter:
     """Convert an OpenAPI parameter node into IRParameter.
 
@@ -74,7 +74,7 @@ def parse_parameter(
     sch = node.get("schema")
     param_name = node["name"]
 
-    name_for_inline_param_schema: Optional[str] = None
+    name_for_inline_param_schema: str | None = None
     if (
         sch
         and isinstance(sch, Mapping)

@@ -5,7 +5,7 @@ Helper class for generating the method signature for an endpoint.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, List
 
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
@@ -24,15 +24,15 @@ logger = logging.getLogger(__name__)
 class EndpointMethodSignatureGenerator:
     """Generates the Python method signature for an endpoint operation."""
 
-    def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
-        self.schemas: Dict[str, Any] = schemas or {}
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
+        self.schemas: dict[str, Any] = schemas or {}
 
     def generate_signature(
         self,
         writer: CodeWriter,
         op: IROperation,
         context: RenderContext,
-        ordered_params: List[Dict[str, Any]],
+        ordered_params: List[dict[str, Any]],
         strategy: ResponseStrategy,
     ) -> None:
         """Writes the method signature to the provided CodeWriter."""

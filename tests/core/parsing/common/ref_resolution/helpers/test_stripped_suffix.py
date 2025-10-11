@@ -19,7 +19,7 @@ class TestTryStrippedSuffixFallback(unittest.TestCase):
         self.ref_value = "#/components/schemas/TestResponse"
         self.max_depth = 100
         self.mock_parse_fn = MagicMock(
-            spec=Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
+            spec=Callable[[str | None, Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
         )
 
     def test_try_stripped_suffix_fallback__valid_response_suffix__returns_schema(self) -> None:

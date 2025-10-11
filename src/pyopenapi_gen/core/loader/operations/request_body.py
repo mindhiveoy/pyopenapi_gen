@@ -6,7 +6,7 @@ Provides functions to parse and transform OpenAPI request bodies into IR format.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Mapping
 
 from pyopenapi_gen import IRRequestBody, IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -20,7 +20,7 @@ def parse_request_body(
     raw_request_bodies: Mapping[str, Any],
     context: ParsingContext,
     operation_id: str,
-) -> Optional[IRRequestBody]:
+) -> IRRequestBody | None:
     """Parse a request body node into an IRRequestBody.
 
     Contracts:
@@ -55,7 +55,7 @@ def parse_request_body(
 
     required_flag = bool(resolved_rb_node.get("required", False))
     desc = resolved_rb_node.get("description")
-    content_map: Dict[str, IRSchema] = {}
+    content_map: dict[str, IRSchema] = {}
 
     parent_promo_name_for_req_body = f"{operation_id}RequestBody"
 

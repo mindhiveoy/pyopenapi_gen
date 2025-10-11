@@ -5,7 +5,7 @@ Handles the extraction of inline enums from schema definitions.
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
 from .... import IRSchema
 from ...utils import NameSanitizer
@@ -13,12 +13,12 @@ from ..context import ParsingContext
 
 
 def _extract_enum_from_property_node(
-    parent_schema_name: Optional[str],
+    parent_schema_name: str | None,
     property_key: str,
     property_node_data: Mapping[str, Any],
     context: ParsingContext,
     logger: logging.Logger,
-) -> Optional[IRSchema]:
+) -> IRSchema | None:
     """
     Checks a property's schema node for an inline enum definition.
 
@@ -126,7 +126,7 @@ def _extract_enum_from_property_node(
 
 
 def _process_standalone_inline_enum(
-    schema_name: Optional[str],  # The original intended name for this schema
+    schema_name: str | None,  # The original intended name for this schema
     node_data: Mapping[str, Any],  # The raw node data for this schema
     schema_obj: IRSchema,  # The IRSchema object already partially parsed for this node
     context: ParsingContext,

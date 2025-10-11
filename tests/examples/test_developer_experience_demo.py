@@ -6,7 +6,6 @@ automatic dataclass to dictionary conversion feature.
 
 import dataclasses
 from datetime import datetime
-from typing import Optional
 
 from pyopenapi_gen.core.utils import DataclassSerializer
 
@@ -18,7 +17,7 @@ class UserCreateRequest:
     name: str
     email: str
     age: int
-    bio: Optional[str] = None
+    bio: str | None = None
     is_active: bool = True
 
 
@@ -26,8 +25,8 @@ class UserCreateRequest:
 class UserProfile:
     """Nested dataclass example."""
 
-    website: Optional[str] = None
-    linkedin: Optional[str] = None
+    website: str | None = None
+    linkedin: str | None = None
     joined_at: datetime = dataclasses.field(default_factory=datetime.now)
 
 
