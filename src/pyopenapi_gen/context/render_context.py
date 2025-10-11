@@ -153,10 +153,25 @@ class RenderContext:
             self.core_package_name + "."
         )
         if is_target_in_core_pkg_namespace:
+            # For root-level sibling packages (core and output package both at top level),
+            # we MUST use absolute imports because Python doesn't support relative imports
+            # that go beyond the top-level package.
+            #
+            # Example structure that requires absolute imports:
+            #   output/              # NOT a package (no __init__.py)
+            #   ├── core/            # top-level package
+            #   └── businessapi/     # top-level package
+            #
+            # In this case, businessapi/client.py cannot use "from ..core import X"
+            # because that would try to go UP from businessapi to output/, which is not a package.
+            #
+            # Solution: Always use absolute imports for core when it's a root-level sibling.
+
+            # Always use absolute imports for core imports
             if name:
                 self.import_collector.add_import(module=logical_module, name=name)
             else:
-                self.import_collector.add_plain_import(module=logical_module)  # Core plain import
+                self.import_collector.add_plain_import(module=logical_module)
             return
 
         # 3. Stdlib/Builtin?
@@ -628,3 +643,84 @@ class RenderContext:
 
         except ValueError:  # If current_file is not under overall_project_root
             return None
+
+    def get_core_import_path(self, submodule: str) -> str:
+        """
+        Calculate the correct import path to a core package submodule from the current file.
+
+        Handles both sibling core packages (core/, custom_core/) and external packages (api_sdks.my_core).
+
+        Args:
+            submodule: The submodule within core to import from (e.g., "schemas", "http_transport", "exceptions")
+
+        Returns:
+            The correct import path string (e.g., "...core.schemas", "..core.http_transport", "api_sdks.my_core.schemas")
+
+        Examples:
+            From businessapi/models/user.py → core/schemas.py returns "...core.schemas"
+            From businessapi/client.py → core/http_transport.py returns "..core.http_transport"
+            From businessapi/endpoints/auth.py → core/exceptions.py returns "...core.exceptions"
+            External core package (api_sdks.my_core) returns "api_sdks.my_core.schemas"
+        """
+        # 1. Check if core_package_name contains dots or is already a relative import
+        if "." in self.core_package_name and not self.core_package_name.startswith("."):
+            # External package (e.g., "api_sdks.my_core") - use absolute import
+            return f"{self.core_package_name}.{submodule}"
+
+        if self.core_package_name.startswith(".."):
+            # Already a relative import path
+            return f"{self.core_package_name}.{submodule}"
+
+        # 2. Local core package (sibling) - calculate relative path
+        return self._calculate_relative_core_path(submodule)
+
+    def _calculate_relative_core_path(self, submodule: str) -> str:
+        """Calculate relative import path to sibling core package."""
+
+        if not self.current_file or not self.package_root_for_generated_code or not self.overall_project_root:
+            # Fallback to absolute import if context not fully set
+            logger.warning(
+                f"Cannot calculate relative core path: context not fully set. "
+                f"current_file={self.current_file}, package_root={self.package_root_for_generated_code}, "
+                f"project_root={self.overall_project_root}. Using absolute import."
+            )
+            return f"{self.core_package_name}.{submodule}"
+
+        try:
+            # 1. Get current file's directory
+            current_file_abs = Path(self.current_file).resolve()
+            current_dir_abs = current_file_abs.parent
+
+            # 2. Determine core package location (sibling to output package)
+            project_root_abs = Path(self.overall_project_root).resolve()
+
+            # Core is sibling to the output package
+            core_abs = project_root_abs / self.core_package_name
+            target_abs = core_abs / submodule.replace(".", os.sep)
+
+            # 3. Calculate relative path from current directory to target
+            relative_path = os.path.relpath(target_abs, start=current_dir_abs)
+
+            # 4. Convert filesystem path to Python import path
+            # e.g., "../../core/schemas" → "...core.schemas"
+            path_parts = relative_path.split(os.sep)
+
+            dots = 0
+            module_parts = []
+
+            for part in path_parts:
+                if part == "..":
+                    dots += 1
+                elif part != ".":
+                    module_parts.append(part)
+
+            # Prefix with dots (add one more for Python relative imports)
+            prefix = "." * (dots + 1)
+            module_path = ".".join(module_parts)
+
+            return f"{prefix}{module_path}"
+
+        except Exception as e:
+            # Fallback to absolute import on any error
+            logger.warning(f"Failed to calculate relative core path: {e}. Using absolute import.")
+            return f"{self.core_package_name}.{submodule}"

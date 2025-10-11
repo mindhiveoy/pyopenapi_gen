@@ -631,7 +631,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("Dict", context.import_collector.imports.get("typing", set()))
         self.assertIn("Any", context.import_collector.imports.get("typing", set()))
         # Modern Python 3.10+ doesn't need Optional imports (uses | None syntax)
-        self.assertIn("BaseSchema", context.import_collector.imports.get("..core.schemas", set()))
+        self.assertIn("BaseSchema", context.import_collector.imports.get("core.schemas", set()))
         self.assertIn("dataclass", context.import_collector.imports.get("dataclasses", set()))
         self.assertIn("dataclasses", context.import_collector.imports)
         self.assertIn("field", context.import_collector.imports["dataclasses"])

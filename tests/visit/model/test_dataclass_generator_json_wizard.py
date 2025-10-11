@@ -222,8 +222,8 @@ class TestDataclassGeneratorBaseSchema:
         imports = context.import_collector.imports
         assert "dataclasses" in imports
         assert "dataclass" in imports["dataclasses"]
-        assert "..core.schemas" in imports
-        assert "BaseSchema" in imports["..core.schemas"]
+        assert "core.schemas" in imports
+        assert "BaseSchema" in imports["core.schemas"]
 
     def test_generate__no_properties__generates_empty_base_schema_dataclass(self) -> None:
         """

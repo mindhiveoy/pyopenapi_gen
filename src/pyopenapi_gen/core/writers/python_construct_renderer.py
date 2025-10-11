@@ -183,21 +183,8 @@ class PythonConstructRenderer:
         context.add_import("dataclasses", "dataclass")
 
         # Always use self-contained BaseSchema for client independence with automatic field mapping
-        # Use the core package from context - could be relative (..core) or absolute (api_sdks.my_core)
-        if context.core_package_name.startswith(".."):
-            # Already a relative import
-            core_import_path = f"{context.core_package_name}.schemas"
-        elif "." in context.core_package_name:
-            # External core package with dots (e.g., api_sdks.my_core) - use absolute import
-            core_import_path = f"{context.core_package_name}.schemas"
-        elif context.core_package_name == "core":
-            # Default relative core package
-            core_import_path = "..core.schemas"
-        else:
-            # Simple external core package name (e.g., shared_core_pkg) - use absolute import
-            core_import_path = f"{context.core_package_name}.schemas"
-
-        context.add_import(core_import_path, "BaseSchema")
+        # Use absolute core import path - add_import will handle it correctly
+        context.add_import(f"{context.core_package_name}.schemas", "BaseSchema")
 
         # Add __all__ export
         writer.write_line(f'__all__ = ["{class_name}"]')

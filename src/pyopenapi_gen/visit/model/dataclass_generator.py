@@ -80,7 +80,8 @@ class DataclassGenerator:
         context.add_import("dataclasses", "dataclass")
         context.add_import("dataclasses", "field")
         context.add_import("typing", "Any")
-        context.add_import("..core.schemas", "BaseSchema")
+        # Use absolute core import path - add_import will handle it correctly
+        context.add_import(f"{context.core_package_name}.schemas", "BaseSchema")
 
         description = schema.description or "Generic JSON value object that preserves arbitrary data."
 

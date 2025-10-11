@@ -125,8 +125,8 @@ class TestPythonConstructRendererBaseSchema:
         imports = context.import_collector.imports
         assert "dataclasses" in imports
         assert "dataclass" in imports["dataclasses"]
-        assert "..core.schemas" in imports
-        assert "BaseSchema" in imports["..core.schemas"]
+        assert "core.schemas" in imports
+        assert "BaseSchema" in imports["core.schemas"]
 
     def test_render_dataclass__no_field_mappings__includes_base_schema_import(self) -> None:
         """
@@ -145,8 +145,8 @@ class TestPythonConstructRendererBaseSchema:
         imports = context.import_collector.imports
         assert "dataclasses" in imports
         assert "dataclass" in imports["dataclasses"]
-        assert "..core.schemas" in imports
-        assert "BaseSchema" in imports["..core.schemas"]
+        assert "core.schemas" in imports
+        assert "BaseSchema" in imports["core.schemas"]
 
     def test_render_dataclass__sorted_field_mappings__generates_deterministic_output(self) -> None:
         """
