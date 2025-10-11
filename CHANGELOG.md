@@ -1,6 +1,53 @@
 # CHANGELOG
 
 
+## v0.15.0 (2025-10-11)
+
+### Bug Fixes
+
+- **release**: Correct semantic-release configuration and sync version to 0.14.3
+  ([`cfa0813`](https://github.com/mindhiveoy/pyopenapi_gen/commit/cfa081393657acfaa0a1c6a29243746748872b28))
+
+Problem: - semantic-release v9 was configured with deprecated `version_pattern` syntax - This caused
+  __init__.py to not be automatically updated during releases - Version validation failed in CI
+  because __init__.py (0.10.2) != pyproject.toml (0.14.3)
+
+Solution: - Updated semantic-release config to use `version_variables` (v9+ syntax) - Synced
+  __init__.py version to 0.14.3 to match pyproject.toml - Now semantic-release will automatically
+  update all version locations
+
+Changes: - pyproject.toml: Changed version_pattern → version_variables -
+  src/pyopenapi_gen/__init__.py: Updated __version__ from 0.10.2 → 0.14.3
+
+This ensures future releases automatically sync all version files.
+
+- **types**: Correct self-import detection to avoid false positives with similar filenames
+  ([`cfee36e`](https://github.com/mindhiveoy/pyopenapi_gen/commit/cfee36e4c8c57d84c0c1d967a7936c5daddf2197))
+
+Problem: - Self-import check used .endswith() for filename comparison - This caused false positives
+  when one filename was a suffix of another - Example:
+  "vector_index_with_embedding_response_data.py".endswith("embedding_response_data.py") == True -
+  Result: Missing imports for forward referenced types, causing NameError at runtime
+
+Solution: - Changed to exact basename comparison using os.path.basename() - Only files with
+  identical basenames are treated as self-imports - Added comprehensive regression tests covering: -
+  Similar module names (not self-imports) - Actual self-references (forward refs without imports) -
+  Exact filename matching requirements
+
+Changes: - src/pyopenapi_gen/types/resolvers/schema_resolver.py: Fixed self-import detection logic -
+  tests/types/test_missing_imports_bug.py: Added 3 regression tests -
+  tests/visit/test_model_visitor.py: Updated test expectations for correct import behavior -
+  .gitignore: Added patterns to ignore bug report and analysis documents
+
+Testing: - All 1309 tests pass - Verified with real business_swagger.json that previously failed -
+  Generated code now includes correct imports for cross-module references
+
+### Features
+
+- **versioning**: Add version synchronization validation script and integrate into quality checks
+  ([`de2ecb8`](https://github.com/mindhiveoy/pyopenapi_gen/commit/de2ecb8c63711230e890bae1cf79f22d5594c551))
+
+
 ## v0.14.3 (2025-10-11)
 
 ### Bug Fixes
@@ -111,6 +158,11 @@ Technical context: - mypy --strict requires explicit types for union type assign
   improvement for static analysis
 
 Resolves: mypy error "Incompatible types in assignment (expression has type...)"
+
+### Chores
+
+- Merge latest changes from main
+  ([`44487cc`](https://github.com/mindhiveoy/pyopenapi_gen/commit/44487cce571920b5e2c34814c38cbab67b956097))
 
 ### Code Style
 
@@ -825,6 +877,13 @@ All 1,265 tests now pass consistently across environments.
   staging/develop/main PRs - Minimal implementation that just satisfies branch protection - Actual
   testing still handled by pr-checks.yml for PRs - This unblocks PR merging while avoiding test
   duplication
+
+- **ci**: Ensure Poetry is available in PATH for semantic-release build command
+  ([`0a68f6e`](https://github.com/mindhiveoy/pyopenapi_gen/commit/0a68f6e4ace7fb998c4ddec14c7cf67713d7ce73))
+
+- Add explicit PATH setup for Poetry before semantic-release step - Add verification step to confirm
+  Poetry availability - Fixes 'poetry: command not found' error in semantic release pipeline -
+  Resolves build command failure preventing automated releases
 
 - **ci**: Ensure Poetry is available in PATH for semantic-release build command
   ([#46](https://github.com/mindhiveoy/pyopenapi_gen/pull/46),
