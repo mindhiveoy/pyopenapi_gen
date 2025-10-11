@@ -206,8 +206,8 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("datetime", generated_code)  # Has datetime type
         self.assertIn("updated_at:", generated_code)  # Field exists (may be multi-line)
         self.assertIn(
-            'data_source: "DataSource" | None', generated_code
-        )  # Forward reference correctly quoted by unified system, with union syntax
+            "data_source: DataSource | None", generated_code
+        )  # DataSource is imported from different module, not a forward reference
 
         # Check BaseSchema Meta class and field mappings
         self.assertIn("class Meta:", generated_code)
@@ -227,7 +227,9 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertTrue(typing_import_found, "Expected 'from typing import ... Any' for dict[str, Any] types")
         self.assertIn("from datetime import datetime", generated_imports)
 
-        # Note: DataSource is quoted as forward reference, so no import is expected
+        # Verify DataSource import is present (not a self-import, so import is needed)
+        data_source_import_found = any("DataSource" in imp for imp in generated_imports)
+        self.assertTrue(data_source_import_found, "Expected import for DataSource from different module")
 
     def test_visit_IRSchema_for_simple_type_alias(self) -> None:
         """

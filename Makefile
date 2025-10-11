@@ -66,11 +66,15 @@ security: deps
 	@echo "🔒 Running security checks..."
 	poetry run bandit -r src/ -c pyproject.toml -f json -o coverage_reports/bandit.json || poetry run bandit -r src/ -c pyproject.toml
 
+version-check: deps
+	@echo "🔍 Validating version synchronisation..."
+	poetry run python scripts/validate_version_sync.py
+
 # Combined quality commands
 quality-fix: format lint-fix
 	@echo "✅ Auto-fixed all possible quality issues"
 
-quality: format-check lint typecheck security
+quality: format-check lint typecheck security version-check
 	@echo "✅ All quality checks passed"
 
 # Testing commands
@@ -163,7 +167,7 @@ help:
 	@echo "  clean         - Clean all build artifacts and virtual environment"
 	@echo ""
 	@echo "Quality commands:"
-	@echo "  quality       - Run all quality checks (format, lint, typecheck, security)"
+	@echo "  quality       - Run all quality checks (format, lint, typecheck, security, version)"
 	@echo "  quality-fix   - Auto-fix formatting and linting issues"
 	@echo "  format        - Format code with Black"
 	@echo "  format-check  - Check code formatting"
@@ -171,6 +175,7 @@ help:
 	@echo "  lint-fix      - Auto-fix linting issues"
 	@echo "  typecheck     - Type check with mypy"
 	@echo "  security      - Security scan with Bandit"
+	@echo "  version-check - Validate version synchronisation across files"
 	@echo ""
 	@echo "Testing commands:"
 	@echo "  test          - Run all tests with coverage (parallel, 85% required)"

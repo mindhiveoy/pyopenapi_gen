@@ -196,3 +196,7 @@ coverage_reports/
 
 logs
 agent-plan.json
+
+# Bug reports and analysis documents (keep in _process/ folder)
+*-bug-report.md
+*-analysis.md
