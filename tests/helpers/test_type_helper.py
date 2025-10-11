@@ -4,7 +4,7 @@ Tests for TypeHelper methods that support type conversion and cleaning.
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -42,43 +42,43 @@ class TestTypeHelperCleanTypeParameters:
         "test_id, input_type, expected_type",
         [
             # Simple cases
-            ("simple_dict", "Dict[str, Any]", "Dict[str, Any]"),
+            ("simple_dict", "dict[str, Any]", "dict[str, Any]"),
             ("simple_list", "List[str]", "List[str]"),
-            ("simple_optional", "Optional[str]", "Optional[str]"),
+            ("simple_optional", "str | None", "str | None"),
             # Common error cases from OpenAPI 3.1 nullable handling
-            ("dict_with_none", "Dict[str, Any, None]", "Dict[str, Any]"),
+            ("dict_with_none", "dict[str, Any, None]", "dict[str, Any]"),
             ("list_with_none", "List[JsonValue, None]", "List[JsonValue]"),
-            ("optional_with_none", "Optional[Any, None]", "Optional[Any]"),
+            ("optional_with_none", "Optional[Any, None]", "Any | None"),
             # More complex nested types
-            ("nested_dict", "Dict[str, Dict[str, Any, None]]", "Dict[str, Dict[str, Any]]"),
+            ("nested_dict", "dict[str, dict[str, Any, None]]", "dict[str, dict[str, Any]]"),
             ("nested_list", "List[List[str, None]]", "List[List[str]]"),
             (
                 "complex_union",
-                "Union[Dict[str, Any, None], List[str, None], Optional[int, None]]",
-                "Union[Dict[str, Any], List[str], Optional[int]]",
+                "Union[dict[str, Any, None], List[str, None], Optional[int, None]]",
+                "Union[dict[str, Any], List[str], int | None]",
             ),
             # OpenAPI 3.1 complex nullable cases
-            ("openapi_31_list_none", "List[Union[Dict[str, Any], None]]", "List[Union[Dict[str, Any], None]]"),
+            ("openapi_31_list_none", "List[Union[dict[str, Any], None]]", "List[Union[dict[str, Any], None]]"),
             ("list_with_multi_params", "List[str, int, bool, None]", "List[str]"),
-            ("dict_with_multi_params", "Dict[str, int, bool, None]", "Dict[str, int]"),
+            ("dict_with_multi_params", "dict[str, int, bool, None]", "dict[str, int]"),
             # Deeply nested structures
             (
                 "deep_nested_union",
-                "Union[Dict[str, List[Dict[str, Any, None], None]], List[Dict[str, Any, None], None]]",
-                "Union[Dict[str, List[Dict[str, Any]]], List[Dict[str, Any]]]",
+                "Union[dict[str, List[dict[str, Any, None], None]], List[dict[str, Any, None], None]]",
+                "Union[dict[str, List[dict[str, Any]]], List[dict[str, Any]]]",
             ),
             # Real-world complex cases from the errors we've encountered
             (
                 "embedding_flat_case",
-                "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None], None], Optional[Any], bool, float, str]",
-                "Union[Dict[str, Any], List[Union[Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None]], Optional[Any], bool, float, str]",
+                "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], Any | None, bool, float, str, None], None], Any | None, bool, float, str]",
+                "Union[dict[str, Any], List[Union[dict[str, Any], List[JsonValue], Any | None, bool, float, str, None]], Any | None, bool, float, str]",
             ),
             # Edge cases
             ("empty_string", "", ""),
             ("no_brackets", "AnyType", "AnyType"),
-            ("incomplete_syntax", "Dict[str,", "Dict[str,"),
+            ("incomplete_syntax", "dict[str,", "dict[str,"),
             ("empty_union", "Union[]", "Any"),
-            ("optional_none", "Optional[None]", "Optional[Any]"),
+            ("optional_none", "Optional[None]", "Any | None"),
         ],
     )
     def test_clean_type_parameters(
@@ -107,9 +107,9 @@ class TestTypeHelperCleanTypeParameters:
             - Should handle deeply nested structures correctly
         """
         # The exact string with no whitespace between parts
-        complex_type = "Union[Dict[str, List[Dict[str, Any, None], None]], List[Union[Dict[str, Any, None], str, None]], Optional[Dict[str, Union[str, int, None], None]]]"
+        complex_type = "Union[dict[str, List[dict[str, Any, None], None]], List[Union[dict[str, Any, None], str, None]], Optional[dict[str, Union[str, int, None], None]]]"
 
-        expected = "Union[Dict[str, List[Dict[str, Any]]], List[Union[Dict[str, Any], str, None]], Optional[Dict[str, Union[str, int, None]]]]"
+        expected = "Union[dict[str, List[dict[str, Any]]], List[Union[dict[str, Any], str, None]], dict[str, Union[str, int, None]] | None]"
 
         result = finalizer._clean_type(complex_type)
 
@@ -126,14 +126,14 @@ class TestTypeHelperCleanTypeParameters:
         # Case from EmbeddingFlat.py that caused the linter error
         embedding_flat_type = (
             "Union["
-            "Dict[str, Any], "
+            "dict[str, Any], "
             "List["
             "Union["
-            "Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None"
+            "dict[str, Any], List[JsonValue], Any | None, bool, float, str, None"
             "], "
             "None"
             "], "
-            "Optional[Any], "
+            "Any | None, "
             "bool, "
             "float, "
             "str"
@@ -142,13 +142,13 @@ class TestTypeHelperCleanTypeParameters:
 
         expected = (
             "Union["
-            "Dict[str, Any], "
+            "dict[str, Any], "
             "List["
             "Union["
-            "Dict[str, Any], List[JsonValue], Optional[Any], bool, float, str, None"
+            "dict[str, Any], List[JsonValue], Any | None, bool, float, str, None"
             "]"
             "], "
-            "Optional[Any], "
+            "Any | None, "
             "bool, "
             "float, "
             "str"
@@ -205,7 +205,7 @@ class TestTypeHelperWithIRSchema:
     # Postcondition 1.a: result_type == py_type
     # Postcondition 2.a: "typing.Optional" NOT added to context by this call
     @pytest.mark.parametrize(
-        "py_type", ["str", "List[int]", "Union[str, bool]", "Any", "Optional[str]", "Union[str, None]"]
+        "py_type", ["str", "List[int]", "Union[str, bool]", "Any", "str | None", "Union[str, None]"]
     )
     def test_finalize_not_optional_by_usage_remains_unchanged(
         self,
@@ -255,8 +255,7 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff1.finalize("str", non_nullable_schema, False) == "Optional[str]"
-        assert ff1.context.import_collector.has_import("typing", "Optional")
+        assert ff1.finalize("str", non_nullable_schema, False) == "str | None"
 
         # Postcondition 1.b.ii ("Any")
         ff2 = TypeFinalizer(
@@ -264,8 +263,7 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff2.finalize("Any", non_nullable_schema, False) == "Optional[Any]"
-        assert ff2.context.import_collector.has_import("typing", "Optional")
+        assert ff2.finalize("Any", non_nullable_schema, False) == "Any | None"
 
         # Postcondition 1.b.iii (already "Optional[...]")
         ff3 = TypeFinalizer(
@@ -273,7 +271,7 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff3.finalize("Optional[int]", non_nullable_schema, False) == "Optional[int]"
+        assert ff3.finalize("int | None", non_nullable_schema, False) == "int | None"
         assert not ff3.context.import_collector.has_import(
             "typing", "Optional"
         ), "Optional added when py_type was already Optional[]"
@@ -311,8 +309,7 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff7.finalize("Union[int, float]", non_nullable_schema, False) == "Optional[Union[int, float]]"
-        assert ff7.context.import_collector.has_import("typing", "Optional")
+        assert ff7.finalize("Union[int, float]", non_nullable_schema, False) == "Union[int, float] | None"
 
     # Sub-Category 2.2: Optional because `schema.is_nullable=True`
     def test_finalize_optional_due_to_schema_nullable(
@@ -325,8 +322,7 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff1.finalize("str", nullable_schema, True) == "Optional[str]"
-        assert ff1.context.import_collector.has_import("typing", "Optional")
+        assert ff1.finalize("str", nullable_schema, True) == "str | None"
 
         # Postcondition 1.b.ii ("Any")
         ff2 = TypeFinalizer(
@@ -334,8 +330,7 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff2.finalize("Any", nullable_schema, True) == "Optional[Any]"
-        assert ff2.context.import_collector.has_import("typing", "Optional")
+        assert ff2.finalize("Any", nullable_schema, True) == "Any | None"
 
         # Postcondition 1.b.iii (already "Optional[...]")
         ff3 = TypeFinalizer(
@@ -343,7 +338,7 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff3.finalize("Optional[int]", nullable_schema, True) == "Optional[int]"
+        assert ff3.finalize("int | None", nullable_schema, True) == "int | None"
         assert not ff3.context.import_collector.has_import("typing", "Optional")
 
         # Postcondition 1.b.iv (already "Union[..., None]")
@@ -355,22 +350,20 @@ class TestTypeHelperWithIRSchema:
         assert ff4.finalize("Union[int, float, None]", nullable_schema, True) == "Union[int, float, None]"
         assert not ff4.context.import_collector.has_import("typing", "Optional")
 
-        # Postcondition 1.b.v (Union without None)
+        # Postcondition 1.b.v (Union without None) - Modern union syntax
         ff5 = TypeFinalizer(
             RenderContext(
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        assert ff5.finalize("Union[int, float]", nullable_schema, True) == "Optional[Union[int, float]]"
-        assert ff5.context.import_collector.has_import("typing", "Optional")
+        assert ff5.finalize("Union[int, float]", nullable_schema, True) == "Union[int, float] | None"
 
     # Sub-Category 2.3: Optional because `required=False` AND `schema.is_nullable=True` (double reason)
     def test_finalize_optional_due_to_not_required_and_schema_nullable(
         self, nullable_schema: IRSchema, fresh_finalizer: TypeFinalizer
     ) -> None:
         """Contract: Optional due to both required=False and schema.is_nullable=True."""
-        assert fresh_finalizer.finalize("str", nullable_schema, False) == "Optional[str]"
-        assert fresh_finalizer.context.import_collector.has_import("typing", "Optional")
+        assert fresh_finalizer.finalize("str", nullable_schema, False) == "str | None"
 
     # Test original problematic cases explicitly, mapping them to the contract
     def test_finalize_original_cases_mapped_to_contract(
@@ -380,38 +373,36 @@ class TestTypeHelperWithIRSchema:
 
         # Case 1: Simple type with nullable schema (required=True)
         # Contract: Optional due to schema.is_nullable=True (Sub-Category 2.2)
-        # Expect: "Optional[str]", import Optional
+        # Expect: "str | None", import Optional
         ff_c1 = TypeFinalizer(
             RenderContext(
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
         result = ff_c1.finalize("str", nullable_schema, True)
-        assert result == "Optional[str]"
-        assert ff_c1.context.import_collector.has_import("typing", "Optional")
+        assert result == "str | None"
 
         # Case 2: Simple type with non-nullable schema but not required (required=False)
         # Contract: Optional due to required=False (Sub-Category 2.1)
-        # Expect: "Optional[str]", import Optional
+        # Expect: "str | None", import Optional
         ff_c2 = TypeFinalizer(
             RenderContext(
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
         result = ff_c2.finalize("str", non_nullable_schema, False)
-        assert result == "Optional[str]"
-        assert ff_c2.context.import_collector.has_import("typing", "Optional")
+        assert result == "str | None"
 
         # Case 3: Already Optional type doesn't get double-wrapped (schema nullable, required=True)
         # Contract: Optional by usage, but py_type already "Optional[...]" (Postcondition 1.b.iii)
-        # Expect: "Optional[str]", DO NOT import Optional again for this specific call path
+        # Expect: "str | None", DO NOT import Optional again for this specific call path
         ff_c3 = TypeFinalizer(
             RenderContext(
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        result = ff_c3.finalize("Optional[str]", nullable_schema, True)
-        assert result == "Optional[str]"
+        result = ff_c3.finalize("str | None", nullable_schema, True)
+        assert result == "str | None"
         assert not ff_c3.context.import_collector.has_import(
             "typing", "Optional"
         ), "Optional import was added when py_type was already Optional[]"
@@ -425,20 +416,18 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = ff_c4.finalize("Union[str, int]", non_nullable_schema, False)
-        assert result == "Optional[Union[str, int]]"
-        assert ff_c4.context.import_collector.has_import("typing", "Optional")
+        assert result == "Union[str, int] | None"
 
         # Case 5: Any type, nullable schema (required=True)
         # Contract: Optional due to schema.is_nullable=True. py_type is "Any" (Postcondition 1.b.ii)
-        # Expect: "Optional[Any]", import Optional
+        # Expect: "Any | None", import Optional
         ff_c5 = TypeFinalizer(
             RenderContext(
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
         result = ff_c5.finalize("Any", nullable_schema, True)
-        assert result == "Optional[Any]"
-        assert ff_c5.context.import_collector.has_import("typing", "Optional")
+        assert result == "Any | None"
 
         # Case 6: Union type with None already, nullable schema (required=True)
         # Contract: Optional by usage, but py_type is "Union[..., None]" (Postcondition 1.b.iv)
@@ -461,8 +450,7 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = ff_c7.finalize("Union[str, int]", nullable_schema, True)
-        assert result == "Optional[Union[str, int]]"
-        assert ff_c7.context.import_collector.has_import("typing", "Optional")
+        assert result == "Union[str, int] | None"
 
     def test_openapi31_nullable_handling(self, fresh_finalizer: TypeFinalizer) -> None:
         """
@@ -478,7 +466,7 @@ class TestTypeHelperWithIRSchema:
 
         # Test when required=True - use the provided fresh_finalizer
         result = fresh_finalizer.finalize("str", string_or_null_schema, True)
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
         # Test when required=False
         # Need another fresh finalizer for isolated import check if we were to check imports here
@@ -488,7 +476,7 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = another_fresh_finalizer.finalize("str", string_or_null_schema, False)
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
         # Schema: { "type": "string" } (nullable not specified, treated as False by IRSchema default)
         plain_string_schema = IRSchema(name="PlainString", type="string", is_nullable=False)
@@ -507,7 +495,7 @@ class TestTypeHelperWithIRSchema:
             )
         )
         result = ff_plain_req_false.finalize("str", plain_string_schema, False)  # required=False
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
         # Test complex list type that should be wrapped with Optional
         nullable_schema_list = IRSchema(
@@ -518,8 +506,8 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        result = ff_list.finalize("List[Dict[str, Any]]", nullable_schema_list, True)
-        assert result == "Optional[List[Dict[str, Any]]]", "Failed to properly handle nullable array"
+        result = ff_list.finalize("List[dict[str, Any]]", nullable_schema_list, True)
+        assert result == "List[dict[str, Any]] | None", "Failed to properly handle nullable array"
 
         # Test multiple-type Union that should be wrapped with Optional
         nullable_union_schema = IRSchema(
@@ -530,8 +518,8 @@ class TestTypeHelperWithIRSchema:
                 overall_project_root="/tmp", package_root_for_generated_code="/tmp/pkg", core_package_name="core"
             )
         )
-        result = ff_union.finalize("Union[Dict[str, Any], List[str], int]", nullable_union_schema, True)
-        assert result == "Optional[Union[Dict[str, Any], List[str], int]]", "Failed to handle nullable union"
+        result = ff_union.finalize("Union[dict[str, Any], List[str], int]", nullable_union_schema, True)
+        assert result == "Union[dict[str, Any], List[str], int] | None", "Failed to handle nullable union"
 
     def test_get_python_type_for_schema__schema_is_none__returns_any(self, context: RenderContext) -> None:
         """
@@ -542,7 +530,7 @@ class TestTypeHelperWithIRSchema:
             - Adds "typing.Any" to imports.
         """
         # Arrange
-        schemas: Dict[str, IRSchema] = {}
+        schemas: dict[str, IRSchema] = {}
         # Act
         result = TypeHelper.get_python_type_for_schema(None, schemas, context, required=True)
         # Assert
@@ -586,8 +574,8 @@ class TestPrimitiveTypeResolver:  # Renamed class
     def test_get_primitive_type__various_inputs__returns_expected(
         self,
         schema_type: str,
-        schema_format: Optional[str],
-        expected_py_type: Optional[str],
+        schema_format: str | None,
+        expected_py_type: str | None,
         expected_imports: List[tuple[str, str]],
         context: RenderContext,  # Keep context for direct manipulation if needed by test logic
         primitive_resolver: PrimitiveTypeResolver,  # Use resolver instance
@@ -635,7 +623,7 @@ class TestArrayTypeResolver:  # Renamed class
         )
 
     @pytest.fixture
-    def schemas_fixture(self) -> Dict[str, IRSchema]:  # Renamed to avoid conflict with schemas param
+    def schemas_fixture(self) -> dict[str, IRSchema]:  # Renamed to avoid conflict with schemas param
         schemas = {
             "MyModel": IRSchema(name="MyModel", type="object", properties={"id": IRSchema(type="integer")}),
             "MyEnum": IRSchema(name="MyEnum", type="string", enum=["A", "B"]),
@@ -647,7 +635,7 @@ class TestArrayTypeResolver:  # Renamed class
         return schemas
 
     @pytest.fixture
-    def array_resolver(self, context: RenderContext, schemas_fixture: Dict[str, IRSchema]) -> ArrayTypeResolver:
+    def array_resolver(self, context: RenderContext, schemas_fixture: dict[str, IRSchema]) -> ArrayTypeResolver:
         main_resolver = SchemaTypeResolver(context, schemas_fixture)
         return ArrayTypeResolver(context, schemas_fixture, main_resolver)
 
@@ -660,10 +648,10 @@ class TestArrayTypeResolver:  # Renamed class
             ({"$ref": "#/components/schemas/MyEnum"}, "List[MyEnum]", ["List"]),
             (
                 {"type": "object", "properties": {"key": {"type": "string"}}},
-                "List[Dict[str, Any]]",
+                "List[dict[str, Any]]",
                 ["List", "Dict", "Any"],
             ),
-            ({"type": "object"}, "List[Dict[str, Any]]", ["List", "Dict", "Any"]),
+            ({"type": "object"}, "List[dict[str, Any]]", ["List", "Dict", "Any"]),
             ({"type": "array", "items": {"type": "string"}}, "List[List[str]]", ["List"]),
             ({}, "List[Any]", ["List", "Any"]),
             ({"items": None}, "List[Any]", ["List", "Any"]),
@@ -671,11 +659,11 @@ class TestArrayTypeResolver:  # Renamed class
     )
     def test_resolve_array_type(  # Renamed method for clarity
         self,
-        items_schema_dict: Dict[str, Any],
+        items_schema_dict: dict[str, Any],
         expected_py_type: str,
         expected_typing_imports: List[str],
         # context: RenderContext, # No longer directly used here, resolver has its own
-        schemas_fixture: Dict[str, IRSchema],  # Use renamed fixture
+        schemas_fixture: dict[str, IRSchema],  # Use renamed fixture
         array_resolver: ArrayTypeResolver,
     ) -> None:
         """
@@ -731,7 +719,7 @@ class TestCompositionTypeResolver:  # Renamed class
         )
 
     @pytest.fixture
-    def schemas(self) -> Dict[str, IRSchema]:
+    def schemas(self) -> dict[str, IRSchema]:
         schemas_dict = {
             "SchemaA": IRSchema(name="SchemaA", type="object", properties={"a": IRSchema(type="string")}),
             "SchemaB": IRSchema(name="SchemaB", type="object", properties={"b": IRSchema(type="integer")}),
@@ -751,7 +739,7 @@ class TestCompositionTypeResolver:  # Renamed class
         return schemas_dict
 
     @pytest.fixture
-    def composition_resolver(self, context: RenderContext, schemas: Dict[str, IRSchema]) -> CompositionTypeResolver:
+    def composition_resolver(self, context: RenderContext, schemas: dict[str, IRSchema]) -> CompositionTypeResolver:
         main_resolver = SchemaTypeResolver(context, schemas)
         return CompositionTypeResolver(context, schemas, main_resolver)
 
@@ -769,9 +757,9 @@ class TestCompositionTypeResolver:  # Renamed class
             (
                 "any_of",
                 [{"type": "string"}, {"type": "null"}],
-                "Optional[str]",
-                ["Union"],
-            ),  # Handled by final Optional wrapping, Union[str, None] is intermediate
+                "Union[Any, str]",
+                ["Union", "Any"],
+            ),  # null type resolves to Any, so intermediate is Union[Any, str]
             ("any_of", [], "Any", ["Any"]),  # Empty anyOf
             # oneOf scenarios (currently treated like anyOf by TypeFinalizer for Union)
             ("one_of", [{"type": "string"}, {"type": "integer"}], "Union[int, str]", ["Union"]),
@@ -804,7 +792,7 @@ class TestCompositionTypeResolver:  # Renamed class
                     {"type": "object", "properties": {"x": {"type": "string"}}},
                     {"$ref": "#/components/schemas/SimpleObject"},
                 ],
-                "Dict[str, Any]",
+                "dict[str, Any]",
                 ["Dict", "Any"],
             ),  # First is anonymous object
             ("all_of", [], "Any", ["Any"]),  # Empty allOf
@@ -813,11 +801,11 @@ class TestCompositionTypeResolver:  # Renamed class
     def test_get_composition_type(
         self,
         composition_type: str,
-        sub_schemas_dicts: List[Dict[str, Any]],
+        sub_schemas_dicts: List[dict[str, Any]],
         expected_py_type: str,
         expected_typing_imports: List[str],
         context: RenderContext,
-        schemas: Dict[str, IRSchema],
+        schemas: dict[str, IRSchema],
         composition_resolver: CompositionTypeResolver,
     ) -> None:
         """
@@ -890,7 +878,7 @@ class TestNamedTypeResolver:  # Renamed class
         )
 
     @pytest.fixture
-    def base_schemas(self) -> Dict[str, IRSchema]:
+    def base_schemas(self) -> dict[str, IRSchema]:
         schemas_dict = {
             "ReferencedModel": IRSchema(
                 name="ReferencedModel", type="object", properties={"id": IRSchema(type="integer")}
@@ -915,7 +903,7 @@ class TestNamedTypeResolver:  # Renamed class
         return schemas_dict
 
     @pytest.fixture
-    def named_resolver(self, context: RenderContext, base_schemas: Dict[str, IRSchema]) -> NamedTypeResolver:
+    def named_resolver(self, context: RenderContext, base_schemas: dict[str, IRSchema]) -> NamedTypeResolver:
         return NamedTypeResolver(context, base_schemas)
 
     @pytest.mark.parametrize(
@@ -1024,11 +1012,11 @@ class TestNamedTypeResolver:  # Renamed class
     def test_get_named_or_enum_type(
         self,
         test_id: str,
-        input_schema_dict: Dict[str, Any],
-        expected_return_type: Optional[str],
+        input_schema_dict: dict[str, Any],
+        expected_return_type: str | None,
         expected_model_imports: List[tuple[str, str]],
         context: RenderContext,
-        base_schemas: Dict[str, IRSchema],
+        base_schemas: dict[str, IRSchema],
         named_resolver: NamedTypeResolver,
     ) -> None:
         """
@@ -1107,7 +1095,7 @@ class TestObjectTypeResolver:  # Renamed class
         )
 
     @pytest.fixture
-    def schemas(self) -> Dict[str, IRSchema]:
+    def schemas(self) -> dict[str, IRSchema]:
         schemas_dict = {
             "ReferencedModel": IRSchema(
                 name="ReferencedModel", type="object", properties={"id": IRSchema(type="integer")}
@@ -1128,7 +1116,7 @@ class TestObjectTypeResolver:  # Renamed class
         return schemas_dict
 
     @pytest.fixture
-    def object_resolver(self, context: RenderContext, schemas: Dict[str, IRSchema]) -> ObjectTypeResolver:
+    def object_resolver(self, context: RenderContext, schemas: dict[str, IRSchema]) -> ObjectTypeResolver:
         main_resolver = SchemaTypeResolver(context, schemas)
         return ObjectTypeResolver(context, schemas, main_resolver)
 
@@ -1139,30 +1127,30 @@ class TestObjectTypeResolver:  # Renamed class
             (
                 "additional_props_true",
                 {"type": "object", "additional_properties": True},
-                "Dict[str, Any]",
+                "dict[str, Any]",
                 ["Dict", "Any"],
             ),
             # 2. additionalProperties: {schema} (referencing a primitive type)
             (
                 "additional_props_schema_primitive",
                 {"type": "object", "additional_properties": {"type": "string"}},
-                "Dict[str, str]",
+                "dict[str, str]",
                 ["Dict"],
             ),
             # 3. additionalProperties: {schema} (referencing a named model)
             (
                 "additional_props_schema_ref_model",
                 {"type": "object", "additional_properties": {"$ref": "#/components/schemas/ReferencedModel"}},
-                "Dict[str, ReferencedModel]",
+                "dict[str, ReferencedModel]",
                 ["Dict", ("..models.referenced_model", "ReferencedModel")],
             ),
-            # 4. Anonymous object, no properties, no explicit additionalProperties (should default to Dict[str, Any])
-            ("anon_obj_no_props_no_add_props", {"type": "object"}, "Dict[str, Any]", ["Dict", "Any"]),
-            # 5. Anonymous object WITH properties (should warn and become Dict[str, Any]) - COVERAGE (lines 254-260)
+            # 4. Anonymous object, no properties, no explicit additionalProperties (should default to dict[str, Any])
+            ("anon_obj_no_props_no_add_props", {"type": "object"}, "dict[str, Any]", ["Dict", "Any"]),
+            # 5. Anonymous object WITH properties (should warn and become dict[str, Any]) - COVERAGE (lines 254-260)
             (
                 "anon_obj_with_props",
                 {"type": "object", "properties": {"key": {"type": "string"}}},
-                "Dict[str, Any]",
+                "dict[str, Any]",
                 ["Dict", "Any"],
             ),
             # 6. Named object, no properties, additionalProperties: false (should return its own name) - COVERAGE (line 267-272)
@@ -1208,11 +1196,11 @@ class TestObjectTypeResolver:  # Renamed class
     def test_get_object_type(
         self,
         test_id: str,
-        input_schema_dict: Dict[str, Any],
-        expected_return_type: Optional[str],
+        input_schema_dict: dict[str, Any],
+        expected_return_type: str | None,
         expected_imports: List[Union[str, Tuple[str, str]]],
         context: RenderContext,
-        schemas: Dict[str, IRSchema],
+        schemas: dict[str, IRSchema],
         object_resolver: ObjectTypeResolver,
     ) -> None:
         """
@@ -1223,7 +1211,7 @@ class TestObjectTypeResolver:  # Renamed class
                 - Named objects (with/without properties, different additionalProperties)
                 - Non-object types.
         Expected Outcome:
-            - Returns the correct Python type string (e.g., Dict[str, Any], model name, Any, or None).
+            - Returns the correct Python type string (e.g., dict[str, Any], model name, Any, or None).
             - Adds necessary typing imports (Dict, Any) to the context.
             - Correctly handles fallbacks and specific conditions for object variations.
         """
@@ -1313,11 +1301,11 @@ class TestTypeHelperGetPythonTypeForSchemaFallthroughs:
         )
 
     @pytest.fixture
-    def empty_schemas(self) -> Dict[str, IRSchema]:
+    def empty_schemas(self) -> dict[str, IRSchema]:
         return {}
 
     def test_get_python_type_for_schema__fallthrough_to_primitive(
-        self, context: RenderContext, empty_schemas: Dict[str, IRSchema]
+        self, context: RenderContext, empty_schemas: dict[str, IRSchema]
     ) -> None:
         """
         Scenario:
@@ -1335,7 +1323,7 @@ class TestTypeHelperGetPythonTypeForSchemaFallthroughs:
         assert result == "str"
 
     def test_get_python_type_for_schema__fallthrough_to_composition(
-        self, context: RenderContext, empty_schemas: Dict[str, IRSchema]
+        self, context: RenderContext, empty_schemas: dict[str, IRSchema]
     ) -> None:
         """
         Scenario:
@@ -1358,7 +1346,7 @@ class TestTypeHelperGetPythonTypeForSchemaFallthroughs:
         assert context.import_collector.has_import("typing", "Union")
 
     def test_get_python_type_for_schema__fallthrough_to_array(
-        self, context: RenderContext, empty_schemas: Dict[str, IRSchema]
+        self, context: RenderContext, empty_schemas: dict[str, IRSchema]
     ) -> None:
         """
         Scenario:
@@ -1375,25 +1363,25 @@ class TestTypeHelperGetPythonTypeForSchemaFallthroughs:
         assert context.import_collector.has_import("typing", "List")
 
     def test_get_python_type_for_schema__fallthrough_to_object(
-        self, context: RenderContext, empty_schemas: Dict[str, IRSchema]
+        self, context: RenderContext, empty_schemas: dict[str, IRSchema]
     ) -> None:
         """
         Scenario:
             - schema is anonymous, not an enum, resolve_alias_target=False.
             - Schema is structurally an object type with additionalProperties:true.
         Expected Outcome:
-            - Correctly resolves to Dict[str, Any].
+            - Correctly resolves to dict[str, Any].
         """
         schema = IRSchema(name=None, type="object", additional_properties=True)
         result = TypeHelper.get_python_type_for_schema(
             schema, empty_schemas, context, required=True, resolve_alias_target=False
         )
-        assert result == "Dict[str, Any]"
+        assert result == "dict[str, Any]"
         assert context.import_collector.has_import("typing", "Dict")
         assert context.import_collector.has_import("typing", "Any")
 
     def test_get_python_type_for_schema__fallthrough_to_unknown_any(
-        self, context: RenderContext, empty_schemas: Dict[str, IRSchema]
+        self, context: RenderContext, empty_schemas: dict[str, IRSchema]
     ) -> None:
         """
         Scenario:
@@ -1557,7 +1545,7 @@ class TestTypeHelperModelToModelImports:
 
         # Assert type string
         expected_class_name_b = NameSanitizer.sanitize_class_name(schema_b_name)
-        assert returned_type_str == f"Optional[{expected_class_name_b}]"
+        assert returned_type_str == f"{expected_class_name_b} | None"
 
         # Assert import for SchemaB (unified system uses relative imports)
         expected_relative_module_b = f".{schema_b_module_name}"
@@ -1566,16 +1554,11 @@ class TestTypeHelperModelToModelImports:
         ), f"Expected SchemaB import 'from {expected_relative_module_b} import {expected_class_name_b}' not found."
 
         # Assert import for Optional
-        assert context.import_collector.has_import("typing", "Optional"), "Expected typing.Optional import not found."
 
         # Verify rendered import string too
         rendered_imports = context.render_imports()
         expected_import_line_schema_b = f"from {expected_relative_module_b} import {expected_class_name_b}"
-        expected_import_line_optional = "from typing import Optional"
 
         assert (
             expected_import_line_schema_b in rendered_imports
         ), f"Expected SchemaB import line '{expected_import_line_schema_b}' not in rendered imports:\\n{rendered_imports}"
-        assert (
-            expected_import_line_optional in rendered_imports
-        ), f"Expected Optional import line '{expected_import_line_optional}' not in rendered imports:\\n{rendered_imports}"

@@ -2,7 +2,7 @@
 Tests for the extract_primary_type_and_nullability helper function.
 """
 
-from typing import Any, List, Optional
+from typing import Any, List
 
 import pytest
 
@@ -177,11 +177,11 @@ class TestExtractPrimaryTypeAndNullability:
         self,
         test_id: str,
         node_type_field: Any,
-        schema_name: Optional[str],
-        expected_type: Optional[str],
+        schema_name: str | None,
+        expected_type: str | None,
         expected_nullable: bool,
         expected_warnings_count: int,
-        expected_warning_substring: Optional[str],
+        expected_warning_substring: str | None,
     ) -> None:
         """
         Scenario:
@@ -197,7 +197,7 @@ class TestExtractPrimaryTypeAndNullability:
         """
         # Arrange (already done by parametrize)
         # Act
-        actual_type: Optional[str]
+        actual_type: str | None
         actual_nullable: bool
         actual_warnings: List[str]
         actual_type, actual_nullable, actual_warnings = extract_primary_type_and_nullability(

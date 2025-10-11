@@ -9,7 +9,7 @@ converted to dictionaries before being sent in HTTP requests.
 
 import dataclasses
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 import pytest
 
@@ -38,7 +38,7 @@ class UserProfile:
     """User profile dataclass for testing."""
 
     bio: str
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
 
 
 @dataclasses.dataclass
@@ -47,10 +47,10 @@ class ComplexData:
 
     id: int
     tags: List[str]
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     created_at: datetime
     is_active: bool
-    optional_field: Optional[str] = None
+    optional_field: str | None = None
 
 
 class TestDataclassSerializer:

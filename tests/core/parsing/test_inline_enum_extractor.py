@@ -1,6 +1,6 @@
 import logging  # Added for logger
 import unittest
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -38,7 +38,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Arrange
         parent_schema_name = "MyObject"
         property_key = "status"
-        property_node_data: Dict[str, Any] = {
+        property_node_data: dict[str, Any] = {
             "type": "string",
             "enum": ["active", "inactive", "pending"],
             "description": "The status of the object",
@@ -84,7 +84,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         colliding_name = "MyObjectTypeEnum"
         self.context.parsed_schemas[colliding_name] = IRSchema(name=colliding_name, type="integer", enum=[1, 2, 3])
 
-        property_node_data: Dict[str, Any] = {
+        property_node_data: dict[str, Any] = {
             "type": "string",
             "enum": ["hardcover", "paperback"],
             "description": "Book type",
@@ -122,7 +122,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Arrange
         parent_schema_name = "MyObject"
         property_key = "name"
-        property_node_data: Dict[str, Any] = {"type": "string", "description": "Object name"}
+        property_node_data: dict[str, Any] = {"type": "string", "description": "Object name"}
 
         actual_prop_ir = _extract_enum_from_property_node(
             parent_schema_name, property_key, property_node_data, self.context, logger
@@ -140,7 +140,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Arrange
         parent_schema_name = "MyObject"
         property_key = "category"
-        property_node_data: Dict[str, Any] = {"$ref": "#/components/schemas/CategoryEnum"}
+        property_node_data: dict[str, Any] = {"$ref": "#/components/schemas/CategoryEnum"}
 
         actual_prop_ir = _extract_enum_from_property_node(
             parent_schema_name, property_key, property_node_data, self.context, logger
@@ -157,7 +157,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Arrange
         parent_schema_name = None
         property_key = "format"
-        property_node_data: Dict[str, Any] = {
+        property_node_data: dict[str, Any] = {
             "type": "string",
             "enum": ["json", "xml"],
         }
@@ -190,7 +190,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Arrange
         parent_schema_name = "Config"
         property_key = "logLevel"
-        property_node_data: Dict[str, Any] = {"type": "integer", "enum": [0, 1, 2, 3], "description": "Logging level"}
+        property_node_data: dict[str, Any] = {"type": "integer", "enum": [0, 1, 2, 3], "description": "Logging level"}
         expected_enum_name = "Config_LogLevelEnum"  # 'Config' is sanitized to 'Config_'
 
         actual_prop_ir = _extract_enum_from_property_node(
@@ -219,7 +219,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Arrange
         parent_schema_name = "MyObject"
         property_key = "optional_status"
-        property_node_data: Dict[str, Any] = {
+        property_node_data: dict[str, Any] = {
             "type": "string",
             "enum": ["active", "inactive"],
             "description": "The optional status",
@@ -256,7 +256,7 @@ class TestExtractAndRegisterInlineEnum(unittest.TestCase):
         # Arrange
         parent_schema_name = "MyObject"
         property_key = "status_or_null"
-        property_node_data: Dict[str, Any] = {
+        property_node_data: dict[str, Any] = {
             "type": ["string", "null"],
             "enum": ["active", "inactive", None],  # OpenAPI allows null in enum if type includes null
             "description": "Status or null",
@@ -305,7 +305,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
                   and registers it in the context with a sanitized name.
         """
         schema_name_hint = "MyTopLevelEnum"
-        node_data: Dict[str, Any] = {
+        node_data: dict[str, Any] = {
             "type": "string",
             "enum": ["ALPHA", "BRAVO", "CHARLIE"],
             "description": "A top-level enum",
@@ -333,7 +333,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
         Expected: A unique name is generated.
         """
         schema_name_hint = None  # e.g. schema from requestBody/response
-        node_data: Dict[str, Any] = {"type": "integer", "enum": [1, 2, 3]}
+        node_data: dict[str, Any] = {"type": "integer", "enum": [1, 2, 3]}
         initial_schema_obj = IRSchema(name=schema_name_hint, type="integer")  # Name is None initially
 
         processed_schema_obj = _process_standalone_inline_enum(
@@ -350,7 +350,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
 
     def test_node_is_direct_enum__name_collision__renames_uniquely(self) -> None:
         schema_name_hint = "StatusEnum"
-        node_data: Dict[str, Any] = {"type": "string", "enum": ["active", "inactive"]}
+        node_data: dict[str, Any] = {"type": "string", "enum": ["active", "inactive"]}
         # Pre-populate context with a different schema using the same name
         self.context.parsed_schemas["StatusEnum"] = IRSchema(name="StatusEnum", type="integer")
 
@@ -376,7 +376,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
 
     def test_node_not_an_enum__returns_schema_obj_unchanged_if_no_enum_in_node(self) -> None:
         schema_name_hint = "MyObject"
-        node_data: Dict[str, Any] = {"type": "object", "properties": {"id": {"type": "string"}}}
+        node_data: dict[str, Any] = {"type": "object", "properties": {"id": {"type": "string"}}}
         initial_schema_obj = IRSchema(
             name="MyObject", type="object", properties={"id": IRSchema(name="id", type="string")}
         )
@@ -398,7 +398,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
                   It might still finalize/register the name.
         """
         schema_name_hint = "PreSetEnum"
-        node_data: Dict[str, Any] = {
+        node_data: dict[str, Any] = {
             "type": "string",
             "enum": ["SHOULD_BE_IGNORED_A", "SHOULD_BE_IGNORED_B"],  # Node has different enum
         }
@@ -422,7 +422,7 @@ class TestProcessStandaloneInlineEnum(unittest.TestCase):
                   and is_nullable should be handled by earlier parsing stages.
         """
         schema_name_hint = "NullableEnum"
-        node_data: Dict[str, Any] = {"type": ["string", "null"], "enum": ["value1", None]}
+        node_data: dict[str, Any] = {"type": ["string", "null"], "enum": ["value1", None]}
         # is_nullable might be set by extract_primary_type_and_nullability before this helper
         initial_schema_obj = IRSchema(name="NullableEnum", type=None, is_nullable=True)
 

@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 
 from pyopenapi_gen import IROperation, IRParameter, IRRequestBody
 from pyopenapi_gen.context.render_context import RenderContext
@@ -17,7 +17,7 @@ PARAM_TYPE_MAPPING = {
     "boolean": "bool",
     "string": "str",
     "array": "List",
-    "object": "Dict[str, Any]",
+    "object": "dict[str, Any]",
 }
 # Format-specific overrides
 PARAM_FORMAT_MAPPING = {
@@ -47,7 +47,7 @@ def schema_to_type(schema: IRParameter) -> str:
     # Array handling
     elif s.type == "array" and s.items:
         # For array items, we recursively call schema_to_type.
-        # The nullability of the item_type itself (e.g. List[Optional[int]])
+        # The nullability of the item_type itself (e.g. List[int | None])
         # will be handled by the recursive call based on s.items.is_nullable.
         item_schema_as_param = IRParameter(name="_item", param_in="_internal", required=False, schema=s.items)
         item_type_str = schema_to_type(item_schema_as_param)
@@ -70,8 +70,8 @@ def schema_to_type(schema: IRParameter) -> str:
     # 2. Apply nullability based on IRSchema's is_nullable field
     # This s.is_nullable should be the source of truth from the IR after parsing.
     if s.is_nullable:
-        # Ensure "Any" also gets wrapped, e.g. Optional[Any]
-        py_type = f"Optional[{py_type}]"
+        # Ensure "Any" also gets wrapped, e.g. Any | None
+        py_type = f"{py_type} | None"
 
     return py_type
 
@@ -82,7 +82,7 @@ def _get_request_body_type(body: IRRequestBody) -> str:
         if "json" in mt.lower():
             return schema_to_type(IRParameter(name="body", param_in="body", required=body.required, schema=sch))
     # Fallback to generic dict
-    return "Dict[str, Any]"
+    return "dict[str, Any]"
 
 
 def _deduplicate_tag_clients(client_classes: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
@@ -106,16 +106,20 @@ class EndpointsEmitter:
     def __init__(self, context: RenderContext) -> None:
         self.context = context
         self.formatter = Formatter()
-        self.visitor: Optional[EndpointVisitor] = None
+        self.visitor: EndpointVisitor | None = None
 
-    def _deduplicate_operation_ids(self, operations: List[IROperation]) -> None:
+    def _deduplicate_operation_ids_globally(self, operations: List[IROperation]) -> None:
         """
-        Ensures all operations have unique method names within a tag.
+        Ensures all operations have unique method names globally across all tags.
+
+        This prevents the bug where operations with multiple tags share the same
+        IROperation object reference, causing _deduplicate_operation_ids() to
+        modify the same object multiple times and accumulate _2_2 suffixes.
 
         Args:
-            operations: List of operations for a single tag.
+            operations: List of all operations across all tags.
         """
-        seen_methods: Dict[str, int] = {}
+        seen_methods: dict[str, int] = {}
         for op in operations:
             method_name = NameSanitizer.sanitize_method_name(op.operation_id)
             if method_name in seen_methods:
@@ -144,7 +148,7 @@ class EndpointsEmitter:
                 self.context.file_manager.write_file(str(file_path), content)
 
         # Ensure parsed_schemas is at least an empty dict if None,
-        # as EndpointVisitor expects Dict[str, IRSchema]
+        # as EndpointVisitor expects dict[str, IRSchema]
         current_parsed_schemas = self.context.parsed_schemas
         if current_parsed_schemas is None:
             logger.warning(
@@ -156,8 +160,12 @@ class EndpointsEmitter:
         if self.visitor is None:
             self.visitor = EndpointVisitor(current_parsed_schemas)  # Pass the (potentially defaulted) dict
 
-        tag_key_to_ops: Dict[str, List[IROperation]] = {}
-        tag_key_to_candidates: Dict[str, List[str]] = {}
+        # Deduplicate operation IDs globally BEFORE tag grouping to prevent
+        # multi-tag operations from accumulating _2_2 suffixes
+        self._deduplicate_operation_ids_globally(operations)
+
+        tag_key_to_ops: dict[str, List[IROperation]] = {}
+        tag_key_to_candidates: dict[str, List[str]] = {}
         for op in operations:
             tags = op.tags or [DEFAULT_TAG]
             for tag in tags:
@@ -175,7 +183,7 @@ class EndpointsEmitter:
             upper = sum(1 for c in t if c.isupper())
             return (is_pascal, word_count, upper, t)
 
-        tag_map: Dict[str, str] = {}
+        tag_map: dict[str, str] = {}
         for key, candidates in tag_key_to_candidates.items():
             best_tag_for_key = DEFAULT_TAG  # Default if no candidates somehow
             if candidates:
@@ -194,10 +202,11 @@ class EndpointsEmitter:
             # This will set current_file and reset+reinit import_collector's context
             self.context.set_current_file(str(file_path))
 
-            self._deduplicate_operation_ids(ops_for_tag)
+            # Deduplication now done globally before tag grouping (see above)
 
             # EndpointVisitor must exist here due to check above
-            assert self.visitor is not None, "EndpointVisitor not initialized"
+            if self.visitor is None:
+                raise RuntimeError("EndpointVisitor not initialized")
             methods = [self.visitor.visit(op, self.context) for op in ops_for_tag]
             class_content = self.visitor.emit_endpoint_client_class(canonical_tag_name, methods, self.context)
 

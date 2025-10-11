@@ -1,7 +1,6 @@
 """Unit test for forward references in circular dependencies."""
 
 import unittest
-from typing import Dict
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -46,7 +45,7 @@ class TestForwardReferences(unittest.TestCase):
         )
 
         # Create a dictionary of schemas
-        all_schemas: Dict[str, IRSchema] = {"MessageA": schema_a, "MessageB": schema_b}
+        all_schemas: dict[str, IRSchema] = {"MessageA": schema_a, "MessageB": schema_b}
 
         # Prepare schemas with generation_name and final_module_stem
         for schema_name, schema_obj in all_schemas.items():

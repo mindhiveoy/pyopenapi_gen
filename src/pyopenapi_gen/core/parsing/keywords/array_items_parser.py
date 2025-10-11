@@ -5,7 +5,7 @@ Renamed from array_parser.py for clarity.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from pyopenapi_gen import IRSchema
 
@@ -18,14 +18,14 @@ if TYPE_CHECKING:
 
 
 def _parse_array_items_schema(
-    parent_schema_name: Optional[str],
+    parent_schema_name: str | None,
     items_node_data: Mapping[str, Any],
     context: ParsingContext,
     parse_fn: Callable[  # Accepts the main schema parsing function
-        [Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema
+        [str | None, Mapping[str, Any] | None, ParsingContext, int], IRSchema
     ],
     max_depth: int,
-) -> Optional[IRSchema]:
+) -> IRSchema | None:
     """Parses the 'items' sub-schema of an array.
 
     Args:
@@ -51,9 +51,12 @@ def _parse_array_items_schema(
     """
     # Pre-conditions
     # items_node_data is checked later, as it can be non-Mapping to return None
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext instance"
-    assert callable(parse_fn), "parse_fn must be callable"
-    assert isinstance(max_depth, int) and max_depth >= 0, "max_depth must be a non-negative integer"
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext instance")
+    if not callable(parse_fn):
+        raise TypeError("parse_fn must be callable")
+    if not (isinstance(max_depth, int) and max_depth >= 0):
+        raise ValueError("max_depth must be a non-negative integer")
 
     item_name_for_parse = f"{parent_schema_name}Item" if parent_schema_name else None
     if (

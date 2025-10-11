@@ -138,14 +138,14 @@ class TestOpenAPIResponseResolver:
         schema = IRSchema(type="object")
         response = IRResponse(status_code="200", description="Success", content={"application/json": schema})
 
-        expected_result = ResolvedType(python_type="Dict[str, Any]")
+        expected_result = ResolvedType(python_type="dict[str, Any]")
         mock_schema_resolver.resolve_schema.return_value = expected_result
 
         # Act
         result = resolver.resolve_specific_response(response, mock_context)
 
         # Assert
-        assert result.python_type == "Dict[str, Any]"
+        assert result.python_type == "dict[str, Any]"
         mock_schema_resolver.resolve_schema.assert_called_once_with(schema, mock_context, required=True)
 
     def test_resolve_specific_response__data_wrapper__returns_wrapper_type(
@@ -215,14 +215,14 @@ class TestOpenAPIResponseResolver:
             },
         )
 
-        expected_result = ResolvedType(python_type="Dict[str, Any]")
+        expected_result = ResolvedType(python_type="dict[str, Any]")
         mock_schema_resolver.resolve_schema.return_value = expected_result
 
         # Act
         result = resolver.resolve_specific_response(response, mock_context)
 
         # Assert
-        assert result.python_type == "Dict[str, Any]"
+        assert result.python_type == "dict[str, Any]"
         # Should resolve the JSON schema, not XML or plain text
         mock_schema_resolver.resolve_schema.assert_called_once_with(json_schema, mock_context, required=True)
 
@@ -246,14 +246,14 @@ class TestOpenAPIResponseResolver:
             },
         )
 
-        expected_result = ResolvedType(python_type="Dict[str, Any]")
+        expected_result = ResolvedType(python_type="dict[str, Any]")
         mock_schema_resolver.resolve_schema.return_value = expected_result
 
         # Act
         result = resolver.resolve_specific_response(response, mock_context)
 
         # Assert
-        assert result.python_type == "Dict[str, Any]"
+        assert result.python_type == "dict[str, Any]"
         # Should resolve the JSON API schema
         mock_schema_resolver.resolve_schema.assert_called_once_with(json_api_schema, mock_context, required=True)
 
@@ -329,7 +329,7 @@ class TestOpenAPIResponseResolver:
     def test_resolve_specific_response__streaming_event_stream(self, resolver, mock_context) -> None:
         """
         Scenario: Streaming response with event stream content
-        Expected Outcome: Returns AsyncIterator[Dict[str, Any]]
+        Expected Outcome: Returns AsyncIterator[dict[str, Any]]
         """
         # Arrange
         response = IRResponse(
@@ -343,9 +343,9 @@ class TestOpenAPIResponseResolver:
         result = resolver.resolve_specific_response(response, mock_context)
 
         # Assert
-        assert result.python_type == "AsyncIterator[Dict[str, Any]]"
+        assert result.python_type == "AsyncIterator[dict[str, Any]]"
         mock_context.add_import.assert_any_call("typing", "AsyncIterator")
-        mock_context.add_import.assert_any_call("typing", "Dict")
+        # Note: Modern dict[str, Any] doesn't require Dict import (Python 3.10+)
         mock_context.add_import.assert_any_call("typing", "Any")
 
     def test_resolve_specific_response__streaming_with_schema(

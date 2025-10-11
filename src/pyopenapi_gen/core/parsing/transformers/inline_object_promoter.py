@@ -5,7 +5,10 @@ Handles the promotion of inline object schemas to global schemas.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from .... import IRSchema
 from ...utils import NameSanitizer
@@ -13,12 +16,12 @@ from ..context import ParsingContext
 
 
 def _attempt_promote_inline_object(
-    parent_schema_name: Optional[str],  # Name of the schema containing the property
+    parent_schema_name: str | None,  # Name of the schema containing the property
     property_key: str,  # The key (name) of the property being processed
     property_schema_obj: IRSchema,  # The IRSchema of the property itself (already parsed)
     context: ParsingContext,
     logger: logging.Logger,
-) -> Optional[IRSchema]:
+) -> IRSchema | None:
     logger.debug(
         f"PROMO_ATTEMPT: parent='{parent_schema_name}', prop_key='{property_key}', "
         f"prop_schema_name='{property_schema_obj.name}', prop_schema_type='{property_schema_obj.type}', "
@@ -75,7 +78,7 @@ def _attempt_promote_inline_object(
     else:
         base_name_candidate = sanitized_prop_key_class_name
 
-    chosen_global_name: Optional[str] = None
+    chosen_global_name: str | None = None
 
     # Check if the primary candidate name is available or already points to this object
     if base_name_candidate in context.parsed_schemas:

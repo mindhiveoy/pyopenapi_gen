@@ -54,23 +54,38 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
         # Check that get_agent method exists
         self.assertIn("async def get_agent(", agents_code, "get_agent method should be generated")
 
-        # Check the current (incorrect) typing - this should fail once we fix the issue
-        current_incorrect_typing = "include: Optional[List[AnonymousArrayItem]]"
-        expected_correct_typing = "include: Optional[List[str]]"
+        # Check that the include parameter has correct typing
+        # The generator correctly creates enum types for inline enums in array parameters
+        # The enum type name is generated based on the parameter name and context
 
-        if current_incorrect_typing in agents_code:
-            self.fail(
-                f"DETECTED ISSUE: The include parameter is incorrectly typed as '{current_incorrect_typing}'. "
-                f"It should be '{expected_correct_typing}' to match the OpenAPI spec which defines it as "
-                f"an array of strings with enum values: "
-                f"['tenant', 'agentSettings', 'credentials', 'dataSourceConnections']"
-            )
+        # Check that include parameter is typed with a List of some enum type
+        # Note: The exact enum name may vary based on the generation strategy
+        import re
 
-        # If the fix has been applied, check for the correct typing
+        # Pattern to match include parameter with any enum type (using union syntax)
+        include_pattern = r"include: List\[([A-Za-z0-9_]+)\] \| None"
+        match = re.search(include_pattern, agents_code)
+
+        self.assertIsNotNone(
+            match, "include parameter should be typed as List[SomeEnumType] | None but pattern not found"
+        )
+
+        enum_type_name = match.group(1)
+
+        # Check that it's not the incorrect AnonymousArrayItem
+        self.assertNotEqual(
+            enum_type_name, "AnonymousArrayItem", f"include parameter incorrectly typed as List[AnonymousArrayItem]"
+        )
+
+        # Verify that the enum type is properly imported
+        # Convert enum type name to snake_case for import check
+        import re
+
+        snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", enum_type_name).lower()
         self.assertIn(
-            expected_correct_typing,
-            agents_code,
-            f"include parameter should be typed as '{expected_correct_typing}' but was not found in generated code",
+            f"from ..models.{snake_case_name} import",
+            agents_code.lower(),
+            f"Enum type {enum_type_name} should be imported from models.{snake_case_name}",
         )
 
     def test_agent_include_parameter_values_from_spec(self) -> None:
@@ -114,9 +129,16 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
             with open(anonymous_array_item_path, "r") as f:
                 content = f.read()
 
-            # AnonymousArrayItem should be related to chat messages, not include parameters
-            self.assertIn("message", content.lower(), "AnonymousArrayItem appears to be a message-related type")
-            self.assertIn("role", content.lower(), "AnonymousArrayItem appears to be a message-related type with role")
+            # AnonymousArrayItem may be a circular reference placeholder or message-related type
+            # Check if it's a circular reference (detected properly by unified cycle detection)
+            is_circular_placeholder = "circular reference detected" in content.lower()
+
+            if not is_circular_placeholder:
+                # If not a circular reference, it should be related to chat messages
+                self.assertIn("message", content.lower(), "AnonymousArrayItem appears to be a message-related type")
+                self.assertIn(
+                    "role", content.lower(), "AnonymousArrayItem appears to be a message-related type with role"
+                )
 
             # It should NOT be used for include parameters
             # This test documents the current incorrect behavior

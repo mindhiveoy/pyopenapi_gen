@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
+from typing import Any, Callable, List, Mapping, Set, Tuple
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -16,6 +16,8 @@ from .keywords.all_of_parser import _process_all_of
 from .keywords.any_of_parser import _parse_any_of_schemas
 from .keywords.one_of_parser import _parse_one_of_schemas
 from .unified_cycle_detection import CycleAction
+
+logger = logging.getLogger(__name__)
 
 # Environment variables for configurable limits, with defaults
 try:
@@ -27,14 +29,12 @@ try:
 except ValueError:
     ENV_MAX_DEPTH = 150  # Fallback to 150 if env var is invalid
 
-logger = logging.getLogger(__name__)
-
 
 def _resolve_ref(
     ref_path_str: str,
-    parent_schema_name: Optional[str],  # Name of the schema containing this $ref
+    parent_schema_name: str | None,  # Name of the schema containing this $ref
     context: ParsingContext,
-    max_depth_override: Optional[int],  # Propagated from the main _parse_schema call
+    max_depth_override: int | None,  # Propagated from the main _parse_schema call
     allow_self_reference_for_parent: bool,
 ) -> IRSchema:
     """Resolves a $ref string, handling cycles and depth for the referenced schema."""
@@ -82,13 +82,11 @@ def _resolve_ref(
 
 def _parse_composition_keywords(
     node: Mapping[str, Any],
-    name: Optional[str],
+    name: str | None,
     context: ParsingContext,
     max_depth: int,
-    parse_fn: Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, Optional[int]], IRSchema],
-) -> Tuple[
-    Optional[List[IRSchema]], Optional[List[IRSchema]], Optional[List[IRSchema]], Dict[str, IRSchema], Set[str], bool
-]:
+    parse_fn: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int | None], IRSchema],
+) -> Tuple[List[IRSchema] | None, List[IRSchema] | None, List[IRSchema] | None, dict[str, IRSchema], Set[str], bool]:
     """Parse composition keywords (anyOf, oneOf, allOf) from a schema node.
 
     Contracts:
@@ -101,10 +99,10 @@ def _parse_composition_keywords(
             - Returns a tuple of (any_of_schemas, one_of_schemas, all_of_components,
               properties, required_fields, is_nullable)
     """
-    any_of_schemas: Optional[List[IRSchema]] = None
-    one_of_schemas: Optional[List[IRSchema]] = None
-    parsed_all_of_components: Optional[List[IRSchema]] = None
-    merged_properties: Dict[str, IRSchema] = {}
+    any_of_schemas: List[IRSchema] | None = None
+    one_of_schemas: List[IRSchema] | None = None
+    parsed_all_of_components: List[IRSchema] | None = None
+    merged_properties: dict[str, IRSchema] = {}
     merged_required_set: Set[str] = set()
     is_nullable: bool = False
 
@@ -130,14 +128,14 @@ def _parse_composition_keywords(
 
 def _parse_properties(
     properties_node: Mapping[str, Any],
-    parent_schema_name: Optional[str],
-    existing_properties: Dict[str, IRSchema],  # Properties already merged, e.g., from allOf
+    parent_schema_name: str | None,
+    existing_properties: dict[str, IRSchema],  # Properties already merged, e.g., from allOf
     context: ParsingContext,
-    max_depth_override: Optional[int],
+    max_depth_override: int | None,
     allow_self_reference: bool,
-) -> Dict[str, IRSchema]:
+) -> dict[str, IRSchema]:
     """Parses the 'properties' block of a schema node."""
-    parsed_props: Dict[str, IRSchema] = existing_properties.copy()
+    parsed_props: dict[str, IRSchema] = existing_properties.copy()
 
     for prop_name, prop_schema_node in properties_node.items():
         if not isinstance(prop_name, str) or not prop_name:
@@ -316,17 +314,18 @@ def _parse_properties(
 
 
 def _parse_schema(
-    schema_name: Optional[str],
-    schema_node: Optional[Mapping[str, Any]],
+    schema_name: str | None,
+    schema_node: Mapping[str, Any] | None,
     context: ParsingContext,
-    max_depth_override: Optional[int] = None,
+    max_depth_override: int | None = None,
     allow_self_reference: bool = False,
 ) -> IRSchema:
     """
     Parse a schema node and return an IRSchema object.
     """
     # Pre-conditions
-    assert context is not None, "Context cannot be None for _parse_schema"
+    if context is None:
+        raise ValueError("Context cannot be None for _parse_schema")
 
     # Set allow_self_reference flag on unified context
     context.unified_cycle_context.allow_self_reference = allow_self_reference
@@ -375,11 +374,14 @@ def _parse_schema(
 
     try:  # Ensure exit_schema is called
         if schema_node is None:
+            # Create empty schema for null schema nodes
+            # Do NOT set generation_name - null schemas should resolve to Any inline, not generate separate files
             return IRSchema(name=NameSanitizer.sanitize_class_name(schema_name) if schema_name else None)
 
-        assert isinstance(
-            schema_node, Mapping
-        ), f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
+        if not isinstance(schema_node, Mapping):
+            raise TypeError(
+                f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
+            )
 
         # If the current schema_node itself is a $ref, resolve it.
         if "$ref" in schema_node:
@@ -410,12 +412,28 @@ def _parse_schema(
 
             return resolved_schema
 
-        extracted_type: Optional[str] = None
+        extracted_type: str | None = None
         is_nullable_from_type_field = False
         raw_type_field = schema_node.get("type")
 
         if isinstance(raw_type_field, str):
-            extracted_type = raw_type_field
+            # Handle non-standard type values that might appear
+            if raw_type_field in ["Any", "any"]:
+                # Convert 'Any' to None - will be handled as object later
+                extracted_type = None
+                logger.warning(
+                    f"Schema{f' {schema_name}' if schema_name else ''} uses non-standard type 'Any'. "
+                    "Converting to 'object'. Use standard OpenAPI types: string, number, integer, boolean, array, object."
+                )
+            elif raw_type_field == "None":
+                # Convert 'None' string to null handling
+                extracted_type = "null"
+                logger.warning(
+                    f"Schema{f' {schema_name}' if schema_name else ''} uses type 'None'. "
+                    'Converting to nullable object. Use \'type: ["object", "null"]\' for nullable types.'
+                )
+            else:
+                extracted_type = raw_type_field
         elif isinstance(raw_type_field, list):
             if "null" in raw_type_field:
                 is_nullable_from_type_field = True
@@ -437,17 +455,42 @@ def _parse_schema(
             )
         )
 
-        is_nullable_overall = is_nullable_from_type_field or nullable_from_comp
-        final_properties_for_ir: Dict[str, IRSchema] = {}
+        # Check for direct nullable field (OpenAPI 3.0 Swagger extension)
+        is_nullable_from_node = schema_node.get("nullable", False)
+        is_nullable_overall = is_nullable_from_type_field or nullable_from_comp or is_nullable_from_node
+        final_properties_for_ir: dict[str, IRSchema] = {}
         current_final_type = extracted_type
         if not current_final_type:
             if props_from_comp or "allOf" in schema_node or "properties" in schema_node:
                 current_final_type = "object"
             elif any_of_irs or one_of_irs:
+                # Keep None for composition types - they'll be handled by resolver
                 current_final_type = None
+            elif "enum" in schema_node:
+                # Enum without explicit type - infer from enum values
+                enum_values = schema_node.get("enum", [])
+                if enum_values:
+                    first_val = enum_values[0]
+                    if isinstance(first_val, str):
+                        current_final_type = "string"
+                    elif isinstance(first_val, (int, float)):
+                        current_final_type = "number"
+                    elif isinstance(first_val, bool):
+                        current_final_type = "boolean"
+                    else:
+                        # Fallback to object for complex enum values
+                        current_final_type = "object"
+                else:
+                    current_final_type = "string"  # Default for empty enums
+            else:
+                # No type specified and no clear indicators - default to object
+                # This is safer than 'Any' and matches OpenAPI spec defaults
+                current_final_type = "object"
 
         if current_final_type == "null":
-            current_final_type = None
+            # Explicit null type - mark as nullable but use object type
+            is_nullable_overall = True
+            current_final_type = "object"
 
         if current_final_type == "object":
             # Properties from allOf have already been handled by _parse_composition_keywords
@@ -471,7 +514,7 @@ def _parse_schema(
         if "required" in schema_node and isinstance(schema_node["required"], list):
             final_required_fields_set.update(schema_node["required"])
 
-        items_ir: Optional[IRSchema] = None
+        items_ir: IRSchema | None = None
         if current_final_type == "array":
             items_node = schema_node.get("items")
             if items_node:
@@ -509,9 +552,31 @@ def _parse_schema(
                 else:
                     items_ir = actual_item_ir
             else:
-                items_ir = IRSchema(type="Any")
+                # Array without items specification - use object as safer default
+                # Log warning to help developers fix their specs
+                logger.warning(
+                    f"Array type without 'items' specification found{f' in {schema_name}' if schema_name else ''}. "
+                    "Using 'object' as item type. Consider adding 'items' to your OpenAPI spec for better type safety."
+                )
+                items_ir = IRSchema(type="object")
 
         schema_ir_name_attr = NameSanitizer.sanitize_class_name(schema_name) if schema_name else None
+
+        # Parse additionalProperties field
+        additional_properties_value: bool | IRSchema | None = None
+        if "additionalProperties" in schema_node:
+            additional_props_node = schema_node["additionalProperties"]
+            if isinstance(additional_props_node, bool):
+                additional_properties_value = additional_props_node
+            elif isinstance(additional_props_node, dict):
+                # Parse the additionalProperties schema
+                additional_properties_value = _parse_schema(
+                    None,  # No name for additional properties schema
+                    additional_props_node,
+                    context,
+                    max_depth_override,
+                    allow_self_reference,
+                )
 
         schema_ir = IRSchema(
             name=schema_ir_name_attr,
@@ -528,11 +593,12 @@ def _parse_schema(
             example=schema_node.get("example"),
             is_nullable=is_nullable_overall,
             items=items_ir,
+            additional_properties=additional_properties_value,
         )
 
         if schema_ir.type == "array" and isinstance(schema_node.get("items"), Mapping):
             raw_items_node = schema_node["items"]
-            item_schema_context_name_for_reparse: Optional[str]
+            item_schema_context_name_for_reparse: str | None
             base_name_for_reparse_item = schema_name or "AnonymousArray"
             item_schema_context_name_for_reparse = NameSanitizer.sanitize_class_name(
                 f"{base_name_for_reparse_item}Item"

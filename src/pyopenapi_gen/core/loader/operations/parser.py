@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any, List, Mapping, Optional, cast
+from typing import Any, List, Mapping, cast
 
 from pyopenapi_gen import HTTPMethod, IROperation, IRParameter, IRRequestBody, IRResponse
 from pyopenapi_gen.core.loader.operations.post_processor import post_process_operation
@@ -39,11 +39,16 @@ def parse_operations(
             - All operations have correct path, method, parameters, responses, etc.
             - All referenced schemas are properly stored in context
     """
-    assert isinstance(paths, Mapping), "paths must be a Mapping"
-    assert isinstance(raw_parameters, Mapping), "raw_parameters must be a Mapping"
-    assert isinstance(raw_responses, Mapping), "raw_responses must be a Mapping"
-    assert isinstance(raw_request_bodies, Mapping), "raw_request_bodies must be a Mapping"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext"
+    if not isinstance(paths, Mapping):
+        raise TypeError("paths must be a Mapping")
+    if not isinstance(raw_parameters, Mapping):
+        raise TypeError("raw_parameters must be a Mapping")
+    if not isinstance(raw_responses, Mapping):
+        raise TypeError("raw_responses must be a Mapping")
+    if not isinstance(raw_request_bodies, Mapping):
+        raise TypeError("raw_request_bodies must be a Mapping")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext")
 
     ops: List[IROperation] = []
 
@@ -91,7 +96,7 @@ def parse_operations(
                     params.append(parse_parameter(resolved_p_param_node, context, operation_id_for_promo=operation_id))
 
                 # Parse request body
-                rb: Optional[IRRequestBody] = None
+                rb: IRRequestBody | None = None
                 if "requestBody" in node_op:
                     rb = parse_request_body(
                         cast(Mapping[str, Any], node_op["requestBody"]),
@@ -150,6 +155,7 @@ def parse_operations(
                 ops.append(op)
 
     # Post-condition check
-    assert all(isinstance(op, IROperation) for op in ops), "All items must be IROperation objects"
+    if not all(isinstance(op, IROperation) for op in ops):
+        raise TypeError("All items must be IROperation objects")
 
     return ops

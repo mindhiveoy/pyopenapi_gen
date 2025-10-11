@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -190,7 +190,7 @@ def test_inline_object_naming_for_collection_items(context: ParsingContext) -> N
 
 
 def test_generate_name_for_property_enum(context: ParsingContext) -> None:
-    openapi_node: Dict[str, Any] = {
+    openapi_node: dict[str, Any] = {
         "type": "object",
         "properties": {"status": {"type": "string", "enum": ["active", "inactive"]}},
     }

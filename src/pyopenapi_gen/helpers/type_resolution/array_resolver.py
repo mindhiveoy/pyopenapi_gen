@@ -1,7 +1,7 @@
 """Resolves IRSchema to Python List types."""
 
 import logging
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ArrayTypeResolver:
     """Resolves IRSchema instances of type 'array'."""
 
-    def __init__(self, context: RenderContext, all_schemas: Dict[str, IRSchema], main_resolver: "SchemaTypeResolver"):
+    def __init__(self, context: RenderContext, all_schemas: dict[str, IRSchema], main_resolver: "SchemaTypeResolver"):
         self.context = context
         self.all_schemas = all_schemas
         self.main_resolver = main_resolver  # For resolving item types
@@ -23,9 +23,9 @@ class ArrayTypeResolver:
     def resolve(
         self,
         schema: IRSchema,
-        parent_name_hint: Optional[str] = None,
+        parent_name_hint: str | None = None,
         resolve_alias_target: bool = False,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Resolves an IRSchema of `type: "array"` to a Python `List[...]` type string.
 

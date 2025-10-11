@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Dict
 
 from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -66,7 +65,7 @@ def test_models_emitter__list_response_pattern__generates_proper_models_and_impo
     )
 
     # 2. Create IRSpec
-    schemas_dict: Dict[str, IRSchema] = {
+    schemas_dict: dict[str, IRSchema] = {
         "MyItem": my_item_schema,
         "PaginationMeta": pagination_meta_schema,
         "MyItemListResponse": my_item_list_response_schema,

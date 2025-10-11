@@ -3,7 +3,6 @@ Tests for the EndpointParameterProcessor class.
 """
 
 from pathlib import Path
-from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -63,7 +62,7 @@ def render_context_mock_for_params(tmp_path: Path) -> MagicMock:
 
 
 @pytest.fixture
-def schemas_for_params() -> Dict[str, IRSchema]:
+def schemas_for_params() -> dict[str, IRSchema]:
     schemas_dict = {
         "MyBody": IRSchema(type="object", name="MyBody", properties={"id": IRSchema(type="integer")}),
         "StringSchema": IRSchema(type="string"),  # For direct reference if needed
@@ -81,7 +80,7 @@ class TestEndpointParameterProcessor:
         self,
         minimal_op_for_params: IROperation,
         render_context_mock_for_params: MagicMock,
-        schemas_for_params: Dict[str, IRSchema],
+        schemas_for_params: dict[str, IRSchema],
     ) -> None:
         """
         Scenario:
@@ -145,15 +144,15 @@ class TestEndpointParameterProcessor:
     def test_process_parameters__request_body_multipart_form_data__correct_types_and_imports(
         self,
         render_context_mock_for_params: MagicMock,
-        schemas_for_params: Dict[str, IRSchema],
+        schemas_for_params: dict[str, IRSchema],
     ) -> None:
         """
         Scenario:
             - IROperation with a multipart/form-data request body.
         Expected Outcome:
             - primary_content_type is "multipart/form-data".
-            - resolved_body_type is "Dict[str, IO[Any]]".
-            - A parameter named "files" with type "Dict[str, IO[Any]]" is generated.
+            - resolved_body_type is "dict[str, IO[Any]]".
+            - A parameter named "files" with type "dict[str, IO[Any]]" is generated.
             - Imports for "typing.Dict" and "typing.IO" are added.
         """
         op_multipart = IROperation(
@@ -176,11 +175,11 @@ class TestEndpointParameterProcessor:
         )
 
         assert primary_content_type == "multipart/form-data"
-        assert resolved_body_type == "Dict[str, IO[Any]]"
+        assert resolved_body_type == "dict[str, IO[Any]]"
 
         files_param_info = next((p for p in ordered_params if p["name"] == "files"), None)
         assert files_param_info is not None
-        assert files_param_info["type"] == "Dict[str, IO[Any]]"
+        assert files_param_info["type"] == "dict[str, IO[Any]]"
         assert files_param_info["param_in"] == "body"
         assert files_param_info["required"] is True  # from op.request_body.required
 
@@ -192,7 +191,7 @@ class TestEndpointParameterProcessor:
     def test_process_parameters__with_header_parameter__processed_correctly(
         self,
         render_context_mock_for_params: MagicMock,
-        schemas_for_params: Dict[str, IRSchema],
+        schemas_for_params: dict[str, IRSchema],
     ) -> None:
         """
         Scenario:
@@ -233,7 +232,7 @@ class TestEndpointParameterProcessor:
         # and handles default correctly if it were to be used by get_param_type mock directly.
         # For now, the mock setup for get_param_type is indirect via RenderContext.
         # We are testing that the attributes from IRParameter are passed to get_param_type implicitly.
-        assert header_param_info["type"] == "Optional[str]"  # required=False makes it Optional
+        assert header_param_info["type"] == "str | None"  # required=False makes it Optional
         assert header_param_info["default"] == "default_value"
 
         # Ensure get_param_type was called for this parameter
@@ -244,7 +243,7 @@ class TestEndpointParameterProcessor:
     def test_process_parameters__with_cookie_parameter__processed_correctly(
         self,
         render_context_mock_for_params: MagicMock,
-        schemas_for_params: Dict[str, IRSchema],
+        schemas_for_params: dict[str, IRSchema],
     ) -> None:
         """
         Scenario:
@@ -288,21 +287,21 @@ class TestEndpointParameterProcessor:
         assert theme_param_info["name"] == "theme_preference"  # Sanitized
         assert theme_param_info["param_in"] == "cookie"
         assert theme_param_info["required"] is False
-        assert theme_param_info["type"] == "Optional[str]"  # Assuming get_param_type resolves this
+        assert theme_param_info["type"] == "str | None"  # Assuming get_param_type resolves this
         assert theme_param_info["default"] == "dark"
 
     def test_process_parameters__request_body_form_urlencoded__correct_types_and_imports(
         self,
         render_context_mock_for_params: MagicMock,
-        schemas_for_params: Dict[str, IRSchema],
+        schemas_for_params: dict[str, IRSchema],
     ) -> None:
         """
         Scenario:
             - IROperation with an application/x-www-form-urlencoded request body.
         Expected Outcome:
             - primary_content_type is "application/x-www-form-urlencoded".
-            - resolved_body_type is "Dict[str, Any]".
-            - A parameter named "form_data" with type "Dict[str, Any]" is generated.
+            - resolved_body_type is "dict[str, Any]".
+            - A parameter named "form_data" with type "dict[str, Any]" is generated.
             - Imports for "typing.Dict" and "typing.Any" are added.
         """
         op_form_urlencoded = IROperation(
@@ -324,23 +323,23 @@ class TestEndpointParameterProcessor:
         )
 
         assert primary_content_type == "application/x-www-form-urlencoded"
-        assert resolved_body_type == "Dict[str, Any]"
+        assert resolved_body_type == "dict[str, Any]"
 
         form_data_param_info = next((p for p in ordered_params if p["name"] == "form_data"), None)
         assert form_data_param_info is not None
-        assert form_data_param_info["type"] == "Dict[str, Any]"
+        assert form_data_param_info["type"] == "dict[str, Any]"
         assert form_data_param_info["param_in"] == "body"
         assert form_data_param_info["required"] is True
 
         render_context_mock_for_params.add_import.assert_any_call("typing", "Dict")
-        # Any is added by default at the start of body processing, and also for Dict[str, Any]
+        # Any is added by default at the start of body processing, and also for dict[str, Any]
         assert render_context_mock_for_params.add_import.call_count >= 1
         render_context_mock_for_params.add_import.assert_any_call("typing", "Any")
 
     def test_process_parameters__request_body_fallback_content_type__correct_types_and_imports(
         self,
         render_context_mock_for_params: MagicMock,
-        schemas_for_params: Dict[str, IRSchema],
+        schemas_for_params: dict[str, IRSchema],
     ) -> None:
         """
         Scenario:
@@ -386,7 +385,7 @@ class TestEndpointParameterProcessor:
     def test_process_parameters__body_param_name_collision__logs_warning(
         self,
         render_context_mock_for_params: MagicMock,
-        schemas_for_params: Dict[str, IRSchema],
+        schemas_for_params: dict[str, IRSchema],
     ) -> None:
         """
         Scenario:

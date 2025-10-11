@@ -85,11 +85,11 @@ class TestMatchCaseResponseGeneration:
         assert "if response.status_code ==" not in generated_code
         assert "elif response.status_code ==" not in generated_code
 
-        # Should have proper error raising
-        assert "raise Error400(response=response)" in generated_code
-        assert "raise Error401(response=response)" in generated_code
-        assert "raise Error404(response=response)" in generated_code
-        assert "raise Error500(response=response)" in generated_code
+        # Should have proper error raising with human-readable names
+        assert "raise BadRequestError(response=response)" in generated_code
+        assert "raise UnauthorisedError(response=response)" in generated_code
+        assert "raise NotFoundError(response=response)" in generated_code
+        assert "raise InternalServerError(response=response)" in generated_code
 
         # Should have HTTPError for unhandled cases
         assert 'raise HTTPError(response=response, message="Unhandled status code"' in generated_code

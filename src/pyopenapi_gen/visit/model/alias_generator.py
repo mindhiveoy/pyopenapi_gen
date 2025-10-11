@@ -3,13 +3,11 @@ Generates Python code for type aliases from IRSchema objects.
 """
 
 import logging
-from typing import Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
-from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
 logger = logging.getLogger(__name__)
@@ -21,10 +19,11 @@ class AliasGenerator:
     def __init__(
         self,
         renderer: PythonConstructRenderer,
-        all_schemas: Optional[Dict[str, IRSchema]],
+        all_schemas: dict[str, IRSchema] | None,
     ):
         # Pre-condition
-        assert renderer is not None, "PythonConstructRenderer cannot be None"
+        if renderer is None:
+            raise ValueError("PythonConstructRenderer cannot be None")
         self.renderer = renderer
         self.all_schemas = all_schemas if all_schemas is not None else {}
         self.type_service = UnifiedTypeService(self.all_schemas)
@@ -58,14 +57,17 @@ class AliasGenerator:
                 - ``TypeAlias`` is imported in the context if not already present.
         """
         # Pre-conditions
-        assert schema is not None, "Schema cannot be None for alias generation."
-        assert schema.name is not None, "Schema name must be present for alias generation."
-        assert base_name, "Base name cannot be empty for alias generation."
-        assert context is not None, "RenderContext cannot be None."
+        if schema is None:
+            raise ValueError("Schema cannot be None for alias generation.")
+        if schema.name is None:
+            raise ValueError("Schema name must be present for alias generation.")
+        if not base_name:
+            raise ValueError("Base name cannot be empty for alias generation.")
+        if context is None:
+            raise ValueError("RenderContext cannot be None.")
 
         alias_name = NameSanitizer.sanitize_class_name(base_name)
         target_type = self.type_service.resolve_schema_type(schema, context, required=True, resolve_underlying=True)
-        target_type = TypeFinalizer(context)._clean_type(target_type)
 
         # logger.debug(f"AliasGenerator: Rendering alias '{alias_name}' for target type '{target_type}'.")
 
@@ -77,13 +79,15 @@ class AliasGenerator:
         )
 
         # Post-condition
-        assert rendered_code.strip(), "Generated alias code cannot be empty."
+        if not rendered_code.strip():
+            raise RuntimeError("Generated alias code cannot be empty.")
         # PythonConstructRenderer is responsible for adding TypeAlias import
         # We can check if it was added to context if 'TypeAlias' is in the rendered code
         if "TypeAlias" in rendered_code:
-            assert (
+            if not (
                 "typing" in context.import_collector.imports
                 and "TypeAlias" in context.import_collector.imports["typing"]
-            ), "TypeAlias import was not added to context by renderer."
+            ):
+                raise RuntimeError("TypeAlias import was not added to context by renderer.")
 
         return rendered_code

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Protocol
 
 import httpx
 
@@ -83,47 +83,47 @@ class HttpxTransport:
 
     Attributes:
         _client (httpx.AsyncClient): Configured HTTPX async client for all requests.
-        _auth (Optional[BaseAuth]): Optional authentication plugin for request signing (can be CompositeAuth).
-        _bearer_token (Optional[str]): Optional bearer token for Authorization header.
-        _default_headers (Optional[Dict[str, str]]): Default headers to apply to all requests.
+        _auth (BaseAuth | None): Optional authentication plugin for request signing (can be CompositeAuth).
+        _bearer_token (str | None): Optional bearer token for Authorization header.
+        _default_headers (dict[str, str] | None): Default headers to apply to all requests.
     """
 
     def __init__(
         self,
         base_url: str,
-        timeout: Optional[float] = None,
-        auth: Optional[BaseAuth] = None,
-        bearer_token: Optional[str] = None,
-        default_headers: Optional[Dict[str, str]] = None,
+        timeout: float | None = None,
+        auth: BaseAuth | None = None,
+        bearer_token: str | None = None,
+        default_headers: dict[str, str] | None = None,
     ) -> None:
         """
         Initializes the HttpxTransport.
 
         Args:
             base_url (str): The base URL for all API requests made through this transport.
-            timeout (Optional[float]): The default timeout in seconds for requests. If None, httpx's default is used.
-            auth (Optional[BaseAuth]): Optional authentication plugin for request signing (can be CompositeAuth).
-            bearer_token (Optional[str]): Optional raw bearer token string for Authorization header.
-            default_headers (Optional[Dict[str, str]]): Default headers to apply to all requests.
+            timeout (float | None): The default timeout in seconds for requests. If None, httpx's default is used.
+            auth (BaseAuth | None): Optional authentication plugin for request signing (can be CompositeAuth).
+            bearer_token (str | None): Optional raw bearer token string for Authorization header.
+            default_headers (dict[str, str] | None): Default headers to apply to all requests.
 
         Note:
             If both auth and bearer_token are provided, auth takes precedence.
         """
         self._client: httpx.AsyncClient = httpx.AsyncClient(base_url=base_url, timeout=timeout)
-        self._auth: Optional[BaseAuth] = auth
-        self._bearer_token: Optional[str] = bearer_token
-        self._default_headers: Optional[Dict[str, str]] = default_headers
+        self._auth: BaseAuth | None = auth
+        self._bearer_token: str | None = bearer_token
+        self._default_headers: dict[str, str] | None = default_headers
 
     async def _prepare_headers(
         self,
-        current_request_kwargs: Dict[str, Any],
-    ) -> Dict[str, str]:
+        current_request_kwargs: dict[str, Any],
+    ) -> dict[str, str]:
         """
         Prepares headers for an HTTP request, incorporating default headers,
         request-specific headers, and authentication.
         """
         # Initialize headers for the current request
-        prepared_headers: Dict[str, str] = {}
+        prepared_headers: dict[str, str] = {}
 
         # 1. Apply transport-level default headers
         if self._default_headers:
@@ -180,7 +180,7 @@ class HttpxTransport:
             HTTPError: For non-2xx HTTP responses.
         """
         # Prepare request arguments, excluding headers initially
-        request_args: Dict[str, Any] = {k: v for k, v in kwargs.items() if k != "headers"}
+        request_args: dict[str, Any] = {k: v for k, v in kwargs.items() if k != "headers"}
 
         # This method handles default headers, request-specific headers, and authentication
         prepared_headers = await self._prepare_headers(kwargs)

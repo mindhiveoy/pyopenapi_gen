@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import re  # For _build_url_with_path_vars
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, List
 
 from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class EndpointUrlArgsGenerator:
     """Generates URL, query, and header parameters for an endpoint method."""
 
-    def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
-        self.schemas: Dict[str, Any] = schemas or {}
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
+        self.schemas: dict[str, Any] = schemas or {}
 
     def _build_url_with_path_vars(self, path: str) -> str:
         """Builds the f-string for URL construction, substituting path variables."""
@@ -34,7 +34,7 @@ class EndpointUrlArgsGenerator:
         return f'f"{{self.base_url}}{formatted_path}"'
 
     def _write_query_params(
-        self, writer: CodeWriter, op: IROperation, ordered_params: List[Dict[str, Any]], context: RenderContext
+        self, writer: CodeWriter, op: IROperation, ordered_params: List[dict[str, Any]], context: RenderContext
     ) -> None:
         """Writes query parameter dictionary construction."""
         # Logic from EndpointMethodGenerator._write_query_params
@@ -58,7 +58,7 @@ class EndpointUrlArgsGenerator:
                 )
 
     def _write_header_params(
-        self, writer: CodeWriter, op: IROperation, ordered_params: List[Dict[str, Any]], context: RenderContext
+        self, writer: CodeWriter, op: IROperation, ordered_params: List[dict[str, Any]], context: RenderContext
     ) -> None:
         """Writes header parameter dictionary construction."""
         # Logic from EndpointMethodGenerator._write_header_params
@@ -89,9 +89,9 @@ class EndpointUrlArgsGenerator:
         writer: CodeWriter,
         op: IROperation,
         context: RenderContext,
-        ordered_params: List[Dict[str, Any]],
-        primary_content_type: Optional[str],
-        resolved_body_type: Optional[str],
+        ordered_params: List[dict[str, Any]],
+        primary_content_type: str | None,
+        resolved_body_type: str | None,
     ) -> bool:
         """Writes URL, query, and header parameters. Returns True if header params were written."""
         # Main logic from EndpointMethodGenerator._write_url_and_args
@@ -103,9 +103,9 @@ class EndpointUrlArgsGenerator:
         # Check if any parameter in ordered_params is a query param, not just op.parameters
         has_spec_query_params = any(p.get("param_in") == "query" for p in ordered_params)
         if has_spec_query_params:
-            context.add_import("typing", "Any")  # For Dict[str, Any]
-            context.add_import("typing", "Dict")  # For Dict[str, Any]
-            writer.write_line("params: Dict[str, Any] = {")
+            context.add_import("typing", "Any")  # For dict[str, Any]
+            context.add_import("typing", "Dict")  # For dict[str, Any]
+            writer.write_line("params: dict[str, Any] = {")
             # writer.indent() # Indentation should be handled by CodeWriter when writing lines
             self._write_query_params(writer, op, ordered_params, context)
             # writer.dedent()
@@ -115,9 +115,9 @@ class EndpointUrlArgsGenerator:
         # Header Parameters
         has_header_params = any(p.get("param_in") == "header" for p in ordered_params)
         if has_header_params:
-            context.add_import("typing", "Any")  # For Dict[str, Any]
-            context.add_import("typing", "Dict")  # For Dict[str, Any]
-            writer.write_line("headers: Dict[str, Any] = {")
+            context.add_import("typing", "Any")  # For dict[str, Any]
+            context.add_import("typing", "Dict")  # For dict[str, Any]
+            writer.write_line("headers: dict[str, Any] = {")
             # writer.indent()
             self._write_header_params(writer, op, ordered_params, context)
             # writer.dedent()
@@ -160,11 +160,11 @@ class EndpointUrlArgsGenerator:
                     context.add_import("typing", "IO")  # For IO[Any]
                     context.add_import("typing", "Any")
                     writer.write_line(
-                        "files_data: Dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # type failed"
+                        "files_data: dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # type failed"
                     )
             elif primary_content_type == "application/x-www-form-urlencoded":
                 # form_data is the expected parameter name from EndpointParameterProcessor
-                # resolved_body_type should be Dict[str, Any]
+                # resolved_body_type should be dict[str, Any]
                 if resolved_body_type:
                     writer.write_line(
                         f"form_data_body: {resolved_body_type} = DataclassSerializer.serialize(form_data)"
@@ -173,7 +173,7 @@ class EndpointUrlArgsGenerator:
                     context.add_import("typing", "Dict")
                     context.add_import("typing", "Any")
                     writer.write_line(
-                        "form_data_body: Dict[str, Any] = DataclassSerializer.serialize(form_data)  # Fallback type"
+                        "form_data_body: dict[str, Any] = DataclassSerializer.serialize(form_data)  # Fallback type"
                     )
             elif resolved_body_type == "bytes":  # e.g. application/octet-stream
                 # bytes_content is the expected parameter name from EndpointParameterProcessor

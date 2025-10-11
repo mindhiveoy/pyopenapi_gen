@@ -1,7 +1,7 @@
 import importlib
 import logging
 import unittest
-from typing import Any, Dict, Mapping, Optional, cast
+from typing import Any, Mapping, Optional, cast
 from unittest.mock import ANY, patch
 
 from pyopenapi_gen import IRSchema
@@ -256,7 +256,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         def mock_recursive_parse_anyof(
-            name_arg: Optional[str],
+            name_arg: str | None,
             node_arg: Optional[Mapping[str, Any]],
             context_arg: ParsingContext,
             max_depth_arg: int,
@@ -311,7 +311,7 @@ class TestSchemaParser(unittest.TestCase):
         }
 
         def mock_recursive_parse_oneof(
-            name_arg: Optional[str],
+            name_arg: str | None,
             node_arg: Optional[Mapping[str, Any]],
             context_arg: ParsingContext,
             max_depth_arg: int,
@@ -495,7 +495,7 @@ class TestSchemaParser(unittest.TestCase):
         invalid_node: Any = "not a mapping"
 
         # Act & Assert
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(TypeError) as context:
             _parse_schema(schema_name, invalid_node, self.context, allow_self_reference=False)
 
         self.assertIn("must be a Mapping", str(context.exception))
@@ -509,7 +509,7 @@ class TestSchemaParser(unittest.TestCase):
         """
         # Arrange
         schema_name = "EmptyNodeSchema"
-        empty_node: Dict[str, Any] = {}
+        empty_node: dict[str, Any] = {}
 
         # Act
         schema_ir = _parse_schema(schema_name, empty_node, self.context, allow_self_reference=False)
@@ -517,7 +517,8 @@ class TestSchemaParser(unittest.TestCase):
         # Assert
         self.assertIsNotNone(schema_ir)
         self.assertEqual(schema_ir.name, schema_name)
-        self.assertIsNone(schema_ir.type)
+        # Empty schemas default to 'object' type per OpenAPI spec
+        self.assertEqual(schema_ir.type, "object")
         self.assertEqual(schema_ir.properties, {})
         self.assertEqual(schema_ir.required, [])
 

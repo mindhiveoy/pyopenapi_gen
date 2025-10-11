@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import List, Set
 
 from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
@@ -22,15 +22,15 @@ class ModelsEmitter:
     Handles creation of __init__.py and py.typed files.
     """
 
-    def __init__(self, context: RenderContext, parsed_schemas: Dict[str, IRSchema]):
+    def __init__(self, context: RenderContext, parsed_schemas: dict[str, IRSchema]):
         self.context: RenderContext = context
         # Store a reference to the schemas that were passed in.
         # These schemas will have their .generation_name and .final_module_stem updated.
-        self.parsed_schemas: Dict[str, IRSchema] = parsed_schemas
+        self.parsed_schemas: dict[str, IRSchema] = parsed_schemas
         self.import_collector = self.context.import_collector
         self.writer = CodeWriter()
 
-    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> Optional[str]:
+    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> str | None:
         """Generates a single Python file for a given IRSchema."""
         if not schema_ir.name:  # Original name, used for logging/initial identification
             logger.warning(f"Skipping model generation for schema without an original name: {schema_ir}")
@@ -42,12 +42,10 @@ class ModelsEmitter:
         # )
 
         # Assert that de-collided names have been set by the emit() method's preprocessing.
-        assert (
-            schema_ir.generation_name is not None
-        ), f"Schema '{schema_ir.name}' must have generation_name set before file generation."
-        assert (
-            schema_ir.final_module_stem is not None
-        ), f"Schema '{schema_ir.name}' must have final_module_stem set before file generation."
+        if schema_ir.generation_name is None:
+            raise RuntimeError(f"Schema '{schema_ir.name}' must have generation_name set before file generation.")
+        if schema_ir.final_module_stem is None:
+            raise RuntimeError(f"Schema '{schema_ir.name}' must have final_module_stem set before file generation.")
 
         file_path = models_dir / f"{schema_ir.final_module_stem}.py"
 
@@ -138,12 +136,10 @@ class ModelsEmitter:
 
         for s_schema in sorted_schemas_for_init:
             # These should have been set in the emit() preprocessing step.
-            assert (
-                s_schema.generation_name is not None
-            ), f"Schema '{s_schema.name}' missing generation_name in __init__ generation."
-            assert (
-                s_schema.final_module_stem is not None
-            ), f"Schema '{s_schema.name}' missing final_module_stem in __init__ generation."
+            if s_schema.generation_name is None:
+                raise RuntimeError(f"Schema '{s_schema.name}' missing generation_name in __init__ generation.")
+            if s_schema.final_module_stem is None:
+                raise RuntimeError(f"Schema '{s_schema.name}' missing final_module_stem in __init__ generation.")
 
             if s_schema._from_unresolved_ref:  # Check this flag if it's relevant
                 # logger.debug(
@@ -172,7 +168,7 @@ class ModelsEmitter:
         generated_content = init_writer.get_code()
         return generated_content
 
-    def emit(self, spec: IRSpec, output_root: str) -> Dict[str, List[str]]:
+    def emit(self, spec: IRSpec, output_root: str) -> dict[str, List[str]]:
         """Emits all model files derived from IR schemas.
 
         Contracts:
@@ -184,8 +180,10 @@ class ModelsEmitter:
                 - All models are properly formatted and type-annotated
                 - Returns a list of file paths generated
         """
-        assert isinstance(spec, IRSpec), "spec must be an IRSpec"
-        assert output_root, "output_root must be a non-empty string"
+        if not isinstance(spec, IRSpec):
+            raise TypeError("spec must be an IRSpec")
+        if not output_root:
+            raise ValueError("output_root must be a non-empty string")
 
         output_dir = Path(output_root.rstrip("/"))
         models_dir = output_dir / "models"
@@ -354,7 +352,7 @@ class ModelsEmitter:
 
                 # Fetch the schema_ir object using the key from all_schemas_for_generation
                 # This ensures we are working with the potentially newly created & named schemas.
-                current_schema_ir_obj: Optional[IRSchema] = all_schemas_for_generation.get(schema_key)
+                current_schema_ir_obj: IRSchema | None = all_schemas_for_generation.get(schema_key)
 
                 if not current_schema_ir_obj:
                     logger.warning(f"Schema key '{schema_key}' from all_schemas_for_generation not found. Skipping.")

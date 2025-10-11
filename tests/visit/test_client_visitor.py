@@ -114,9 +114,9 @@ class TestClientVisitor:
         assert "def products(self)" in result
 
         # Verify lazy initialization for each client
-        assert "self._users: Optional[UsersClient] = None" in result
-        assert "self._orders: Optional[OrdersClient] = None" in result
-        assert "self._products: Optional[ProductsClient] = None" in result
+        assert "self._users: UsersClient | None = None" in result
+        assert "self._orders: OrdersClient | None = None" in result
+        assert "self._products: ProductsClient | None = None" in result
 
         # Verify tag imports are present in the generated code
         assert "UsersClient" in result
@@ -164,7 +164,7 @@ class TestClientVisitor:
 
         # Verify default tag property is generated
         assert "def default(self)" in result
-        assert "self._default: Optional[DefaultClient] = None" in result
+        assert "self._default: DefaultClient | None = None" in result
 
         # Verify default tag import is present in the generated code
         assert "DefaultClient" in result

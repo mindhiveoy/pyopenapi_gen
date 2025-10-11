@@ -2,7 +2,6 @@
 
 import logging
 import os
-from typing import Dict, Optional
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 class NamedTypeResolver:
     """Resolves IRSchema instances that refer to named models/enums."""
 
-    def __init__(self, context: RenderContext, all_schemas: Dict[str, IRSchema]):
+    def __init__(self, context: RenderContext, all_schemas: dict[str, IRSchema]):
         self.context = context
         self.all_schemas = all_schemas
 
@@ -59,7 +58,7 @@ class NamedTypeResolver:
         parts = module_name.split("_")
         return "".join(word.capitalize() for word in parts)
 
-    def resolve(self, schema: IRSchema, resolve_alias_target: bool = False) -> Optional[str]:
+    def resolve(self, schema: IRSchema, resolve_alias_target: bool = False) -> str | None:
         """
         Resolves an IRSchema that refers to a named model/enum, or an inline named enum.
 
@@ -69,21 +68,20 @@ class NamedTypeResolver:
                                  *target* of an alias. If false, it should return the alias name itself.
 
         Returns:
-            A Python type string for the resolved schema, e.g., "MyModel", "Optional[MyModel]".
+            A Python type string for the resolved schema, e.g., "MyModel", "MyModel | None".
         """
 
         if schema.name and schema.name in self.all_schemas:
             # This schema is a REFERENCE to a globally defined schema (e.g., in components/schemas)
             ref_schema = self.all_schemas[schema.name]  # Get the actual definition
-            assert ref_schema.name is not None, f"Schema '{schema.name}' resolved to ref_schema with None name."
+            if ref_schema.name is None:
+                raise RuntimeError(f"Schema '{schema.name}' resolved to ref_schema with None name.")
 
             # NEW: Use generation_name and final_module_stem from the referenced schema
-            assert (
-                ref_schema.generation_name is not None
-            ), f"Referenced schema '{ref_schema.name}' must have generation_name set."
-            assert (
-                ref_schema.final_module_stem is not None
-            ), f"Referenced schema '{ref_schema.name}' must have final_module_stem set."
+            if ref_schema.generation_name is None:
+                raise RuntimeError(f"Referenced schema '{ref_schema.name}' must have generation_name set.")
+            if ref_schema.final_module_stem is None:
+                raise RuntimeError(f"Referenced schema '{ref_schema.name}' must have final_module_stem set.")
 
             class_name_for_ref = ref_schema.generation_name
             module_name_for_ref = ref_schema.final_module_stem
@@ -148,7 +146,7 @@ class NamedTypeResolver:
 
         elif schema.enum:
             # This is an INLINE enum definition (not a reference to a global enum)
-            enum_name: Optional[str] = None
+            enum_name: str | None = None
             if schema.name:  # If the inline enum has a name, it will be generated as a named enum class
                 enum_name = NameSanitizer.sanitize_class_name(schema.name)
                 module_name = NameSanitizer.sanitize_module_name(schema.name)

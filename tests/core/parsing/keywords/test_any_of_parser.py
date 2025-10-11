@@ -16,12 +16,12 @@ class TestParseAnyOfSchemas(unittest.TestCase):
         """Set up for test cases."""
         self.context = ParsingContext(raw_spec_schemas={}, parsed_schemas={}, visited_refs=set())
         self.mock_parse_fn = MagicMock(
-            spec=Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
+            spec=Callable[[str | None, Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
         )
 
         # Default side effect for the mock_parse_fn
         def default_parse_fn_side_effect(
-            name: Optional[str],
+            name: str | None,
             node: Optional[Mapping[str, Any]],
             context: ParsingContext,
             max_depth: int,
@@ -207,7 +207,7 @@ class TestParseAnyOfSchemas(unittest.TestCase):
 
         # Configure mock_parse_fn to return specific schemas for corresponding inputs
         def side_effect(
-            name: Optional[str], node_data: Optional[Mapping[str, Any]], context: ParsingContext, max_depth: int
+            name: str | None, node_data: Optional[Mapping[str, Any]], context: ParsingContext, max_depth: int
         ) -> IRSchema:
             if node_data == any_of_nodes[0]:
                 return string_schema
@@ -258,7 +258,7 @@ class TestParseAnyOfSchemas(unittest.TestCase):
         my_ref_schema = IRSchema(name="MyRef", type="object")  # Assuming $ref resolves to an object
 
         def side_effect(
-            name: Optional[str], node_data: Optional[Mapping[str, Any]], context: ParsingContext, max_depth: int
+            name: str | None, node_data: Optional[Mapping[str, Any]], context: ParsingContext, max_depth: int
         ) -> IRSchema:
             if node_data == simple_type_node:
                 return number_schema
@@ -287,18 +287,18 @@ class TestParseAnyOfSchemas(unittest.TestCase):
         self.mock_parse_fn.assert_any_call(None, simple_type_node, self.context, 10)
         self.mock_parse_fn.assert_any_call(None, ref_node, self.context, 10)
 
-    def test_any_of__invalid_item_in_list__raises_assertion_error(self) -> None:
+    def test_any_of__invalid_item_in_list__raises_type_error(self) -> None:
         """
         Scenario:
             - The anyOf list contains an item that is not a dictionary (Mapping).
         Expected Outcome:
-            - An AssertionError should be raised due to the pre-condition check.
+            - An TypeError should be raised due to the pre-condition check.
         """
         # Arrange
         any_of_nodes: List[Any] = [{"type": "string"}, "not a mapping"]
 
         # Act & Assert
-        with self.assertRaisesRegex(AssertionError, "all items in any_of_nodes must be Mappings"):
+        with self.assertRaisesRegex(TypeError, "all items in any_of_nodes must be Mappings"):
             _parse_any_of_schemas(any_of_nodes, self.context, 10, self.mock_parse_fn)
 
 

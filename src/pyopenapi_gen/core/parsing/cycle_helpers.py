@@ -1,5 +1,8 @@
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -77,7 +80,7 @@ def _handle_cycle_detection(
     return schema
 
 
-def _handle_max_depth_exceeded(original_name: Optional[str], context: ParsingContext, max_depth: int) -> IRSchema:
+def _handle_max_depth_exceeded(original_name: str | None, context: ParsingContext, max_depth: int) -> IRSchema:
     """Handle case where maximum recursion depth is exceeded.
 
     Contracts:

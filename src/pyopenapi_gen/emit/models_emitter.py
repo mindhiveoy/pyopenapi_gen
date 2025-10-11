@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -20,7 +20,7 @@ class ModelsEmitter:
         # self.writer an instance CodeWriter() here seems unused globally for this emitter.
         # Each file generation part either writes directly or uses a local CodeWriter.
 
-    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> Optional[str]:
+    def _generate_model_file(self, schema_ir: IRSchema, models_dir: Path) -> str | None:
         """Generates a single Python file for a given IRSchema. Returns file path if generated."""
         if not schema_ir.name:
             logger.warning(f"Skipping model generation for schema without a name: {schema_ir}")

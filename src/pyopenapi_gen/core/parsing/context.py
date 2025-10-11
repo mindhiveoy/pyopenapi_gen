@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, List, Mapping, Set, Tuple
 
 if TYPE_CHECKING:
     from pyopenapi_gen import IRSchema
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 class ParsingContext:
     """Manages shared state and context during the schema parsing process."""
 
-    raw_spec_schemas: Dict[str, Mapping[str, Any]] = field(default_factory=dict)
+    raw_spec_schemas: dict[str, Mapping[str, Any]] = field(default_factory=dict)
     raw_spec_components: Mapping[str, Any] = field(default_factory=dict)
-    parsed_schemas: Dict[str, IRSchema] = field(default_factory=dict)
+    parsed_schemas: dict[str, IRSchema] = field(default_factory=dict)
     visited_refs: Set[str] = field(default_factory=set)
     global_schema_names: Set[str] = field(default_factory=set)
-    package_root_name: Optional[str] = None
+    package_root_name: str | None = None
     # name_sanitizer: NameSanitizer = field(default_factory=NameSanitizer) # Decided to instantiate where needed for now
     collected_warnings: List[str] = field(default_factory=list)  # For collecting warnings from helpers
 
@@ -51,7 +51,7 @@ class ParsingContext:
             max_depth=max_depth,  # Share the same parsed_schemas dict
         )
 
-    def unified_enter_schema(self, schema_name: Optional[str]) -> Any:
+    def unified_enter_schema(self, schema_name: str | None) -> Any:
         """Enter schema using unified cycle detection system."""
         from .unified_cycle_detection import unified_enter_schema
 
@@ -64,7 +64,7 @@ class ParsingContext:
 
         return result
 
-    def unified_exit_schema(self, schema_name: Optional[str]) -> None:
+    def unified_exit_schema(self, schema_name: str | None) -> None:
         """Exit schema using unified cycle detection system."""
         from .unified_cycle_detection import unified_exit_schema
 
@@ -89,7 +89,7 @@ class ParsingContext:
         self.unified_cycle_context.depth_exceeded_schemas.clear()
         self.unified_cycle_context.cycle_detected = False
 
-    def enter_schema(self, schema_name: Optional[str]) -> Tuple[bool, Optional[str]]:
+    def enter_schema(self, schema_name: str | None) -> Tuple[bool, str | None]:
         self.recursion_depth += 1
 
         if schema_name is None:
@@ -113,7 +113,7 @@ class ParsingContext:
         self.currently_parsing.append(schema_name)
         return False, None
 
-    def exit_schema(self, schema_name: Optional[str]) -> None:
+    def exit_schema(self, schema_name: str | None) -> None:
         if self.recursion_depth == 0:
             self.logger.error("Cannot exit schema: recursion depth would go below zero.")
             return
@@ -149,7 +149,7 @@ class ParsingContext:
         """Helper to get a string representation of the current parsing path for logs."""
         return " -> ".join(self.currently_parsing)
 
-    def get_parsed_schemas_for_emitter(self) -> Dict[str, IRSchema]:
+    def get_parsed_schemas_for_emitter(self) -> dict[str, IRSchema]:
         # ---- START RESTORE ----
         return {
             name: schema
@@ -169,10 +169,11 @@ class ParsingContext:
             Postconditions:
                 - Returns True if the schema exists in parsed_schemas, False otherwise
         """
-        assert isinstance(schema_name, str), "schema_name must be a string"
+        if not isinstance(schema_name, str):
+            raise TypeError("schema_name must be a string")
         return schema_name in self.parsed_schemas
 
-    def get_parsed_schema(self, schema_name: str) -> Optional["IRSchema"]:
+    def get_parsed_schema(self, schema_name: str) -> "IRSchema" | None:
         """Get a parsed schema by its name.
 
         Contracts:
@@ -181,5 +182,6 @@ class ParsingContext:
             Postconditions:
                 - Returns the IRSchema if it exists, None otherwise
         """
-        assert isinstance(schema_name, str), "schema_name must be a string"
+        if not isinstance(schema_name, str):
+            raise TypeError("schema_name must be a string")
         return self.parsed_schemas.get(schema_name)

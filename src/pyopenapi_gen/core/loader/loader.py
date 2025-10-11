@@ -87,8 +87,22 @@ class SpecLoader:
                 validate_spec(cast(Mapping[Hashable, Any], self.spec))
             except Exception as e:
                 warning_msg = f"OpenAPI spec validation error: {e}"
+                # Always collect the message
                 warnings_list.append(warning_msg)
-                warnings.warn(warning_msg, UserWarning)
+
+                # Heuristic: if this error originates from jsonschema or
+                # openapi_spec_validator, prefer logging over global warnings
+                # to avoid noisy test output while still surfacing the issue.
+                origin_module = getattr(e.__class__, "__module__", "")
+                if (
+                    isinstance(e, RecursionError)
+                    or origin_module.startswith("jsonschema")
+                    or origin_module.startswith("openapi_spec_validator")
+                ):
+                    logger.warning(warning_msg)
+                else:
+                    # Preserve explicit warning behavior for unexpected failures
+                    warnings.warn(warning_msg, UserWarning)
 
         return warnings_list
 
@@ -134,8 +148,10 @@ class SpecLoader:
         )
 
         # Post-condition check
-        assert ir_spec.schemas == schemas_dict, "Schemas mismatch in IRSpec"
-        assert ir_spec.operations == operations, "Operations mismatch in IRSpec"
+        if ir_spec.schemas != schemas_dict:
+            raise RuntimeError("Schemas mismatch in IRSpec")
+        if ir_spec.operations != operations:
+            raise RuntimeError("Operations mismatch in IRSpec")
 
         return ir_spec
 

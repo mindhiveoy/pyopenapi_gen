@@ -4,7 +4,7 @@ Finalization an IRSchema object during OpenAPI parsing.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Set, Union
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -21,24 +21,24 @@ if TYPE_CHECKING:
 
 
 def _finalize_schema_object(
-    name: Optional[str],
+    name: str | None,
     node: Mapping[str, Any],
     context: ParsingContext,
-    schema_type: Optional[str],
+    schema_type: str | None,
     is_nullable: bool,
-    any_of_schemas: Optional[List[IRSchema]],
-    one_of_schemas: Optional[List[IRSchema]],
-    parsed_all_of_components: Optional[List[IRSchema]],
-    final_properties_map: Dict[str, IRSchema],
+    any_of_schemas: List[IRSchema] | None,
+    one_of_schemas: List[IRSchema] | None,
+    parsed_all_of_components: List[IRSchema] | None,
+    final_properties_map: dict[str, IRSchema],
     merged_required_set: Set[str],
-    final_items_schema: Optional[IRSchema],
-    additional_properties_node: Optional[Union[bool, Mapping[str, Any]]],
-    enum_node: Optional[List[Any]],
-    format_node: Optional[str],
-    description_node: Optional[str],
+    final_items_schema: IRSchema | None,
+    additional_properties_node: Union[bool, Mapping[str, Any]] | None,
+    enum_node: List[Any] | None,
+    format_node: str | None,
+    description_node: str | None,
     from_unresolved_ref_node: bool,
     max_depth: int,
-    parse_fn: Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema],
+    parse_fn: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int], IRSchema],
     logger: Any,  # Changed to Any to support both real and mock loggers
 ) -> IRSchema:
     """Constructs the IRSchema object, performs final adjustments, and updates context.
@@ -53,9 +53,12 @@ def _finalize_schema_object(
             - Returns a finalized IRSchema instance.
             - If schema has a name and isn't a placeholder, it's in context.parsed_schemas.
     """
-    assert isinstance(node, Mapping), "node must be a Mapping"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext instance"
-    assert callable(parse_fn), "parse_fn must be callable"
+    if not isinstance(node, Mapping):
+        raise TypeError("node must be a Mapping")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext instance")
+    if not callable(parse_fn):
+        raise TypeError("parse_fn must be callable")
     # Remove logger type check to support mock loggers in tests
 
     # If a placeholder for this schema name already exists due to a cycle detected deeper,
@@ -68,10 +71,10 @@ def _finalize_schema_object(
             # Early return of cycle placeholder
             return existing_schema
 
-    final_enum_values: Optional[List[Any]] = enum_node if isinstance(enum_node, list) else None
+    final_enum_values: List[Any] | None = enum_node if isinstance(enum_node, list) else None
     final_required_fields_list: List[str] = sorted(list(merged_required_set))
 
-    final_additional_properties: Optional[Union[bool, IRSchema]] = None
+    final_additional_properties: Union[bool, IRSchema] | None = None
     if isinstance(additional_properties_node, bool):
         final_additional_properties = additional_properties_node
     elif isinstance(additional_properties_node, dict):

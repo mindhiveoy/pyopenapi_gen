@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, Dict, Mapping
+from typing import Any, Mapping
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -17,7 +17,7 @@ from pyopenapi_gen.core.utils import NameSanitizer
 logger = logging.getLogger(__name__)
 
 
-def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Mapping[str, Any]) -> ParsingContext:
+def build_schemas(raw_schemas: dict[str, Mapping[str, Any]], raw_components: Mapping[str, Any]) -> ParsingContext:
     """Build all named schemas up front, populating a ParsingContext.
 
     Contracts:
@@ -28,8 +28,10 @@ def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Map
             - A ParsingContext is returned with all schemas parsed
             - All schemas in raw_schemas are populated in context.parsed_schemas
     """
-    assert isinstance(raw_schemas, dict), "raw_schemas must be a dict"
-    assert isinstance(raw_components, Mapping), "raw_components must be a Mapping"
+    if not isinstance(raw_schemas, dict):
+        raise TypeError("raw_schemas must be a dict")
+    if not isinstance(raw_components, Mapping):
+        raise TypeError("raw_components must be a Mapping")
 
     context = ParsingContext(raw_spec_schemas=raw_schemas, raw_spec_components=raw_components)
 
@@ -39,12 +41,13 @@ def build_schemas(raw_schemas: Dict[str, Mapping[str, Any]], raw_components: Map
             _parse_schema(n, nd, context, allow_self_reference=True)
 
     # Post-condition check
-    assert all(n in context.parsed_schemas for n in raw_schemas), "Not all schemas were parsed"
+    if not all(n in context.parsed_schemas for n in raw_schemas):
+        raise RuntimeError("Not all schemas were parsed")
 
     return context
 
 
-def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
+def extract_inline_array_items(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
     """Extract inline array item schemas as unique named schemas and update references.
 
     Contracts:
@@ -55,8 +58,10 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
             - All array item schemas have proper names
             - No duplicate schema names are created
     """
-    assert isinstance(schemas, dict), "schemas must be a dict"
-    assert all(isinstance(s, IRSchema) for s in schemas.values()), "all values must be IRSchema objects"
+    if not isinstance(schemas, dict):
+        raise TypeError("schemas must be a dict")
+    if not all(isinstance(s, IRSchema) for s in schemas.values()):
+        raise TypeError("all values must be IRSchema objects")
 
     # Store original schema count for post-condition validation
     original_schema_count = len(schemas)
@@ -119,14 +124,18 @@ def extract_inline_array_items(schemas: Dict[str, IRSchema]) -> Dict[str, IRSche
     schemas.update(new_item_schemas)
 
     # Post-condition checks
-    assert len(schemas) >= original_schema_count, "Schemas count should not decrease"
-    assert original_schemas.issubset(set(schemas.keys())), "Original schemas should still be present"
+    if len(schemas) < original_schema_count:
+        raise RuntimeError("Schemas count should not decrease")
+    if not original_schemas.issubset(set(schemas.keys())):
+        raise RuntimeError("Original schemas should still be present")
 
     return schemas
 
 
-def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
+def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
     """Extract inline property enums as unique schemas and update property references.
+
+    Also ensures top-level enum schemas are properly marked for generation.
 
     Contracts:
         Preconditions:
@@ -136,9 +145,12 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
             - All property schemas with enums have proper names
             - All array item schemas have proper names
             - No duplicate schema names are created
+            - Top-level enum schemas have generation_name set
     """
-    assert isinstance(schemas, dict), "schemas must be a dict"
-    assert all(isinstance(s, IRSchema) for s in schemas.values()), "all values must be IRSchema objects"
+    if not isinstance(schemas, dict):
+        raise TypeError("schemas must be a dict")
+    if not all(isinstance(s, IRSchema) for s in schemas.values()):
+        raise TypeError("all values must be IRSchema objects")
 
     # Store original schema count for post-condition validation
     original_schema_count = len(schemas)
@@ -149,6 +161,22 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
 
     new_enums = {}
     for schema_name, schema in list(schemas.items()):
+        # Handle top-level enum schemas (those defined directly in components/schemas)
+        # These are already enums but need generation_name set
+        if schema.enum and schema.type in ["string", "integer", "number"]:
+            # This is a top-level enum schema
+            # Ensure it has generation_name set (will be properly set by emitter later,
+            # but we can set it here to avoid the warning)
+            if not hasattr(schema, "generation_name") or not schema.generation_name:
+                schema.generation_name = schema.name
+                logger.info(
+                    f"Set generation_name for top-level enum schema: {schema_name} with values {schema.enum[:3]}..."
+                )
+            # Mark this as a properly processed enum by ensuring generation_name is set
+            # This serves as the marker that this enum was properly processed
+            logger.debug(f"Marked top-level enum schema: {schema_name}")
+
+        # Extract inline enums from properties
         for prop_name, prop_schema in list(schema.properties.items()):
             if prop_schema.enum and not prop_schema.name:
                 enum_name = (
@@ -167,6 +195,7 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
                     enum=copy.deepcopy(prop_schema.enum),
                     description=prop_schema.description or f"Enum for {schema_name}.{prop_name}",
                 )
+                enum_schema.generation_name = enum_name  # Set generation_name for extracted enums
                 new_enums[enum_name] = enum_schema
 
                 # Update the original property to reference the extracted enum
@@ -178,7 +207,9 @@ def extract_inline_enums(schemas: Dict[str, IRSchema]) -> Dict[str, IRSchema]:
     schemas.update(new_enums)
 
     # Post-condition checks
-    assert len(schemas) >= original_schema_count, "Schemas count should not decrease"
-    assert original_schemas.issubset(set(schemas.keys())), "Original schemas should still be present"
+    if len(schemas) < original_schema_count:
+        raise RuntimeError("Schemas count should not decrease")
+    if not original_schemas.issubset(set(schemas.keys())):
+        raise RuntimeError("Original schemas should still be present")
 
     return schemas

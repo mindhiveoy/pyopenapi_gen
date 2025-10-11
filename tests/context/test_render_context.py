@@ -414,7 +414,7 @@ class TestRenderContextAddImport:
 
     def test_add_typing_imports_for_type__various_types(self, base_render_context: RenderContext) -> None:
         """Test add_typing_imports_for_type method for common typing constructs."""
-        type_str1 = "Optional[List[Dict[str, Any]]]"
+        type_str1 = "List[dict[str, Any]] | None"  # Changed from Optional[...] to | None
         type_str2 = "Union[int, str, None, datetime.datetime, datetime.date]"
         type_str3 = "Tuple[str, ...]"
         type_str4 = "Callable[[int], str]"
@@ -429,7 +429,9 @@ class TestRenderContextAddImport:
 
         collector: ImportCollector = base_render_context.import_collector
 
-        expected_typing_imports = {"Optional", "List", "Dict", "Any", "Union", "Tuple", "Callable"}
+        # Note: Optional is no longer used with T | None syntax
+        # Note: dict[str, Any] uses lowercase dict, not Dict from typing
+        expected_typing_imports = {"List", "Any", "Union", "Tuple", "Callable"}
         assert collector.imports.get("typing") == expected_typing_imports
 
         # Check for datetime imports

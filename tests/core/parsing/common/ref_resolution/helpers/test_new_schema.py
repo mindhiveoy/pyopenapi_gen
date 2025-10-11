@@ -3,7 +3,7 @@ Tests for the new schema parsing helper in schema reference resolution.
 """
 
 import unittest
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 from unittest.mock import MagicMock
 
 from pyopenapi_gen.core.parsing.common.ref_resolution.helpers.new_schema import parse_new_schema
@@ -16,7 +16,7 @@ class TestParseNewSchema(unittest.TestCase):
         """Set up test cases."""
         self.context = ParsingContext()
         self.ref_name = "TestSchema"
-        self.node_data: Dict[str, Any] = {
+        self.node_data: dict[str, Any] = {
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
@@ -26,7 +26,7 @@ class TestParseNewSchema(unittest.TestCase):
         }
         self.max_depth = 100
         self.mock_parse_fn = MagicMock(
-            spec=Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
+            spec=Callable[[str | None, Optional[Mapping[str, Any]], ParsingContext, int], IRSchema]
         )
 
     def test_parse_new_schema__creates_and_registers_schema(self) -> None:

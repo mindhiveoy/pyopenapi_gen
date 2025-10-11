@@ -9,7 +9,7 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
@@ -47,9 +47,9 @@ class ClientGenerator:
         """
         self.verbose = verbose
         self.start_time = time.time()
-        self.timings: Dict[str, float] = {}
+        self.timings: dict[str, float] = {}
 
-    def _log_progress(self, message: str, stage: Optional[str] = None) -> None:
+    def _log_progress(self, message: str, stage: str | None = None) -> None:
         """
         Log a progress message with timestamp.
 
@@ -77,9 +77,10 @@ class ClientGenerator:
         else:
             log_msg = f"{timestamp} ({elapsed:.2f}s) {message}"
 
-        # logger.info(log_msg) # Keep commented out to ensure test_gen_nonexistent_spec_path passes
-        # Also print to stdout for CLI users
-        # print(log_msg) # Keep commented out
+        logger.info(log_msg)
+        # Also print to stdout for CLI users when verbose mode is enabled
+        if self.verbose:
+            print(log_msg)
 
     def generate(
         self,
@@ -88,7 +89,7 @@ class ClientGenerator:
         output_package: str,
         force: bool = False,
         no_postprocess: bool = False,
-        core_package: Optional[str] = None,
+        core_package: str | None = None,
     ) -> List[Path]:
         """
         Generate the client code from the OpenAPI spec.
@@ -98,10 +99,10 @@ class ClientGenerator:
             project_root (Path): Path to the root of the Python project (absolute or relative).
             output_package (str): Python package path for the generated client (e.g., 'pyapis.my_api_client').
             force (bool): Overwrite output without diff check.
-            name (Optional[str]): Custom client package name (not used).
+            name (str | None): Custom client package name (not used).
             docs (bool): Kept for interface compatibility.
             telemetry (bool): Kept for interface compatibility.
-            auth (Optional[str]): Kept for interface compatibility.
+            auth (str | None): Kept for interface compatibility.
             no_postprocess (bool): Skip post-processing (type checking, etc.).
             core_package (str): Python package path for the core package.
 
@@ -202,7 +203,7 @@ class ClientGenerator:
                     overall_project_root=str(tmp_project_root_for_diff),  # Use temp project root for context
                 )
                 exception_files_list, exception_alias_names = exceptions_emitter.emit(
-                    ir, str(tmp_core_dir_for_diff)
+                    ir, str(tmp_core_dir_for_diff), client_package_name=output_package
                 )  # Emit TO temp core dir
                 exception_files = [Path(p) for p in exception_files_list]
                 temp_generated_files += exception_files
@@ -373,7 +374,9 @@ class ClientGenerator:
                 core_package_name=resolved_core_package_fqn,
                 overall_project_root=str(project_root),
             )
-            exception_files_list, exception_alias_names = exceptions_emitter.emit(ir, str(core_dir))
+            exception_files_list, exception_alias_names = exceptions_emitter.emit(
+                ir, str(core_dir), client_package_name=output_package
+            )
             generated_files += [Path(p) for p in exception_files_list]
             self._log_progress(f"Generated {len(exception_files_list)} exception files", "EMIT_EXCEPTIONS")
 
@@ -523,9 +526,23 @@ class ClientGenerator:
         """
         spec_path_obj = Path(path_or_url)
         if spec_path_obj.exists() and spec_path_obj.is_file():  # Added is_file() check
-            import yaml
+            text = spec_path_obj.read_text()
+            # Prefer JSON for .json files to avoid optional PyYAML dependency in tests
+            if spec_path_obj.suffix.lower() == ".json":
+                import json
 
-            data = yaml.safe_load(spec_path_obj.read_text())
+                data = json.loads(text)
+            else:
+                try:
+                    import yaml
+
+                    data = yaml.safe_load(text)
+                except ModuleNotFoundError:
+                    # Fallback: attempt JSON parsing if YAML is unavailable
+                    import json
+
+                    data = json.loads(text)
+
             if not isinstance(data, dict):
                 raise GenerationError("Loaded spec is not a dictionary.")
             return data

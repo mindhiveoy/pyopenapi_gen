@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import textwrap  # For _wrap_docstring logic
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from pyopenapi_gen.core.writers.code_writer import CodeWriter
 from pyopenapi_gen.core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 class EndpointDocstringGenerator:
     """Generates the Python docstring for an endpoint operation."""
 
-    def __init__(self, schemas: Optional[Dict[str, Any]] = None) -> None:
-        self.schemas: Dict[str, Any] = schemas or {}
+    def __init__(self, schemas: dict[str, Any] | None = None) -> None:
+        self.schemas: dict[str, Any] = schemas or {}
         self.doc_writer = DocumentationWriter(width=88)
 
     def _wrap_docstring(self, prefix: str, text: str, width: int = 88) -> str:
@@ -50,7 +50,7 @@ class EndpointDocstringGenerator:
         writer: CodeWriter,
         op: IROperation,
         context: RenderContext,
-        primary_content_type: Optional[str],
+        primary_content_type: str | None,
         response_strategy: ResponseStrategy,
     ) -> None:
         """Writes the method docstring to the provided CodeWriter."""
@@ -67,10 +67,10 @@ class EndpointDocstringGenerator:
             body_desc = op.request_body.description or "Request body."
             # Standardized body parameter names based on content type
             if primary_content_type == "multipart/form-data":
-                args.append(("files", "Dict[str, IO[Any]]", body_desc + " (multipart/form-data)"))
+                args.append(("files", "dict[str, IO[Any]]", body_desc + " (multipart/form-data)"))
             elif primary_content_type == "application/x-www-form-urlencoded":
-                # The type here could be more specific if schema is available, but Dict[str, Any] is a safe default.
-                args.append(("form_data", "Dict[str, Any]", body_desc + " (x-www-form-urlencoded)"))
+                # The type here could be more specific if schema is available, but dict[str, Any] is a safe default.
+                args.append(("form_data", "dict[str, Any]", body_desc + " (x-www-form-urlencoded)"))
             elif primary_content_type == "application/json":
                 body_type = get_request_body_type(op.request_body, context, self.schemas)
                 args.append(("body", body_type, body_desc + " (json)"))

@@ -5,7 +5,7 @@ This class is designed for use in both code and documentation generation, provid
 new lines, and query the current line's width.
 """
 
-from typing import List, Optional
+from typing import List
 
 
 class LineWriter:
@@ -169,7 +169,7 @@ class LineWriter:
             self.lines[-1] += " " * (col - current - 1)
         # If already at or past col, do nothing
 
-    def append_wrapped_at_column(self, text: str, width: int, col: Optional[int] = None) -> None:
+    def append_wrapped_at_column(self, text: str, width: int, col: int | None = None) -> None:
         """
         Append text, wrapping as needed, so that the first line continues from the current position,
         and all subsequent lines start at column `col`.
@@ -180,7 +180,7 @@ class LineWriter:
         Args:
             text (str)          : The text to append and wrap.
             width (int)         : The maximum line width.
-            col (Optional[int]) : The column at which to start wrapped lines. If None, uses current
+            col (int | None) : The column at which to start wrapped lines. If None, uses current
                                   line width.
         """
         import textwrap

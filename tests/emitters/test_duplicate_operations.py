@@ -108,3 +108,92 @@ def test_endpoints_emitter__duplicate_operation_ids__generates_unique_method_nam
     content = client_file.read_text()
     assert "async def get_feedback" in content
     assert "async def get_feedback_2" in content  # Second method should have a suffix
+
+
+def test_endpoints_emitter__multi_tag_duplicate_operation_ids__no_suffix_accumulation(
+    tmp_path: Path, mock_render_context: MagicMock
+) -> None:
+    """
+    Scenario:
+        EndpointsEmitter processes operations with duplicate IDs that have multiple tags.
+        Operations with multiple tags share the same IROperation object reference.
+
+    Expected Outcome:
+        Global deduplication should ensure each operation is renamed only ONCE,
+        preventing _2_2 suffix accumulation that occurred with per-tag deduplication.
+
+        Before fix: Multi-tag operations would get _2_2, _2_2_2 suffixes
+        After fix: Operations get at most _2 suffix, consistent across all tags
+    """
+    # Create two operations with IDs that sanitize to the same name,
+    # both with multiple tags to trigger the bug
+    op1 = IROperation(
+        operation_id="get_user",  # snake_case
+        method=HTTPMethod.GET,
+        path="/user/{id}",
+        parameters=[],
+        responses=[
+            IRResponse(
+                status_code="200",
+                description="Success",
+                content={"application/json": IRSchema(name="User", type="object")},
+            )
+        ],
+        summary="Get user by ID",
+        description="Get user by ID",
+        tags=["Users", "Admin", "Internal"],  # Multiple tags!
+    )
+
+    op2 = IROperation(
+        operation_id="getUser",  # CamelCase - will sanitize to "get_user" (collision!)
+        method=HTTPMethod.GET,
+        path="/user",
+        parameters=[],
+        responses=[
+            IRResponse(
+                status_code="200",
+                description="Success",
+                content={"application/json": IRSchema(name="UserList", type="object")},
+            )
+        ],
+        summary="List users",
+        description="List all users",
+        tags=["Users", "Admin", "Internal"],  # Same tags!
+    )
+
+    # Create spec
+    spec = IRSpec(
+        title="Test API",
+        version="1.0.0",
+        schemas={},
+        operations=[op1, op2],
+        servers=[],
+    )
+
+    # Generate client code
+    out_dir: Path = tmp_path / "out"
+    mock_render_context.parsed_schemas = spec.schemas
+
+    emitter = EndpointsEmitter(context=mock_render_context)
+    emitter.emit(spec.operations, str(out_dir))
+
+    # Verify: After global deduplication, the second operation should be renamed to get_user_2
+    # IMPORTANT: The operation_id should be consistent across ALL tag files
+    assert op2.operation_id == "getUser_2", f"Expected 'getUser_2', got '{op2.operation_id}'"
+
+    # Verify NO _2_2 suffix accumulation (the bug we're fixing)
+    assert "_2_2" not in op2.operation_id, f"Bug still present: {op2.operation_id} contains _2_2 suffix"
+    assert "_3" not in op2.operation_id, f"Bug still present: {op2.operation_id} contains _3 suffix"
+
+    # Check all tag files to ensure consistent naming
+    for tag in ["users", "admin", "internal"]:
+        client_file: Path = out_dir / "endpoints" / f"{tag}.py"
+        assert client_file.exists(), f"Missing file for tag '{tag}'"
+
+        content = client_file.read_text()
+        # Both files should have both methods with the same names
+        assert "async def get_user" in content, f"Missing get_user in {tag}"
+        assert "async def get_user_2" in content, f"Missing get_user_2 in {tag}"
+
+        # Ensure NO _2_2 suffixes appear in ANY file
+        assert "_2_2" not in content, f"File {tag}.py contains _2_2 suffix (bug present)"

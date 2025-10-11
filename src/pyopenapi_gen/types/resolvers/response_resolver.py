@@ -1,7 +1,10 @@
 """Response type resolver implementation."""
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from pyopenapi_gen import IROperation, IRResponse, IRSchema
 
@@ -84,7 +87,7 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
 
         return self.resolve_specific_response(target_response, context)
 
-    def _get_primary_response(self, operation: IROperation) -> Optional[IRResponse]:
+    def _get_primary_response(self, operation: IROperation) -> IRResponse | None:
         """Get the primary success response from an operation."""
         if not operation.responses:
             return None
@@ -161,9 +164,8 @@ class OpenAPIResponseResolver(ResponseTypeResolver):
         # For event streams (text/event-stream) or JSON streams
         is_event_stream = any("event-stream" in ct for ct in content_types)
         if is_event_stream:
-            context.add_import("typing", "Dict")
             context.add_import("typing", "Any")
-            return ResolvedType(python_type="AsyncIterator[Dict[str, Any]]")
+            return ResolvedType(python_type="AsyncIterator[dict[str, Any]]")
 
         # For other streaming content, try to resolve the schema
         schema = self._get_response_schema(response)

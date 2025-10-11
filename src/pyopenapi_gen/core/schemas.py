@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import MISSING, dataclass, fields
-from typing import Any, Dict, Type, TypeVar, Union, get_args, get_origin, get_type_hints
+from typing import Any, Type, TypeVar, Union, get_args, get_origin, get_type_hints
 
 T = TypeVar("T", bound="BaseSchema")
 
@@ -10,7 +10,7 @@ def _extract_base_type(field_type: Any) -> Any:
     """Extract the base type from Optional/Union types."""
     origin = get_origin(field_type)
     if origin is Union:
-        # For Optional[T] or Union[T, None], get the non-None type
+        # For T | None or Union[T, None], get the non-None type
         args = get_args(field_type)
         non_none_args = [arg for arg in args if arg is not type(None)]
         if len(non_none_args) == 1:
@@ -23,26 +23,26 @@ class BaseSchema:
     """Base class for all generated models, providing validation, dict conversion, and field mapping."""
 
     @classmethod
-    def _get_field_mappings(cls) -> Dict[str, str]:
+    def _get_field_mappings(cls) -> dict[str, str]:
         """Get field mappings from Meta class if defined. Returns API field -> Python field mappings."""
         if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_load"):
             return cls.Meta.key_transform_with_load  # type: ignore[no-any-return]
         return {}
 
     @classmethod
-    def _get_reverse_field_mappings(cls) -> Dict[str, str]:
+    def _get_reverse_field_mappings(cls) -> dict[str, str]:
         """Get reverse field mappings. Returns Python field -> API field mappings."""
         mappings = cls._get_field_mappings()
         return {python_field: api_field for api_field, python_field in mappings.items()}
 
     @classmethod
-    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+    def from_dict(cls: Type[T], data: dict[str, Any]) -> T:
         """Create an instance from a dictionary with automatic field name mapping."""
         if not isinstance(data, dict):
             raise TypeError(f"Input must be a dictionary, got {type(data).__name__}")
 
         field_mappings = cls._get_field_mappings()  # API -> Python
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         cls_fields = {f.name: f for f in fields(cls)}
 
         # Process each field in the data
@@ -64,7 +64,7 @@ class BaseSchema:
                     # Fall back to raw annotation if get_type_hints fails
                     pass
 
-                # Extract base type (handles Optional[Type] -> Type)
+                # Extract base type (handles Type | None -> Type)
                 base_type = _extract_base_type(field_type)
 
                 if base_type is not None and hasattr(base_type, "from_dict") and isinstance(value, dict):
@@ -90,7 +90,7 @@ class BaseSchema:
 
         return cls(**kwargs)
 
-    def to_dict(self, exclude_none: bool = False) -> Dict[str, Any]:
+    def to_dict(self, exclude_none: bool = False) -> dict[str, Any]:
         """Convert the model instance to a dictionary with reverse field name mapping."""
         reverse_mappings = self._get_reverse_field_mappings()  # Python -> API
         result = {}
@@ -116,10 +116,10 @@ class BaseSchema:
 
     # Legacy aliases for backward compatibility
     @classmethod
-    def model_validate(cls: Type[T], data: Dict[str, Any]) -> T:
+    def model_validate(cls: Type[T], data: dict[str, Any]) -> T:
         """Legacy alias for from_dict."""
         return cls.from_dict(data)
 
-    def model_dump(self, exclude_none: bool = False) -> Dict[str, Any]:
+    def model_dump(self, exclude_none: bool = False) -> dict[str, Any]:
         """Legacy alias for to_dict."""
         return self.to_dict(exclude_none=exclude_none)

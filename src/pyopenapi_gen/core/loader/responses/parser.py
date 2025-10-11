@@ -6,7 +6,7 @@ Provides functions to parse and transform OpenAPI responses into IR format.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Mapping
+from typing import Any, Mapping
 
 from pyopenapi_gen import IRResponse, IRSchema
 from pyopenapi_gen.core.parsing.context import ParsingContext
@@ -34,12 +34,16 @@ def parse_response(
             - All content media types are properly mapped to schemas
             - Stream flags are correctly set based on media types
     """
-    assert isinstance(code, str), "code must be a string"
-    assert isinstance(node, Mapping), "node must be a Mapping"
-    assert isinstance(context, ParsingContext), "context must be a ParsingContext"
-    assert operation_id_for_promo, "operation_id_for_promo must be provided"
+    if not isinstance(code, str):
+        raise TypeError("code must be a string")
+    if not isinstance(node, Mapping):
+        raise TypeError("node must be a Mapping")
+    if not isinstance(context, ParsingContext):
+        raise TypeError("context must be a ParsingContext")
+    if not operation_id_for_promo:
+        raise ValueError("operation_id_for_promo must be provided")
 
-    content: Dict[str, IRSchema] = {}
+    content: dict[str, IRSchema] = {}
     STREAM_FORMATS = {
         "application/octet-stream": "octet-stream",
         "text/event-stream": "event-stream",
@@ -97,8 +101,11 @@ def parse_response(
     )
 
     # Post-condition checks
-    assert response.status_code == code, "Response status code mismatch"
-    assert response.content == content, "Response content mismatch"
-    assert response.stream == stream_flag, "Response stream flag mismatch"
+    if response.status_code != code:
+        raise RuntimeError("Response status code mismatch")
+    if response.content != content:
+        raise RuntimeError("Response content mismatch")
+    if response.stream != stream_flag:
+        raise RuntimeError("Response stream flag mismatch")
 
     return response

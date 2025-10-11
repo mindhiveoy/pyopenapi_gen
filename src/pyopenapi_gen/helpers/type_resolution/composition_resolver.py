@@ -1,7 +1,7 @@
 """Resolves IRSchema composition types (anyOf, oneOf, allOf)."""
 
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, List
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -15,19 +15,19 @@ logger = logging.getLogger(__name__)
 class CompositionTypeResolver:
     """Resolves IRSchema instances with anyOf, oneOf, or allOf."""
 
-    def __init__(self, context: RenderContext, all_schemas: Dict[str, IRSchema], main_resolver: "SchemaTypeResolver"):
+    def __init__(self, context: RenderContext, all_schemas: dict[str, IRSchema], main_resolver: "SchemaTypeResolver"):
         self.context = context
         self.all_schemas = all_schemas
         self.main_resolver = main_resolver  # For resolving member types
 
-    def resolve(self, schema: IRSchema) -> Optional[str]:
+    def resolve(self, schema: IRSchema) -> str | None:
         """
         Handles 'anyOf', 'oneOf', 'allOf' and returns a Python type string.
         'anyOf'/'oneOf' -> Union[...]
         'allOf' -> Type of first schema (simplification)
         """
-        composition_schemas: Optional[List[IRSchema]] = None
-        composition_keyword: Optional[str] = None
+        composition_schemas: List[IRSchema] | None = None
+        composition_keyword: str | None = None
 
         if schema.any_of is not None:
             composition_schemas = schema.any_of

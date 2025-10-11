@@ -182,7 +182,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         )
 
         strategy = ResponseStrategy(
-            return_type="AsyncIterator[Dict[str, Any]]",
+            return_type="AsyncIterator[dict[str, Any]]",
             response_schema=IRSchema(type="object"),
             is_streaming=True,
             response_ir=operation.responses[0],
@@ -285,8 +285,9 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         assert "case 200:" in written_code
         assert "case 404:" in written_code
         assert "case 500:" in written_code
-        assert "raise Error404" in written_code
-        assert "raise Error500" in written_code
+        # Now expects human-readable exception names
+        assert "raise NotFoundError" in written_code
+        assert "raise InternalServerError" in written_code
 
     def test_generate_response_handling__union_return_type__generates_fallback_parsing(
         self, generator, code_writer_mock, render_context_mock

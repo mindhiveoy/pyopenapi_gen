@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 # Import NameSanitizer for use in name generation
 from pyopenapi_gen.core.utils import NameSanitizer
@@ -27,12 +27,12 @@ if TYPE_CHECKING:
 
 def _parse_properties(
     properties_node: Mapping[str, Any],
-    parent_schema_name: Optional[str],
+    parent_schema_name: str | None,
     context: ParsingContext,
     max_depth: int,
-    parse_fn: Callable[[Optional[str], Optional[Mapping[str, Any]], ParsingContext, Optional[int]], IRSchema],
+    parse_fn: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int | None], IRSchema],
     logger: logging.Logger,
-) -> Dict[str, IRSchema]:
+) -> dict[str, IRSchema]:
     """Parse properties from a schema node.
 
     Contracts:
@@ -45,7 +45,7 @@ def _parse_properties(
             - Returns a dictionary mapping property names to IRSchema instances
             - Property references are properly maintained
     """
-    properties_map: Dict[str, IRSchema] = {}
+    properties_map: dict[str, IRSchema] = {}
 
     for prop_key, prop_schema_node in properties_node.items():
         # Skip invalid property names

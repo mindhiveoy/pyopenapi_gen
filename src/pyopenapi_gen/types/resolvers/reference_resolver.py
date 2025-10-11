@@ -1,7 +1,7 @@
 """Reference resolver implementation."""
 
 import logging
-from typing import Dict, Optional
+from typing import Dict
 
 from pyopenapi_gen import IRResponse, IRSchema
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class OpenAPIReferenceResolver(ReferenceResolver):
     """Resolves OpenAPI $ref references."""
 
-    def __init__(self, schemas: Dict[str, IRSchema], responses: Optional[Dict[str, IRResponse]] = None):
+    def __init__(self, schemas: Dict[str, IRSchema], responses: Dict[str, IRResponse] | None = None):
         """
         Initialize reference resolver.
 
@@ -24,7 +24,7 @@ class OpenAPIReferenceResolver(ReferenceResolver):
         self.schemas = schemas
         self.responses = responses or {}
 
-    def resolve_ref(self, ref: str) -> Optional[IRSchema]:
+    def resolve_ref(self, ref: str) -> IRSchema | None:
         """
         Resolve a schema $ref to the target schema.
 
@@ -47,7 +47,7 @@ class OpenAPIReferenceResolver(ReferenceResolver):
 
         return schema
 
-    def resolve_response_ref(self, ref: str) -> Optional[IRResponse]:
+    def resolve_response_ref(self, ref: str) -> IRResponse | None:
         """
         Resolve a response $ref to the target response.
 
