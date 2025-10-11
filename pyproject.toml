@@ -154,8 +154,8 @@ bump_message = "bump: version $current_version → $new_version"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version", "pyproject.toml:tool.commitizen.version"]
-version_pattern = [
-    "src/pyopenapi_gen/__init__.py:__version__: str = \"{version}\""
+version_variables = [
+    "src/pyopenapi_gen/__init__.py:__version__"
 ]
 branch = "main"
 upload_to_pypi = false
