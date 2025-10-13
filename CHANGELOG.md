@@ -1,6 +1,32 @@
 # CHANGELOG
 
 
+## v0.17.0 (2025-10-13)
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`287f52a`](https://github.com/mindhiveoy/pyopenapi_gen/commit/287f52aeea6de427fb0c3bd8014e5317a9052369))
+
+### Features
+
+- **ci**: Optimize Claude Code workflow and enable bot releases
+  ([`c2efbfa`](https://github.com/mindhiveoy/pyopenapi_gen/commit/c2efbfa17f29ab040412935cf758c6c92cb1569a))
+
+1. Claude Code Workflow Optimization: - Instruct Claude to skip quality gates (formatting, linting,
+  tests, type checking) - CI pipeline already handles: Black, Ruff, mypy, Bandit, pytest - Focus
+  Claude on: code logic, security, architecture, API compatibility - Reduces duplicate work and
+  speeds up PR reviews
+
+2. Semantic-Release Bot Support: - Added allowed_bots = ["dependabot", "renovate"] to pyproject.toml
+  - Fixes: "Workflow initiated by non-human actor" error - Enables automated dependency updates to
+  trigger releases
+
+Benefits: - Faster CI reviews (Claude skips redundant checks) - Better focus (Claude concentrates on
+  logic and security) - Automated releases from bot PRs (dependabot, renovate) - Less noise in PR
+  reviews
+
+
 ## v0.16.1 (2025-10-13)
 
 ### Bug Fixes
