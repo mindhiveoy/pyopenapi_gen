@@ -8,13 +8,14 @@ code‑generation pipeline can rely on.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 # Removed dataclasses, field, Enum, unique from here, they are in ir.py and http_types.py
 from typing import (
     TYPE_CHECKING,
     Any,
     List,
 )
-from pathlib import Path
 
 # Kept Any, List, Optional, TYPE_CHECKING for __getattr__ and __dir__
 # Import HTTPMethod from its canonical location
