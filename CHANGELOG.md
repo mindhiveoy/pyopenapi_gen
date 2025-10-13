@@ -1,6 +1,40 @@
 # CHANGELOG
 
 
+## v0.16.1 (2025-10-13)
+
+### Bug Fixes
+
+- **version**: Manually sync __init__.py to 0.16.0 after failed workflow
+  ([`7ee9090`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7ee90902add14d93d471418b56514a8bcafd81cb))
+
+The semantic-release workflow successfully created version 0.16.0 but failed when trying to push the
+  __init__.py sync due to the force-with-lease issue.
+
+This commit manually syncs __init__.py to 0.16.0 to match pyproject.toml. Future releases will use
+  the new workflow logic with follow-up commits.
+
+- **workflow**: Use follow-up commit instead of amending for version sync
+  ([`96f2014`](https://github.com/mindhiveoy/pyopenapi_gen/commit/96f2014bb10ecbfbe3873db32ea6a5f8334542a2))
+
+ISSUE: The git push --force-with-lease was failing with "stale info" because: 1. semantic-release
+  creates and pushes a commit 2. Our sync script tried to amend that commit 3. force-with-lease
+  detected remote had changed and rejected the push
+
+SOLUTION: Changed strategy to use a follow-up commit instead of amending: 1. Fetch latest from
+  origin/main after semantic-release pushes 2. Reset --hard to origin/main to sync local state 3.
+  Run sync script to update __init__.py 4. If changed, create a NEW commit with [skip ci] flag 5.
+  Push normally (no force needed)
+
+Benefits: - Safer: No force-pushing required - Cleaner: Normal git flow with proper commit sequence
+  - Prevents loops: [skip ci] prevents triggering another workflow run
+
+This will result in two commits per release (semantic-release + sync) but is more reliable than
+  force-pushing.
+
+Fixes: https://github.com/mindhiveoy/pyopenapi_gen/actions/runs/18461834318
+
+
 ## v0.16.0 (2025-10-13)
 
 ### Bug Fixes
