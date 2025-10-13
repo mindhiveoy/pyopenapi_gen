@@ -97,6 +97,27 @@ jobs:
         git config user.email "github-actions[bot]@users.noreply.github.com"
         poetry run semantic-release version --skip-build
 
+    - name: Sync version to __init__.py
+      if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      env:
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🔄 Syncing version from pyproject.toml to __init__.py..."
+        poetry run python scripts/sync_version_to_init.py
+
+        # Check if __init__.py was modified
+        if git diff --quiet src/pyopenapi_gen/__init__.py; then
+          echo "✅ __init__.py already in sync, no changes needed"
+        else
+          echo "📝 __init__.py was updated, amending semantic-release commit..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/pyopenapi_gen/__init__.py
+          git commit --amend --no-edit
+          git push --force-with-lease
+          echo "✅ Version sync complete and committed"
+        fi
+
     - name: Build packages after version bump
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
       run: |
