@@ -1,4 +1,4 @@
-import subprocess
+import subprocess  # nosec B404 - Required for running code formatters (Black, Ruff) and mypy
 import sys
 from pathlib import Path
 from typing import List, Union
@@ -71,7 +71,7 @@ class PostprocessManager:
         """Remove unused imports from multiple targets using Ruff (bulk operation)."""
         if not targets:
             return
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
             [
                 sys.executable,
                 "-m",
@@ -95,7 +95,7 @@ class PostprocessManager:
         """Sort imports in multiple targets using Ruff (bulk operation)."""
         if not targets:
             return
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
             [
                 sys.executable,
                 "-m",
@@ -119,7 +119,7 @@ class PostprocessManager:
         """Format code in multiple targets using Ruff (bulk operation)."""
         if not targets:
             return
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
             [
                 sys.executable,
                 "-m",
@@ -139,7 +139,7 @@ class PostprocessManager:
 
     def remove_unused_imports(self, target: Union[str, Path]) -> None:
         """Remove unused imports from the target using Ruff."""
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
             [
                 sys.executable,
                 "-m",
@@ -161,7 +161,7 @@ class PostprocessManager:
 
     def sort_imports(self, target: Union[str, Path]) -> None:
         """Sort imports in the target using Ruff."""
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
             [
                 sys.executable,
                 "-m",
@@ -183,7 +183,7 @@ class PostprocessManager:
 
     def format_code(self, target: Union[str, Path]) -> None:
         """Format code in the target using Ruff."""
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
             [
                 sys.executable,
                 "-m",
@@ -223,7 +223,7 @@ class PostprocessManager:
                 cmd.append("--cache-dir=/tmp/mypy_cache_temp")
             cmd.extend([str(f) for f in python_files])
 
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
