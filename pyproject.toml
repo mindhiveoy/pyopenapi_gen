@@ -167,6 +167,8 @@ changelog_format = "# Changelog\\n\\n{changelog}"
 hvcs = "github"
 commit_parser = "conventional"
 major_on_zero = false
+# Allow bot actors (dependabot, renovate, etc.) to trigger releases
+allowed_bots = ["dependabot", "renovate"]
 
 [tool.coverage.run]
 # Store coverage data files under coverage_reports/ instead of project root
