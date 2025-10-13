@@ -561,7 +561,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Returns all embeddings.\n\n**Authentication:** Required\n**Authorization:** System role only\n\n## Access Control\n- **Required Role:** `system`\n- **Allowed Roles:** None (system only)\n\nThis endpoint is restricted to system administrators for managing\nembedding configurations across all tenants.\n",
+        "description": "Returns all available embedding models.\n\n**Authentication:** Required\n**Authorization:** All authenticated users\n\n## Access Control\n- **Required Role:** Any authenticated user\n- **Allowed Roles:** All\n\nThis endpoint allows all authenticated users to list available\nembedding models for use in data sources. Only system administrators\ncan create or modify embedding configurations.\n",
         "responses": {
           "200": {
             "description": "List of embeddings",
@@ -575,9 +575,6 @@
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
-          },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenError"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -4481,6 +4478,11 @@
           "required": true,
           "content": {
             "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpdate"
+              }
+            },
+            "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBody"
               }
@@ -9634,7 +9636,9 @@
             "minimum": 0
           },
           "binary": {
-            "$ref": "#/components/schemas/JsonValue"
+            "type": "string",
+            "format": "binary",
+            "description": "Binary content of the document"
           },
           "markdown": {
             "type": "string",
@@ -10731,11 +10735,11 @@
             "nullable": true,
             "minimum": 0
           },
-          "binary": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
           "metadata": {
             "$ref": "#/components/schemas/JsonValue"
+          },
+          "binary": {
+            "nullable": true
           }
         },
         "required": [
@@ -10793,11 +10797,11 @@
             "nullable": true,
             "minimum": 0
           },
-          "binary": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
           "metadata": {
             "$ref": "#/components/schemas/JsonValue"
+          },
+          "binary": {
+            "nullable": true
           }
         },
         "description": "Schema for updating a document"
@@ -14005,37 +14009,14 @@
       "PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBody": {
         "type": "object",
         "properties": {
-          "url": {
+          "data": {
             "type": "string",
-            "format": "uri",
-            "description": "The URL of the source document"
+            "description": "JSON string containing document update fields"
           },
-          "type": {
-            "$ref": "#/components/schemas/PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBodyTypeEnum"
-          },
-          "mimeType": {
+          "file": {
             "type": "string",
-            "description": "The MIME type of the document"
-          },
-          "markdown": {
-            "type": "string",
-            "description": "The markdown content of the document"
-          },
-          "html": {
-            "type": "string",
-            "description": "The HTML content of the document"
-          },
-          "lastModified": {
-            "type": "string",
-            "format": "date-time",
-            "description": "The last modified information from the source"
-          },
-          "etag": {
-            "type": "string",
-            "description": "The etag information from the source"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBodyMetadata"
+            "format": "binary",
+            "description": "Binary file content (optional)"
           }
         }
       },
@@ -14194,7 +14175,7 @@
             "description": "URL to match for create/update decision"
           },
           "type": {
-            "$ref": "#/components/schemas/PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBodyTypeEnum"
+            "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBodyTypeEnum"
           },
           "mimeType": {
             "type": "string"
@@ -14920,31 +14901,6 @@
           }
         }
       },
-      "PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBodyMetadata": {
-        "type": "object",
-        "description": "The metadata from the source",
-        "properties": {
-          "aiSummary": {
-            "type": "string",
-            "description": "AI-generated summary of the document"
-          },
-          "aiQuestions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "AI-generated questions from the document"
-          },
-          "aiTokensUsed": {
-            "type": "number",
-            "description": "Number of AI tokens used in processing"
-          },
-          "processingTime": {
-            "type": "number",
-            "description": "Time taken to process the document in seconds"
-          }
-        }
-      },
       "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdSplitRequestBodyConfig": {
         "type": "object",
         "properties": {
@@ -15578,7 +15534,14 @@
         ],
         "description": "The JSON field to update"
       },
-      "PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBodyTypeEnum": {
+      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200StatusEnum": {
+        "type": "string",
+        "enum": [
+          "queued"
+        ],
+        "description": "Status of the batch operation"
+      },
+      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBodyTypeEnum": {
         "type": "string",
         "enum": [
           "pdf",
@@ -15591,15 +15554,7 @@
           "json",
           "url",
           "wordpress"
-        ],
-        "description": "The type of the document"
-      },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200StatusEnum": {
-        "type": "string",
-        "enum": [
-          "queued"
-        ],
-        "description": "Status of the batch operation"
+        ]
       },
       "GetMonitoringDashboardResponse200SystemStatusEnum": {
         "type": "string",
