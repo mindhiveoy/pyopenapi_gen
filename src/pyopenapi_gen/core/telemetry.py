@@ -62,6 +62,8 @@ class TelemetryClient:
             # Using print as a stub for actual telemetry transport
             # In production, this would be replaced with a proper telemetry client
             print("TELEMETRY", json.dumps(data))
-        except Exception:
-            # Silently ignore any telemetry errors to avoid affecting main execution
-            pass
+        except Exception as e:
+            # Telemetry failures should not affect execution, but log for debugging
+            import logging
+
+            logging.getLogger(__name__).debug(f"Telemetry event failed: {e}")
