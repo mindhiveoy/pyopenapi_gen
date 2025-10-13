@@ -65,6 +65,254 @@ async def main():
 asyncio.run(main())
 ```
 
+## 🐍 Using as a Library (Programmatic API)
+
+### Why Programmatic Usage?
+The generator was designed to work both as a CLI tool and as a Python library. Programmatic usage enables integration with build systems, CI/CD pipelines, code generators, and custom tooling. You get the same powerful code generation capabilities with full Python API access.
+
+### What Is the Programmatic API?
+A simple, function-based API that wraps the internal `ClientGenerator` class, providing a clean entry point for library usage without requiring knowledge of internal structure.
+
+```mermaid
+graph TD
+    A[Your Build Script] --> B[generate_client Function]
+    B --> C[ClientGenerator]
+    C --> D[Load OpenAPI Spec]
+    D --> E[Generate Code]
+    E --> F[Write Files]
+    F --> G[Post-Process]
+    G --> H[Return File List]
+    
+    subgraph "Public API"
+        B
+        I[ClientGenerator Class]
+        J[GenerationError Exception]
+    end
+    
+    subgraph "Advanced API"
+        K[load_ir_from_spec]
+        L[IR Models]
+        M[WarningCollector]
+    end
+```
+
+### How to Use Programmatically
+
+#### Basic Usage
+```python
+from pyopenapi_gen import generate_client
+
+# Simple client generation
+files = generate_client(
+    spec_path="input/openapi.yaml",
+    project_root=".",
+    output_package="pyapis.my_client"
+)
+
+print(f"Generated {len(files)} files")
+```
+
+#### Advanced Usage with All Options
+```python
+from pyopenapi_gen import generate_client, GenerationError
+
+try:
+    files = generate_client(
+        spec_path="input/openapi.yaml",
+        project_root=".",
+        output_package="pyapis.my_client",
+        core_package="pyapis.core",  # Optional shared core
+        force=True,                   # Overwrite without diff check
+        no_postprocess=False,         # Run Black + mypy
+        verbose=True                  # Show progress
+    )
+
+    # Process generated files
+    for file_path in files:
+        print(f"Generated: {file_path}")
+
+except GenerationError as e:
+    print(f"Generation failed: {e}")
+```
+
+#### Multi-Client Generation Script
+```python
+from pyopenapi_gen import generate_client
+from pathlib import Path
+
+# Configuration for multiple clients
+clients = [
+    {"spec": "api_v1.yaml", "package": "pyapis.client_v1"},
+    {"spec": "api_v2.yaml", "package": "pyapis.client_v2"},
+]
+
+# Shared core package
+core_package = "pyapis.core"
+
+# Generate all clients
+for client_config in clients:
+    print(f"Generating {client_config['package']}...")
+    
+    generate_client(
+        spec_path=client_config["spec"],
+        project_root=".",
+        output_package=client_config["package"],
+        core_package=core_package,
+        force=True,
+        verbose=True
+    )
+
+print("All clients generated successfully!")
+```
+
+#### Integration with Build Systems
+```python
+# Example: Custom build script
+import sys
+from pathlib import Path
+from pyopenapi_gen import generate_client, GenerationError
+
+def build_api_clients():
+    """Generate all API clients as part of build process"""
+    
+    specs_dir = Path("specs")
+    
+    # Find all OpenAPI specs
+    spec_files = list(specs_dir.glob("*.yaml")) + list(specs_dir.glob("*.json"))
+    
+    if not spec_files:
+        print("No OpenAPI specs found in specs/")
+        return False
+    
+    # Generate clients
+    for spec_file in spec_files:
+        client_name = spec_file.stem
+        package_name = f"pyapis.{client_name}"
+        
+        print(f"Generating client for {spec_file.name}...")
+        
+        try:
+            generate_client(
+                spec_path=str(spec_file),
+                project_root="src",
+                output_package=package_name,
+                core_package="pyapis.core",
+                force=True
+            )
+        except GenerationError as e:
+            print(f"Failed to generate {client_name}: {e}", file=sys.stderr)
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    success = build_api_clients()
+    sys.exit(0 if success else 1)
+```
+
+### API Reference
+
+#### `generate_client()` Function
+
+```python
+def generate_client(
+    spec_path: str,
+    project_root: str,
+    output_package: str,
+    core_package: str | None = None,
+    force: bool = False,
+    no_postprocess: bool = False,
+    verbose: bool = False,
+) -> List[Path]
+```
+
+**Parameters**:
+- `spec_path`: Path to OpenAPI spec file (YAML or JSON)
+- `project_root`: Root directory of your Python project
+- `output_package`: Python package name (e.g., `'pyapis.my_client'`)
+- `core_package`: Optional shared core package name (defaults to `{output_package}.core`)
+- `force`: Skip diff check and overwrite existing output
+- `no_postprocess`: Skip Black formatting and mypy type checking
+- `verbose`: Print detailed progress information
+
+**Returns**: List of `Path` objects for all generated files
+
+**Raises**: `GenerationError` if generation fails
+
+#### `ClientGenerator` Class (Advanced)
+
+For advanced use cases requiring more control:
+
+```python
+from pyopenapi_gen import ClientGenerator, GenerationError
+from pathlib import Path
+
+# Create generator with custom settings
+generator = ClientGenerator(verbose=True)
+
+# Generate with full control
+try:
+    files = generator.generate(
+        spec_path="openapi.yaml",
+        project_root=Path("."),
+        output_package="pyapis.my_client",
+        core_package="pyapis.core",
+        force=False,
+        no_postprocess=False
+    )
+except GenerationError as e:
+    print(f"Generation failed: {e}")
+```
+
+#### `GenerationError` Exception
+
+Raised when generation fails. Contains contextual information about the failure:
+
+```python
+from pyopenapi_gen import generate_client, GenerationError
+
+try:
+    generate_client(
+        spec_path="invalid.yaml",
+        project_root=".",
+        output_package="test"
+    )
+except GenerationError as e:
+    # Exception message includes context
+    print(f"Error: {e}")
+    # Typical causes:
+    # - Invalid OpenAPI specification
+    # - File I/O errors
+    # - Type checking failures
+    # - Invalid project structure
+```
+
+### Comparison: CLI vs Programmatic API
+
+**CLI Usage**:
+```bash
+pyopenapi-gen input/openapi.yaml \
+  --project-root . \
+  --output-package pyapis.my_client \
+  --force \
+  --verbose
+```
+
+**Equivalent Programmatic Usage**:
+```python
+from pyopenapi_gen import generate_client
+
+generate_client(
+    spec_path="input/openapi.yaml",
+    project_root=".",
+    output_package="pyapis.my_client",
+    force=True,
+    verbose=True
+)
+```
+
+Both approaches use the same underlying implementation and produce identical results.
+
 ## 🔧 Configuration Options
 
 ### Standalone Client (Default)
