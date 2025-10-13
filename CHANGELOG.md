@@ -1,6 +1,94 @@
 # CHANGELOG
 
 
+## v0.16.0 (2025-10-13)
+
+### Bug Fixes
+
+- **api**: Improve type annotation for generate_client return type
+  ([`f35d99c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/f35d99c1d2233a20fdd1a69ef0a175ab902513c4))
+
+- Change return type from List[Any] to List[Path] for better type safety - Add proper pathlib.Path
+  import to support the type annotation - Enhances IDE support and type checking for programmatic
+  API users
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-authored-by: Ville Venäläinen <undefined@users.noreply.github.com>
+
+- **api**: Update business_swagger.json descriptions and schemas
+  ([`6496144`](https://github.com/mindhiveoy/pyopenapi_gen/commit/6496144200fb8dfb28275f0d111138107775fa29))
+
+- **lint**: Correct import ordering in __init__.py for Ruff compliance
+  ([`a159807`](https://github.com/mindhiveoy/pyopenapi_gen/commit/a159807fd1932206dd44c805629683998c88707f))
+
+- **release**: Sync __init__.py version automatically in semantic-release workflow
+  ([`7f28674`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7f2867449be1b75b2fc4b7c04073fcad3320e865))
+
+ISSUE: Semantic-release was updating pyproject.toml version but leaving __init__.py at the old
+  version, causing the version validation to fail.
+
+SOLUTION: 1. Fixed immediate issue: Updated __init__.py to match pyproject.toml (0.15.0) 2. Added
+  automatic sync: Created scripts/sync_version_to_init.py to sync version from pyproject.toml to
+  __init__.py 3. Updated workflow: Added step after semantic-release version bump that runs the sync
+  script and amends the commit if __init__.py was updated
+
+This ensures all version files stay synchronized after every semantic-release run.
+
+Fixes: https://github.com/mindhiveoy/pyopenapi_gen/actions/runs/18461374998
+
+- **security**: Address Bandit security warnings with proper logging and nosec annotations
+  ([`f9b0ff3`](https://github.com/mindhiveoy/pyopenapi_gen/commit/f9b0ff3e73ebeaaed49fc631429835ee6e99a33c))
+
+Fixed all Bandit security warnings: - Replace try-except-pass with proper exception logging in
+  parser.py - Replace try-except-pass with logging in telemetry.py - Add nosec B603 annotations to
+  all subprocess.run() calls with explanations - Add nosec B404 annotation to subprocess import with
+  justification
+
+Changes: - parser.py: Log exceptions instead of silent pass for debugging - telemetry.py: Log
+  telemetry failures for debugging - postprocess_manager.py: Document all subprocess calls are safe
+  (hardcoded commands, no shell)
+
+Bandit now reports zero issues (8 properly suppressed with nosec). All quality checks pass.
+
+- **types**: Add binary format mapping to unified type resolver
+  ([`ecba081`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ecba081b37a217277ea61d58b30d1f0a7ac2e04d))
+
+- Add 'binary' to format_mapping in OpenAPISchemaResolver._resolve_string() - Ensures string schemas
+  with format=binary resolve to bytes type - Adds comprehensive test coverage for binary format
+  resolution - Closes gap between legacy and unified type systems
+
+Before: string fields with format=binary were typed as str
+
+After: string fields with format=binary are correctly typed as bytes
+
+### Features
+
+- **api**: Add developer-friendly programmatic API with generate_client()
+  ([`ec8ad0c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ec8ad0c7b166e9cb523a91d97f8639f050d940c3))
+
+Add a clean, function-based API for programmatic usage alongside the existing CLI.
+
+Key additions: - generate_client() convenience function for simple library usage - Export
+  ClientGenerator and GenerationError at package level - Comprehensive documentation with examples
+  in CLAUDE.md - Full test coverage with 9 new tests in tests/api/
+
+Benefits: - Simple one-function API: generate_client(spec_path, project_root, output_package) - No
+  need to import from deep paths or understand internal structure - Proper error handling with
+  exported GenerationError exception - Fully backward compatible - all existing code continues to
+  work - Matches patterns from similar tools (openapi-python-client, datamodel-code-generator)
+
+Documentation includes: - Basic usage examples - Advanced usage with error handling - Multi-client
+  generation scripts - Build system integration examples - Complete API reference
+
+All tests pass (9 new + existing), type-safe (mypy strict), and quality checks pass.
+
+### Refactoring
+
+- **init**: Remove unused HTTPMethod enum and IR dataclasses
+  ([`7b096ed`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7b096ed321612823976a2e7b7a995d0aaf024312))
+
+
 ## v0.15.0 (2025-10-11)
 
 ### Bug Fixes
