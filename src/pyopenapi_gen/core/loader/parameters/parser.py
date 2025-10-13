@@ -103,9 +103,9 @@ def parse_parameter(
                             if not inline_is_specific:
                                 sch = comp_schema
                         break
-    except Exception:
-        # Be conservative on any unexpected structure
-        pass
+    except Exception as e:
+        # Log unexpected structure but continue with inline schema
+        logger.debug(f"Could not check component parameter for '{param_name}': {e}. Using inline schema.")
 
     # For parameters, we want to avoid creating complex schemas for simple enum arrays
     # Check if this is a simple enum array and handle it specially
