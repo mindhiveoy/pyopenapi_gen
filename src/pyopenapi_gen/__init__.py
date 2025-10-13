@@ -14,6 +14,7 @@ from typing import (
     Any,
     List,
 )
+from pathlib import Path
 
 # Kept Any, List, Optional, TYPE_CHECKING for __getattr__ and __dir__
 # Import HTTPMethod from its canonical location
@@ -102,7 +103,7 @@ def generate_client(
     force: bool = False,
     no_postprocess: bool = False,
     verbose: bool = False,
-) -> List[Any]:
+) -> List[Path]:
     """Generate a Python client from an OpenAPI specification.
 
     This is the main entry point for programmatic usage of pyopenapi_gen.
@@ -208,8 +209,6 @@ def generate_client(
         - The generated client uses modern async/await patterns with httpx
         - Type hints are included for all generated code
     """
-    from pathlib import Path
-
     from .generator.client_generator import ClientGenerator
 
     generator = ClientGenerator(verbose=verbose)
