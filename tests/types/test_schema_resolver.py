@@ -498,6 +498,38 @@ class TestOpenAPISchemaResolver:
         assert result.python_type == "UUID"
         mock_context.add_import.assert_called_with("uuid", "UUID")
 
+    def test_resolve_schema__string_with_format_binary__returns_bytes_type(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving string schema with binary format
+        Expected Outcome: Returns bytes type (built-in, no import needed)
+        """
+        # Arrange
+        schema = IRSchema(type="string", format="binary")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context, required=True)
+
+        # Assert
+        assert result.python_type == "bytes"
+        assert not result.is_optional
+
+    def test_resolve_schema__string_with_format_binary_optional__returns_optional_bytes(
+        self, resolver, mock_context
+    ) -> None:
+        """
+        Scenario: Resolving optional string schema with binary format
+        Expected Outcome: Returns optional bytes type
+        """
+        # Arrange
+        schema = IRSchema(type="string", format="binary")
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context, required=False)
+
+        # Assert
+        assert result.python_type == "bytes"
+        assert result.is_optional
+
     def test_resolve_schema__string_with_inline_enum__logs_warning_returns_str(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving string schema with inline enum

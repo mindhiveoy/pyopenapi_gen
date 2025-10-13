@@ -45,45 +45,6 @@ __all__ = [
 # Semantic version of the generator core – automatically managed by semantic-release.
 __version__: str = "0.14.3"
 
-
-# ---------------------------------------------------------------------------
-# HTTP Method Enum - REMOVED FROM HERE
-# ---------------------------------------------------------------------------
-
-# @unique
-# class HTTPMethod(str, Enum):
-#     ...
-
-
-# ---------------------------------------------------------------------------
-# IR Dataclasses - REMOVED FROM HERE
-# ---------------------------------------------------------------------------
-
-# @dataclass(slots=True)
-# class IRParameter:
-#     ...
-
-# @dataclass(slots=True)
-# class IRResponse:
-#     ...
-
-# @dataclass(slots=True)
-# class IRRequestBody:
-#     ...
-
-# @dataclass(slots=True)
-# class IROperation:
-#     ...
-
-# @dataclass(slots=True)
-# class IRSchema:
-#     ...
-
-# @dataclass(slots=True)
-# class IRSpec:
-#     ...
-
-
 # ---------------------------------------------------------------------------
 # Lazy-loading and autocompletion support (This part remains)
 # ---------------------------------------------------------------------------

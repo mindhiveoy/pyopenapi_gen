@@ -289,6 +289,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 "hostname": "str",
                 "ipv4": "str",
                 "ipv6": "str",
+                "binary": "bytes",
             }
 
             python_type = format_mapping.get(format_type, "str")
