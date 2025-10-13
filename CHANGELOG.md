@@ -1,6 +1,175 @@
 # CHANGELOG
 
 
+## v0.16.1 (2025-10-13)
+
+### Bug Fixes
+
+- **version**: Manually sync __init__.py to 0.16.0 after failed workflow
+  ([`7ee9090`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7ee90902add14d93d471418b56514a8bcafd81cb))
+
+The semantic-release workflow successfully created version 0.16.0 but failed when trying to push the
+  __init__.py sync due to the force-with-lease issue.
+
+This commit manually syncs __init__.py to 0.16.0 to match pyproject.toml. Future releases will use
+  the new workflow logic with follow-up commits.
+
+- **workflow**: Use follow-up commit instead of amending for version sync
+  ([`96f2014`](https://github.com/mindhiveoy/pyopenapi_gen/commit/96f2014bb10ecbfbe3873db32ea6a5f8334542a2))
+
+ISSUE: The git push --force-with-lease was failing with "stale info" because: 1. semantic-release
+  creates and pushes a commit 2. Our sync script tried to amend that commit 3. force-with-lease
+  detected remote had changed and rejected the push
+
+SOLUTION: Changed strategy to use a follow-up commit instead of amending: 1. Fetch latest from
+  origin/main after semantic-release pushes 2. Reset --hard to origin/main to sync local state 3.
+  Run sync script to update __init__.py 4. If changed, create a NEW commit with [skip ci] flag 5.
+  Push normally (no force needed)
+
+Benefits: - Safer: No force-pushing required - Cleaner: Normal git flow with proper commit sequence
+  - Prevents loops: [skip ci] prevents triggering another workflow run
+
+This will result in two commits per release (semantic-release + sync) but is more reliable than
+  force-pushing.
+
+Fixes: https://github.com/mindhiveoy/pyopenapi_gen/actions/runs/18461834318
+
+
+## v0.16.0 (2025-10-13)
+
+### Bug Fixes
+
+- **api**: Improve type annotation for generate_client return type
+  ([`f35d99c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/f35d99c1d2233a20fdd1a69ef0a175ab902513c4))
+
+- Change return type from List[Any] to List[Path] for better type safety - Add proper pathlib.Path
+  import to support the type annotation - Enhances IDE support and type checking for programmatic
+  API users
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-authored-by: Ville Venäläinen <undefined@users.noreply.github.com>
+
+- **api**: Update business_swagger.json descriptions and schemas
+  ([`6496144`](https://github.com/mindhiveoy/pyopenapi_gen/commit/6496144200fb8dfb28275f0d111138107775fa29))
+
+- **lint**: Correct import ordering in __init__.py for Ruff compliance
+  ([`a159807`](https://github.com/mindhiveoy/pyopenapi_gen/commit/a159807fd1932206dd44c805629683998c88707f))
+
+- **release**: Sync __init__.py version automatically in semantic-release workflow
+  ([`7f28674`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7f2867449be1b75b2fc4b7c04073fcad3320e865))
+
+ISSUE: Semantic-release was updating pyproject.toml version but leaving __init__.py at the old
+  version, causing the version validation to fail.
+
+SOLUTION: 1. Fixed immediate issue: Updated __init__.py to match pyproject.toml (0.15.0) 2. Added
+  automatic sync: Created scripts/sync_version_to_init.py to sync version from pyproject.toml to
+  __init__.py 3. Updated workflow: Added step after semantic-release version bump that runs the sync
+  script and amends the commit if __init__.py was updated
+
+This ensures all version files stay synchronized after every semantic-release run.
+
+Fixes: https://github.com/mindhiveoy/pyopenapi_gen/actions/runs/18461374998
+
+- **security**: Address Bandit security warnings with proper logging and nosec annotations
+  ([`f9b0ff3`](https://github.com/mindhiveoy/pyopenapi_gen/commit/f9b0ff3e73ebeaaed49fc631429835ee6e99a33c))
+
+Fixed all Bandit security warnings: - Replace try-except-pass with proper exception logging in
+  parser.py - Replace try-except-pass with logging in telemetry.py - Add nosec B603 annotations to
+  all subprocess.run() calls with explanations - Add nosec B404 annotation to subprocess import with
+  justification
+
+Changes: - parser.py: Log exceptions instead of silent pass for debugging - telemetry.py: Log
+  telemetry failures for debugging - postprocess_manager.py: Document all subprocess calls are safe
+  (hardcoded commands, no shell)
+
+Bandit now reports zero issues (8 properly suppressed with nosec). All quality checks pass.
+
+- **types**: Add binary format mapping to unified type resolver
+  ([`ecba081`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ecba081b37a217277ea61d58b30d1f0a7ac2e04d))
+
+- Add 'binary' to format_mapping in OpenAPISchemaResolver._resolve_string() - Ensures string schemas
+  with format=binary resolve to bytes type - Adds comprehensive test coverage for binary format
+  resolution - Closes gap between legacy and unified type systems
+
+Before: string fields with format=binary were typed as str
+
+After: string fields with format=binary are correctly typed as bytes
+
+### Features
+
+- **api**: Add developer-friendly programmatic API with generate_client()
+  ([`ec8ad0c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ec8ad0c7b166e9cb523a91d97f8639f050d940c3))
+
+Add a clean, function-based API for programmatic usage alongside the existing CLI.
+
+Key additions: - generate_client() convenience function for simple library usage - Export
+  ClientGenerator and GenerationError at package level - Comprehensive documentation with examples
+  in CLAUDE.md - Full test coverage with 9 new tests in tests/api/
+
+Benefits: - Simple one-function API: generate_client(spec_path, project_root, output_package) - No
+  need to import from deep paths or understand internal structure - Proper error handling with
+  exported GenerationError exception - Fully backward compatible - all existing code continues to
+  work - Matches patterns from similar tools (openapi-python-client, datamodel-code-generator)
+
+Documentation includes: - Basic usage examples - Advanced usage with error handling - Multi-client
+  generation scripts - Build system integration examples - Complete API reference
+
+All tests pass (9 new + existing), type-safe (mypy strict), and quality checks pass.
+
+### Refactoring
+
+- **init**: Remove unused HTTPMethod enum and IR dataclasses
+  ([`7b096ed`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7b096ed321612823976a2e7b7a995d0aaf024312))
+
+
+## v0.15.0 (2025-10-11)
+
+### Bug Fixes
+
+- **release**: Correct semantic-release configuration and sync version to 0.14.3
+  ([`cfa0813`](https://github.com/mindhiveoy/pyopenapi_gen/commit/cfa081393657acfaa0a1c6a29243746748872b28))
+
+Problem: - semantic-release v9 was configured with deprecated `version_pattern` syntax - This caused
+  __init__.py to not be automatically updated during releases - Version validation failed in CI
+  because __init__.py (0.10.2) != pyproject.toml (0.14.3)
+
+Solution: - Updated semantic-release config to use `version_variables` (v9+ syntax) - Synced
+  __init__.py version to 0.14.3 to match pyproject.toml - Now semantic-release will automatically
+  update all version locations
+
+Changes: - pyproject.toml: Changed version_pattern → version_variables -
+  src/pyopenapi_gen/__init__.py: Updated __version__ from 0.10.2 → 0.14.3
+
+This ensures future releases automatically sync all version files.
+
+- **types**: Correct self-import detection to avoid false positives with similar filenames
+  ([`cfee36e`](https://github.com/mindhiveoy/pyopenapi_gen/commit/cfee36e4c8c57d84c0c1d967a7936c5daddf2197))
+
+Problem: - Self-import check used .endswith() for filename comparison - This caused false positives
+  when one filename was a suffix of another - Example:
+  "vector_index_with_embedding_response_data.py".endswith("embedding_response_data.py") == True -
+  Result: Missing imports for forward referenced types, causing NameError at runtime
+
+Solution: - Changed to exact basename comparison using os.path.basename() - Only files with
+  identical basenames are treated as self-imports - Added comprehensive regression tests covering: -
+  Similar module names (not self-imports) - Actual self-references (forward refs without imports) -
+  Exact filename matching requirements
+
+Changes: - src/pyopenapi_gen/types/resolvers/schema_resolver.py: Fixed self-import detection logic -
+  tests/types/test_missing_imports_bug.py: Added 3 regression tests -
+  tests/visit/test_model_visitor.py: Updated test expectations for correct import behavior -
+  .gitignore: Added patterns to ignore bug report and analysis documents
+
+Testing: - All 1309 tests pass - Verified with real business_swagger.json that previously failed -
+  Generated code now includes correct imports for cross-module references
+
+### Features
+
+- **versioning**: Add version synchronization validation script and integrate into quality checks
+  ([`de2ecb8`](https://github.com/mindhiveoy/pyopenapi_gen/commit/de2ecb8c63711230e890bae1cf79f22d5594c551))
+
+
 ## v0.14.3 (2025-10-11)
 
 ### Bug Fixes
@@ -111,6 +280,11 @@ Technical context: - mypy --strict requires explicit types for union type assign
   improvement for static analysis
 
 Resolves: mypy error "Incompatible types in assignment (expression has type...)"
+
+### Chores
+
+- Merge latest changes from main
+  ([`44487cc`](https://github.com/mindhiveoy/pyopenapi_gen/commit/44487cce571920b5e2c34814c38cbab67b956097))
 
 ### Code Style
 
@@ -825,6 +999,13 @@ All 1,265 tests now pass consistently across environments.
   staging/develop/main PRs - Minimal implementation that just satisfies branch protection - Actual
   testing still handled by pr-checks.yml for PRs - This unblocks PR merging while avoiding test
   duplication
+
+- **ci**: Ensure Poetry is available in PATH for semantic-release build command
+  ([`0a68f6e`](https://github.com/mindhiveoy/pyopenapi_gen/commit/0a68f6e4ace7fb998c4ddec14c7cf67713d7ce73))
+
+- Add explicit PATH setup for Poetry before semantic-release step - Add verification step to confirm
+  Poetry availability - Fixes 'poetry: command not found' error in semantic release pipeline -
+  Resolves build command failure preventing automated releases
 
 - **ci**: Ensure Poetry is available in PATH for semantic-release build command
   ([#46](https://github.com/mindhiveoy/pyopenapi_gen/pull/46),

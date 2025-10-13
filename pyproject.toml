@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "0.14.3"
+version = "0.16.1"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
 authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
 maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
@@ -140,7 +140,7 @@ pyopenapi-gen = "pyopenapi_gen.cli:app"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.14.3"
+version = "0.16.1"
 version_files = [
     "pyproject.toml:version",
     "src/pyopenapi_gen/__init__.py:__version__"
@@ -167,6 +167,8 @@ changelog_format = "# Changelog\\n\\n{changelog}"
 hvcs = "github"
 commit_parser = "conventional"
 major_on_zero = false
+# Allow bot actors (dependabot, renovate, etc.) to trigger releases
+allowed_bots = ["dependabot", "renovate"]
 
 [tool.coverage.run]
 # Store coverage data files under coverage_reports/ instead of project root
