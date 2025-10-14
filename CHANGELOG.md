@@ -1,6 +1,93 @@
 # CHANGELOG
 
 
+## v0.18.0 (2025-10-14)
+
+### Bug Fixes
+
+- **ci**: Add github_token to Claude Code action
+  ([`e3a18d5`](https://github.com/mindhiveoy/pyopenapi_gen/commit/e3a18d5377c206c9735981c588999decdf361fdf))
+
+Fixes workflow validation error when Claude workflow differs between branches. The action requires
+  either: 1. Identical workflow file on main branch, OR 2. Explicit github_token parameter
+
+Adding github_token allows the action to work on PR branches with workflow modifications before
+  they're merged to main.
+
+- **ci**: Allow dependabot in semantic-release and optimize Claude Code reviews
+  ([`717e90c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/717e90c3a8bff13757434fb1375b0b7a30968fd9))
+
+1. Added dependabot and renovate to semantic-release allowed_bots list - Fixes: Workflow initiated
+  by non-human actor error - Allows automated dependency updates to trigger releases
+
+2. Updated Claude Code workflow prompt to skip quality gates - CI pipeline already runs: Black,
+  Ruff, mypy, Bandit, pytest - Claude now focuses on: code logic, security, architecture - Avoids
+  duplicate work and speeds up reviews
+
+These changes reduce CI time and eliminate redundant quality checks.
+
+### Chores
+
+- **deps**: Update idna to version 3.11 and adjust python version requirement
+  ([`a4adacb`](https://github.com/mindhiveoy/pyopenapi_gen/commit/a4adacbda45ec8e9b67b8734b7867188b38c2fc1))
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`1f0e3af`](https://github.com/mindhiveoy/pyopenapi_gen/commit/1f0e3af6937d63394c6c0250e19890278f1a7bd1))
+
+### Documentation
+
+- **readme**: Add comprehensive programmatic API documentation
+  ([`d2fca57`](https://github.com/mindhiveoy/pyopenapi_gen/commit/d2fca57f62b0a1c5f718401df3c1b8ac7a7bb02b))
+
+Added detailed documentation for using pyopenapi_gen as a Python library:
+
+- Why programmatic usage section - Architecture diagram with mermaid - Basic usage examples -
+  Advanced usage with all options - Multi-client generation script - Build system integration
+  example - Complete API reference - Comparison: CLI vs programmatic usage
+
+This documentation covers the generate_client() function, ClientGenerator class, and GenerationError
+  exception, making it easy for users to integrate the generator into their build systems, CI/CD
+  pipelines, and custom tooling.
+
+### Features
+
+- **codegen**: Add @overload support for multi-content-type operations
+  ([`bf608a7`](https://github.com/mindhiveoy/pyopenapi_gen/commit/bf608a7c47dc4c528f407456478002e3d6779886))
+
+Implement PEP 484 @overload signatures for operations accepting multiple content types
+  (application/json, multipart/form-data, etc.). Enables IDE autocomplete and type checking for
+  endpoints with varying request formats.
+
+Technical approach: - OverloadMethodGenerator creates @overload decorators per content type -
+  Literal types constrain content_type parameter per overload - Type-safe parameter mapping:
+  JSON→body, multipart→files, form→data - Assert statements for mypy type narrowing (validated,
+  marked nosec B101)
+
+This addresses developer experience issues when working with upload endpoints that accept both JSON
+  metadata and multipart file uploads.
+
+- **codegen**: Integrate @overload generation into endpoint method generator
+  ([`d29cd13`](https://github.com/mindhiveoy/pyopenapi_gen/commit/d29cd131ed498c389366712eb873430ec0eb7e37))
+
+Refactor EndpointMethodGenerator to detect multi-content-type operations and delegate to
+  OverloadMethodGenerator for type-safe signature generation. Maintains full backward compatibility
+  for single-content-type operations.
+
+Implementation: - generate() branches on has_multiple_content_types() check -
+  _generate_standard_method() preserves existing single-content-type logic -
+  _generate_overloaded_method() orchestrates overload generation + runtime dispatch - Runtime
+  dispatch validates exactly one content-type parameter provided
+
+Developers now receive accurate IDE autocomplete for multi-format endpoints, eliminating guesswork
+  about which parameters are valid for each content type.
+
+- **spec**: Update business_swagger.json with multi-content-type example
+  ([`5007e77`](https://github.com/mindhiveoy/pyopenapi_gen/commit/5007e7752440856f7111a7422af09ca6da8a5a5a))
+
+- Update listDocuments endpoint with cursor and page-based pagination - Provides real-world example
+  for content-type overloading implementation
+
+
 ## v0.17.0 (2025-10-13)
 
 ### Chores
