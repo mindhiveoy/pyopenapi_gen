@@ -341,6 +341,7 @@ class DataclassSerializer:
     @staticmethod
     def _serialize_with_tracking(obj: Any, visited: Set[int]) -> Any:
         """Internal serialization method with circular reference tracking."""
+        from enum import Enum
 
         # Handle None values by excluding them
         if obj is None:
@@ -357,6 +358,10 @@ class DataclassSerializer:
         # Handle datetime objects
         if isinstance(obj, datetime):
             return obj.isoformat()
+
+        # Handle enum instances
+        if isinstance(obj, Enum) and not isinstance(obj, type):
+            return obj.value
 
         # Handle dataclass instances
         if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
