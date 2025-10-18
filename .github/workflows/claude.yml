@@ -44,17 +44,33 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           direct_prompt: |
             Review this PR for code quality, security, and compatibility:
-            
+
+            **IMPORTANT: DO NOT run quality gates (formatting, linting, tests, type checking)**
+            The CI pipeline already handles: Black, Ruff, mypy, Bandit, and pytest.
+            Focus on code logic, architecture, and security only.
+
             **For hotfixes and minor fixes:**
-            1. If code quality is good and tests pass, fix any minor issues directly
+            1. If code logic is sound and architecture is good, fix any issues directly
             2. Provide detailed analysis in comments
             3. Note if manual approval is recommended
-            
+
             **For larger changes:**
-            1. Provide comprehensive review feedback
+            1. Provide comprehensive review feedback on logic and architecture
             2. Create issues for complex problems
             3. Suggest improvements and alternatives
-            
-            Focus on: syntax errors, security issues, type safety, and compatibility.
+
+            **Focus on:**
+            - Code logic and correctness
+            - Security vulnerabilities and best practices
+            - Architecture decisions and design patterns
+            - API compatibility and breaking changes
+            - Algorithm efficiency and performance implications
+
+            **Skip (CI handles these):**
+            - Formatting checks (Black)
+            - Linting (Ruff)
+            - Type checking (mypy)
+            - Security scanning (Bandit)
+            - Test execution (pytest)
           timeout_minutes: 60
 
