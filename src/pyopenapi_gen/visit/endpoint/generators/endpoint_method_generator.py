@@ -130,6 +130,9 @@ class EndpointMethodGenerator:
 
         writer = CodeWriter()
 
+        # Import DataclassSerializer for automatic conversion
+        context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
+
         # Generate implementation signature (accepts all content-type parameters as optional)
         impl_sig = self.overload_generator.generate_implementation_signature(op, context, response_strategy)
         writer.write_block(impl_sig)
@@ -168,7 +171,7 @@ class EndpointMethodGenerator:
 
             # Generate request call for this content type
             if content_type == "application/json":
-                writer.write_line(f"json_body = {param_info['name']}")
+                writer.write_line(f"json_body = DataclassSerializer.serialize({param_info['name']})")
                 writer.write_line("response = await self._transport.request(")
                 writer.indent()
                 writer.write_line(f'"{op.method.value.upper()}", url,')
@@ -178,7 +181,7 @@ class EndpointMethodGenerator:
                 writer.dedent()
                 writer.write_line(")")
             elif content_type == "multipart/form-data":
-                writer.write_line(f"files_data = {param_info['name']}")
+                writer.write_line(f"files_data = DataclassSerializer.serialize({param_info['name']})")
                 writer.write_line("response = await self._transport.request(")
                 writer.indent()
                 writer.write_line(f'"{op.method.value.upper()}", url,')
@@ -188,7 +191,7 @@ class EndpointMethodGenerator:
                 writer.dedent()
                 writer.write_line(")")
             else:
-                writer.write_line(f"data = {param_info['name']}")
+                writer.write_line(f"data = DataclassSerializer.serialize({param_info['name']})")
                 writer.write_line("response = await self._transport.request(")
                 writer.indent()
                 writer.write_line(f'"{op.method.value.upper()}", url,')
