@@ -9,6 +9,7 @@ converted to dictionaries before being sent in HTTP requests.
 
 import dataclasses
 from datetime import datetime
+from enum import Enum
 from typing import Any, List, Optional
 
 import pytest
@@ -51,6 +52,42 @@ class ComplexData:
     created_at: datetime
     is_active: bool
     optional_field: str | None = None
+
+
+class Status(Enum):
+    """Status enum for testing."""
+
+    PENDING = "pending"
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    COMPLETED = "completed"
+
+
+class Priority(Enum):
+    """Priority enum with integer values for testing."""
+
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+    CRITICAL = 4
+
+
+@dataclasses.dataclass
+class Task:
+    """Task dataclass with enum fields for testing."""
+
+    title: str
+    status: Status
+    priority: Priority
+
+
+@dataclasses.dataclass
+class Project:
+    """Project dataclass with nested enum-containing dataclass for testing."""
+
+    name: str
+    main_task: Task
+    backup_status: Status | None = None
 
 
 class TestDataclassSerializer:
@@ -228,6 +265,163 @@ class TestDataclassSerializer:
         # Assert
         assert result == {}
         assert isinstance(result, dict)
+
+    def test_serialize_enum_string_value__converts_to_value__returns_string(self) -> None:
+        """
+        Scenario: Serialize an enum instance with string value
+        Expected Outcome: Returns the enum's underlying value (string)
+        """
+        # Arrange
+        status = Status.ACTIVE
+
+        # Act
+        result = DataclassSerializer.serialize(status)
+
+        # Assert
+        assert result == "active"
+        assert isinstance(result, str)
+
+    def test_serialize_enum_integer_value__converts_to_value__returns_integer(self) -> None:
+        """
+        Scenario: Serialize an enum instance with integer value
+        Expected Outcome: Returns the enum's underlying value (integer)
+        """
+        # Arrange
+        priority = Priority.HIGH
+
+        # Act
+        result = DataclassSerializer.serialize(priority)
+
+        # Assert
+        assert result == 3
+        assert isinstance(result, int)
+
+    def test_serialize_dataclass_with_enum_fields__converts_enums_to_values__returns_proper_dict(self) -> None:
+        """
+        Scenario: Serialize a dataclass containing enum fields
+        Expected Outcome: Enum fields are converted to their underlying values
+        """
+        # Arrange
+        task = Task(title="Implement feature", status=Status.ACTIVE, priority=Priority.HIGH)
+
+        # Act
+        result = DataclassSerializer.serialize(task)
+
+        # Assert
+        expected = {"title": "Implement feature", "status": "active", "priority": 3}
+        assert result == expected
+
+    def test_serialize_nested_dataclass_with_enums__converts_recursively__returns_proper_structure(self) -> None:
+        """
+        Scenario: Serialize nested dataclasses containing enum fields
+        Expected Outcome: All enum fields at all nesting levels are converted to values
+        """
+        # Arrange
+        task = Task(title="Main task", status=Status.COMPLETED, priority=Priority.CRITICAL)
+        project = Project(name="API Project", main_task=task, backup_status=Status.PENDING)
+
+        # Act
+        result = DataclassSerializer.serialize(project)
+
+        # Assert
+        expected = {
+            "name": "API Project",
+            "main_task": {"title": "Main task", "status": "completed", "priority": 4},
+            "backup_status": "pending",
+        }
+        assert result == expected
+
+    def test_serialize_list_with_enum_values__converts_all_enums__returns_list_of_values(self) -> None:
+        """
+        Scenario: Serialize a list containing enum instances
+        Expected Outcome: Each enum in the list is converted to its underlying value
+        """
+        # Arrange
+        statuses = [Status.PENDING, Status.ACTIVE, Status.COMPLETED]
+
+        # Act
+        result = DataclassSerializer.serialize(statuses)
+
+        # Assert
+        expected = ["pending", "active", "completed"]
+        assert result == expected
+
+    def test_serialize_dict_with_enum_values__converts_enum_values__preserves_keys(self) -> None:
+        """
+        Scenario: Serialize a dictionary with enum values
+        Expected Outcome: Enum values are converted while dictionary keys are preserved
+        """
+        # Arrange
+        status_map = {"current": Status.ACTIVE, "previous": Status.PENDING, "target": Status.COMPLETED}
+
+        # Act
+        result = DataclassSerializer.serialize(status_map)
+
+        # Assert
+        expected = {"current": "active", "previous": "pending", "target": "completed"}
+        assert result == expected
+
+    def test_serialize_dataclass_with_optional_enum_none__excludes_none_value__returns_clean_dict(self) -> None:
+        """
+        Scenario: Serialize a dataclass with optional enum field set to None
+        Expected Outcome: None enum field is excluded from the result
+        """
+        # Arrange
+        task = Task(title="Simple task", status=Status.PENDING, priority=Priority.LOW)
+        project = Project(name="Simple project", main_task=task)  # backup_status is None
+
+        # Act
+        result = DataclassSerializer.serialize(project)
+
+        # Assert
+        expected = {
+            "name": "Simple project",
+            "main_task": {"title": "Simple task", "status": "pending", "priority": 1},
+        }
+        assert result == expected
+        assert "backup_status" not in result
+
+    def test_serialize_mixed_dataclass_with_enums_and_complex_types__handles_all_types__returns_complete_dict(
+        self,
+    ) -> None:
+        """
+        Scenario: Serialize a dataclass containing enums, dates, lists, and nested structures
+        Expected Outcome: All types including enums are properly serialized
+        """
+
+        # Arrange
+        @dataclasses.dataclass
+        class ComplexTask:
+            title: str
+            status: Status
+            priority: Priority
+            created_at: datetime
+            tags: List[str]
+            metadata: dict[str, Any]
+
+        created_at = datetime(2023, 6, 15, 9, 30, 0)
+        task = ComplexTask(
+            title="Complex task",
+            status=Status.ACTIVE,
+            priority=Priority.HIGH,
+            created_at=created_at,
+            tags=["urgent", "api"],
+            metadata={"version": "2.0", "retries": 3},
+        )
+
+        # Act
+        result = DataclassSerializer.serialize(task)
+
+        # Assert
+        expected = {
+            "title": "Complex task",
+            "status": "active",
+            "priority": 3,
+            "created_at": "2023-06-15T09:30:00",
+            "tags": ["urgent", "api"],
+            "metadata": {"version": "2.0", "retries": 3},
+        }
+        assert result == expected
 
 
 class TestGeneratedClientDataclassIntegration:

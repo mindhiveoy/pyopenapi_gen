@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.19.0 (2025-10-18)
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`4938f48`](https://github.com/mindhiveoy/pyopenapi_gen/commit/4938f4840650dc56573ca3294d782f74ea89dc65))
+
+### Features
+
+- **codegen**: Integrate DataclassSerializer for request body serialization
+  ([`0b5b01f`](https://github.com/mindhiveoy/pyopenapi_gen/commit/0b5b01f3e7a5a1d7d57298088bf2543920517855))
+
+
 ## v0.18.0 (2025-10-14)
 
 ### Bug Fixes
