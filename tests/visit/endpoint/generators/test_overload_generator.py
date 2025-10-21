@@ -512,3 +512,87 @@ class TestGenerateSingleOverload:
         assert "files: dict[str, IO[Any]]" in result
         assert 'content_type: Literal["multipart/form-data"] = "multipart/form-data"' in result
         assert "-> UploadResponse: ..." in result
+
+    def test_generate_single_overload__camelcase_operation_id__converts_to_snake_case(
+        self,
+        mock_render_context: RenderContext,
+        mock_response_strategy: ResponseStrategy,
+        schemas: dict[str, IRSchema],
+    ) -> None:
+        """
+        Scenario: Operation ID is in camelCase (e.g., updateDocument)
+        Expected Outcome: Generated method name should be snake_case (update_document)
+        """
+        # Arrange
+        op = IROperation(
+            path="/documents/{id}",
+            method=HTTPMethod.PUT,
+            operation_id="updateDocument",  # camelCase
+            summary="Update a document",
+            description="Update operation",
+            parameters=[],
+            request_body=IRRequestBody(
+                description="Document update",
+                required=True,
+                content={"application/json": IRSchema(type="object", name="DocumentUpdate")},
+            ),
+            responses=[
+                IRResponse(
+                    status_code="200", description="Success", content={"application/json": IRSchema(type="object")}
+                )
+            ],
+        )
+
+        generator = OverloadMethodGenerator(schemas)
+        schema = IRSchema(type="object", name="DocumentUpdate")
+
+        # Act
+        result = generator._generate_single_overload(
+            op, "application/json", schema, mock_render_context, mock_response_strategy
+        )
+
+        # Assert - Method name should be converted to snake_case
+        assert "async def update_document(" in result
+        assert "async def updateDocument(" not in result
+
+    def test_generate_implementation_signature__camelcase_operation_id__converts_to_snake_case(
+        self,
+        mock_render_context: RenderContext,
+        mock_response_strategy: ResponseStrategy,
+        schemas: dict[str, IRSchema],
+    ) -> None:
+        """
+        Scenario: Implementation signature with camelCase operation ID
+        Expected Outcome: Generated method name should be snake_case
+        """
+        # Arrange
+        op = IROperation(
+            path="/documents",
+            method=HTTPMethod.POST,
+            operation_id="createDocument",  # camelCase
+            summary="Create a document",
+            description="Create operation",
+            parameters=[],
+            request_body=IRRequestBody(
+                description="Document creation",
+                required=True,
+                content={
+                    "application/json": IRSchema(type="object", name="DocumentCreate"),
+                    "multipart/form-data": IRSchema(type="object", name="FileUpload"),
+                },
+            ),
+            responses=[
+                IRResponse(
+                    status_code="201", description="Created", content={"application/json": IRSchema(type="object")}
+                )
+            ],
+        )
+
+        generator = OverloadMethodGenerator(schemas)
+
+        # Act
+        result = generator.generate_implementation_signature(op, mock_render_context, mock_response_strategy)
+
+        # Assert - Method name should be converted to snake_case
+        assert "async def create_document(" in result
+        assert "async def createDocument(" not in result
