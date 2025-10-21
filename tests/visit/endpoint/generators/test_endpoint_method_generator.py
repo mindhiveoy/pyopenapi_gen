@@ -241,3 +241,64 @@ class TestEndpointMethodGenerator:
             result_code
             == "def test_op():\n    # Docstring here\n    # Only comments or whitespace added by helpers\n    pass"
         )
+
+
+class TestGenerateImplementationMethod:
+    """Tests for _generate_implementation_method."""
+
+    def test_generate_implementation_method__multipart_files__no_serialization(
+        self, mock_render_context: RenderContext
+    ) -> None:
+        """
+        Scenario: Generating implementation method for multipart/form-data with files
+        Expected Outcome: Files parameter should be passed directly without DataclassSerializer
+        """
+        # Arrange
+        from pyopenapi_gen import IRRequestBody, IRResponse
+        from pyopenapi_gen.ir import IRSchema
+        from pyopenapi_gen.types.strategies.response_strategy import ResponseStrategy
+
+        op = IROperation(
+            path="/upload",
+            method=HTTPMethod.POST,
+            operation_id="uploadFile",
+            summary="Upload file",
+            description="Upload operation",
+            parameters=[],
+            request_body=IRRequestBody(
+                description="File upload",
+                required=True,
+                content={
+                    "application/json": IRSchema(type="object", name="UploadRequest"),
+                    "multipart/form-data": IRSchema(type="object", name="FileUpload"),
+                },
+            ),
+            responses=[
+                IRResponse(
+                    status_code="201", description="Created", content={"application/json": IRSchema(type="object")}
+                )
+            ],
+        )
+
+        response_ir = IRResponse(
+            status_code="201", description="Created", content={"application/json": IRSchema(type="object")}
+        )
+        response_strategy = ResponseStrategy(
+            return_type="UploadResponse",
+            response_schema=IRSchema(type="object", name="UploadResponse"),
+            is_streaming=False,
+            response_ir=response_ir,
+        )
+
+        generator = EndpointMethodGenerator(schemas={})
+
+        # Act
+        result = generator._generate_implementation_method(op, mock_render_context, response_strategy)
+
+        # Assert - Files should be passed directly, NOT serialized
+        # The implementation should contain: files=files (not files_data=DataclassSerializer.serialize(files))
+        assert "files=files," in result or "files={param_info['name']}" in result
+        # Should NOT contain serialization of files
+        assert "DataclassSerializer.serialize(files)" not in result
+        # The variable assignment should be for json_body, not files_data
+        assert "files_data" not in result or "files_data = files" in result

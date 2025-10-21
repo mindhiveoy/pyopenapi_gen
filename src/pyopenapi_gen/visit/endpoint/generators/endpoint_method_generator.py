@@ -181,12 +181,12 @@ class EndpointMethodGenerator:
                 writer.dedent()
                 writer.write_line(")")
             elif content_type == "multipart/form-data":
-                writer.write_line(f"files_data = DataclassSerializer.serialize({param_info['name']})")
+                # Files dict is already in correct format for httpx - pass directly
                 writer.write_line("response = await self._transport.request(")
                 writer.indent()
                 writer.write_line(f'"{op.method.value.upper()}", url,')
                 writer.write_line("params=None,")
-                writer.write_line("files=files_data,")
+                writer.write_line(f"files={param_info['name']},")
                 writer.write_line("headers=None")
                 writer.dedent()
                 writer.write_line(")")
