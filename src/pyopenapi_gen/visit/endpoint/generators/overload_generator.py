@@ -6,6 +6,7 @@ from typing import Any
 from pyopenapi_gen import IROperation
 
 from ....context.render_context import RenderContext
+from ....core.utils import NameSanitizer
 from ....core.writers.code_writer import CodeWriter
 from ..processors.parameter_processor import EndpointParameterProcessor
 from .docstring_generator import EndpointDocstringGenerator
@@ -134,9 +135,12 @@ class OverloadMethodGenerator:
         # Get return type from response strategy
         return_type = response_strategy.return_type
 
+        # Sanitize method name to snake_case
+        method_name = NameSanitizer.sanitize_method_name(op.operation_id)
+
         # Write signature
         params_str = ",\n    ".join(param_parts)
-        writer.write_line(f"async def {op.operation_id}(")
+        writer.write_line(f"async def {method_name}(")
         writer.indent()
         writer.write_line(params_str)
         writer.dedent()
@@ -232,9 +236,12 @@ class OverloadMethodGenerator:
         # Get return type
         return_type = response_strategy.return_type
 
+        # Sanitize method name to snake_case
+        method_name = NameSanitizer.sanitize_method_name(op.operation_id)
+
         # Write signature
         params_str = ",\n    ".join(param_parts)
-        writer.write_line(f"async def {op.operation_id}(")
+        writer.write_line(f"async def {method_name}(")
         writer.indent()
         writer.write_line(params_str)
         writer.dedent()

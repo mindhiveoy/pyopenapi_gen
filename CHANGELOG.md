@@ -1,6 +1,25 @@
 # CHANGELOG
 
 
+## v0.20.0 (2025-10-19)
+
+### Bug Fixes
+
+- **serializer**: Handle enum instances in DataclassSerializer serialization
+  ([`7eaf8ed`](https://github.com/mindhiveoy/pyopenapi_gen/commit/7eaf8ed07e6b975ecd33ec0c3a6e642f2f23e205))
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`53c6163`](https://github.com/mindhiveoy/pyopenapi_gen/commit/53c6163b7c536ee17b6bb3a5fb631ed1900a4520))
+
+### Features
+
+- **tests**: Add comprehensive tests for DataclassSerializer with enum support and nested
+  dataclasses
+  ([`21de6af`](https://github.com/mindhiveoy/pyopenapi_gen/commit/21de6af2fdd33de6212863cc645ed426c6b1cd72))
+
+
 ## v0.19.0 (2025-10-18)
 
 ### Chores
