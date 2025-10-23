@@ -1,6 +1,46 @@
 # CHANGELOG
 
 
+## v0.21.0 (2025-10-23)
+
+### Bug Fixes
+
+- **serialization**: Respect BaseSchema field mappings in DataclassSerializer
+  ([`ef5d365`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ef5d3656008417bbae17e6370e33e7b0c12cefd6))
+
+BREAKING CHANGE: DataclassSerializer now correctly maps Python snake_case field names to API
+  camelCase field names when serializing BaseSchema instances.
+
+Problem: DataclassSerializer.serialize() was using Python field names (snake_case) directly as
+  dictionary keys, ignoring the field name mappings defined in
+  BaseSchema.Meta.key_transform_with_load. This caused API requests to send incorrect field names,
+  breaking communication with camelCase APIs.
+
+Solution: Modified DataclassSerializer._serialize_with_tracking() to detect BaseSchema instances and
+  use their to_dict() method, which properly handles field name mapping. Falls back to original
+  behavior for plain dataclasses to maintain backwards compatibility.
+
+Changes: - Updated DataclassSerializer._serialize_with_tracking() in core/utils.py - Added 5
+  comprehensive unit tests for field mapping scenarios - Added 2 end-to-end integration tests with
+  business_swagger.json - All existing tests pass with 88.42% coverage (exceeds 85% requirement)
+
+Example: Before: {"data_source_id": "123"} ❌
+
+After: {"dataSourceId": "123"} ✅
+
+Fixes critical bug affecting all generated clients with camelCase APIs.
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`446d496`](https://github.com/mindhiveoy/pyopenapi_gen/commit/446d4963a1e8428da7b6476088104aac599dae8f))
+
+### Breaking Changes
+
+- **serialization**: Dataclassserializer now correctly maps Python snake_case field names to API
+  camelCase field names when serializing BaseSchema instances.
+
+
 ## v0.20.1 (2025-10-21)
 
 ### Bug Fixes
