@@ -357,3 +357,248 @@ def test_import_collector_sibling_directory_import() -> None:
     assert "from ..models.bar import Baz" in statements
     for stmt in statements:
         assert "/" not in stmt, f"Slash found in import statement: {stmt}"
+
+
+# DataclassSerializer Tests
+
+
+def test_dataclass_serializer__baseschema_with_mappings__uses_api_field_names() -> None:
+    """Test DataclassSerializer respects BaseSchema field name mappings.
+
+    Scenario:
+        - Create a BaseSchema dataclass with field mappings (snake_case -> camelCase)
+        - Serialize the instance using DataclassSerializer.serialize()
+
+    Expected Outcome:
+        - The serialized dictionary should use API field names (camelCase)
+        - Should not use Python field names (snake_case)
+    """
+    # Arrange
+    from dataclasses import dataclass
+
+    from pyopenapi_gen.core.schemas import BaseSchema
+    from pyopenapi_gen.core.utils import DataclassSerializer
+
+    @dataclass
+    class DocumentUpdate(BaseSchema):
+        """Test schema with field mappings."""
+
+        data_source_id: str
+        mime_type: str | None = None
+        last_modified: str | None = None
+
+        class Meta:
+            """Field mappings."""
+
+            key_transform_with_load = {
+                "dataSourceId": "data_source_id",
+                "mimeType": "mime_type",
+                "lastModified": "last_modified",
+            }
+
+    obj = DocumentUpdate(data_source_id="source-123", mime_type="text/html", last_modified="2024-10-23")
+
+    # Act
+    result = DataclassSerializer.serialize(obj)
+
+    # Assert
+    assert isinstance(result, dict)
+    assert "dataSourceId" in result  # camelCase (API name)
+    assert "mimeType" in result
+    assert "lastModified" in result
+    assert "data_source_id" not in result  # snake_case (Python name) should NOT be present
+    assert "mime_type" not in result
+    assert "last_modified" not in result
+    assert result["dataSourceId"] == "source-123"
+    assert result["mimeType"] == "text/html"
+    assert result["lastModified"] == "2024-10-23"
+
+
+def test_dataclass_serializer__nested_baseschema__maps_recursively() -> None:
+    """Test DataclassSerializer handles nested BaseSchema instances with field mappings.
+
+    Scenario:
+        - Create nested BaseSchema dataclasses with field mappings
+        - Serialize the parent instance
+
+    Expected Outcome:
+        - Both parent and nested objects should use API field names
+        - Nested field mappings should be respected recursively
+    """
+    # Arrange
+    from dataclasses import dataclass
+
+    from pyopenapi_gen.core.schemas import BaseSchema
+    from pyopenapi_gen.core.utils import DataclassSerializer
+
+    @dataclass
+    class Address(BaseSchema):
+        """Nested schema with field mappings."""
+
+        street_name: str
+        postal_code: str
+
+        class Meta:
+            """Field mappings."""
+
+            key_transform_with_load = {"streetName": "street_name", "postalCode": "postal_code"}
+
+    @dataclass
+    class User(BaseSchema):
+        """Parent schema with field mappings."""
+
+        user_id: str
+        full_name: str
+        home_address: Address
+
+        class Meta:
+            """Field mappings."""
+
+            key_transform_with_load = {
+                "userId": "user_id",
+                "fullName": "full_name",
+                "homeAddress": "home_address",
+            }
+
+    address = Address(street_name="Main St", postal_code="12345")
+    user = User(user_id="user-123", full_name="John Doe", home_address=address)
+
+    # Act
+    result = DataclassSerializer.serialize(user)
+
+    # Assert
+    assert isinstance(result, dict)
+    assert "userId" in result
+    assert "fullName" in result
+    assert "homeAddress" in result
+    assert isinstance(result["homeAddress"], dict)
+    assert "streetName" in result["homeAddress"]
+    assert "postalCode" in result["homeAddress"]
+    assert result["userId"] == "user-123"
+    assert result["homeAddress"]["streetName"] == "Main St"
+
+
+def test_dataclass_serializer__plain_dataclass__still_works() -> None:
+    """Test DataclassSerializer backwards compatibility with plain dataclasses.
+
+    Scenario:
+        - Create a plain dataclass (not BaseSchema)
+        - Serialize the instance
+
+    Expected Outcome:
+        - Should use field.name directly (no field mapping)
+        - Backwards compatibility maintained
+    """
+    # Arrange
+    from dataclasses import dataclass
+
+    from pyopenapi_gen.core.utils import DataclassSerializer
+
+    @dataclass
+    class PlainModel:
+        """Plain dataclass without BaseSchema."""
+
+        field_one: str
+        field_two: int
+
+    obj = PlainModel(field_one="value", field_two=42)
+
+    # Act
+    result = DataclassSerializer.serialize(obj)
+
+    # Assert
+    assert isinstance(result, dict)
+    assert "field_one" in result
+    assert "field_two" in result
+    assert result["field_one"] == "value"
+    assert result["field_two"] == 42
+
+
+def test_dataclass_serializer__exclude_none_handling() -> None:
+    """Test DataclassSerializer excludes None values when using BaseSchema.
+
+    Scenario:
+        - Create a BaseSchema instance with some None values
+        - Serialize the instance
+
+    Expected Outcome:
+        - None values should be excluded from the result
+        - Non-None values should be present with correct field names
+    """
+    # Arrange
+    from dataclasses import dataclass
+
+    from pyopenapi_gen.core.schemas import BaseSchema
+    from pyopenapi_gen.core.utils import DataclassSerializer
+
+    @dataclass
+    class OptionalFields(BaseSchema):
+        """Schema with optional fields."""
+
+        required_field: str
+        optional_field: str | None = None
+        another_optional: str | None = None
+
+        class Meta:
+            """Field mappings."""
+
+            key_transform_with_load = {
+                "requiredField": "required_field",
+                "optionalField": "optional_field",
+                "anotherOptional": "another_optional",
+            }
+
+    obj = OptionalFields(required_field="present", optional_field=None, another_optional=None)
+
+    # Act
+    result = DataclassSerializer.serialize(obj)
+
+    # Assert
+    assert isinstance(result, dict)
+    assert "requiredField" in result
+    assert "optionalField" not in result  # None values excluded
+    assert "anotherOptional" not in result
+    assert result["requiredField"] == "present"
+
+
+def test_dataclass_serializer__list_of_baseschema__maps_all_items() -> None:
+    """Test DataclassSerializer handles lists of BaseSchema instances.
+
+    Scenario:
+        - Create a list of BaseSchema instances with field mappings
+        - Serialize the list
+
+    Expected Outcome:
+        - Each item in the list should have field names mapped
+        - All items should use API field names
+    """
+    # Arrange
+    from dataclasses import dataclass
+
+    from pyopenapi_gen.core.schemas import BaseSchema
+    from pyopenapi_gen.core.utils import DataclassSerializer
+
+    @dataclass
+    class Item(BaseSchema):
+        """Schema with field mappings."""
+
+        item_id: str
+        item_name: str
+
+        class Meta:
+            """Field mappings."""
+
+            key_transform_with_load = {"itemId": "item_id", "itemName": "item_name"}
+
+    items = [Item(item_id="1", item_name="First"), Item(item_id="2", item_name="Second")]
+
+    # Act
+    result = DataclassSerializer.serialize(items)
+
+    # Assert
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert all("itemId" in item for item in result)
+    assert all("itemName" in item for item in result)
+    assert result[0]["itemId"] == "1"
+    assert result[1]["itemName"] == "Second"

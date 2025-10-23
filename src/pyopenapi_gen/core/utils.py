@@ -328,10 +328,12 @@ class DataclassSerializer:
             The serialized object with dataclasses converted to dictionaries.
 
         Handles:
-        - Dataclass instances: Converted to dictionaries
+        - BaseSchema instances: Uses to_dict() method with field name mapping (e.g., snake_case -> camelCase)
+        - Regular dataclass instances: Converted to dictionaries using field names
         - Lists: Recursively serialize each item
         - Dictionaries: Recursively serialize values
         - datetime: Convert to ISO format string
+        - Enums: Convert to their value
         - Primitives: Return unchanged
         - None values: Excluded from output
         """
@@ -363,7 +365,24 @@ class DataclassSerializer:
         if isinstance(obj, Enum) and not isinstance(obj, type):
             return obj.value
 
-        # Handle dataclass instances
+        # Handle BaseSchema instances (respects field name mappings)
+        # Check for BaseSchema by looking for both to_dict and _get_field_mappings methods
+        if hasattr(obj, "to_dict") and hasattr(obj, "_get_field_mappings") and callable(obj.to_dict):
+            visited.add(obj_id)
+            try:
+                # Use BaseSchema's to_dict() which handles field name mapping
+                result_dict = obj.to_dict(exclude_none=True)
+                # Recursively serialize nested objects in the result
+                serialized_result = {}
+                for key, value in result_dict.items():
+                    serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
+                    if serialized_value is not None:
+                        serialized_result[key] = serialized_value
+                return serialized_result
+            finally:
+                visited.discard(obj_id)
+
+        # Handle regular dataclass instances (no field mapping)
         if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
             visited.add(obj_id)
             try:
