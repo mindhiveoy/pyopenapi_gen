@@ -1,6 +1,53 @@
 # CHANGELOG
 
 
+## v0.20.1 (2025-10-21)
+
+### Bug Fixes
+
+- **codegen**: Resolve method naming and file handling in overloaded endpoints
+  ([`190e581`](https://github.com/mindhiveoy/pyopenapi_gen/commit/190e5819e99edf37d14722b075069851d03c4c3b))
+
+This commit fixes two critical issues in code generation for operations with multiple content types
+  (overloaded methods):
+
+1. **Method Naming**: Overloaded methods were using camelCase from OpenAPI operationId instead of
+  converting to Python's snake_case convention. - Fixed: Added NameSanitizer.sanitize_method_name()
+  in overload_generator.py - Example: updateDocument -> update_document
+
+2. **File Upload Handling**: Multipart/form-data file uploads were incorrectly being passed through
+  DataclassSerializer.serialize(), which is designed for dataclass-to-dict conversion, not file I/O.
+  - Fixed: Pass file dict directly to httpx transport in endpoint_method_generator.py - Rationale:
+  httpx expects raw IO objects, not serialized data
+
+Both issues only affected operations with multiple content types (JSON + multipart). Standard
+  single-content-type operations were unaffected.
+
+Changes: - src/pyopenapi_gen/visit/endpoint/generators/overload_generator.py: Added NameSanitizer
+  import and method name sanitisation in two locations (overload signatures and implementation
+  signatures)
+
+- src/pyopenapi_gen/visit/endpoint/generators/endpoint_method_generator.py: Removed
+  DataclassSerializer.serialize() for file parameters in multipart handling, passing files directly
+  to transport
+
+- tests/visit/endpoint/generators/test_overload_generator.py: Added unit tests for snake_case
+  conversion in overload and implementation signatures
+
+- tests/visit/endpoint/generators/test_endpoint_method_generator.py: Added test for file handling
+  without serialisation
+
+- tests/generation_issues/test_overload_naming_issues.py: Added integration tests verifying both
+  fixes in full code generation pipeline
+
+All tests pass (1348 tests) with full quality checks (format, lint, typecheck, security).
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`8047e53`](https://github.com/mindhiveoy/pyopenapi_gen/commit/8047e53df11d8985d95f89dbf3b36046af1e6f1a))
+
+
 ## v0.20.0 (2025-10-19)
 
 ### Bug Fixes
