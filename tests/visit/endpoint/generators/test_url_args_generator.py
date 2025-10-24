@@ -157,7 +157,7 @@ class TestEndpointUrlArgsGenerator:
             code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items"')
             code_writer_mock.write_line.assert_any_call("params: dict[str, Any] = {")
             code_writer_mock.write_line.assert_any_call(
-                '    **({"filterBy": filter_by} if filter_by is not None else {}),'
+                '    **({"filterBy": DataclassSerializer.serialize(filter_by)} if filter_by is not None else {}),'
             )
             mock_sanitize_query.assert_any_call("filter_by")
             render_context_mock.add_import.assert_any_call("typing", "Any")
@@ -227,9 +227,9 @@ class TestEndpointUrlArgsGenerator:
 
         code_writer_mock.write_line.assert_any_call(f'url = f"{{self.base_url}}/items_with_headers"')
         code_writer_mock.write_line.assert_any_call("headers: dict[str, Any] = {")
-        code_writer_mock.write_line.assert_any_call('    "X-Request-ID": x_request_id,')
+        code_writer_mock.write_line.assert_any_call('    "X-Request-ID": DataclassSerializer.serialize(x_request_id),')
         code_writer_mock.write_line.assert_any_call(
-            '    **({"X-Client-Version": x_client_version} if x_client_version is not None else {}),'
+            '    **({"X-Client-Version": DataclassSerializer.serialize(x_client_version)} if x_client_version is not None else {}),'
         )
         code_writer_mock.write_line.assert_any_call("}")  # Closing brace for headers dict
 
@@ -371,7 +371,7 @@ class TestEndpointUrlArgsGenerator:
             # Query params assertions
             code_writer_mock.write_line.assert_any_call("params: dict[str, Any] = {")
             code_writer_mock.write_line.assert_any_call(
-                '    **({"verboseOutput": verbose_output_sanitized} if verbose_output_sanitized is not None else {}),'
+                '    **({"verboseOutput": DataclassSerializer.serialize(verbose_output_sanitized)} if verbose_output_sanitized is not None else {}),'
             )
             # _write_query_params calls sanitize_method_name on p["name"]
             mock_sanitize_method_name.assert_any_call(
@@ -382,7 +382,9 @@ class TestEndpointUrlArgsGenerator:
             code_writer_mock.write_line.assert_any_call("headers: dict[str, Any] = {")
             # Content-Type is NOT added by this generator to the headers dict
             # self.code_writer_mock.write_line.assert_any_call(f'    "Content-Type": "{primary_content_type}",')
-            code_writer_mock.write_line.assert_any_call('    "X-Correlation-ID": x_correlation_id_sanitized,')
+            code_writer_mock.write_line.assert_any_call(
+                '    "X-Correlation-ID": DataclassSerializer.serialize(x_correlation_id_sanitized),'
+            )
 
             # _write_header_params calls sanitize_method_name on p_info["name"]
             mock_sanitize_method_name.assert_any_call(
@@ -601,3 +603,281 @@ class TestEndpointUrlArgsGenerator:
 
         code_writer_mock.write_line.assert_any_call(f"bytes_body: bytes = bytes_content")
         # No specific imports added by this path in the generator
+
+    # ========== ENUM SERIALIZATION TESTS (TDD - RED PHASE) ==========
+
+    def test_write_query_params__required_enum_parameter__serializes_value(
+        self, url_args_generator: EndpointUrlArgsGenerator, render_context_mock: MagicMock
+    ) -> None:
+        """
+        Scenario: Required query parameter is an enum type
+        Expected Outcome: Generated code calls DataclassSerializer.serialize() to convert enum to string value
+
+        This test follows TDD principles:
+        - RED: Test will fail because current code doesn't call serialize()
+        - GREEN: Will pass after implementing the fix
+        - REFACTOR: Cleanup if needed
+        """
+        # Arrange
+        writer = CodeWriter()
+        operation = IROperation(
+            operation_id="list_documents",
+            summary="List documents",
+            description="List documents with status filter",
+            method=HTTPMethod.GET,
+            path="/documents",
+            tags=["documents"],
+            parameters=[
+                IRParameter(
+                    name="status",
+                    param_in="query",
+                    required=True,
+                    schema=IRSchema(type="string", is_nullable=False),
+                    description="Document status filter",
+                )
+            ],
+            request_body=None,
+            responses=[],
+        )
+        ordered_params = [
+            {
+                "name": "status",
+                "original_name": "status",
+                "param_in": "query",
+                "required": True,
+            }
+        ]
+
+        # Act
+        url_args_generator._write_query_params(writer, operation, ordered_params, render_context_mock)
+        generated_code = writer.get_code()
+
+        # Assert
+        assert "DataclassSerializer.serialize(status)" in generated_code, (
+            "Required query parameter should be serialized with DataclassSerializer.serialize() "
+            "to handle enum→string conversion"
+        )
+        assert '"status": DataclassSerializer.serialize(status)' in generated_code
+
+    def test_write_query_params__optional_enum_parameter__serializes_value(
+        self, url_args_generator: EndpointUrlArgsGenerator, render_context_mock: MagicMock
+    ) -> None:
+        """
+        Scenario: Optional query parameter is an enum type
+        Expected Outcome: Generated code calls DataclassSerializer.serialize() within None check
+
+        This ensures enums are converted to string values before being passed to httpx,
+        preventing enum objects from appearing in query strings.
+        """
+        # Arrange
+        writer = CodeWriter()
+        operation = IROperation(
+            operation_id="list_documents",
+            summary="List documents",
+            description="List documents with optional status filter",
+            method=HTTPMethod.GET,
+            path="/documents",
+            tags=["documents"],
+            parameters=[
+                IRParameter(
+                    name="status",
+                    param_in="query",
+                    required=False,
+                    schema=IRSchema(type="string", is_nullable=True),
+                    description="Optional document status filter",
+                )
+            ],
+            request_body=None,
+            responses=[],
+        )
+        ordered_params = [
+            {
+                "name": "status",
+                "original_name": "status",
+                "param_in": "query",
+                "required": False,
+            }
+        ]
+
+        # Act
+        url_args_generator._write_query_params(writer, operation, ordered_params, render_context_mock)
+        generated_code = writer.get_code()
+
+        # Assert
+        assert "DataclassSerializer.serialize(status)" in generated_code, (
+            "Optional query parameter should be serialized with DataclassSerializer.serialize() "
+            "to handle enum→string conversion"
+        )
+        assert "if status is not None" in generated_code, "Optional parameter should have None check"
+        # Verify serialization happens inside the conditional
+        assert '{"status": DataclassSerializer.serialize(status)}' in generated_code
+
+    def test_write_header_params__required_enum_parameter__serializes_value(
+        self, url_args_generator: EndpointUrlArgsGenerator, render_context_mock: MagicMock
+    ) -> None:
+        """
+        Scenario: Required header parameter is an enum type
+        Expected Outcome: Generated code calls DataclassSerializer.serialize() to convert enum to string value
+
+        Headers must be strings. This test ensures enums are properly converted.
+        """
+        # Arrange
+        writer = CodeWriter()
+        operation = IROperation(
+            operation_id="get_data",
+            summary="Get data",
+            description="Get data with API version header",
+            method=HTTPMethod.GET,
+            path="/data",
+            tags=["data"],
+            parameters=[
+                IRParameter(
+                    name="X-API-Version",
+                    param_in="header",
+                    required=True,
+                    schema=IRSchema(type="string", is_nullable=False),
+                    description="API version",
+                )
+            ],
+            request_body=None,
+            responses=[],
+        )
+        ordered_params = [
+            {
+                "name": "x_api_version",
+                "original_name": "X-API-Version",
+                "param_in": "header",
+                "required": True,
+            }
+        ]
+
+        # Act
+        url_args_generator._write_header_params(writer, operation, ordered_params, render_context_mock)
+        generated_code = writer.get_code()
+
+        # Assert
+        assert "DataclassSerializer.serialize(x_api_version)" in generated_code, (
+            "Required header parameter should be serialized with DataclassSerializer.serialize() "
+            "to handle enum→string conversion"
+        )
+        assert '"X-API-Version": DataclassSerializer.serialize(x_api_version)' in generated_code
+
+    def test_write_header_params__optional_enum_parameter__serializes_value(
+        self, url_args_generator: EndpointUrlArgsGenerator, render_context_mock: MagicMock
+    ) -> None:
+        """
+        Scenario: Optional header parameter is an enum type
+        Expected Outcome: Generated code calls DataclassSerializer.serialize() within None check
+
+        Ensures enum headers are properly converted to strings before being sent to httpx.
+        """
+        # Arrange
+        writer = CodeWriter()
+        operation = IROperation(
+            operation_id="get_data",
+            summary="Get data",
+            description="Get data with optional API version header",
+            method=HTTPMethod.GET,
+            path="/data",
+            tags=["data"],
+            parameters=[
+                IRParameter(
+                    name="X-API-Version",
+                    param_in="header",
+                    required=False,
+                    schema=IRSchema(type="string", is_nullable=True),
+                    description="Optional API version",
+                )
+            ],
+            request_body=None,
+            responses=[],
+        )
+        ordered_params = [
+            {
+                "name": "x_api_version",
+                "original_name": "X-API-Version",
+                "param_in": "header",
+                "required": False,
+            }
+        ]
+
+        # Act
+        url_args_generator._write_header_params(writer, operation, ordered_params, render_context_mock)
+        generated_code = writer.get_code()
+
+        # Assert
+        assert "DataclassSerializer.serialize(x_api_version)" in generated_code, (
+            "Optional header parameter should be serialized with DataclassSerializer.serialize() "
+            "to handle enum→string conversion"
+        )
+        assert "if x_api_version is not None" in generated_code, "Optional parameter should have None check"
+        assert '{"X-API-Version": DataclassSerializer.serialize(x_api_version)}' in generated_code
+
+    def test_generate_url_and_args__path_enum_parameter__serializes_before_url(
+        self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
+    ) -> None:
+        """
+        Scenario: Path parameter is an enum type
+        Expected Outcome: Generated code serializes path variable before URL construction
+
+        Path parameters are interpolated into f-strings. Enums must be converted to strings
+        first, otherwise f-string will produce "DocumentStatus.INDEXED" instead of "indexed".
+        """
+        # Arrange
+        operation = IROperation(
+            operation_id="get_document_by_status",
+            summary="Get document by status",
+            description="Get document using status path parameter",
+            method=HTTPMethod.GET,
+            path="/documents/{status}",
+            tags=["documents"],
+            parameters=[
+                IRParameter(
+                    name="status",
+                    param_in="path",
+                    required=True,
+                    schema=IRSchema(type="string", is_nullable=False),
+                    description="Document status",
+                )
+            ],
+            request_body=None,
+            responses=[],
+        )
+        ordered_params = [
+            {
+                "name": "status",
+                "original_name": "status",
+                "param_in": "path",
+                "required": True,
+            }
+        ]
+
+        # Act
+        url_args_generator.generate_url_and_args(
+            code_writer_mock, operation, render_context_mock, ordered_params, None, None
+        )
+
+        # Assert
+        # Get all write_line calls
+        calls = [c[0][0] for c in code_writer_mock.write_line.call_args_list]
+
+        # Find serialization and URL lines
+        serialize_line_idx = None
+        url_line_idx = None
+
+        for i, line in enumerate(calls):
+            if "DataclassSerializer.serialize(status)" in line and "status = " in line:
+                serialize_line_idx = i
+            if 'url = f"{self.base_url}' in line:
+                url_line_idx = i
+
+        # Assert serialization happens before URL construction
+        assert serialize_line_idx is not None, (
+            "Path parameter must be serialized using DataclassSerializer.serialize() "
+            "to convert enum to string before f-string interpolation"
+        )
+        assert url_line_idx is not None, "URL construction line should exist"
+        assert serialize_line_idx < url_line_idx, (
+            "Path parameter serialization must occur before URL construction "
+            "to ensure f-string receives string value, not enum object"
+        )
