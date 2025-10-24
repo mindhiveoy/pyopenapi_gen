@@ -43,17 +43,22 @@ class EndpointUrlArgsGenerator:
             # writer.write_line("# No query parameters to write") # Optional: for clarity during debugging
             return
 
+        # Import DataclassSerializer since we use it for parameter serialization
+        context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
+
         for i, p in enumerate(query_params_to_write):
             param_var_name = NameSanitizer.sanitize_method_name(p["name"])  # Ensure name is sanitized
             original_param_name = p["original_name"]
             line_end = ","  # Always add comma, let formatter handle final one if needed
 
             if p.get("required", False):
-                writer.write_line(f'    "{original_param_name}": {param_var_name}{line_end}')
+                writer.write_line(
+                    f'    "{original_param_name}": DataclassSerializer.serialize({param_var_name}){line_end}'
+                )
             else:
                 # Using dict unpacking for conditional parameters
                 writer.write_line(
-                    f'    **({{"{original_param_name}": {param_var_name}}} '
+                    f'    **({{"{original_param_name}": DataclassSerializer.serialize({param_var_name})}} '
                     f"if {param_var_name} is not None else {{}}){line_end}"
                 )
 
@@ -66,6 +71,10 @@ class EndpointUrlArgsGenerator:
         # if ordered_params is the sole source of truth for method params.
         header_params_to_write = [p for p in ordered_params if p.get("param_in") == "header"]
 
+        # Import DataclassSerializer since we use it for parameter serialization
+        if header_params_to_write:
+            context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
+
         for p_info in header_params_to_write:
             param_var_name = NameSanitizer.sanitize_method_name(
                 p_info["name"]
@@ -74,13 +83,15 @@ class EndpointUrlArgsGenerator:
             line_end = ","
 
             if p_info.get("required", False):
-                writer.write_line(f'    "{original_header_name}": {param_var_name}{line_end}')
+                writer.write_line(
+                    f'    "{original_header_name}": DataclassSerializer.serialize({param_var_name}){line_end}'
+                )
             else:
                 # Conditional inclusion for optional headers
                 # This assumes that if an optional header parameter is None, it should not be sent.
                 # If specific behavior (e.g. empty string) is needed for None, logic would adjust.
                 writer.write_line(
-                    f'    **({{"{original_header_name}": {param_var_name}}} '
+                    f'    **({{"{original_header_name}": DataclassSerializer.serialize({param_var_name})}} '
                     f"if {param_var_name} is not None else {{}}){line_end}"
                 )
 
@@ -95,6 +106,19 @@ class EndpointUrlArgsGenerator:
     ) -> bool:
         """Writes URL, query, and header parameters. Returns True if header params were written."""
         # Main logic from EndpointMethodGenerator._write_url_and_args
+
+        # Serialize path parameters before URL construction
+        # This ensures enums, dates, and other complex types are converted to strings
+        # before f-string interpolation in the URL
+        path_params = [p for p in ordered_params if p.get("param_in") == "path"]
+        if path_params:
+            # Import DataclassSerializer since we use it for parameter serialization
+            context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
+            for p in path_params:
+                param_var_name = NameSanitizer.sanitize_method_name(p["name"])
+                writer.write_line(f"{param_var_name} = DataclassSerializer.serialize({param_var_name})")
+            writer.write_line("")  # Blank line after path param serialization
+
         url_expr = self._build_url_with_path_vars(op.path)
         writer.write_line(f"url = {url_expr}")
         writer.write_line("")  # Add a blank line for readability

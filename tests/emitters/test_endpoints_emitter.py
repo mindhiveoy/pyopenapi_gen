@@ -804,9 +804,9 @@ def test_endpoints_emitter__query_params_included_in_params_dict(
     # Read the generated code
     with open(os.path.join(out_dir, "endpoints", "tenants.py")) as f:
         content = f.read()
-    # Assert that all query params are included in the params dict
-    assert '"start_date": start_date' in content
-    assert '"end_date": end_date' in content
+    # Assert that all query params are included in the params dict with serialization
+    assert '"start_date": DataclassSerializer.serialize(start_date)' in content
+    assert '"end_date": DataclassSerializer.serialize(end_date)' in content
     # Also check that tenant_id is not in params (it's a path param)
     assert '"tenant_id": tenant_id' not in content
 
