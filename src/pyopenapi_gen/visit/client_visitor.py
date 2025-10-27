@@ -24,6 +24,7 @@ class ClientVisitor:
         pass
 
     def visit(self, spec: IRSpec, context: RenderContext) -> str:
+        # Step 1: Process tags and build tag_tuples
         tag_candidates: dict[str, list[str]] = {}
         for op in spec.operations:
             # Use DEFAULT_TAG consistent with EndpointsEmitter
@@ -60,11 +61,38 @@ class ClientVisitor:
             )
             for key in sorted(tag_map)
         ]
+
+        # Step 2: Generate Protocol definition
+        protocol_code = self.generate_client_protocol(spec, context, tag_tuples)
+
+        # Step 3: Generate implementation class
+        impl_code = self._generate_client_implementation(spec, context, tag_tuples)
+
+        # Step 4: Combine Protocol and implementation
+        return f"{protocol_code}\n\n\n{impl_code}"
+
+    def _generate_client_implementation(
+        self, spec: IRSpec, context: RenderContext, tag_tuples: list[tuple[str, str, str]]
+    ) -> str:
+        """
+        Generate the APIClient implementation class.
+
+        Args:
+            spec: The IR specification
+            context: Render context for import management
+            tag_tuples: List of (tag_name, class_name, module_name) tuples
+
+        Returns:
+            Implementation class code as string
+        """
         writer = CodeWriter()
         # Register all endpoint client imports using relative imports (endpoints are within the same package)
         for _, class_name, module_name in tag_tuples:
             # Use relative imports for endpoints since they're part of the same generated package
+            # Import both the implementation and the Protocol
+            protocol_name = f"{class_name}Protocol"
             context.import_collector.add_relative_import(f".endpoints.{module_name}", class_name)
+            context.import_collector.add_relative_import(f".endpoints.{module_name}", protocol_name)
 
         # Register core/config/typing imports for class signature
         # Use LOGICAL import path for core components
@@ -82,8 +110,8 @@ class ClientVisitor:
         context.add_typing_imports_for_type("HttpTransport | None")
         context.add_typing_imports_for_type("Any")
         context.add_typing_imports_for_type("Dict")
-        # Class definition
-        writer.write_line("class APIClient:")
+        # Class definition - implements Protocol
+        writer.write_line("class APIClient(APIClientProtocol):")
         writer.indent()
         # Build docstring for APIClient
         docstring_lines = []
@@ -223,4 +251,227 @@ class ClientVisitor:
         context.add_import(f"{context.core_package_name}.http_transport", "HttpxTransport")
         context.add_import(f"{context.core_package_name}.config", "ClientConfig")
 
+        return writer.get_code()
+
+    def generate_client_protocol(
+        self, spec: IRSpec, context: RenderContext, tag_tuples: list[tuple[str, str, str]]
+    ) -> str:
+        """
+        Generate APIClientProtocol defining the client interface.
+
+        Args:
+            spec: The IR specification
+            context: Render context for import management
+            tag_tuples: List of (tag_name, class_name, module_name) tuples
+
+        Returns:
+            Protocol class code as string with:
+            - Tag-based endpoint properties
+            - Standard methods (request, close, __aenter__, __aexit__)
+        """
+        # Register Protocol imports
+        context.add_typing_imports_for_type("Protocol")
+        context.add_import("typing", "runtime_checkable")
+        context.add_typing_imports_for_type("Any")
+
+        writer = CodeWriter()
+
+        # Protocol class header
+        writer.write_line("@runtime_checkable")
+        writer.write_line("class APIClientProtocol(Protocol):")
+        writer.indent()
+
+        # Docstring
+        writer.write_line('"""Protocol defining the interface of APIClient for dependency injection."""')
+        writer.write_line("")
+
+        # Tag-based endpoint properties
+        for tag, class_name, module_name in tag_tuples:
+            # Use forward reference for tag client protocol
+            protocol_name = f"{class_name}Protocol"
+            writer.write_line("@property")
+            writer.write_line(f"def {module_name}(self) -> '{protocol_name}':")
+            writer.indent()
+            writer.write_line("...")
+            writer.dedent()
+            writer.write_line("")
+
+        # Standard methods
+        # request method
+        writer.write_line("async def request(self, method: str, url: str, **kwargs: Any) -> Any:")
+        writer.indent()
+        writer.write_line("...")
+        writer.dedent()
+        writer.write_line("")
+
+        # close method
+        writer.write_line("async def close(self) -> None:")
+        writer.indent()
+        writer.write_line("...")
+        writer.dedent()
+        writer.write_line("")
+
+        # __aenter__ method
+        writer.write_line("async def __aenter__(self) -> 'APIClientProtocol':")
+        writer.indent()
+        writer.write_line("...")
+        writer.dedent()
+        writer.write_line("")
+
+        # __aexit__ method
+        context.add_typing_imports_for_type("type[BaseException] | None")
+        context.add_typing_imports_for_type("BaseException | None")
+        context.add_typing_imports_for_type("object | None")
+        writer.write_line(
+            "async def __aexit__(self, exc_type: type[BaseException] | None, "
+            "exc_val: BaseException | None, exc_tb: object | None) -> None:"
+        )
+        writer.indent()
+        writer.write_line("...")
+        writer.dedent()
+
+        writer.dedent()  # Close class
+        return writer.get_code()
+
+    def generate_client_mock_class(
+        self, spec: IRSpec, context: RenderContext, tag_tuples: list[tuple[str, str, str]]
+    ) -> str:
+        """
+        Generate MockAPIClient for testing.
+
+        Args:
+            spec: The IR specification
+            context: Render context for import management
+            tag_tuples: List of (tag, class_name, module_name) tuples
+
+        Returns:
+            Mock client class code as string
+        """
+        # Import TYPE_CHECKING for Protocol imports
+        context.add_import("typing", "TYPE_CHECKING")
+        context.add_import("typing", "Any")
+
+        writer = CodeWriter()
+
+        # TYPE_CHECKING imports
+        writer.write_line("if TYPE_CHECKING:")
+        writer.indent()
+        writer.write_line("from ..client import APIClientProtocol")
+        for tag, class_name, module_name in tag_tuples:
+            protocol_name = f"{class_name}Protocol"
+            writer.write_line(f"from ..endpoints.{module_name} import {protocol_name}")
+        writer.dedent()
+        writer.write_line("")
+
+        # Import mock endpoint classes
+        for tag, class_name, module_name in tag_tuples:
+            mock_class_name = f"Mock{class_name}"
+            writer.write_line(f"from .endpoints.mock_{module_name} import {mock_class_name}")
+        writer.write_line("")
+
+        # Class definition
+        writer.write_line("class MockAPIClient:")
+        writer.indent()
+
+        # Docstring
+        writer.write_line('"""')
+        writer.write_line("Mock implementation of APIClient for testing.")
+        writer.write_line("")
+        writer.write_line("Auto-creates default mock implementations for all tag-based endpoint clients.")
+        writer.write_line("You can override specific tag clients by passing them to the constructor.")
+        writer.write_line("")
+        writer.write_line("Example:")
+        writer.write_line("    # Use all defaults")
+        writer.write_line("    client = MockAPIClient()")
+        writer.write_line("")
+        writer.write_line("    # Override specific tag client")
+        for tag, class_name, module_name in tag_tuples[:1]:  # Show example with first tag
+            mock_class_name = f"Mock{class_name}"
+            writer.write_line(f"    class My{class_name}Mock({mock_class_name}):")
+            writer.write_line("        async def method_name(self, ...) -> ReturnType:")
+            writer.write_line("            return test_data")
+            writer.write_line("")
+            writer.write_line(f"    client = MockAPIClient({module_name}=My{class_name}Mock())")
+            break
+        writer.write_line('"""')
+        writer.write_line("")
+
+        # Constructor
+        writer.write_line("def __init__(")
+        writer.indent()
+        writer.write_line("self,")
+        for tag, class_name, module_name in tag_tuples:
+            protocol_name = f"{class_name}Protocol"
+            writer.write_line(f'{module_name}: "{protocol_name} | None" = None,')
+        writer.dedent()
+        writer.write_line(") -> None:")
+        writer.indent()
+
+        # Initialize tag clients
+        for tag, class_name, module_name in tag_tuples:
+            mock_class_name = f"Mock{class_name}"
+            writer.write_line(
+                f"self._{module_name} = {module_name} if {module_name} is not None else {mock_class_name}()"
+            )
+        writer.dedent()
+        writer.write_line("")
+
+        # Properties for tag clients
+        for tag, class_name, module_name in tag_tuples:
+            protocol_name = f"{class_name}Protocol"
+            writer.write_line("@property")
+            writer.write_line(f'def {module_name}(self) -> "{protocol_name}":')
+            writer.indent()
+            writer.write_line(f"return self._{module_name}")
+            writer.dedent()
+            writer.write_line("")
+
+        # request() method
+        writer.write_line("async def request(self, method: str, url: str, **kwargs: Any) -> Any:")
+        writer.indent()
+        writer.write_line('"""')
+        writer.write_line("Mock request method - raises NotImplementedError.")
+        writer.write_line("")
+        writer.write_line("This is a low-level method - consider using tag-specific methods instead.")
+        writer.write_line('"""')
+        writer.write_line(
+            "raise NotImplementedError("
+            '"MockAPIClient.request() not implemented. '
+            'Use tag-specific methods instead."'
+            ")"
+        )
+        writer.dedent()
+        writer.write_line("")
+
+        # close() method
+        writer.write_line("async def close(self) -> None:")
+        writer.indent()
+        writer.write_line('"""Mock close method - no-op for testing."""')
+        writer.write_line("pass  # No cleanup needed for mocks")
+        writer.dedent()
+        writer.write_line("")
+
+        # __aenter__() method
+        writer.write_line('async def __aenter__(self) -> "APIClientProtocol":')
+        writer.indent()
+        writer.write_line('"""Enter async context manager."""')
+        writer.write_line("return self")
+        writer.dedent()
+        writer.write_line("")
+
+        # __aexit__() method
+        writer.write_line(
+            "async def __aexit__("
+            "self, "
+            "exc_type: type[BaseException] | None, "
+            "exc_val: BaseException | None, "
+            "exc_tb: object | None"
+            ") -> None:"
+        )
+        writer.indent()
+        writer.write_line('"""Exit async context manager - no-op for mocks."""')
+        writer.write_line("pass  # No cleanup needed for mocks")
+        writer.dedent()
+
+        writer.dedent()  # Close class
         return writer.get_code()

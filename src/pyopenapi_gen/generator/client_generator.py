@@ -19,6 +19,7 @@ from pyopenapi_gen.emitters.client_emitter import ClientEmitter
 from pyopenapi_gen.emitters.core_emitter import CoreEmitter
 from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
+from pyopenapi_gen.emitters.mocks_emitter import MocksEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 logger = logging.getLogger(__name__)
@@ -277,6 +278,13 @@ class ClientGenerator:
                 temp_generated_files += client_files
                 self._log_progress(f"Generated {len(client_files)} client files (temp)", "EMIT_CLIENT_TEMP")
 
+                # 7. MocksEmitter (emits mock files to tmp_out_dir_for_diff)
+                self._log_progress("Generating mock helper classes (temp)", "EMIT_MOCKS_TEMP")
+                mocks_emitter = MocksEmitter(context=tmp_render_context_for_diff)
+                mock_files = [Path(p) for p in mocks_emitter.emit(ir, str(tmp_out_dir_for_diff))]
+                temp_generated_files += mock_files
+                self._log_progress(f"Generated {len(mock_files)} mock files (temp)", "EMIT_MOCKS_TEMP")
+
                 # Post-processing should run on the temporary files if enabled
                 if not no_postprocess:
                     self._log_progress("Running post-processing on temporary files", "POSTPROCESS_TEMP")
@@ -430,6 +438,13 @@ class ClientGenerator:
             client_files = [Path(p) for p in client_emitter.emit(ir, str(out_dir))]  # emit takes ir, str output_dir
             generated_files += client_files
             self._log_progress(f"Generated {len(client_files)} client files", "EMIT_CLIENT")
+
+            # 7. MocksEmitter
+            self._log_progress("Generating mock helper classes", "EMIT_MOCKS")
+            mocks_emitter = MocksEmitter(context=main_render_context)
+            mock_files = [Path(p) for p in mocks_emitter.emit(ir, str(out_dir))]
+            generated_files += mock_files
+            self._log_progress(f"Generated {len(mock_files)} mock files", "EMIT_MOCKS")
 
             # After all emitters, if core_package is specified (external core),
             # create a rich __init__.py in the client's output_package (out_dir).

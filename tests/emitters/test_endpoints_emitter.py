@@ -102,13 +102,19 @@ def test_endpoints_emitter__multiple_operations_with_tags__generates_separate_ta
 
     # Check content of pets file
     pets_content = pets_file.read_text()
-    assert "class PetsClient:" in pets_content
+    # Check for Protocol
+    assert "class PetsClientProtocol(Protocol):" in pets_content
+    # Check for implementation with Protocol inheritance
+    assert "class PetsClient(PetsClientProtocol):" in pets_content
     assert "async def list_pets" in pets_content
     assert "async def create_pet" in pets_content
 
     # Check content of users file
     users_content = users_file.read_text()
-    assert "class UsersClient:" in users_content
+    # Check for Protocol
+    assert "class UsersClientProtocol(Protocol):" in users_content
+    # Check for implementation with Protocol inheritance
+    assert "class UsersClient(UsersClientProtocol):" in users_content
     assert "async def list_users" in users_content
 
 

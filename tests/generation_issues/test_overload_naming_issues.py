@@ -185,7 +185,8 @@ class TestFileHandlingIntegration:
             )
 
             # Assert
-            endpoint_files = [f for f in generated_files if "endpoints" in str(f)]
+            # Filter for actual endpoint implementations only (exclude mock files)
+            endpoint_files = [f for f in generated_files if "endpoints" in str(f) and "mocks" not in str(f)]
             assert len(endpoint_files) > 0
 
             for endpoint_file in endpoint_files:
