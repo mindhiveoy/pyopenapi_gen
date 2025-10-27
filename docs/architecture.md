@@ -44,11 +44,26 @@ graph TD
         Q[Model Visitor]
         R[Endpoint Visitor]
         S[Client Visitor]
+        T[Protocol Generation]
+        U[Mock Generation]
     end
-    
+
+    subgraph "Output Components"
+        V[Models]
+        W[Endpoints + Protocols]
+        X[Mocks]
+        Y[Core Runtime]
+    end
+
     B --> K
     D --> N
     E --> Q
+    E --> T
+    E --> U
+    G --> V
+    G --> W
+    G --> X
+    G --> Y
 ```
 
 ## How the Architecture Works
@@ -62,8 +77,10 @@ graph TD
 ### Stage 2: Visiting (Transform & Generate)
 1. **Type Resolution**: Convert IR schemas to Python types via `UnifiedTypeService`
 2. **Code Generation**: Transform IR nodes into Python code strings using visitor pattern
-3. **Import Management**: Track and resolve all necessary imports
-4. **Code Formatting**: Apply consistent code structure and formatting
+3. **Protocol Generation**: Create `@runtime_checkable` Protocol classes for structural typing
+4. **Mock Generation**: Generate mock helper classes with NotImplementedError stubs
+5. **Import Management**: Track and resolve all necessary imports
+6. **Code Formatting**: Apply consistent code structure and formatting
 
 ### Stage 3: Emitting (Write & Organize)
 1. **Structure Creation**: Build proper package directory structure
@@ -87,7 +104,7 @@ Typed dataclasses representing normalized OpenAPI components:
 - All generation based on IR, not raw spec
 
 ### 3. Unified Type Resolution System (`types/`)
-**NEW**: Centralized, testable type resolution architecture:
+Centralized, testable type resolution architecture:
 - **Contracts** (`types/contracts/`): Protocols and interfaces for type resolution
 - **Resolvers** (`types/resolvers/`): Core resolution logic for schemas, responses, and references
 - **Services** (`types/services/`): High-level orchestration with `UnifiedTypeService`
@@ -97,16 +114,23 @@ Typed dataclasses representing normalized OpenAPI components:
 ### 4. Visitor System (`visit/`)
 Implements visitor pattern for code generation:
 - **ModelVisitor**: Python dataclasses/enums from schemas
-- **EndpointVisitor**: Async methods from operations  
-- **ClientVisitor**: Main API client class
+- **EndpointVisitor**: Async methods, Protocol definitions, and mock classes from operations
+- **ClientVisitor**: Main API client class and mock client class
 - **ExceptionVisitor**: Error hierarchies
+
+**Protocol Generation**: The EndpointVisitor generates `@runtime_checkable` Protocol classes for each endpoint client, enabling structural typing and dependency injection with compile-time validation.
+
+**Mock Generation**: The EndpointVisitor and ClientVisitor generate mock helper classes with NotImplementedError stubs, providing a fast path to testable code.
 
 ### 5. Emitter System (`emitters/`)
 Orchestrates file generation:
-- **ModelsEmitter**: Creates `models/` directory
-- **EndpointsEmitter**: Creates `endpoints/` with operations
-- **CoreEmitter**: Copies runtime dependencies
+- **ModelsEmitter**: Creates `models/` directory with dataclasses and enums
+- **EndpointsEmitter**: Creates `endpoints/` with Protocol definitions and implementations
+- **MocksEmitter**: Creates `mocks/` directory with mock helper classes
+- **CoreEmitter**: Copies runtime dependencies to generated client
 - **ClientEmitter**: Main client interface
+
+**Mock Helper Generation**: The MocksEmitter generates a complete `mocks/` package structure with MockAPIClient and tag-based mock classes (e.g., MockUsersClient), enabling fast test creation with helpful NotImplementedError messages.
 
 ### 6. Supporting Systems
 - **Context** (`context/`): Manages rendering state and imports
@@ -127,7 +151,7 @@ OpenAPI Spec → IR → Unified Type Resolution → Code → Files
 
 ## Unified Type Resolution Architecture
 
-**NEW**: The `types/` package provides centralized type resolution:
+The `types/` package provides centralized type resolution:
 
 ### Key Components
 - **`UnifiedTypeService`**: Main entry point for all type resolution
