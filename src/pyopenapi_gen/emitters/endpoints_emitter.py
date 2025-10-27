@@ -197,6 +197,7 @@ class EndpointsEmitter:
             canonical_tag_name = tag_map[key]
             module_name = NameSanitizer.sanitize_module_name(canonical_tag_name)
             class_name = NameSanitizer.sanitize_class_name(canonical_tag_name) + "Client"
+            protocol_name = f"{class_name}Protocol"
             file_path = endpoints_dir / f"{module_name}.py"
 
             # This will set current_file and reset+reinit import_collector's context
@@ -208,21 +209,35 @@ class EndpointsEmitter:
             if self.visitor is None:
                 raise RuntimeError("EndpointVisitor not initialized")
             methods = [self.visitor.visit(op, self.context) for op in ops_for_tag]
-            class_content = self.visitor.emit_endpoint_client_class(canonical_tag_name, methods, self.context)
+            # Pass operations to emit_endpoint_client_class for Protocol generation
+            class_content = self.visitor.emit_endpoint_client_class(
+                canonical_tag_name, methods, self.context, operations=ops_for_tag
+            )
 
             imports = self.context.render_imports()
             file_content = imports + "\n\n" + class_content
             self.context.file_manager.write_file(str(file_path), file_content)
+            # Store both class and protocol for __init__.py generation
             client_classes.append((class_name, module_name))
             generated_files.append(str(file_path))
 
         unique_clients = _deduplicate_tag_clients(client_classes)
         init_lines = []
         if unique_clients:
-            all_list_items = sorted([f'"{cls}"' for cls, _ in unique_clients])
+            # Export both implementation classes and Protocol classes
+            all_list_items = []
+            for cls, _ in unique_clients:
+                protocol_name = f"{cls}Protocol"
+                all_list_items.append(f'"{cls}"')
+                all_list_items.append(f'"{protocol_name}"')
+
+            all_list_items = sorted(all_list_items)
             init_lines.append(f"__all__ = [{', '.join(all_list_items)}]")
+
+            # Import both implementation and Protocol from each module
             for cls, mod in sorted(unique_clients):
-                init_lines.append(f"from .{mod} import {cls}")
+                protocol_name = f"{cls}Protocol"
+                init_lines.append(f"from .{mod} import {cls}, {protocol_name}")
 
         endpoints_init_path = endpoints_dir / "__init__.py"
         self.context.file_manager.write_file(str(endpoints_init_path), "\n".join(init_lines) + "\n")
