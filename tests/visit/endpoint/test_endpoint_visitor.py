@@ -1,5 +1,5 @@
 """
-Tests for the EndpointVisitor class.
+Tests for the EndpointVisitor class - Real Contract Testing (No Mock Theatre).
 """
 
 from unittest.mock import MagicMock, patch
