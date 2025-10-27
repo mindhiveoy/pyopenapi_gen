@@ -1,6 +1,48 @@
 # CHANGELOG
 
 
+## v0.21.1 (2025-10-24)
+
+### Bug Fixes
+
+- **codegen**: Fix enum parameter serialization in query, header, and path parameters
+  ([`be5391f`](https://github.com/mindhiveoy/pyopenapi_gen/commit/be5391ff9fde14a1826aa217c077b06a0f832f8c))
+
+Implement consistent parameter serialization using DataclassSerializer.serialize() for query,
+  header, and path parameters to handle enum-to-string conversion correctly.
+
+Technical changes: - _write_query_params() now wraps all parameter values in
+  DataclassSerializer.serialize() - _write_header_params() now wraps all parameter values in
+  DataclassSerializer.serialize() - generate_url_and_args() serializes path params before f-string
+  interpolation - Added context.add_import() calls to ensure DataclassSerializer is imported in
+  generated code
+
+Implementation approach: Query/header parameters use DataclassSerializer.serialize() in dict
+  construction: Required: "{param}": DataclassSerializer.serialize(param_var)
+
+Optional: **{{"{param}": DataclassSerializer.serialize(param_var)} if param_var is not None else {}}
+
+Path parameters are serialized before URL construction to prevent enum objects in f-strings (would
+  produce "EnumType.VALUE" instead of "value"): param_var = DataclassSerializer.serialize(param_var)
+
+Breaking changes: None API changes: None (generated code behavior corrected to match intended
+  design)
+
+Test coverage: - 5 new TDD tests validate enum serialization for all parameter types - All 1360
+  tests passing with 88.43% coverage - Integration tests confirm correct mypy validation and runtime
+  behavior
+
+Fixes issue where enum parameters (e.g., DocumentStatus.INDEXED) were passed directly to httpx
+  instead of being converted to their string values ("indexed"), causing incorrect API calls.
+
+Related: business_swagger.json list_documents endpoint with status parameter
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`823dc4e`](https://github.com/mindhiveoy/pyopenapi_gen/commit/823dc4e7083f17df7323aeebd9a400fd9d7aca5d))
+
+
 ## v0.21.0 (2025-10-23)
 
 ### Bug Fixes

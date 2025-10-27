@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "0.21.0"
+version = "0.21.1"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
 authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
 maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
@@ -140,7 +140,7 @@ pyopenapi-gen = "pyopenapi_gen.cli:app"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.21.0"
+version = "0.21.1"
 version_files = [
     "pyproject.toml:version",
     "src/pyopenapi_gen/__init__.py:__version__"

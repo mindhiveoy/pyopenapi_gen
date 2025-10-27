@@ -16,7 +16,8 @@ Welcome to the PyOpenAPI Generator documentation! This directory contains compre
 
 ### Component Guides
 - **[Model Visitor](model_visitor.md)** - Dataclass and enum generation
-- **[Endpoint Visitor](endpoint_visitor.md)** - API operation method generation
+- **[Endpoint Visitor](endpoint_visitor.md)** - API operation method generation with Protocol and Mock support
+- **[Protocol & Mock Generation](protocol_and_mock_generation.md)** - Comprehensive guide to testing features
 - **[Render Context](render_context.md)** - Import management and context handling
 - **[Line Writer](line_writer.md)** - Code formatting utilities
 - **[Loader System](loader.md)** - OpenAPI spec loading and parsing
