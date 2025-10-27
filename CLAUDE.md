@@ -476,7 +476,12 @@ graph TB
         J --> K[Error Handling]
         K --> L[Streaming Support]
     end
-    
+
+    subgraph "Testing Support"
+        Q[Protocol Definitions] --> R[Mock Helpers]
+        R --> S[Dependency Injection]
+    end
+
     subgraph "Developer Experience"
         M[IDE Autocomplete] --> N[Type Checking]
         N --> O[Rich Documentation]
@@ -522,6 +527,17 @@ graph TB
 
 **How**: Implements auth plugins, async iterators, custom exception classes, and response processors.
 
+#### Testing Support
+**Why**: API clients need to be easily testable without HTTP mocking, and tests must stay in sync with API changes.
+
+**What**:
+- **Protocol Definitions**: `@runtime_checkable` Protocol classes for structural typing and dependency injection
+- **Mock Helper Classes**: Pre-generated mock classes with NotImplementedError stubs
+- **Compile-Time Validation**: mypy catches when mocks don't match API contracts
+- **Hybrid Auto-Create**: MockAPIClient automatically creates mocks for all endpoints
+
+**How**: Generates Protocol contracts alongside implementations, creates mock helpers in `mocks/` directory, enables test-driven development with type safety.
+
 #### Production Ready
 **Why**: Generated clients must work reliably in production environments without external dependencies.
 
@@ -541,10 +557,11 @@ graph TB
 
 See `docs/` directory for detailed guides:
 - `architecture.md` - System design and patterns
-- `unified_type_resolution.md` - **⭐ NEW**: Unified type resolution system
-- `ir_models.md` - Intermediate representation details  
+- `unified_type_resolution.md` - Unified type resolution system
+- `protocol_and_mock_generation.md` - Protocol-based testing and mock generation
+- `ir_models.md` - Intermediate representation details
 - `model_visitor.md` - Model code generation
-- `endpoint_visitor.md` - Endpoint code generation
+- `endpoint_visitor.md` - Endpoint code generation with Protocol and Mock support
 
 ## Quick Start Examples
 
