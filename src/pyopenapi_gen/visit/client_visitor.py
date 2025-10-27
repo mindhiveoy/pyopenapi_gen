@@ -9,7 +9,6 @@ from ..context.render_context import RenderContext
 from ..core.utils import NameSanitizer
 from ..core.writers.code_writer import CodeWriter
 from ..core.writers.documentation_writer import DocumentationBlock, DocumentationWriter
-from .protocol_helpers import ProtocolGenerator
 
 if TYPE_CHECKING:
     # To prevent circular imports if any type from core itself is needed for hints
@@ -22,7 +21,7 @@ class ClientVisitor:
     """Visitor for rendering the Python API client from IRSpec."""
 
     def __init__(self) -> None:
-        self.protocol_generator = ProtocolGenerator()
+        pass
 
     def visit(self, spec: IRSpec, context: RenderContext) -> str:
         # Step 1: Process tags and build tag_tuples

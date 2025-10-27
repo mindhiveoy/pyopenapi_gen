@@ -7,7 +7,6 @@ from pyopenapi_gen import IROperation
 from ...context.render_context import RenderContext
 from ...core.utils import NameSanitizer
 from ...core.writers.code_writer import CodeWriter
-from ..protocol_helpers import ProtocolGenerator
 from ..visitor import Visitor
 from .generators.endpoint_method_generator import EndpointMethodGenerator
 
@@ -25,7 +24,6 @@ class EndpointVisitor(Visitor[IROperation, str]):
 
     def __init__(self, schemas: dict[str, Any] | None = None) -> None:
         self.schemas = schemas or {}
-        self.protocol_generator = ProtocolGenerator()
         # Formatter is likely not needed here anymore if all formatting happens in EndpointMethodGenerator
         # self.formatter = Formatter()
 
