@@ -126,7 +126,10 @@ class TestEndpointVisitor:
         mock_sanitize_class_name.assert_called_once_with(tag)
 
         # Check CodeWriter calls (selected important calls)
-        mock_writer_instance.write_line.assert_any_call(f"class {sanitized_class_name_base}Client:")
+        # Now checks for Protocol-based class definition
+        mock_writer_instance.write_line.assert_any_call(
+            f"class {sanitized_class_name_base}Client({sanitized_class_name_base}ClientProtocol):"
+        )
         mock_writer_instance.write_line.assert_any_call(
             "def __init__(self, transport: HttpTransport, base_url: str) -> None:"
         )

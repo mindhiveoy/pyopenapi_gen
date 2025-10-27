@@ -41,8 +41,12 @@ class TestClientVisitor:
         # Visit the spec to generate the client code
         result = self.visitor.visit(spec, self.context)
 
-        # Verify basic structure
-        assert "class APIClient:" in result
+        # Verify Protocol structure
+        assert "class APIClientProtocol(Protocol):" in result
+        assert "@runtime_checkable" in result
+
+        # Verify implementation class structure
+        assert "class APIClient(APIClientProtocol):" in result
         assert "__init__" in result
         assert "self.config = config" in result
         assert "self.transport = transport" in result
@@ -220,11 +224,17 @@ class TestClientVisitor:
         result = self.visitor.visit(spec, self.context)
 
         # Count occurrences of the 'users' property method
+        # Should appear once in Protocol and once in implementation
         users_property_matches = re.findall(r"def\s+users\s*\(", result)
-        assert len(users_property_matches) == 1
+        assert len(users_property_matches) == 2  # Once in Protocol, once in implementation
 
-        # Check for initialization - use more flexible pattern
+        # Check for initialization in implementation - use more flexible pattern
         assert "self._users:" in result
+
+        # Check Protocol includes users property
+        assert "class APIClientProtocol(Protocol):" in result
+        # Check implementation inherits from Protocol
+        assert "class APIClient(APIClientProtocol):" in result
 
     def test_visit__normalizes_tag_names(self) -> None:
         """
