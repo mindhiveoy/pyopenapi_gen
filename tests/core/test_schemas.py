@@ -1,5 +1,6 @@
 """Tests for core.schemas module."""
 
+import base64
 import math
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -771,3 +772,281 @@ class TestErrorConditions:
         # Assert
         assert result.name == "test"
         assert result.self_ref is None
+
+
+@dataclass
+class DocumentWithBinary(BaseSchema):
+    """Document with binary content field."""
+
+    name: str
+    content: bytes
+
+
+@dataclass
+class FileWithOptionalBinary(BaseSchema):
+    """File with optional binary field."""
+
+    filename: str
+    data: bytes | None = None
+
+
+@dataclass
+class ImageCollection(BaseSchema):
+    """Collection with list of binary thumbnails."""
+
+    title: str
+    thumbnails: List[bytes] = field(default_factory=list)
+
+
+class TestBase64BytesHandling:
+    """Test suite for base64-encoded bytes field handling (OpenAPI format: 'byte')."""
+
+    def test_from_dict__base64_string__decodes_to_bytes(self) -> None:
+        """Scenario: API returns base64-encoded string for bytes field.
+
+        Expected Outcome: String is automatically decoded to bytes.
+        """
+        # Arrange
+        original_bytes = b"Hello, World!"
+        base64_encoded = base64.b64encode(original_bytes).decode("ascii")
+        data = {"name": "test.txt", "content": base64_encoded}
+
+        # Act
+        doc = DocumentWithBinary.from_dict(data)  # type: ignore[attr-defined]
+
+        # Assert
+        assert isinstance(doc.content, bytes)
+        assert doc.content == original_bytes
+
+    def test_from_dict__bytes_field_already_bytes__preserves_bytes(self) -> None:
+        """Scenario: API returns bytes directly (non-standard but should work).
+
+        Expected Outcome: Bytes are preserved as-is.
+        """
+        # Arrange
+        original_bytes = b"Direct bytes"
+        data = {"name": "test.bin", "content": original_bytes}
+
+        # Act
+        doc = DocumentWithBinary.from_dict(data)  # type: ignore[attr-defined]
+
+        # Assert
+        assert isinstance(doc.content, bytes)
+        assert doc.content == original_bytes
+
+    def test_to_dict__bytes_field__encodes_to_base64(self) -> None:
+        """Scenario: Convert instance with bytes field to dictionary.
+
+        Expected Outcome: Bytes are automatically encoded to base64 string.
+        """
+        # Arrange
+        original_bytes = b"Binary content here"
+        doc = DocumentWithBinary(name="file.bin", content=original_bytes)
+
+        # Act
+        result = doc.to_dict()  # type: ignore[attr-defined]
+
+        # Assert
+        assert isinstance(result["content"], str)
+        expected_base64 = base64.b64encode(original_bytes).decode("ascii")
+        assert result["content"] == expected_base64
+
+    def test_round_trip__bytes_field__preserves_data(self) -> None:
+        """Scenario: Create from dict with base64, convert back to dict.
+
+        Expected Outcome: Data is preserved through round trip.
+        """
+        # Arrange
+        original_bytes = b"Round trip test data"
+        base64_encoded = base64.b64encode(original_bytes).decode("ascii")
+        original_data = {"name": "document.pdf", "content": base64_encoded}
+
+        # Act
+        doc = DocumentWithBinary.from_dict(original_data)  # type: ignore[attr-defined]
+        result = doc.to_dict()  # type: ignore[attr-defined]
+
+        # Assert
+        assert result == original_data
+
+    def test_from_dict__optional_bytes_with_base64__decodes_correctly(self) -> None:
+        """Scenario: Optional bytes field with base64 value.
+
+        Expected Outcome: Base64 string is decoded to bytes.
+        """
+        # Arrange
+        original_bytes = b"Optional data"
+        base64_encoded = base64.b64encode(original_bytes).decode("ascii")
+        data = {"filename": "optional.dat", "data": base64_encoded}
+
+        # Act
+        file = FileWithOptionalBinary.from_dict(data)  # type: ignore[attr-defined]
+
+        # Assert
+        assert isinstance(file.data, bytes)
+        assert file.data == original_bytes
+
+    def test_from_dict__optional_bytes_none__handles_correctly(self) -> None:
+        """Scenario: Optional bytes field with None value.
+
+        Expected Outcome: None is preserved.
+        """
+        # Arrange
+        data = {"filename": "no_data.txt"}
+
+        # Act
+        file = FileWithOptionalBinary.from_dict(data)  # type: ignore[attr-defined]
+
+        # Assert
+        assert file.data is None
+
+    def test_to_dict__optional_bytes_none__excludes_when_requested(self) -> None:
+        """Scenario: Convert instance with None bytes to dict excluding None.
+
+        Expected Outcome: None bytes field is excluded.
+        """
+        # Arrange
+        file = FileWithOptionalBinary(filename="empty.bin", data=None)
+
+        # Act
+        result = file.to_dict(exclude_none=True)  # type: ignore[attr-defined]
+
+        # Assert
+        assert "data" not in result
+        assert result == {"filename": "empty.bin"}
+
+    def test_to_dict__optional_bytes_value__includes_base64(self) -> None:
+        """Scenario: Convert instance with bytes value to dict.
+
+        Expected Outcome: Bytes are encoded to base64.
+        """
+        # Arrange
+        original_bytes = b"Some data"
+        file = FileWithOptionalBinary(filename="with_data.bin", data=original_bytes)
+
+        # Act
+        result = file.to_dict()  # type: ignore[attr-defined]
+
+        # Assert
+        expected_base64 = base64.b64encode(original_bytes).decode("ascii")
+        assert result["data"] == expected_base64
+
+    @pytest.mark.parametrize(
+        "binary_data",
+        [
+            b"",  # Empty bytes
+            b"\x00\x01\x02\xff\xfe\xfd",  # Binary data with control characters
+            b"A" * 1000,  # Large data (1KB)
+            b"\x89PNG\r\n\x1a\n",  # PNG header signature
+            b"GIF89a",  # GIF header
+            b"\xff\xd8\xff\xe0",  # JPEG header
+        ],
+    )
+    def test_from_dict__various_binary_data__handles_correctly(self, binary_data: bytes) -> None:
+        """Scenario: Test various binary data patterns.
+
+        Expected Outcome: All binary patterns are handled correctly.
+        """
+        # Arrange
+        base64_encoded = base64.b64encode(binary_data).decode("ascii")
+        data = {"name": "test.bin", "content": base64_encoded}
+
+        # Act
+        doc = DocumentWithBinary.from_dict(data)  # type: ignore[attr-defined]
+
+        # Assert
+        assert doc.content == binary_data
+
+    @pytest.mark.parametrize(
+        "binary_data",
+        [
+            b"",  # Empty bytes
+            b"\x00\x01\x02\xff\xfe\xfd",  # Binary data
+            b"Text content",  # Text as bytes
+            b"Unicode: \xc3\xa9\xc3\xa0",  # UTF-8 encoded unicode
+        ],
+    )
+    def test_to_dict__various_binary_data__encodes_correctly(self, binary_data: bytes) -> None:
+        """Scenario: Test encoding various binary data to base64.
+
+        Expected Outcome: All binary patterns are encoded correctly.
+        """
+        # Arrange
+        doc = DocumentWithBinary(name="test.bin", content=binary_data)
+
+        # Act
+        result = doc.to_dict()  # type: ignore[attr-defined]
+
+        # Assert
+        expected_base64 = base64.b64encode(binary_data).decode("ascii")
+        assert result["content"] == expected_base64
+        # Verify it can be decoded back
+        assert base64.b64decode(result["content"]) == binary_data
+
+    def test_from_dict__unicode_in_base64__decodes_correctly(self) -> None:
+        """Scenario: Base64 string contains unicode characters encoded as UTF-8.
+
+        Expected Outcome: Decoded bytes contain correct UTF-8 representation.
+        """
+        # Arrange
+        original_text = "Hello 🌟 World 世界"
+        utf8_bytes = original_text.encode("utf-8")
+        base64_encoded = base64.b64encode(utf8_bytes).decode("ascii")
+        data = {"name": "unicode.txt", "content": base64_encoded}
+
+        # Act
+        doc = DocumentWithBinary.from_dict(data)  # type: ignore[attr-defined]
+
+        # Assert
+        assert doc.content == utf8_bytes
+        assert doc.content.decode("utf-8") == original_text
+
+    def test_round_trip__empty_bytes__preserves_empty(self) -> None:
+        """Scenario: Round trip with empty bytes.
+
+        Expected Outcome: Empty bytes are preserved.
+        """
+        # Arrange
+        empty_bytes = b""
+        base64_encoded = base64.b64encode(empty_bytes).decode("ascii")
+        data = {"name": "empty.bin", "content": base64_encoded}
+
+        # Act
+        doc = DocumentWithBinary.from_dict(data)  # type: ignore[attr-defined]
+        result = doc.to_dict()  # type: ignore[attr-defined]
+
+        # Assert
+        assert result == data
+        assert doc.content == empty_bytes
+
+    def test_from_dict__large_binary_data__handles_efficiently(self) -> None:
+        """Scenario: Process large binary data (simulating file upload).
+
+        Expected Outcome: Large data is handled without errors.
+        """
+        # Arrange - 1MB of random-ish binary data
+        large_data = bytes(range(256)) * 4096  # 1MB
+        base64_encoded = base64.b64encode(large_data).decode("ascii")
+        data = {"name": "large.bin", "content": base64_encoded}
+
+        # Act
+        doc = DocumentWithBinary.from_dict(data)  # type: ignore[attr-defined]
+
+        # Assert
+        assert len(doc.content) == len(large_data)
+        assert doc.content == large_data
+
+    def test_to_dict__large_binary_data__encodes_efficiently(self) -> None:
+        """Scenario: Encode large binary data to base64.
+
+        Expected Outcome: Large data is encoded without errors.
+        """
+        # Arrange - 1MB of binary data
+        large_data = bytes(range(256)) * 4096
+        doc = DocumentWithBinary(name="large.bin", content=large_data)
+
+        # Act
+        result = doc.to_dict()  # type: ignore[attr-defined]
+
+        # Assert
+        expected_base64 = base64.b64encode(large_data).decode("ascii")
+        assert result["content"] == expected_base64
