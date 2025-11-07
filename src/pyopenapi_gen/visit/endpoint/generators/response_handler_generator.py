@@ -446,8 +446,13 @@ class EndpointResponseHandlerGenerator:
 
         # Handle responses using the schema as-is from the OpenAPI spec (no unwrapping)
         if strategy.return_type.startswith("Union["):
-            # Special handling for Union types with try/except fallback
-            self._write_union_response_handling(writer, context, strategy.return_type, "response.json()")
+            # Check if this is a multi-content-type Union (has content_type_mapping)
+            if strategy.content_type_mapping:
+                # Generate Content-Type header checking code
+                self._write_content_type_conditional_handling(writer, context, strategy)
+            else:
+                # Traditional Union handling with try/except fallback
+                self._write_union_response_handling(writer, context, strategy.return_type, "response.json()")
         elif self._should_use_base_schema(strategy.return_type):
             deserialization_code = self._get_base_schema_deserialization_code(strategy.return_type, "response.json()")
             writer.write_line(f"return {deserialization_code}")
@@ -525,4 +530,59 @@ class EndpointResponseHandlerGenerator:
             else:
                 context.add_import("typing", "cast")
                 writer.write_line(f"return cast({type_name}, {data_expr})")
+            writer.dedent()
+
+    def _write_content_type_conditional_handling(
+        self, writer: CodeWriter, context: RenderContext, strategy: ResponseStrategy
+    ) -> None:
+        """Write Content-Type header checking code for multi-content-type responses.
+
+        When a response has multiple content types, generate conditional code that checks
+        the Content-Type header and returns the appropriate type.
+
+        Args:
+            writer: Code writer for output
+            context: Render context for imports
+            strategy: Response strategy with content_type_mapping
+        """
+        if not strategy.content_type_mapping:
+            raise ValueError("content_type_mapping is required for Content-Type conditional handling")
+
+        # Extract content type without parameters (e.g., "application/json; charset=utf-8" -> "application/json")
+        writer.write_line('content_type = response.headers.get("content-type", "").split(";")[0].strip()')
+        writer.write_line("")
+
+        # Generate if/elif/else chain for each content type
+        content_type_items = list(strategy.content_type_mapping.items())
+
+        for i, (content_type, python_type) in enumerate(content_type_items):
+            is_first = i == 0
+            is_last = i == len(content_type_items) - 1
+
+            # Write conditional statement
+            if is_first:
+                writer.write_line(f'if content_type == "{content_type}":')
+            elif not is_last:
+                writer.write_line(f'elif content_type == "{content_type}":')
+            else:
+                # Last item - use else for fallback
+                writer.write_line("else:  # Default/fallback content type")
+
+            writer.indent()
+
+            # Generate return statement based on python_type
+            if python_type == "bytes":
+                writer.write_line("return response.content")
+            elif python_type == "str":
+                writer.write_line("return response.text")
+            elif self._should_use_base_schema(python_type):
+                # Complex type - use BaseSchema deserialization
+                context.add_typing_imports_for_type(python_type)
+                deserialization_code = self._get_base_schema_deserialization_code(python_type, "response.json()")
+                writer.write_line(f"return {deserialization_code}")
+            else:
+                # Simple type - use cast
+                context.add_import("typing", "cast")
+                writer.write_line(f"return cast({python_type}, response.json())")
+
             writer.dedent()
