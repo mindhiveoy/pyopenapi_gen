@@ -19,6 +19,79 @@ from .unified_cycle_detection import CycleAction
 
 logger = logging.getLogger(__name__)
 
+
+def _extract_constraints(schema_node: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract validation constraints from a schema node.
+
+    Args:
+        schema_node: The OpenAPI schema dictionary
+
+    Returns:
+        Dictionary of constraint fields to pass to IRSchema constructor
+    """
+    constraints = {}
+
+    # String constraints
+    if "minLength" in schema_node:
+        constraints["min_length"] = schema_node["minLength"]
+    if "maxLength" in schema_node:
+        constraints["max_length"] = schema_node["maxLength"]
+    if "pattern" in schema_node:
+        constraints["pattern"] = schema_node["pattern"]
+
+    # Numeric constraints
+    if "minimum" in schema_node:
+        constraints["minimum"] = schema_node["minimum"]
+    if "maximum" in schema_node:
+        constraints["maximum"] = schema_node["maximum"]
+
+    # Handle both OpenAPI 3.0 (boolean) and 3.1 (number) formats for exclusive bounds
+    if "exclusiveMinimum" in schema_node:
+        val = schema_node["exclusiveMinimum"]
+        if isinstance(val, bool):
+            constraints["exclusive_minimum"] = val
+        else:
+            # OpenAPI 3.1: exclusiveMinimum is a number, not a boolean
+            constraints["minimum"] = val
+            constraints["exclusive_minimum"] = True
+
+    if "exclusiveMaximum" in schema_node:
+        val = schema_node["exclusiveMaximum"]
+        if isinstance(val, bool):
+            constraints["exclusive_maximum"] = val
+        else:
+            # OpenAPI 3.1: exclusiveMaximum is a number, not a boolean
+            constraints["maximum"] = val
+            constraints["exclusive_maximum"] = True
+
+    if "multipleOf" in schema_node:
+        constraints["multiple_of"] = schema_node["multipleOf"]
+
+    # Array constraints
+    if "minItems" in schema_node:
+        constraints["min_items"] = schema_node["minItems"]
+    if "maxItems" in schema_node:
+        constraints["max_items"] = schema_node["maxItems"]
+    if "uniqueItems" in schema_node:
+        constraints["unique_items"] = schema_node["uniqueItems"]
+
+    # Object constraints
+    if "minProperties" in schema_node:
+        constraints["min_properties"] = schema_node["minProperties"]
+    if "maxProperties" in schema_node:
+        constraints["max_properties"] = schema_node["maxProperties"]
+
+    # Property metadata
+    if "readOnly" in schema_node:
+        constraints["read_only"] = schema_node["readOnly"]
+    if "writeOnly" in schema_node:
+        constraints["write_only"] = schema_node["writeOnly"]
+    if "deprecated" in schema_node:
+        constraints["deprecated"] = schema_node["deprecated"]
+
+    return constraints
+
+
 # Environment variables for configurable limits, with defaults
 try:
     MAX_CYCLES = int(os.environ.get("PYOPENAPI_MAX_CYCLES", "0"))  # Default 0 means no explicit cycle count limit
@@ -578,6 +651,9 @@ def _parse_schema(
                     allow_self_reference,
                 )
 
+        # Extract validation constraints
+        constraints = _extract_constraints(schema_node)
+
         schema_ir = IRSchema(
             name=schema_ir_name_attr,
             type=current_final_type,
@@ -594,6 +670,7 @@ def _parse_schema(
             is_nullable=is_nullable_overall,
             items=items_ir,
             additional_properties=additional_properties_value,
+            **constraints,  # Add all extracted constraints
         )
 
         if schema_ir.type == "array" and isinstance(schema_node.get("items"), Mapping):

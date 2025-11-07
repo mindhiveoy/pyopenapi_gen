@@ -34,6 +34,33 @@ class IRSchema:
     title: str | None = None  # Added title
     is_data_wrapper: bool = False  # True if schema is a simple {{ "data": OtherSchema }} wrapper
 
+    # Validation constraints
+    # String constraints
+    min_length: int | None = None
+    max_length: int | None = None
+    pattern: str | None = None
+
+    # Numeric constraints
+    minimum: float | None = None
+    maximum: float | None = None
+    exclusive_minimum: bool = False
+    exclusive_maximum: bool = False
+    multiple_of: float | None = None
+
+    # Array constraints
+    min_items: int | None = None
+    max_items: int | None = None
+    unique_items: bool = False
+
+    # Object constraints
+    min_properties: int | None = None
+    max_properties: int | None = None
+
+    # Property metadata
+    read_only: bool = False
+    write_only: bool = False
+    deprecated: bool = False
+
     # Internal generator flags/helpers
     _from_unresolved_ref: bool = field(
         default=False, repr=False

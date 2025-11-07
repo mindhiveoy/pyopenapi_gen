@@ -12,6 +12,7 @@ from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
+from pyopenapi_gen.visit.model.validation_generator import ValidationCodeGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +273,7 @@ class {class_name}(BaseSchema):
         class_name = base_name
         fields_data: List[Tuple[str, str, str | None, str | None]] = []
         field_mappings: dict[str, str] = {}
+        sanitized_field_names: dict[str, str] = {}  # Maps property name -> sanitized field name
 
         if schema.type == "array" and schema.items:
             field_name_for_array_content = "items"
@@ -311,11 +313,16 @@ class {class_name}(BaseSchema):
         elif schema.properties:
             sorted_props = sorted(schema.properties.items(), key=lambda item: (item[0] not in schema.required, item[0]))
 
+            # Build complete mapping of property names to sanitized field names for validation
+            sanitized_field_names = {
+                prop_name: NameSanitizer.sanitize_method_name(prop_name) for prop_name in schema.properties.keys()
+            }
+
             for prop_name, prop_schema in sorted_props:
                 is_required = prop_name in schema.required
 
                 # Sanitize the property name for use as a Python attribute
-                field_name = NameSanitizer.sanitize_method_name(prop_name)
+                field_name = sanitized_field_names[prop_name]
 
                 # Track field mapping if the names differ
                 if self._requires_field_mapping(prop_name, field_name):
@@ -364,5 +371,14 @@ class {class_name}(BaseSchema):
         if "default_factory" in rendered_code:  # Check for field import if factory is used
             if "field" not in context.import_collector.imports.get("dataclasses", set()):
                 raise RuntimeError("'field' import from dataclasses missing when default_factory is used.")
+
+        # Generate validation code if schema has constraints
+        if schema.properties and sanitized_field_names:
+            validation_method = ValidationCodeGenerator.generate_validation_method(
+                schema, sanitized_field_names, context
+            )
+            if validation_method:
+                # Append validation method to the class
+                rendered_code = rendered_code.rstrip() + validation_method + "\n"
 
         return rendered_code
