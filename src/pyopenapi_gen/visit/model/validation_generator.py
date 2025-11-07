@@ -10,6 +10,13 @@ class ValidationCodeGenerator:
     """Generates validation code for dataclass fields based on constraints."""
 
     @staticmethod
+    def _indent_code(code: str, spaces: int = 4) -> str:
+        """Indent all lines of code by the specified number of spaces."""
+        indent = " " * spaces
+        lines = code.split("\n")
+        return "\n".join(indent + line if line.strip() else line for line in lines)
+
+    @staticmethod
     def _generate_string_validation(field_name: str, schema: IRSchema) -> list[str]:
         """Generate string validation code."""
         validations = []
@@ -37,9 +44,11 @@ class ValidationCodeGenerator:
 
         # Pattern constraint
         if schema.pattern:
-            # Use raw string for pattern
+            # Properly escape pattern for Python string literal
+            # Replace backslash first (must be first), then quotes
+            escaped_pattern = schema.pattern.replace("\\", "\\\\").replace('"', '\\"')
             validations.append(
-                f'if not re.match(r"""{schema.pattern}""", self.{field_name}):\n'
+                f'if not re.match(r"{escaped_pattern}", self.{field_name}):\n'
                 f"            raise ValueError(\"Field '{field_name}' does not match required pattern\")"
             )
 
@@ -118,10 +127,13 @@ class ValidationCodeGenerator:
                     f'{schema.multiple_of}, got " + str(self.{field_name}))'
                 )
             else:
-                # For floats, use modulo with small epsilon for floating point comparison
+                # For floats, use relative epsilon based on value magnitude
+                # Use Python's math.isclose logic: tolerance = max(rel_tol * max(abs(a), abs(b)), abs_tol)
                 validations.append(
-                    f"if abs((self.{field_name} % {schema.multiple_of})) > 1e-10:\n"
-                    f"            raise ValueError(\"Field '{field_name}' must be a multiple of "
+                    f"_remainder = abs(self.{field_name} % {schema.multiple_of})\n"
+                    f"            _tolerance = max(1e-09 * max(abs(self.{field_name}), abs({schema.multiple_of})), 1e-10)\n"
+                    f"            if _remainder > _tolerance and abs(_remainder - {schema.multiple_of}) > _tolerance:\n"
+                    f"                raise ValueError(\"Field '{field_name}' must be a multiple of "
                     f'{schema.multiple_of}, got " + str(self.{field_name}))'
                 )
 
@@ -155,9 +167,18 @@ class ValidationCodeGenerator:
 
         # Unique items constraint
         if schema.unique_items:
+            # Try to use set() for hashable items, fall back to manual comparison for unhashable
             validations.append(
-                f"if len(self.{field_name}) != len(set(map(str, self.{field_name}))):\n"
-                f"            raise ValueError(\"Field '{field_name}' must contain unique items\")"
+                f"try:\n"
+                f"            if len(self.{field_name}) != len(set(self.{field_name})):\n"
+                f"                raise ValueError(\"Field '{field_name}' must contain unique items\")\n"
+                f"        except TypeError:\n"
+                f"            # Items are unhashable (dicts, lists), use manual comparison\n"
+                f"            seen = []\n"
+                f"            for item in self.{field_name}:\n"
+                f"                if item in seen:\n"
+                f"                    raise ValueError(\"Field '{field_name}' must contain unique items\")\n"
+                f"                seen.append(item)"
             )
 
         return validations
@@ -260,7 +281,9 @@ class ValidationCodeGenerator:
             if field_validations and prop_name not in schema.required:
                 all_validations.append(f"if self.{field_name} is not None:")
                 for validation in field_validations:
-                    all_validations.append(f"    {validation}")
+                    # Properly indent all lines of the validation code
+                    indented = cls._indent_code(validation, spaces=4)
+                    all_validations.append(indented)
             else:
                 all_validations.extend(field_validations)
 
