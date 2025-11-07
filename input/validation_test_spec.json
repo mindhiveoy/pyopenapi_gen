@@ -1,0 +1,290 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Validation Test API",
+    "version": "1.0.0",
+    "description": "API for testing constraint validation in generated clients"
+  },
+  "paths": {
+    "/users": {
+      "post": {
+        "operationId": "createUser",
+        "summary": "Create a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "operationId": "getUser",
+        "summary": "Get user by ID",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "minLength": 3,
+              "maxLength": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products": {
+      "post": {
+        "operationId": "createProduct",
+        "summary": "Create a new product",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Product"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserCreate": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "age"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 20,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "description": "Username must be 3-20 characters, alphanumeric and underscore only"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 5,
+            "maxLength": 100,
+            "description": "Valid email address"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100,
+            "description": "Password must be at least 8 characters"
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 13,
+            "maximum": 150,
+            "description": "User must be between 13 and 150 years old"
+          },
+          "bio": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500,
+            "description": "Optional biography (10-500 chars if provided)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "description": "1-10 unique tags"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "email",
+          "age",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Server-generated user ID"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 20,
+            "pattern": "^[a-zA-Z0-9_]+$"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 5,
+            "maxLength": 100
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 13,
+            "maximum": 150
+          },
+          "bio": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "Timestamp when user was created"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "Timestamp when user was last updated"
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "required": [
+          "name",
+          "price",
+          "category"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Product name"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000,
+            "description": "Optional detailed description"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 999999.99,
+            "multipleOf": 0.01,
+            "description": "Price in USD (positive, 2 decimal places)"
+          },
+          "stock": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Number of items in stock"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "electronics",
+              "clothing",
+              "food",
+              "books",
+              "other"
+            ],
+            "description": "Product category"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 50
+            },
+            "minItems": 0,
+            "maxItems": 20,
+            "uniqueItems": true
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 5.0,
+            "exclusiveMinimum": false,
+            "exclusiveMaximum": false,
+            "description": "Product rating from 0.0 to 5.0"
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of reviews"
+          }
+        }
+      }
+    }
+  }
+}

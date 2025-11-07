@@ -129,11 +129,13 @@ class ValidationCodeGenerator:
             else:
                 # For floats, use relative epsilon based on value magnitude
                 # Use Python's math.isclose logic: tolerance = max(rel_tol * max(abs(a), abs(b)), abs_tol)
+                # Note: This returns a multi-line validation. Each line except the first needs base indentation
+                # since generate_validation_method() joins with "\n        " which only indents the first line.
                 validations.append(
                     f"_remainder = abs(self.{field_name} % {schema.multiple_of})\n"
-                    f"            _tolerance = max(1e-09 * max(abs(self.{field_name}), abs({schema.multiple_of})), 1e-10)\n"
-                    f"            if _remainder > _tolerance and abs(_remainder - {schema.multiple_of}) > _tolerance:\n"
-                    f"                raise ValueError(\"Field '{field_name}' must be a multiple of "
+                    f"        _tolerance = max(1e-09 * max(abs(self.{field_name}), abs({schema.multiple_of})), 1e-10)\n"
+                    f"        if _remainder > _tolerance and abs(_remainder - {schema.multiple_of}) > _tolerance:\n"
+                    f"            raise ValueError(\"Field '{field_name}' must be a multiple of "
                     f'{schema.multiple_of}, got " + str(self.{field_name}))'
                 )
 
