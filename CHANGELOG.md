@@ -1,6 +1,297 @@
 # CHANGELOG
 
 
+## v0.22.0 (2025-10-27)
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`962813f`](https://github.com/mindhiveoy/pyopenapi_gen/commit/962813f26956b105f2ff6e470d80195343cfc95a))
+
+### Documentation
+
+- **architecture**: Update docs for Protocol and Mock generation
+  ([`8574371`](https://github.com/mindhiveoy/pyopenapi_gen/commit/8574371565138dd4ebd59cc5822a813d152e7e26))
+
+Update architecture documentation to include Protocol and Mock generation in the pipeline. Rewrite
+  endpoint_visitor documentation with Why→What→How structure.
+
+Changes to docs/architecture.md: - Updated Core Components section to mention Protocol and Mock
+  generation - Added Protocol Generation description to Visitor System - Added MocksEmitter to
+  Emitter System - Updated architecture diagram to show Protocol and Mock generation nodes - Updated
+  Stage 2 (Visiting) to include Protocol and Mock generation steps - Removed "NEW" version markers
+  for unified type resolution
+
+Changes to docs/endpoint_visitor.md: - Complete rewrite with Why→What→How structure - Added "Why
+  This Visitor?" section explaining purpose - Documented three key outputs: Implementation,
+  Protocol, Mock - Added Core Responsibilities section with detailed subsections - Documented key
+  methods (visit_IROperation, emit_endpoint_client_class, etc.) - Added code examples for Protocol
+  and Mock generation - Included Generated Structure section showing all three outputs - Added
+  Testing Benefits section
+
+Changes to docs/README.md: - Added link to protocol_and_mock_generation.md guide - Updated Endpoint
+  Visitor description to mention Protocol and Mock support - Maintains consistent documentation
+  index
+
+Changes to CLAUDE.md: - Added Testing Support subgraph to architecture diagram - Added Testing
+  Support section under Generated Client Features - Documented Protocol definitions, Mock helpers,
+  Compile-time validation - Added protocol_and_mock_generation.md to documentation index - Removed
+  "NEW" markers from all documentation references
+
+Documentation standards applied: - Why→What→How structure throughout - Mermaid diagrams for complex
+  concepts - Progressive information architecture - Code examples with proper syntax - No version
+  history in content
+
+Consistency improvements: - All docs now mention Protocol and Mock generation where relevant -
+  Architecture documentation aligns with implementation - Component docs reference supporting
+  components correctly - Documentation index is complete and accurate
+
+Files: - docs/architecture.md (modified) - docs/endpoint_visitor.md (modified, complete rewrite) -
+  docs/README.md (modified) - CLAUDE.md (modified)
+
+- **guides**: Add comprehensive Protocol and Mock generation guide
+  ([`aea11da`](https://github.com/mindhiveoy/pyopenapi_gen/commit/aea11dac6c560100e0fc43befc97b3ef6c2069e6))
+
+Add complete documentation guide for Protocol-based testing and mock helper classes.
+
+Documentation structure (60+ sections): - Why Protocol and Mock generation exists - What gets
+  generated (Protocol, Implementation, Mocks) - How the generation pipeline works - Usage patterns
+  (Manual, Auto-Generated, Hybrid) - Dependency injection pattern examples - Compile-time validation
+  examples - Generated file structure - Implementation details and algorithms - Testing benefits -
+  Comparison with traditional mocking approaches - Advanced scenarios (stateful mocks, parametrised
+  behavior)
+
+Key sections: 1. Why Protocol and Mock Generation? - Problem: Testing requires separation of
+  business logic from HTTP - Solution: Auto-generated structural contracts and mock helpers
+
+2. What Gets Generated? - Protocol definitions with @runtime_checkable - Implementation classes
+  inheriting from Protocols - Mock helper classes with NotImplementedError stubs
+
+3. How It Works - Generation pipeline with mermaid diagrams - Protocol extraction algorithm - Mock
+  generation algorithm
+
+4. Usage Patterns - Manual Protocol implementation (full control) - Auto-generated mock helpers
+  (quick setup) - Hybrid auto-create with MockAPIClient (partial mocks)
+
+5. Dependency Injection Pattern - Business logic accepting Protocol types - Production usage with
+  real clients - Test usage with mock clients
+
+6. Compile-Time Validation - Protocol enforcement by mypy - Mock validation examples - API change
+  detection at compile time
+
+Documentation approach: - Uses Why→What→How structure consistently - Includes mermaid diagrams for
+  complex flows - Provides complete code examples - Shows comparison with traditional approaches -
+  Focuses on practical developer experience - No version history markers
+
+Technical accuracy: - All code examples are syntactically correct - Examples match generated code
+  structure - Algorithms documented match implementation - File paths and structures are accurate
+
+Files: - docs/protocol_and_mock_generation.md (new, ~500 lines)
+
+- **readme**: Update README with auto-generated mock helpers section
+  ([`78225a6`](https://github.com/mindhiveoy/pyopenapi_gen/commit/78225a6b8dc16810c54da3bc9eaf4d1f042e4adf))
+
+Update README with Auto-Generated Mock Helper Classes section documenting the mocks/ directory
+  structure and usage patterns.
+
+Content added: - Auto-Generated Mock Helper Classes section (after Protocol-Based Design) -
+  Generated mocks/ directory structure diagram - Quick start examples for using mock helpers -
+  Hybrid auto-create pattern with MockAPIClient - NotImplementedError guidance message examples -
+  Comparison: Manual Protocol vs Auto-Generated mocks - When to use each approach
+
+Documentation structure: 1. Generated Mocks Structure - Package layout with mocks/ and endpoints/
+  subdirectories
+
+2. Quick Start with Auto-Generated Mocks - Inherit from MockXClient, override specific methods - Use
+  MockAPIClient with hybrid auto-create
+
+3. Hybrid Auto-Create Pattern - Partial mock injection - Auto-creation for unimplemented endpoints
+
+4. NotImplementedError Guidance - Example error messages with override instructions
+
+5. Comparison Section - Manual Protocol implementation (full control) - Auto-generated helpers (less
+  boilerplate) - When to use each approach
+
+Content placement: - Added after "Real-World Testing Example" (line ~870) - Before "Known
+  Limitations" section - Maintains logical flow from Protocol basics to mock helpers
+
+Documentation cleanup: - Removed "New in v0.22+" version marker - Focus on what exists, not when it
+  was added - Follows "no history in guides" principle
+
+Files: - README.md (modified, ~130 lines added)
+
+### Features
+
+- **emitters**: Add MocksEmitter for generating mocks/ package structure
+  ([`824d377`](https://github.com/mindhiveoy/pyopenapi_gen/commit/824d377233d01b0d42af1f803d773785e5f1dc38))
+
+Implement MocksEmitter to generate complete mocks/ directory structure with MockAPIClient and
+  tag-based mock classes.
+
+Implementation details: - Add mocks_emitter.py with MocksEmitter class - Generate mocks/ package
+  with endpoints/ subdirectory - Create MockAPIClient with hybrid auto-create pattern - Generate
+  mock_{tag}.py files for each endpoint client - Create __init__.py files with proper exports -
+  Integrate with ClientGenerator orchestration
+
+Package structure generated: ``` mocks/ ├── __init__.py # Exports MockAPIClient and all mocks ├──
+  mock_client.py # MockAPIClient with auto-create └── endpoints/ ├── __init__.py # Exports all
+  MockXClient classes ├── mock_users.py # MockUsersClient └── mock_orders.py # MockOrdersClient ```
+
+Hybrid auto-create pattern: - MockAPIClient accepts optional endpoint client overrides -
+  Auto-creates mock instances for non-overridden endpoints - Allows partial mock injection for
+  targeted testing - Provides clear NotImplementedError when unimplemented methods are called
+
+Integration changes: - Update endpoints_emitter.py to call generate_endpoint_protocol() - Modify
+  client_generator.py to orchestrate mocks generation - Ensure Protocol generation happens before
+  implementation generation - Add mocks/ to generated client package structure
+
+Benefits: - Complete mocks/ package ready to use immediately after generation - Hybrid pattern
+  allows testing with minimal mock implementation - Clear separation between Protocol contracts and
+  mock helpers - Maintains consistency with endpoints/ structure
+
+Files: - src/pyopenapi_gen/emitters/mocks_emitter.py (new) -
+  src/pyopenapi_gen/emitters/endpoints_emitter.py (modified) -
+  src/pyopenapi_gen/generator/client_generator.py (modified)
+
+- **endpoints**: Add mock helper class generation with NotImplementedError stubs
+  ([`63bbf51`](https://github.com/mindhiveoy/pyopenapi_gen/commit/63bbf51c38d3994aa3233b06237c05f71950a58b))
+
+Implement mock helper class generation to create base classes for testing with helpful error
+  messages.
+
+Implementation details: - Add mock_generator.py with MockGenerator class - Implement
+  generate_endpoint_mock_class() in EndpointVisitor - Generate NotImplementedError stubs for all
+  operation methods - Create helpful error messages with override examples - Add
+  generate_client_mock_class() in ClientVisitor for main client mock - Maintain signature
+  compatibility with Protocol contracts
+
+Technical approach: - Reuse EndpointMethodGenerator signature extraction - Generate method stubs
+  with NotImplementedError and guidance messages - Include code examples in error messages showing
+  how to override - Ensure mock classes can be used as base classes for test inheritance - Support
+  both endpoint client mocks and main API client mock
+
+Error message format: ```python raise NotImplementedError( "MockUsersClient.get_user() not
+  implemented.\n" "Override this method in your test:\n" " class
+  TestUsersClient(MockUsersClient):\n" " async def get_user(self, user_id: int) -> User:\n" " return
+  User(...)" ) ```
+
+Benefits: - Reduces boilerplate in test code - Provides clear guidance when methods are called but
+  not implemented - Enables selective method override pattern - Maintains type compatibility with
+  Protocols
+
+Files: - src/pyopenapi_gen/visit/endpoint/generators/mock_generator.py (new) -
+  src/pyopenapi_gen/visit/endpoint/endpoint_visitor.py (modified) -
+  src/pyopenapi_gen/visit/client_visitor.py (modified)
+
+- **endpoints**: Add Protocol generation for endpoint structural typing
+  ([`1bf42d8`](https://github.com/mindhiveoy/pyopenapi_gen/commit/1bf42d84b063647aa2460b2b337601b0fb2d7d46))
+
+Implement Protocol generation infrastructure to create @runtime_checkable Protocol classes for all
+  endpoint clients.
+
+Implementation details: - Add protocol_helpers.py with ProtocolGenerator class - Implement
+  generate_endpoint_protocol() in EndpointVisitor - Extract method signatures from generated
+  implementation code - Handle @overload decorated methods with proper stub conversion - Convert
+  AsyncIterator methods to def signatures per PEP 544 - Add Protocol import management in
+  RenderContext
+
+Technical approach: - Parse generated method code line-by-line to extract signatures - Detect
+  signature boundaries and multi-line parameter lists - Convert implementation signatures to
+  Protocol stubs (: → : ...) - Ensure Protocol classes use @runtime_checkable decorator - Generate
+  comprehensive Protocol docstrings
+
+Benefits: - Enables structural typing and dependency injection - Provides compile-time validation
+  with mypy - Allows mock implementations to be type-checked against Protocol contracts - Zero
+  runtime overhead (Protocols are type-checking only)
+
+Files: - src/pyopenapi_gen/visit/protocol_helpers.py (new) -
+  src/pyopenapi_gen/visit/endpoint/endpoint_visitor.py (modified)
+
+### Refactoring
+
+- **visit**: Remove unused protocol_helpers module
+  ([`2389fc9`](https://github.com/mindhiveoy/pyopenapi_gen/commit/2389fc9301461a754d169bc5c971dc833ee2a305))
+
+Remove protocol_helpers.py which was never imported or used:
+
+Technical changes: - Deleted src/pyopenapi_gen/visit/protocol_helpers.py (110 lines) - Removed
+  unused import from client_visitor.py - Removed unused import from endpoint_visitor.py - Removed
+  unused self.protocol_generator instantiation in both visitors
+
+Analysis showed: - Module had 20% test coverage only because it was never imported -
+  ProtocolGenerator class was never instantiated or used - Protocol generation is now handled
+  directly in EndpointVisitor.generate_endpoint_protocol() - All 1368 tests pass after removal,
+  confirming code was truly unused
+
+Impact: - Zero functional impact (code was never executed) - Cleaner codebase with no dead code -
+  Improved endpoint_visitor.py coverage from 99% to 100%
+
+### Testing
+
+- **endpoints**: Add comprehensive Protocol and Mock generation tests
+  ([`2da2cfb`](https://github.com/mindhiveoy/pyopenapi_gen/commit/2da2cfbd1d3a47d11a0525e8d8972403588c2ac4))
+
+Add 8 real contract tests validating Protocol and Mock generation without mock theatre:
+
+Test implementation: - tests/visit/endpoint/test_protocol_mock_generation.py created - Uses real
+  IROperation, IRParameter, IRRequestBody, IRResponse, IRSchema objects - No mocking of internal
+  components (EndpointMethodGenerator, CodeWriter) - Validates actual generated code structure and
+  content
+
+Test coverage: - TestProtocolGeneration: 3 tests for Protocol class generation - Single operation
+  with @runtime_checkable decorator - Multiple operations handling - Import registration validation
+  - TestMockGeneration: 3 tests for Mock class generation - NotImplementedError stub generation -
+  Multiple operations stub handling - Helpful docstring and override guidance -
+  TestProtocolAndImplementationIntegration: 2 integration tests - Complete Protocol + Implementation
+  generation - Proper __init__ with transport and base_url
+
+Quality improvements: - Eliminates mock theatre from test suite - Provides real behavioral
+  validation - Clear "Scenario" and "Expected Outcome" documentation - All tests use real objects,
+  no mocks
+
+Test results: - All 8 new tests passing - Total test count: 1368/1368 passing - Coverage maintained
+  at 89% (above 85% requirement) - endpoint_visitor.py now at 100% coverage
+
+- **generation**: Add comprehensive tests for Protocol and Mock generation
+  ([`89dbb20`](https://github.com/mindhiveoy/pyopenapi_gen/commit/89dbb205ac476510db1e894fa06887c1e71f9ec2))
+
+Add comprehensive test coverage for Protocol generation, mock helper generation, and integration
+  with the generation pipeline.
+
+Test coverage added: - Protocol generation from endpoint operations - Mock helper class generation
+  with NotImplementedError stubs - MocksEmitter package structure generation - Integration with
+  EndpointsEmitter - @overload method handling in Protocols - AsyncIterator conversion (async def →
+  def) - Error message formatting and content
+
+Test files modified: - tests/visit/endpoint/test_endpoint_visitor.py -
+  test_generate_endpoint_protocol__creates_protocol_class() -
+  test_generate_endpoint_protocol__handles_overload_methods() -
+  test_generate_endpoint_mock_class__creates_mock_with_stubs()
+
+- tests/visit/test_client_visitor.py -
+  test_generate_client_mock_class__creates_mock_with_auto_create()
+
+- tests/emitters/test_endpoints_emitter.py - test_emit__generates_protocols_with_implementations()
+
+- tests/generation_issues/test_overload_naming_issues.py - Updated to handle Protocol generation in
+  output
+
+Testing approach: - Use IROperation fixtures to test generation - Verify generated code structure
+  and content - Check Protocol stub format (: ...) - Validate error message content and formatting -
+  Ensure type annotations are preserved - Test integration across emitter pipeline
+
+Coverage maintained: - All new code paths covered - Edge cases tested (overload, AsyncIterator,
+  multi-line signatures) - Integration tests verify end-to-end generation - Maintains project's ≥85%
+  coverage requirement
+
+Quality verification: - All 1360 tests passing - No type checking errors (mypy strict mode) - No
+  linting violations (ruff) - Proper formatting (black)
+
+Files: - tests/visit/endpoint/test_endpoint_visitor.py (modified) -
+  tests/visit/test_client_visitor.py (modified) - tests/emitters/test_endpoints_emitter.py
+  (modified) - tests/generation_issues/test_overload_naming_issues.py (modified)
+
+
 ## v0.21.1 (2025-10-24)
 
 ### Bug Fixes

@@ -33,6 +33,9 @@ class ResponseStrategy:
     # Additional context for code generation
     response_ir: IRResponse | None  # The original response IR
 
+    # Multi-content-type support
+    content_type_mapping: dict[str, str] | None = None  # Maps content-type to Python type for Union responses
+
 
 class ResponseStrategyResolver:
     """Single source of truth for response handling decisions.
@@ -74,9 +77,28 @@ class ResponseStrategyResolver:
         if hasattr(primary_response, "stream") and primary_response.stream:
             return self._resolve_streaming_strategy(primary_response, context)
 
-        # Get the response schema
+        # Check if response has multiple content types
+        content_types = list(primary_response.content.keys()) if primary_response.content else []
+        if len(content_types) > 1:
+            return self._resolve_multi_content_type_strategy(primary_response, context)
+
+        # Single content type - get the response schema
         response_schema = self._get_response_schema(primary_response)
+
+        # If no schema provided, try to infer type from content-type
         if not response_schema:
+            # Try to infer type from content-type (e.g., text/plain → str, application/pdf → bytes)
+            if content_types:
+                inferred_type = self._resolve_content_type_to_python_type(content_types[0], None, context)
+                if inferred_type:
+                    return ResponseStrategy(
+                        return_type=inferred_type,
+                        response_schema=None,
+                        is_streaming=False,
+                        response_ir=primary_response,
+                    )
+
+            # No schema and couldn't infer type
             return ResponseStrategy(
                 return_type="None", response_schema=None, is_streaming=False, response_ir=primary_response
             )
@@ -184,3 +206,105 @@ class ResponseStrategyResolver:
         return ResponseStrategy(
             return_type="AsyncIterator[bytes]", response_schema=None, is_streaming=True, response_ir=response
         )
+
+    def _resolve_multi_content_type_strategy(self, response: IRResponse, context: RenderContext) -> ResponseStrategy:
+        """Resolve strategy for responses with multiple content types.
+
+        When a response defines multiple content types, generate a Union return type
+        and store the mapping for content-type-based response handling.
+
+        Args:
+            response: The response with multiple content types
+            context: Render context for type resolution
+
+        Returns:
+            ResponseStrategy with Union return type and content_type_mapping
+        """
+        if not response.content:
+            return ResponseStrategy(return_type="None", response_schema=None, is_streaming=False, response_ir=response)
+
+        content_types = list(response.content.keys())
+        logger.info(f"Detected response with multiple content types: {content_types}")
+
+        # Resolve each content type to its Python type
+        content_type_mapping: dict[str, str] = {}
+        resolved_types: list[str] = []
+
+        for content_type in content_types:
+            python_type = self._resolve_content_type_to_python_type(
+                content_type, response.content[content_type], context
+            )
+
+            if python_type:
+                content_type_mapping[content_type] = python_type
+                if python_type not in resolved_types:  # Avoid duplicates in Union
+                    resolved_types.append(python_type)
+
+        # If no types were resolved, default to None
+        if not resolved_types:
+            return ResponseStrategy(return_type="None", response_schema=None, is_streaming=False, response_ir=response)
+
+        # If only one unique type, no need for Union
+        if len(resolved_types) == 1:
+            return ResponseStrategy(
+                return_type=resolved_types[0],
+                response_schema=response.content.get(content_types[0]),
+                is_streaming=False,
+                response_ir=response,
+                content_type_mapping=content_type_mapping,
+            )
+
+        # Create Union type
+        context.add_import("typing", "Union")
+        union_type = f"Union[{', '.join(resolved_types)}]"
+
+        logger.info(f"Generated Union return type: {union_type}")
+
+        return ResponseStrategy(
+            return_type=union_type,
+            response_schema=None,  # No single schema for Union
+            is_streaming=False,
+            response_ir=response,
+            content_type_mapping=content_type_mapping,
+        )
+
+    def _resolve_content_type_to_python_type(
+        self, content_type: str, schema: IRSchema | None, context: RenderContext
+    ) -> str | None:
+        """Resolve a content type and its schema to a Python type.
+
+        Args:
+            content_type: The HTTP content type (e.g., 'application/json')
+            schema: The schema for this content type (may be None)
+            context: Render context for type resolution
+
+        Returns:
+            Python type string or None if cannot be resolved
+        """
+        # Handle binary content types
+        if content_type in ["application/octet-stream", "application/pdf"] or content_type.startswith(
+            ("image/", "audio/", "video/")
+        ):
+            return "bytes"
+
+        # Handle text content types
+        if content_type.startswith("text/"):
+            # text/html, text/plain, etc. can be either str or bytes depending on the schema
+            if schema and hasattr(schema, "type"):
+                if schema.type == "string" and hasattr(schema, "format") and schema.format == "binary":
+                    return "bytes"
+                return "str"
+            # Text content without schema should be str by default (text is naturally string-based)
+            return "str"
+
+        # Handle JSON content types
+        if "json" in content_type and schema:
+            return self.type_service.resolve_schema_type(schema, context, required=True)
+
+        # Handle other content types with schema
+        if schema:
+            return self.type_service.resolve_schema_type(schema, context, required=True)
+
+        # Unknown content type
+        logger.warning(f"Unknown content type '{content_type}', defaulting to bytes")
+        return "bytes"
