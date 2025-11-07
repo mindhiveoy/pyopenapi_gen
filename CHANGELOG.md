@@ -1,6 +1,56 @@
 # CHANGELOG
 
 
+## v0.23.0 (2025-11-07)
+
+### Bug Fixes
+
+- **security**: Implement case-insensitive Content-Type header comparison
+  ([`cc3606c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/cc3606cded8b3f7de4246bacc1fe832f9b5e0559))
+
+Implements RFC 7230 compliant case-insensitive Content-Type header comparison for multi-content-type
+  responses. This addresses a security consideration where malformed or non-standard case headers
+  could bypass content-type detection.
+
+Changes: - Generated code now normalizes Content-Type header to lowercase - Comparison strings are
+  also lowercase for case-insensitive matching - Added comprehensive RFC 7230 compliance comments -
+  Added test for mixed-case content-type handling
+
+Example generated code: content_type = response.headers.get("content-type",
+  "").split(";")[0].strip().lower() if content_type == "application/json": # lowercase comparison
+  return DocumentResponse.from_dict(response.json())
+
+This ensures "Application/JSON", "application/json", and "APPLICATION/JSON" are all handled
+  correctly per HTTP specification.
+
+Test coverage: 1383 tests pass, all quality gates pass
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`ae8207a`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ae8207a150de33caf161b746e2852d60a49cab32))
+
+### Features
+
+- **types**: Add multi-content-type response support with Union types
+  ([`8739d3e`](https://github.com/mindhiveoy/pyopenapi_gen/commit/8739d3e86ead2bb70761100938ff1d35d7f60c95))
+
+Add support for OpenAPI responses with multiple content types, enabling generated clients to handle
+  conditional response types based on Content-Type headers at runtime.
+
+Key changes: - ResponseStrategy now detects multiple content types and creates Union types - Added
+  content_type_mapping for runtime Content-Type header checking - Response handler generates
+  conditional code based on Content-Type - text/* content types correctly default to str instead of
+  bytes - Single content-type responses without schema infer type from content-type
+
+Generated clients now produce Union[TypeA, TypeB] return types when a response defines multiple
+  content types (e.g., application/json and application/octet-stream), with runtime Content-Type
+  header checking to return the appropriate type.
+
+Test coverage: 85% for response_strategy.py, 14 comprehensive tests added covering edge cases
+  including text/* inference, empty content, and schema resolution failures.
+
+
 ## v0.22.0 (2025-10-27)
 
 ### Chores
