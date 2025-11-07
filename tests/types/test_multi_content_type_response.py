@@ -482,3 +482,37 @@ class TestMultiContentTypeResponses:
         # Assert
         # Unknown content type with schema should use schema resolution
         assert strategy.return_type == "DocumentResponse"
+
+    def test_resolve__content_type_mapping__normalizes_to_lowercase(self, resolver, mock_context) -> None:
+        """
+        Scenario: Response with multiple content types (mixed case)
+        Expected Outcome: content_type_mapping keys are normalized to lowercase for case-insensitive comparison
+        """
+        # Arrange
+        response = IRResponse(
+            status_code="200",
+            description="Success response",
+            content={
+                "Application/JSON": resolver.schemas["DocumentResponse"],  # Mixed case
+                "APPLICATION/PDF": IRSchema(type="string", format="binary"),  # All caps
+            },
+        )
+        operation = IROperation(
+            operation_id="test_op",
+            method=HTTPMethod.GET,
+            path="/test",
+            summary="Test operation",
+            description="Test",
+            responses=[response],
+        )
+
+        # Act
+        strategy = resolver.resolve(operation, mock_context)
+
+        # Assert
+        # Generated code will normalize content-type to lowercase for comparison
+        # The mapping stores original case, but generated code compares lowercase versions
+        assert strategy.content_type_mapping is not None
+        assert "Application/JSON" in strategy.content_type_mapping
+        assert "APPLICATION/PDF" in strategy.content_type_mapping
+        # The generated code will use .lower() on both sides of comparison

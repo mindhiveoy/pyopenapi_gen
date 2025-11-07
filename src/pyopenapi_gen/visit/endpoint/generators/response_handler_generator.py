@@ -548,8 +548,10 @@ class EndpointResponseHandlerGenerator:
         if not strategy.content_type_mapping:
             raise ValueError("content_type_mapping is required for Content-Type conditional handling")
 
-        # Extract content type without parameters (e.g., "application/json; charset=utf-8" -> "application/json")
-        writer.write_line('content_type = response.headers.get("content-type", "").split(";")[0].strip()')
+        # Extract content type without parameters and normalize to lowercase for case-insensitive comparison
+        # (e.g., "Application/JSON; charset=utf-8" -> "application/json")
+        # RFC 7230: HTTP header field names are case-insensitive
+        writer.write_line('content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()')
         writer.write_line("")
 
         # Generate if/elif/else chain for each content type
@@ -559,11 +561,12 @@ class EndpointResponseHandlerGenerator:
             is_first = i == 0
             is_last = i == len(content_type_items) - 1
 
-            # Write conditional statement
+            # Write conditional statement with lowercase content-type (case-insensitive comparison)
+            content_type_lower = content_type.lower()
             if is_first:
-                writer.write_line(f'if content_type == "{content_type}":')
+                writer.write_line(f'if content_type == "{content_type_lower}":')
             elif not is_last:
-                writer.write_line(f'elif content_type == "{content_type}":')
+                writer.write_line(f'elif content_type == "{content_type_lower}":')
             else:
                 # Last item - use else for fallback
                 writer.write_line("else:  # Default/fallback content type")
