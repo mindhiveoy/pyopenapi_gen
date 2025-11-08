@@ -252,9 +252,9 @@ def test_user_creation__tags_array_constraints__enforced(generated_client):
     assert "unique" in str(exc_info.value).lower()
 
     # Valid array should be accepted
-    user = user_module.UserCreate(
+    user = models.UserCreate(
         username="john_doe",
-        email="test@example.com",
+        email_="test@example.com",
         age=25,
         tags=["python", "coding", "testing"]
     )
