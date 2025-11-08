@@ -268,7 +268,9 @@ class ValidationCodeGenerator:
                 field_validations.extend(cls._generate_numeric_validation(field_name, prop_schema))
 
             # Array validation
-            if prop_schema.type == "array" and (
+            # Check for array constraints regardless of type name (type might be "array" or a type alias like "Tags")
+            # If min_items, max_items, or unique_items is set, this is an array field
+            if (
                 prop_schema.min_items is not None or prop_schema.max_items is not None or prop_schema.unique_items
             ):
                 field_validations.extend(cls._generate_array_validation(field_name, prop_schema))

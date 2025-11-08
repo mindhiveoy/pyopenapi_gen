@@ -357,6 +357,10 @@ def _parse_properties(
                         items=parsed_prop_schema_ir.items if parsed_prop_schema_ir.type == "array" else None,
                         format=parsed_prop_schema_ir.format,
                         _refers_to_schema=parsed_prop_schema_ir,
+                        # Preserve array constraints when creating property holder for array type
+                        min_items=parsed_prop_schema_ir.min_items if parsed_prop_schema_ir.type == "array" else None,
+                        max_items=parsed_prop_schema_ir.max_items if parsed_prop_schema_ir.type == "array" else None,
+                        unique_items=parsed_prop_schema_ir.unique_items if parsed_prop_schema_ir.type == "array" else False,
                     )
                     parsed_props[prop_name] = property_holder_ir
                 else:
