@@ -1,6 +1,33 @@
 # CHANGELOG
 
 
+## v0.23.1 (2025-11-07)
+
+### Bug Fixes
+
+- **schemas**: Add automatic base64 encoding/decoding for bytes fields
+  ([`b611b4c`](https://github.com/mindhiveoy/pyopenapi_gen/commit/b611b4cf37a5714b15f6cb4840b5ebfc0bbb0079))
+
+Implements OpenAPI 3.0 specification compliance for binary data handling. When schema fields have
+  type `bytes`, the BaseSchema class now automatically: - Decodes base64 strings to bytes in
+  from_dict() (API → Python) - Encodes bytes to base64 strings in to_dict() (Python → API)
+
+This fixes runtime errors where APIs return base64-encoded strings for binary fields per OpenAPI
+  standard (format: "byte"), but generated clients expected pre-decoded bytes objects.
+
+Enhanced _extract_base_type() to handle both typing.Union and types.UnionType for proper Python
+  3.10+ union syntax support (bytes | None).
+
+Comprehensive test coverage includes: - Basic encoding/decoding operations - Optional bytes fields
+  (bytes | None) - Round-trip serialization - Edge cases (empty bytes, control chars, 1MB files,
+  image headers) - Unicode content within bytes
+
+### Chores
+
+- **release**: Sync __init__.py version [skip ci]
+  ([`ceeec05`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ceeec0532c6f565ff677f5ca5a31464fd1557513))
+
+
 ## v0.23.0 (2025-11-07)
 
 ### Bug Fixes
