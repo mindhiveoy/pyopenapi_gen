@@ -218,6 +218,116 @@ class ValidationCodeGenerator:
 
         return validations
 
+    @staticmethod
+    def _generate_format_validation(field_name: str, schema: IRSchema) -> tuple[list[str], set[str]]:
+        """Generate format validation code for string fields.
+
+        Returns:
+            Tuple of (validation code lines, required imports)
+        """
+        validations = []
+        imports_needed = set()
+
+        if not schema.format or schema.type != "string":
+            return validations, imports_needed
+
+        format_type = schema.format.lower()
+
+        if format_type == "email":
+            # Simple email validation using regex (RFC 5322 simplified)
+            # Requires TLD (e.g., .com) for practical email validation
+            imports_needed.add("re")
+            # Email pattern: local-part@domain.tld (requires at least one dot in domain)
+            # Note: Pattern will be embedded in r"..." raw string, so use single backslashes
+            email_pattern = r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$"
+            validations.append(
+                f'if not re.match(r"{email_pattern}", self.{field_name}):\n'
+                f'            raise ValueError("Field \'{field_name}\' must be a valid email address")'
+            )
+
+        elif format_type in ("uri", "url"):
+            # URI validation using urllib.parse
+            imports_needed.add("urllib.parse")
+            validations.append(
+                f"try:\n"
+                f"            _parsed = urllib.parse.urlparse(self.{field_name})\n"
+                f"            if not all([_parsed.scheme, _parsed.netloc]):\n"
+                f"                raise ValueError(\"Field '{field_name}' must be a valid URI with scheme and netloc\")\n"
+                f"        except Exception:\n"
+                f'            raise ValueError("Field \'{field_name}\' must be a valid URI")'
+            )
+
+        elif format_type == "uuid":
+            # UUID validation
+            # Note: Type resolver already imports UUID from uuid module
+            validations.append(
+                f"try:\n"
+                f"            UUID(self.{field_name})\n"
+                f"        except (ValueError, AttributeError):\n"
+                f'            raise ValueError("Field \'{field_name}\' must be a valid UUID")'
+            )
+
+        elif format_type == "date":
+            # ISO 8601 date validation
+            # Note: Type resolver already imports date from datetime module
+            validations.append(
+                f"try:\n"
+                f"            date.fromisoformat(self.{field_name})\n"
+                f"        except (ValueError, TypeError):\n"
+                f'            raise ValueError("Field \'{field_name}\' must be a valid ISO 8601 date (YYYY-MM-DD)")'
+            )
+
+        elif format_type == "date-time":
+            # ISO 8601 datetime validation
+            # Note: Type resolver already imports datetime from datetime module
+            validations.append(
+                f"try:\n"
+                f"            # Try parsing as ISO 8601 datetime\n"
+                f"            datetime.fromisoformat(self.{field_name}.replace('Z', '+00:00'))\n"
+                f"        except (ValueError, TypeError, AttributeError):\n"
+                f'            raise ValueError("Field \'{field_name}\' must be a valid ISO 8601 date-time")'
+            )
+
+        elif format_type == "time":
+            # ISO 8601 time validation
+            # Note: Type resolver already imports time from datetime module
+            validations.append(
+                f"try:\n"
+                f"            time.fromisoformat(self.{field_name})\n"
+                f"        except (ValueError, TypeError):\n"
+                f'            raise ValueError("Field \'{field_name}\' must be a valid ISO 8601 time (HH:MM:SS)")'
+            )
+
+        elif format_type in ("ipv4", "hostname"):
+            # IP/hostname validation using simple regex
+            imports_needed.add("re")
+            if format_type == "ipv4":
+                pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+                error_msg = "valid IPv4 address"
+            else:  # hostname
+                pattern = r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$"
+                error_msg = "valid hostname"
+
+            validations.append(
+                f'if not re.match(r"{pattern}", self.{field_name}):\n'
+                f'            raise ValueError("Field \'{field_name}\' must be a {error_msg}")'
+            )
+
+        elif format_type == "ipv6":
+            # IPv6 validation using ipaddress module
+            imports_needed.add("ipaddress")
+            validations.append(
+                f"try:\n"
+                f"            ipaddress.IPv6Address(self.{field_name})\n"
+                f"        except (ValueError, ipaddress.AddressValueError):\n"
+                f'            raise ValueError("Field \'{field_name}\' must be a valid IPv6 address")'
+            )
+
+        # For other formats (byte, binary, password, etc.), we don't validate
+        # as they don't have specific validation requirements beyond being strings
+
+        return validations, imports_needed
+
     @classmethod
     def generate_validation_method(
         cls,
@@ -240,7 +350,7 @@ class ValidationCodeGenerator:
             return None
 
         all_validations = []
-        needs_re_import = False
+        imports_needed = set()
 
         for prop_name, prop_schema in schema.properties.items():
             field_name = sanitized_field_names.get(prop_name, prop_name)
@@ -257,7 +367,13 @@ class ValidationCodeGenerator:
             ):
                 field_validations.extend(cls._generate_string_validation(field_name, prop_schema))
                 if prop_schema.pattern:
-                    needs_re_import = True
+                    imports_needed.add("re")
+
+            # Format validation (for string fields)
+            if prop_schema.type == "string" and prop_schema.format:
+                format_validations, format_imports = cls._generate_format_validation(field_name, prop_schema)
+                field_validations.extend(format_validations)
+                imports_needed.update(format_imports)
 
             # Numeric validation
             if prop_schema.type in ("integer", "number") and (
@@ -294,9 +410,15 @@ class ValidationCodeGenerator:
         if not all_validations:
             return None
 
-        # Add re import if pattern validation is used
-        if needs_re_import:
-            context.add_import("re", None)
+        # Add required imports for validation
+        for import_name in imports_needed:
+            if import_name == "urllib.parse":
+                context.add_import("urllib.parse", None)
+            elif import_name == "ipaddress":
+                context.add_import("ipaddress", None)
+            else:
+                # For re, datetime, uuid - simple imports
+                context.add_import(import_name, None)
 
         # Generate the __post_init__ method
         validation_code = "\n        ".join(all_validations)
