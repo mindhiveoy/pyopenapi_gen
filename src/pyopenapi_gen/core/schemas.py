@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import types
 from dataclasses import MISSING, dataclass, fields
 from typing import Any, Type, TypeVar, Union, get_args, get_origin, get_type_hints
 
@@ -9,7 +11,8 @@ T = TypeVar("T", bound="BaseSchema")
 def _extract_base_type(field_type: Any) -> Any:
     """Extract the base type from Optional/Union types."""
     origin = get_origin(field_type)
-    if origin is Union:
+    # Handle both typing.Union and types.UnionType (Python 3.10+ X | Y syntax)
+    if origin is Union or isinstance(field_type, types.UnionType):
         # For T | None or Union[T, None], get the non-None type
         args = get_args(field_type)
         non_none_args = [arg for arg in args if arg is not type(None)]
@@ -67,7 +70,10 @@ class BaseSchema:
                 # Extract base type (handles Type | None -> Type)
                 base_type = _extract_base_type(field_type)
 
-                if base_type is not None and hasattr(base_type, "from_dict") and isinstance(value, dict):
+                # Handle base64-encoded bytes (OpenAPI format: "byte")
+                if base_type is bytes and isinstance(value, str):
+                    kwargs[python_field] = base64.b64decode(value)
+                elif base_type is not None and hasattr(base_type, "from_dict") and isinstance(value, dict):
                     # Recursively convert nested dictionaries
                     kwargs[python_field] = base_type.from_dict(value)
                 elif get_origin(field_type) is list or get_origin(base_type) is list:
@@ -100,8 +106,11 @@ class BaseSchema:
             if exclude_none and value is None:
                 continue
 
+            # Handle base64 encoding for bytes (OpenAPI format: "byte")
+            if isinstance(value, bytes):
+                value = base64.b64encode(value).decode("ascii")
             # Handle nested objects
-            if hasattr(value, "to_dict"):
+            elif hasattr(value, "to_dict"):
                 value = value.to_dict(exclude_none=exclude_none)
             elif isinstance(value, list) and value and hasattr(value[0], "to_dict"):
                 value = [
