@@ -125,6 +125,85 @@ class EndpointResponseHandlerGenerator:
 
         return False
 
+    def _extract_array_item_type(self, type_name: str) -> str:
+        """
+        Extract the item type from an array type or type alias.
+
+        Args:
+            type_name: Type name like "List[ItemType]" or "AgentListResponse" (alias to List[Item])
+
+        Returns:
+            The item type as a string (e.g., "ItemType", "AgentListResponseItem")
+        """
+        # If it's already in List[X] format, extract X
+        if type_name.startswith("List[") or type_name.startswith("list["):
+            start_bracket = type_name.find("[")
+            end_bracket = type_name.rfind("]")
+            return type_name[start_bracket + 1 : end_bracket].strip()
+
+        # If it's a type alias, look up the schema and get the items type
+        base_type = type_name
+        if "[" in base_type:
+            base_type = base_type[: base_type.find("[")]
+
+        if base_type in self.schemas:
+            schema = self.schemas[base_type]
+            if getattr(schema, "type", None) == "array" and getattr(schema, "items", None):
+                # Get items schema and resolve its type
+                items_schema = schema.items
+                # Check if items is a reference or inline schema
+                if hasattr(items_schema, "name") and items_schema.name:
+                    return str(items_schema.name)
+                elif hasattr(items_schema, "type"):
+                    # Inline schema - map to Python type
+                    return str(items_schema.type)
+
+        # Fallback: return the original type name (might be primitive List[str])
+        return type_name
+
+    def _is_dataclass_type(self, type_name: str) -> bool:
+        """
+        Check if a type name refers to a dataclass (not a primitive or type alias).
+
+        This is used to determine if a type needs BaseSchema .from_dict() deserialisation.
+
+        Args:
+            type_name: The Python type name (e.g., "User", "AgentListResponseItem")
+
+        Returns:
+            True if the type is a dataclass (has properties or type="object")
+        """
+        # Skip obvious primitives and built-ins
+        if type_name in {
+            "str",
+            "int",
+            "float",
+            "bool",
+            "bytes",
+            "None",
+            "Any",
+            "Dict",
+            "List",
+            "dict",
+            "list",
+            "tuple",
+        }:
+            return False
+
+        # Extract base type name without generics
+        base_type = type_name
+        if "[" in base_type:
+            base_type = base_type[: base_type.find("[")]
+
+        # Look up in schemas
+        if base_type in self.schemas:
+            schema = self.schemas[base_type]
+            # Dataclasses have properties or are object type
+            return getattr(schema, "type", None) == "object" or bool(getattr(schema, "properties", None))
+
+        # Heuristic: uppercase names are likely models (not primitives)
+        return base_type[0].isupper() and base_type not in {"Dict", "List", "Union", "Tuple", "Optional"}
+
     def _should_use_base_schema(self, type_name: str) -> bool:
         """
         Determine if a type should use BaseSchema deserialization.
@@ -173,9 +252,16 @@ class EndpointResponseHandlerGenerator:
         if base_type.startswith(("dict[", "List[", "Union[", "Tuple[", "dict[", "list[", "tuple[")):
             return False
 
-        # Check if this is a type alias (array or non-array) - these should NOT use BaseSchema
-        if self._is_type_alias_to_array(type_name) or self._is_type_alias_to_primitive(type_name):
+        # Check if this is a primitive type alias - these should use cast()
+        if self._is_type_alias_to_primitive(type_name):
             return False
+
+        # NEW LOGIC: For array type aliases, check if the item type needs deserialisation
+        if self._is_type_alias_to_array(type_name):
+            # Extract item type from List[ItemType] or from the type alias schema
+            item_type = self._extract_array_item_type(type_name)
+            # Check if item type is a dataclass that needs .from_dict()
+            return self._is_dataclass_type(item_type)
 
         # All custom model types now inherit from BaseSchema for automatic field mapping
         # Check if it's a model type (contains a dot indicating it's from models package)
@@ -184,17 +270,39 @@ class EndpointResponseHandlerGenerator:
             base_type[0].isupper() and base_type not in {"Dict", "List", "Union", "Tuple", "dict", "list", "tuple"}
         )
 
+    def _register_imports_for_type(self, return_type: str, context: RenderContext) -> None:
+        """
+        Register necessary imports for a return type, including item types for arrays.
+
+        Args:
+            return_type: The return type (e.g., "AgentListResponse", "List[User]", "User")
+            context: Render context for import registration
+        """
+        # Register the type itself
+        context.add_typing_imports_for_type(return_type)
+
+        # For array type aliases, also register the item type
+        if self._is_type_alias_to_array(return_type):
+            item_type = self._extract_array_item_type(return_type)
+            context.add_typing_imports_for_type(item_type)
+
     def _get_base_schema_deserialization_code(self, return_type: str, data_expr: str) -> str:
         """
         Generate BaseSchema deserialization code for a given type.
 
         Args:
-            return_type: The return type (e.g., "User", "List[User]", "list[User]")
+            return_type: The return type (e.g., "User", "List[User]", "list[User]", "AgentListResponse")
             data_expr: The expression containing the raw data to deserialize
 
         Returns:
             Code string for deserializing the data using BaseSchema .from_dict()
         """
+        # Check if this is an array type alias (e.g., AgentListResponse = List[AgentListResponseItem])
+        if self._is_type_alias_to_array(return_type):
+            # Extract the item type from the type alias
+            item_type = self._extract_array_item_type(return_type)
+            return f"[{item_type}.from_dict(item) for item in {data_expr}]"
+
         if return_type.startswith("List[") or return_type.startswith("list["):
             # Handle List[Model] or list[Model] types
             if return_type.startswith("List["):
@@ -368,7 +476,7 @@ class EndpointResponseHandlerGenerator:
                                     response_type, "response.json()"
                                 )
                                 writer.write_line(f"return {deserialization_code}")
-                                context.add_typing_imports_for_type(response_type)
+                                self._register_imports_for_type(response_type, context)
                             else:
                                 context.add_import("typing", "cast")
                                 writer.write_line(f"return cast({response_type}, response.json())")
@@ -456,6 +564,7 @@ class EndpointResponseHandlerGenerator:
         elif self._should_use_base_schema(strategy.return_type):
             deserialization_code = self._get_base_schema_deserialization_code(strategy.return_type, "response.json()")
             writer.write_line(f"return {deserialization_code}")
+            self._register_imports_for_type(strategy.return_type, context)
         else:
             context.add_import("typing", "cast")
             writer.write_line(f"return cast({strategy.return_type}, response.json())")
