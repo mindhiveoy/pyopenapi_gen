@@ -38,10 +38,10 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "JsonValue", context)
 
         # Assert
-        assert "class JsonValue(BaseSchema):" in result
+        assert "class JsonValue:" in result
         assert "_data: dict[str, Any] = field(default_factory=dict, repr=False)" in result
-        assert "def from_dict(cls, data: dict[str, Any])" in result
-        assert "def to_dict(self" in result
+        assert "structure_from_dict" in result  # cattrs usage documented
+        assert "unstructure_to_dict" in result  # cattrs usage documented
         assert "def get(self, key: str, default: Any = None)" in result
         assert "def __getitem__(self, key: str)" in result
         assert "def __setitem__(self, key: str, value: Any)" in result
@@ -50,9 +50,6 @@ class TestJsonValueWrapper:
         assert "def keys(self)" in result
         assert "def values(self)" in result
         assert "def items(self)" in result
-
-        # Should not be empty with just pass
-        assert "pass" not in result or "pass" in result and len(result.split("pass")) == 1
 
     def test_generate__object_with_additional_properties_schema__generates_wrapper_class(self) -> None:
         """
@@ -76,10 +73,10 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "JsonValue", context)
 
         # Assert
-        assert "class JsonValue(BaseSchema):" in result
+        assert "class JsonValue:" in result
         assert "_data: dict[str, Any]" in result
-        assert "from_dict" in result
-        assert "to_dict" in result
+        assert "structure_from_dict" in result  # cattrs usage documented
+        assert "unstructure_to_dict" in result  # cattrs usage documented
 
     def test_generate__object_with_properties__generates_normal_dataclass(self) -> None:
         """
@@ -106,7 +103,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "User", context)
 
         # Assert
-        assert "class User(BaseSchema):" in result
+        assert "class User:" in result
         assert "name: str" in result
         assert "age: int | None" in result
         # Should NOT be a wrapper since it has properties
@@ -134,7 +131,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "Empty", context)
 
         # Assert
-        assert "class Empty(BaseSchema):" in result
+        assert "class Empty:" in result
         # Should NOT be a wrapper since additional properties are forbidden
         assert "_data: dict[str, Any]" not in result
         # Should have pass or docstring
@@ -191,7 +188,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "Default", context)
 
         # Assert
-        assert "class Default(BaseSchema):" in result
+        assert "class Default:" in result
         # OpenAPI default (None) should NOT generate wrapper
         # because it's semantically different from explicit true
         assert "_data: dict[str, Any]" not in result
@@ -223,10 +220,10 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "JsonValue", context)
 
         # Assert
-        assert "class JsonValue(BaseSchema):" in result
+        assert "class JsonValue:" in result
         assert "_data: dict[str, Any] = field(default_factory=dict, repr=False)" in result
-        assert "def from_dict(cls, data: dict[str, Any])" in result
-        assert "def to_dict(self" in result
+        assert "structure_from_dict" in result  # cattrs usage documented
+        assert "unstructure_to_dict" in result  # cattrs usage documented
         assert "def get(self, key: str, default: Any = None)" in result
         assert "def __getitem__(self, key: str)" in result
         assert "def keys(self)" in result

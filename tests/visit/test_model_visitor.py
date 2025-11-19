@@ -70,7 +70,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
             result = self.model_visitor.visit_IRSchema(schema, context)
 
             # Assert - unified type system correctly generates Optional for nullable types
-            self.assertIn("class TestModel(BaseSchema):", result)  # Should use BaseSchema due to field mapping
+            self.assertIn("class TestModel:", result)  # Should use BaseSchema due to field mapping
             self.assertIn("config_: dict[str, Any] | None =", result)  # Field exists with correct type
             self.assertIn("None", result)  # Has None default (may be multi-line)
             self.assertIn("class Meta:", result)  # Has Meta class
@@ -195,7 +195,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         generated_code = model_visitor.visit_IRSchema(agent_data_source_schema, context)
 
         # Assertions (updated for BaseSchema support due to field mappings)
-        self.assertIn("class AgentDataSource(BaseSchema):", generated_code)
+        self.assertIn("class AgentDataSource:", generated_code)
         self.assertIn("@dataclass", generated_code)
         self.assertIn("agent_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
         self.assertIn("data_source_id: UUID", generated_code)  # Sanitized, UUID format correctly mapped
@@ -525,7 +525,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # print(f"\nGenerated Array Dataclass Code:\\n{generated_code}") # For debugging
 
         self.assertIn("@dataclass", generated_code, f"Expected @dataclass for array wrapper. Got:\n{generated_code}")
-        self.assertIn("class MyListWrapper(BaseSchema):", generated_code)
+        self.assertIn("class MyListWrapper:", generated_code)
         # Check for the wrapper's description in its docstring
         self.assertIn("A list of (previously anonymous) objects.", generated_code)
 
@@ -610,7 +610,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # print(f"\nGenerated Dataclass with Defaults Code:\n{generated_code}")
 
         self.assertIn("@dataclass", generated_code)
-        self.assertIn("class ModelWithDefaults(BaseSchema):", generated_code)
+        self.assertIn("class ModelWithDefaults:", generated_code)
 
         # Check specific field patterns (handling multi-line fields)
         self.assertIn("required_with_default: str", generated_code)  # Required field, no default
@@ -623,7 +623,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn('nullable_with_default: str | None = "Nullable Default"', generated_code)
         self.assertIn("tags: List[str] | None = field(default_factory=list)", generated_code)
 
-        # Check for BaseSchema Meta class
+        # Check for Meta class with field mappings (for cattrs)
         self.assertIn("class Meta:", generated_code)
         self.assertIn("key_transform_with_load = {", generated_code)
         self.assertIn('"config": "config_",', generated_code)
@@ -633,7 +633,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("Dict", context.import_collector.imports.get("typing", set()))
         self.assertIn("Any", context.import_collector.imports.get("typing", set()))
         # Modern Python 3.10+ doesn't need Optional imports (uses | None syntax)
-        self.assertIn("BaseSchema", context.import_collector.imports.get("core.schemas", set()))
+        # Note: BaseSchema no longer used - now using cattrs with Meta class
         self.assertIn("dataclass", context.import_collector.imports.get("dataclasses", set()))
         self.assertIn("dataclasses", context.import_collector.imports)
         self.assertIn("field", context.import_collector.imports["dataclasses"])

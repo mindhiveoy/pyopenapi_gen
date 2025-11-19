@@ -80,71 +80,54 @@ class DataclassGenerator:
         context.add_import("dataclasses", "dataclass")
         context.add_import("dataclasses", "field")
         context.add_import("typing", "Any")
-        # Use absolute core import path - add_import will handle it correctly
-        context.add_import(f"{context.core_package_name}.schemas", "BaseSchema")
 
         description = schema.description or "Generic JSON value object that preserves arbitrary data."
 
-        # Generate the wrapper class code
+        # Generate the wrapper class code using cattrs with custom hooks
         code = f'''__all__ = ["{class_name}"]
 
 @dataclass
-class {class_name}(BaseSchema):
+class {class_name}:
     """
     {description}
 
     This class wraps arbitrary JSON objects with no defined schema,
-    preserving all data during serialization/deserialization.
+    preserving all data during serialisation/deserialisation.
+
+    Example:
+        from {context.core_package_name}.cattrs_converter import structure_from_dict, unstructure_to_dict
+
+        # Deserialise from API response
+        obj = structure_from_dict({{"key": "value"}}, {class_name})
+
+        # Access data
+        print(obj["key"])  # "value"
+        obj["new_key"] = "new_value"
+
+        # Serialise for API request
+        data = unstructure_to_dict(obj)  # {{"key": "value", "new_key": "new_value"}}
     """
 
     _data: dict[str, Any] = field(default_factory=dict, repr=False)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> '{class_name}':
-        """
-        Create {class_name} from dictionary, preserving all data.
-
-        Args:
-            data: Dictionary with arbitrary keys and values.
-
-        Returns:
-            {class_name} instance containing the data.
-        """
-        instance = cls(_data=data)
-        return instance
-
-    def to_dict(self, exclude_none: bool = False) -> dict[str, Any]:
-        """
-        Convert back to dictionary.
-
-        Args:
-            exclude_none: If True, exclude None values from output.
-
-        Returns:
-            Dictionary representation of the data.
-        """
-        if exclude_none:
-            return {{k: v for k, v in self._data.items() if v is not None}}
-        return self._data.copy()
-
     def get(self, key: str, default: Any = None) -> Any:
-        """Dict-like get method for backward compatibility."""
+        """Get value for key, returning default if key not present."""
         return self._data.get(key, default)
 
     def __getitem__(self, key: str) -> Any:
-        """Dict-like item access."""
+        """Get value for key."""
         return self._data[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
-        """Dict-like item setting."""
+        """Set value for key."""
         self._data[key] = value
 
     def __contains__(self, key: str) -> bool:
-        """Dict-like 'in' operator."""
+        """Check if key exists."""
         return key in self._data
 
     def __bool__(self) -> bool:
-        """Truthy if contains data."""
+        """Return True if wrapper contains any data."""
         return bool(self._data)
 
     def keys(self) -> Any:
@@ -158,6 +141,17 @@ class {class_name}(BaseSchema):
     def items(self) -> Any:
         """Return dictionary items."""
         return self._data.items()
+
+
+# Register cattrs hooks for {class_name}
+def _structure_{class_name.lower()}(data: dict[str, Any], _: type[{class_name}]) -> {class_name}:
+    """Structure hook for cattrs to handle {class_name} deserialization."""
+    return {class_name}(_data=data)
+
+
+def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
+    """Unstructure hook for cattrs to handle {class_name} serialization."""
+    return instance._data.copy()
 '''
         return code
 

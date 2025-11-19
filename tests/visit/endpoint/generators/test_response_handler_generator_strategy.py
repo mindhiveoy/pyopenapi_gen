@@ -74,16 +74,19 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         assert any(
-            c[0][0].strip() == "return User.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), User)"
             for c in code_writer_mock.write_line.call_args_list
         )
 
-    def test_generate_response_handling__wrapper_schema_response__uses_schema_as_is(
-        self, generator, code_writer_mock, render_context_mock
+    def test_generate_response_handling__wrapper_schema_response__unwraps_data_field(
+        self,
+        generator,
+        code_writer_mock,
+        render_context_mock,
     ) -> None:
         """
-        Scenario: Response with wrapper schema containing data field
-        Expected Outcome: Uses the wrapper schema as-is, no unwrapping (matches OpenAPI spec exactly)
+        Scenario: Response with wrapper schema containing data field (e.g., paginated response)
+        Expected Outcome: Automatically unwraps the data field using response.json())["data"]
         """
         # Arrange
         user_schema = IRSchema(type="object", name="User")
@@ -121,10 +124,10 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
 
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
-        # Should use the wrapper schema as-is (no unwrapping)
-        assert "return UserResponse.from_dict(response.json())" in written_code
-        # Should NOT contain unwrapping logic
-        assert "raw_data = response.json().get('data')" not in written_code
+        # NEW BEHAVIOUR: Should unwrap the data field automatically
+        assert 'structure_from_dict(response.json()["data"], UserResponse)' in written_code
+        # Should NOT use response.json() without unwrapping
+        assert "return structure_from_dict(response.json(), UserResponse)" not in written_code
 
     def test_generate_response_handling__none_return_type__generates_return_none(
         self, generator, code_writer_mock, render_context_mock
@@ -330,8 +333,8 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         assert "try:" in written_code
         assert "except Exception:" in written_code
         # Should attempt to parse as both types
-        assert "ModelA.from_dict" in written_code
-        assert "ModelB.from_dict" in written_code
+        assert "structure_from_dict(response.json(), ModelA)" in written_code
+        assert "structure_from_dict(response.json(), ModelB)" in written_code
 
     def test_generate_response_handling__list_return_type__handles_list_deserialization(
         self, generator, code_writer_mock, render_context_mock
@@ -372,7 +375,7 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         # Should handle list deserialization
-        assert "[User.from_dict(item) for item in response.json()]" in written_code
+        assert "[structure_from_dict(item, User) for item in response.json()]" in written_code
 
     def test_generate_response_handling__multiple_success_responses__handles_all_success_codes(
         self, generator, code_writer_mock, render_context_mock
@@ -426,5 +429,5 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         assert "case 201:" in written_code
-        assert "ModelA.from_dict" in written_code
-        assert "ModelB.from_dict" in written_code
+        assert "structure_from_dict(response.json(), ModelA)" in written_code
+        assert "structure_from_dict(response.json(), ModelB)" in written_code

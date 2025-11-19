@@ -106,7 +106,7 @@ class TestArrayResponseHandling:
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
         # Should use list comprehension with .from_dict()
-        assert "[AgentListResponseItem.from_dict(item) for item in response.json()]" in written_code
+        assert "[structure_from_dict(item, AgentListResponseItem) for item in response.json()]" in written_code
 
         # Should NOT use cast()
         assert "cast(AgentListResponse, response.json())" not in written_code
@@ -219,8 +219,8 @@ class TestArrayResponseHandling:
         # Assert
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
-        # Should use .from_dict() for dataclass
-        assert "AgentResponse.from_dict(response.json())" in written_code
+        # Should use structure_from_dict() for dataclass
+        assert "structure_from_dict(response.json(), AgentResponse)" in written_code
 
         # Should NOT use cast()
         assert "cast(AgentResponse" not in written_code
@@ -295,10 +295,10 @@ class TestArrayResponseHandling:
         # Assert
         assert result == "AgentListResponseItem"
 
-    def test_should_use_base_schema__array_alias_with_dataclass_items__returns_true(self):
+    def test_should_use_cattrs_structure__array_alias_with_dataclass_items__returns_true(self):
         """
-        Scenario: Check if array type alias with dataclass items should use BaseSchema.
-        Expected Outcome: _should_use_base_schema() returns True (items need deserialisation).
+        Scenario: Check if array type alias with dataclass items should use cattrs structure.
+        Expected Outcome: _should_use_cattrs_structure() returns True (items need deserialisation).
         """
         # Arrange
         item_schema = IRSchema(type="object", name="Item", properties={"id": IRSchema(type="string")})
@@ -311,15 +311,15 @@ class TestArrayResponseHandling:
         generator = EndpointResponseHandlerGenerator(schemas=schemas)
 
         # Act
-        result = generator._should_use_base_schema("ItemList")
+        result = generator._should_use_cattrs_structure("ItemList")
 
         # Assert
         assert result is True
 
-    def test_should_use_base_schema__array_alias_with_primitive_items__returns_false(self):
+    def test_should_use_cattrs_structure__array_alias_with_primitive_items__returns_false(self):
         """
-        Scenario: Check if array type alias with primitive items should use BaseSchema.
-        Expected Outcome: _should_use_base_schema() returns False (primitives use cast).
+        Scenario: Check if array type alias with primitive items should use cattrs structure.
+        Expected Outcome: _should_use_cattrs_structure() returns False (primitives use cast).
         """
         # Arrange
         array_schema = IRSchema(type="array", name="StringList", items=IRSchema(type="string"))
@@ -330,21 +330,21 @@ class TestArrayResponseHandling:
         generator = EndpointResponseHandlerGenerator(schemas=schemas)
 
         # Act
-        result = generator._should_use_base_schema("StringList")
+        result = generator._should_use_cattrs_structure("StringList")
 
         # Assert
         assert result is False
 
-    def test_get_base_schema_deserialization_code__list_of_dataclass__generates_list_comprehension(self):
+    def test_get_cattrs_deserialization_code__list_of_dataclass__generates_list_comprehension(self):
         """
         Scenario: Generate deserialisation code for List[DataclassModel].
-        Expected Outcome: Returns list comprehension with .from_dict() for each item.
+        Expected Outcome: Returns list comprehension with structure_from_dict() for each item.
         """
         # Arrange
         generator = EndpointResponseHandlerGenerator(schemas={})
 
         # Act
-        result = generator._get_base_schema_deserialization_code("List[AgentListResponseItem]", "response.json()")
+        result = generator._get_cattrs_deserialization_code("List[AgentListResponseItem]", "response.json()")
 
         # Assert
-        assert result == "[AgentListResponseItem.from_dict(item) for item in response.json()]"
+        assert result == "[structure_from_dict(item, AgentListResponseItem) for item in response.json()]"

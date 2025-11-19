@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "0.23.1"
+version = "1.0.0"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
 authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
 maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
@@ -18,6 +18,7 @@ dependencies = [
   "click>=8.0.0",
   "httpx>=0.24.0",
   "dataclass-wizard>=0.22.0",
+  "cattrs>=25.3.0",
 ]
 license = { text = "MIT" }
 keywords = [
@@ -140,7 +141,7 @@ pyopenapi-gen = "pyopenapi_gen.cli:app"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.23.1"
+version = "1.0.0"
 version_files = [
     "pyproject.toml:version",
     "src/pyopenapi_gen/__init__.py:__version__"
