@@ -462,7 +462,7 @@ class ClientGenerator:
                     f"from {resolved_core_package_fqn}.exceptions import HTTPError, ClientError, ServerError",
                     f"from {resolved_core_package_fqn}.exception_aliases import *  # noqa: F401, F403",
                     f"from {resolved_core_package_fqn}.http_transport import HttpTransport, HttpxTransport",
-                    f"from {resolved_core_package_fqn}.schemas import BaseSchema",
+                    f"from {resolved_core_package_fqn}.cattrs_converter import structure_from_dict, unstructure_to_dict, converter",
                 ]
 
                 client_imports = [
@@ -476,7 +476,7 @@ class ClientGenerator:
                     '"HTTPError", "ClientError", "ServerError",',
                     # Names from exception_aliases are available via star import
                     '"HttpTransport", "HttpxTransport",',
-                    '"BaseSchema",',
+                    '"structure_from_dict", "unstructure_to_dict", "converter",',
                 ]
 
                 init_content_lines = [

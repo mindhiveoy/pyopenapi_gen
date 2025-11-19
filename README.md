@@ -440,7 +440,7 @@ async with client.files.download_file(file_id=123) as response:
 
 ### Automatic Field Name Mapping
 
-Generated models use `BaseSchema` for seamless API ↔ Python field name conversion:
+Generated models use cattrs with Meta class for seamless API ↔ Python field name conversion:
 
 ```python
 from my_api_client.models.user import User

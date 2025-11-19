@@ -31,23 +31,40 @@ class TestJsonValueIntegration:
         # Import required modules for execution
         from dataclasses import dataclass, field
 
-        from pyopenapi_gen.core.schemas import BaseSchema
+        from pyopenapi_gen.core.cattrs_converter import converter
 
         # Set up namespace with required imports
         namespace: dict[str, Any] = {
             "dataclass": dataclass,
             "field": field,
-            "BaseSchema": BaseSchema,
+            "structure_from_dict": lambda data, cls: converter.structure(data, cls),
+            "unstructure_to_dict": lambda instance: converter.unstructure(instance),
+            "converter": converter,
             "Any": Any,
             "dict": dict,
         }
         exec(code, namespace)
+
+        # Register hooks if they were generated
+        for name, value in namespace.items():
+            if name.startswith("_structure_") and callable(value):
+                # Extract class name from hook name (e.g., "_structure_jsonvalue" -> "JsonValue")
+                class_name_from_hook = name.replace("_structure_", "").title().replace("value", "Value")
+                if class_name_from_hook in namespace:
+                    cls = namespace[class_name_from_hook]
+                    converter.register_structure_hook(cls, value)
+            elif name.startswith("_unstructure_") and callable(value):
+                class_name_from_hook = name.replace("_unstructure_", "").title().replace("value", "Value")
+                if class_name_from_hook in namespace:
+                    cls = namespace[class_name_from_hook]
+                    converter.register_unstructure_hook(cls, value)
+
         return namespace
 
     def test_generated_wrapper__preserves_arbitrary_data(self) -> None:
         """
         Scenario: Generate wrapper class and test data preservation.
-        Expected Outcome: All arbitrary data is preserved through from_dict/to_dict.
+        Expected Outcome: All arbitrary data is preserved through cattrs structure/unstructure.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -68,6 +85,8 @@ class TestJsonValueIntegration:
         # Execute generated code to get the class
         namespace = self._execute_generated_code(generated_code)
         JsonValue = namespace["JsonValue"]
+        structure_from_dict = namespace["structure_from_dict"]
+        unstructure_to_dict = namespace["unstructure_to_dict"]
 
         # Test data preservation
         test_data = {
@@ -79,8 +98,8 @@ class TestJsonValueIntegration:
             "nullable_field": None,
         }
 
-        # Create instance from dict
-        instance = JsonValue.from_dict(test_data)
+        # Create instance using cattrs
+        instance = structure_from_dict(test_data, JsonValue)
 
         # Assert: All data should be preserved
         assert instance.get("title") == "Test Document"
@@ -90,8 +109,8 @@ class TestJsonValueIntegration:
         assert instance.get("active") is True
         assert instance.get("nullable_field") is None
 
-        # Test round-trip conversion
-        output_data = instance.to_dict()
+        # Test round-trip conversion using cattrs
+        output_data = unstructure_to_dict(instance)
         assert output_data == test_data
 
     def test_generated_wrapper__dict_like_access_works(self) -> None:
@@ -116,10 +135,11 @@ class TestJsonValueIntegration:
         generated_code = generator.generate(schema, "Metadata", context)
         namespace = self._execute_generated_code(generated_code)
         Metadata = namespace["Metadata"]
+        structure_from_dict = namespace["structure_from_dict"]
 
-        # Create instance
+        # Create instance using cattrs
         data = {"key1": "value1", "key2": 123}
-        instance = Metadata.from_dict(data)
+        instance = structure_from_dict(data, Metadata)
 
         # Assert: Dict-like access
         assert instance["key1"] == "value1"
@@ -160,18 +180,19 @@ class TestJsonValueIntegration:
         generated_code = generator.generate(schema, "JsonValue", context)
         namespace = self._execute_generated_code(generated_code)
         JsonValue = namespace["JsonValue"]
+        structure_from_dict = namespace["structure_from_dict"]
 
-        # Assert: Truthiness
-        empty_instance = JsonValue.from_dict({})
+        # Assert: Truthiness using cattrs
+        empty_instance = structure_from_dict({}, JsonValue)
         assert not empty_instance  # Should be falsy
 
-        non_empty_instance = JsonValue.from_dict({"key": "value"})
+        non_empty_instance = structure_from_dict({"key": "value"}, JsonValue)
         assert non_empty_instance  # Should be truthy
 
     def test_generated_wrapper__exclude_none_works(self) -> None:
         """
-        Scenario: Generate wrapper and test exclude_none in to_dict.
-        Expected Outcome: None values are excluded when requested.
+        Scenario: Generate wrapper and test serialisation with None values.
+        Expected Outcome: None values are preserved in round-trip with cattrs.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -190,20 +211,18 @@ class TestJsonValueIntegration:
         generated_code = generator.generate(schema, "JsonValue", context)
         namespace = self._execute_generated_code(generated_code)
         JsonValue = namespace["JsonValue"]
+        structure_from_dict = namespace["structure_from_dict"]
+        unstructure_to_dict = namespace["unstructure_to_dict"]
 
-        # Create instance with None values
+        # Create instance with None values using cattrs
         data = {"key1": "value1", "key2": None, "key3": 123}
-        instance = JsonValue.from_dict(data)
+        instance = structure_from_dict(data, JsonValue)
 
-        # Assert: Default includes None
-        output_with_none = instance.to_dict()
-        assert output_with_none == data
-        assert "key2" in output_with_none
-
-        # Assert: exclude_none removes None values
-        output_without_none = instance.to_dict(exclude_none=True)
-        assert output_without_none == {"key1": "value1", "key3": 123}
-        assert "key2" not in output_without_none
+        # Assert: cattrs preserves None values
+        output_data = unstructure_to_dict(instance)
+        assert output_data == data
+        assert "key2" in output_data
+        assert output_data["key2"] is None
 
     def test_generated_wrapper__nested_data_preserved(self) -> None:
         """
@@ -227,6 +246,8 @@ class TestJsonValueIntegration:
         generated_code = generator.generate(schema, "JsonValue", context)
         namespace = self._execute_generated_code(generated_code)
         JsonValue = namespace["JsonValue"]
+        structure_from_dict = namespace["structure_from_dict"]
+        unstructure_to_dict = namespace["unstructure_to_dict"]
 
         # Complex nested data
         nested_data = {
@@ -242,11 +263,12 @@ class TestJsonValueIntegration:
             "array_of_objects": [{"id": 1, "name": "first"}, {"id": 2, "name": "second"}],
         }
 
-        instance = JsonValue.from_dict(nested_data)
+        # Create instance using cattrs
+        instance = structure_from_dict(nested_data, JsonValue)
 
         # Assert: Nested access works
         assert instance.get("level1")["level2"]["level3"]["value"] == "deep"
         assert instance["array_of_objects"][0]["id"] == 1
 
-        # Assert: Round-trip preserves structure
-        assert instance.to_dict() == nested_data
+        # Assert: Round-trip preserves structure with cattrs
+        assert unstructure_to_dict(instance) == nested_data

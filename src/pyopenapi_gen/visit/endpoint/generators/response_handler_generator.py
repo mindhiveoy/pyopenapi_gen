@@ -47,13 +47,17 @@ class EndpointResponseHandlerGenerator:
     def __init__(self, schemas: dict[str, Any] | None = None) -> None:
         self.schemas: dict[str, Any] = schemas or {}
 
+    def _register_cattrs_import(self, context: RenderContext) -> None:
+        """Register the cattrs structure_from_dict import."""
+        context.add_import(f"{context.core_package_name}.cattrs_converter", "structure_from_dict")
+
     def _is_type_alias_to_array(self, type_name: str) -> bool:
         """
         Check if a type name corresponds to a type alias that resolves to a List/array type.
 
         This helps distinguish between:
         - Type aliases: AgentHistoryListResponse = List[AgentHistory] (should use array deserialization)
-        - Dataclasses: class AgentHistoryListResponse(BaseSchema): ... (should use .from_dict())
+        - Dataclasses: class AgentHistoryListResponse: ... (should use structure_from_dict())
 
         Args:
             type_name: The Python type name (e.g., "AgentHistoryListResponse")
@@ -92,7 +96,7 @@ class EndpointResponseHandlerGenerator:
 
         This helps distinguish between:
         - Type aliases: StringAlias = str (should use cast())
-        - Dataclasses: class MyModel(BaseSchema): ... (should use .from_dict())
+        - Dataclasses: class MyModel: ... (should use .from_dict())
 
         Args:
             type_name: The Python type name (e.g., "StringAlias")
@@ -165,7 +169,7 @@ class EndpointResponseHandlerGenerator:
         """
         Check if a type name refers to a dataclass (not a primitive or type alias).
 
-        This is used to determine if a type needs BaseSchema .from_dict() deserialisation.
+        This is used to determine if a type needs structure_from_dict() deserialisation.
 
         Args:
             type_name: The Python type name (e.g., "User", "AgentListResponseItem")
@@ -204,15 +208,15 @@ class EndpointResponseHandlerGenerator:
         # Heuristic: uppercase names are likely models (not primitives)
         return base_type[0].isupper() and base_type not in {"Dict", "List", "Union", "Tuple", "Optional"}
 
-    def _should_use_base_schema(self, type_name: str) -> bool:
+    def _should_use_cattrs_structure(self, type_name: str) -> bool:
         """
-        Determine if a type should use BaseSchema deserialization.
+        Determine if a type should use cattrs deserialization.
 
         Args:
             type_name: The Python type name (e.g., "User", "List[User]", "User | None")
 
         Returns:
-            True if the type should use BaseSchema .from_dict() deserialization
+            True if the type should use structure_from_dict() deserialization
         """
         # Extract the base type name from complex types
         base_type = type_name
@@ -263,7 +267,7 @@ class EndpointResponseHandlerGenerator:
             # Check if item type is a dataclass that needs .from_dict()
             return self._is_dataclass_type(item_type)
 
-        # All custom model types now inherit from BaseSchema for automatic field mapping
+        # All custom model types use cattrs via Meta class for automatic field mapping
         # Check if it's a model type (contains a dot indicating it's from models package)
         # or if it's a simple class name that's likely a generated model (starts with uppercase)
         return "." in base_type or (
@@ -286,22 +290,78 @@ class EndpointResponseHandlerGenerator:
             item_type = self._extract_array_item_type(return_type)
             context.add_typing_imports_for_type(item_type)
 
-    def _get_base_schema_deserialization_code(self, return_type: str, data_expr: str) -> str:
+    def _is_wrapper_schema(self, schema: IRSchema | None) -> bool:
         """
-        Generate BaseSchema deserialization code for a given type.
+        Check if a schema is a wrapper object with a 'data' field.
+
+        A wrapper schema is an object with:
+        - type: "object"
+        - properties containing a "data" field
+        - Optionally other fields like "meta", "pagination", etc.
+
+        Args:
+            schema: The schema to check
+
+        Returns:
+            True if this is a wrapper schema with a 'data' field
+        """
+        if not schema:
+            return False
+
+        # Must be an object type
+        if not hasattr(schema, "type") or schema.type != "object":
+            return False
+
+        # Must have properties
+        if not hasattr(schema, "properties") or not schema.properties:
+            return False
+
+        # Must have a 'data' property
+        return "data" in schema.properties
+
+    def _get_unwrapped_data_expression(self, schema: IRSchema | None, base_expr: str) -> tuple[str, IRSchema | None]:
+        """
+        Get the expression to access the unwrapped data and its schema.
+
+        Args:
+            schema: The wrapper schema
+            base_expr: The base expression (e.g., "response.json()")
+
+        Returns:
+            Tuple of (data_expression, data_schema)
+            - If wrapper detected: (base_expr + '["data"]', data_schema)
+            - If not wrapper: (base_expr, schema)
+        """
+        if not self._is_wrapper_schema(schema):
+            return base_expr, schema
+
+        # Extract the data field schema
+        data_schema = schema.properties.get("data")  # type: ignore[union-attr]
+        data_expr = f'{base_expr}["data"]'
+
+        logger.info(
+            f"Detected wrapper response schema '{getattr(schema, 'name', 'unnamed')}' with 'data' field. "
+            f"Will unwrap using: {data_expr}"
+        )
+
+        return data_expr, data_schema
+
+    def _get_cattrs_deserialization_code(self, return_type: str, data_expr: str) -> str:
+        """
+        Generate cattrs deserialization code for a given type.
 
         Args:
             return_type: The return type (e.g., "User", "List[User]", "list[User]", "AgentListResponse")
             data_expr: The expression containing the raw data to deserialize
 
         Returns:
-            Code string for deserializing the data using BaseSchema .from_dict()
+            Code string for deserializing the data using structure_from_dict()
         """
         # Check if this is an array type alias (e.g., AgentListResponse = List[AgentListResponseItem])
         if self._is_type_alias_to_array(return_type):
             # Extract the item type from the type alias
             item_type = self._extract_array_item_type(return_type)
-            return f"[{item_type}.from_dict(item) for item in {data_expr}]"
+            return f"[structure_from_dict(item, {item_type}) for item in {data_expr}]"
 
         if return_type.startswith("List[") or return_type.startswith("list["):
             # Handle List[Model] or list[Model] types
@@ -309,7 +369,7 @@ class EndpointResponseHandlerGenerator:
                 item_type = return_type[5:-1]  # Remove 'List[' and ']'
             else:  # starts with "list["
                 item_type = return_type[5:-1]  # Remove 'list[' and ']'
-            return f"[{item_type}.from_dict(item) for item in {data_expr}]"
+            return f"[structure_from_dict(item, {item_type}) for item in {data_expr}]"
         elif return_type.startswith("Optional["):
             # SANITY CHECK: Unified type system should never produce Optional[X]
             logger.error(
@@ -322,10 +382,10 @@ class EndpointResponseHandlerGenerator:
 
             # Check if inner type is also a list
             if inner_type.startswith("List[") or inner_type.startswith("list["):
-                list_code = self._get_base_schema_deserialization_code(inner_type, data_expr)
+                list_code = self._get_cattrs_deserialization_code(inner_type, data_expr)
                 return f"{list_code} if {data_expr} is not None else None"
             else:
-                return f"{inner_type}.from_dict({data_expr}) if {data_expr} is not None else None"
+                return f"structure_from_dict({data_expr}, {inner_type}) if {data_expr} is not None else None"
         elif " | None" in return_type or return_type.endswith("| None"):
             # Handle Model | None types (modern Python 3.10+ syntax)
             # Extract base type from "X | None" pattern
@@ -336,15 +396,15 @@ class EndpointResponseHandlerGenerator:
 
             # Check if inner type is also a list
             if inner_type.startswith("List[") or inner_type.startswith("list["):
-                list_code = self._get_base_schema_deserialization_code(inner_type, data_expr)
+                list_code = self._get_cattrs_deserialization_code(inner_type, data_expr)
                 return f"{list_code} if {data_expr} is not None else None"
             else:
-                return f"{inner_type}.from_dict({data_expr}) if {data_expr} is not None else None"
+                return f"structure_from_dict({data_expr}, {inner_type}) if {data_expr} is not None else None"
         else:
             # Handle simple Model types only - this should not be called for list types
             if "[" in return_type and "]" in return_type:
                 # This is a complex type that we missed - should not happen
-                raise ValueError(f"Unsupported complex type for BaseSchema deserialization: {return_type}")
+                raise ValueError(f"Unsupported complex type for cattrs deserialization: {return_type}")
 
             # Safety check: catch the specific issue we're debugging
             if return_type.startswith("list[") or return_type.startswith("List["):
@@ -352,7 +412,7 @@ class EndpointResponseHandlerGenerator:
                     f"CRITICAL BUG: List type {return_type} reached simple type handler! This should never happen."
                 )
 
-            return f"{return_type}.from_dict({data_expr})"
+            return f"structure_from_dict({data_expr}, {return_type})"
 
     def _get_extraction_code(
         self,
@@ -405,16 +465,16 @@ class EndpointResponseHandlerGenerator:
         else:  # Includes schema-defined models, List[], dict[], Optional[]
             context.add_typing_imports_for_type(return_type)  # Ensure model itself is imported
 
-            # Check if we should use BaseSchema deserialization instead of cast()
-            use_base_schema = self._should_use_base_schema(return_type)
+            # Check if we should use cattrs deserialization instead of cast()
+            use_base_schema = self._should_use_cattrs_structure(return_type)
 
             if not use_base_schema:
-                # Fallback to cast() for non-BaseSchema types
+                # Fallback to cast() for non-dataclass types
                 context.add_import("typing", "cast")
 
             # Direct deserialization using schemas as-is (no unwrapping)
             if use_base_schema:
-                deserialization_code = self._get_base_schema_deserialization_code(return_type, "response.json()")
+                deserialization_code = self._get_cattrs_deserialization_code(return_type, "response.json()")
                 return deserialization_code
             else:
                 return f"cast({return_type}, response.json())"
@@ -469,17 +529,20 @@ class EndpointResponseHandlerGenerator:
                         # Resolve the specific return type for this response
                         resp_schema = self._get_response_schema(resp_ir)
                         if resp_schema:
+                            # Check if we need to unwrap this response
+                            data_expr, unwrapped_schema = self._get_unwrapped_data_expression(
+                                resp_schema, "response.json()"
+                            )
+
                             type_service = UnifiedTypeService(self.schemas)
                             response_type = type_service.resolve_schema_type(resp_schema, context)
-                            if self._should_use_base_schema(response_type):
-                                deserialization_code = self._get_base_schema_deserialization_code(
-                                    response_type, "response.json()"
-                                )
+                            if self._should_use_cattrs_structure(response_type):
+                                deserialization_code = self._get_cattrs_deserialization_code(response_type, data_expr)
                                 writer.write_line(f"return {deserialization_code}")
                                 self._register_imports_for_type(response_type, context)
                             else:
                                 context.add_import("typing", "cast")
-                                writer.write_line(f"return cast({response_type}, response.json())")
+                                writer.write_line(f"return cast({response_type}, {data_expr})")
                         else:
                             writer.write_line("return None")
                 else:
@@ -552,7 +615,10 @@ class EndpointResponseHandlerGenerator:
                 writer.write_line("return  # Explicit return for async generator")
             return
 
-        # Handle responses using the schema as-is from the OpenAPI spec (no unwrapping)
+        # Check if we need to unwrap a wrapper response (e.g., { data: [...], meta: {...} })
+        data_expr, unwrapped_schema = self._get_unwrapped_data_expression(strategy.response_schema, "response.json()")
+
+        # Handle responses using the schema (with unwrapping if needed)
         if strategy.return_type.startswith("Union["):
             # Check if this is a multi-content-type Union (has content_type_mapping)
             if strategy.content_type_mapping:
@@ -560,14 +626,16 @@ class EndpointResponseHandlerGenerator:
                 self._write_content_type_conditional_handling(writer, context, strategy)
             else:
                 # Traditional Union handling with try/except fallback
-                self._write_union_response_handling(writer, context, strategy.return_type, "response.json()")
-        elif self._should_use_base_schema(strategy.return_type):
-            deserialization_code = self._get_base_schema_deserialization_code(strategy.return_type, "response.json()")
+                self._write_union_response_handling(writer, context, strategy.return_type, data_expr)
+        elif self._should_use_cattrs_structure(strategy.return_type):
+            # Register cattrs import
+            context.add_import(f"{context.core_package_name}.cattrs_converter", "structure_from_dict")
+            deserialization_code = self._get_cattrs_deserialization_code(strategy.return_type, data_expr)
             writer.write_line(f"return {deserialization_code}")
             self._register_imports_for_type(strategy.return_type, context)
         else:
             context.add_import("typing", "cast")
-            writer.write_line(f"return cast({strategy.return_type}, response.json())")
+            writer.write_line(f"return cast({strategy.return_type}, {data_expr})")
 
     def _get_response_schema(self, response_ir: IRResponse) -> IRSchema | None:
         """Extract the schema from a response IR."""
@@ -609,9 +677,9 @@ class EndpointResponseHandlerGenerator:
         # Try the first type
         writer.write_line("try:")
         writer.indent()
-        if self._should_use_base_schema(first_type):
+        if self._should_use_cattrs_structure(first_type):
             context.add_typing_imports_for_type(first_type)
-            deserialization_code = self._get_base_schema_deserialization_code(first_type, data_expr)
+            deserialization_code = self._get_cattrs_deserialization_code(first_type, data_expr)
             writer.write_line(f"return {deserialization_code}")
         else:
             context.add_import("typing", "cast")
@@ -626,9 +694,9 @@ class EndpointResponseHandlerGenerator:
             else:
                 writer.write_line("except Exception:  # Attempt to parse as the next type")
             writer.indent()
-            if self._should_use_base_schema(type_name):
+            if self._should_use_cattrs_structure(type_name):
                 context.add_typing_imports_for_type(type_name)
-                deserialization_code = self._get_base_schema_deserialization_code(type_name, data_expr)
+                deserialization_code = self._get_cattrs_deserialization_code(type_name, data_expr)
                 if is_last:
                     writer.write_line(f"return {deserialization_code}")
                 else:
@@ -687,10 +755,10 @@ class EndpointResponseHandlerGenerator:
                 writer.write_line("return response.content")
             elif python_type == "str":
                 writer.write_line("return response.text")
-            elif self._should_use_base_schema(python_type):
-                # Complex type - use BaseSchema deserialization
+            elif self._should_use_cattrs_structure(python_type):
+                # Complex type - use cattrs deserialization
                 context.add_typing_imports_for_type(python_type)
-                deserialization_code = self._get_base_schema_deserialization_code(python_type, "response.json()")
+                deserialization_code = self._get_cattrs_deserialization_code(python_type, "response.json()")
                 writer.write_line(f"return {deserialization_code}")
             else:
                 # Simple type - use cast

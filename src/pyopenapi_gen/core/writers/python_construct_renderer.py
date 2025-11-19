@@ -149,14 +149,14 @@ class PythonConstructRenderer:
         field_mappings: dict[str, str] | None = None,
     ) -> str:
         """
-        Render a dataclass as Python code with BaseSchema support.
+        Render a dataclass as Python code with cattrs field mapping support.
 
         Args:
             class_name: The name of the dataclass
             fields: List of (name, type_hint, default_expr, description) tuples for each field
             description: Optional description for the class docstring
             context: The rendering context for import registration
-            field_mappings: Optional mapping of API field names to Python field names for BaseSchema
+            field_mappings: Optional mapping of API field names to Python field names (Meta class)
 
         Returns:
             Formatted Python code for the dataclass
@@ -164,8 +164,8 @@ class PythonConstructRenderer:
         Example:
             ```python
             @dataclass
-            class User(BaseSchema):
-                \"\"\"User information with automatic JSON field mapping.\"\"\"
+            class User:
+                \"\"\"User information with automatic JSON field mapping via cattrs.\"\"\"
                 id_: str
                 first_name: str
                 email: str | None = None
@@ -182,16 +182,15 @@ class PythonConstructRenderer:
         writer = CodeWriter()
         context.add_import("dataclasses", "dataclass")
 
-        # Always use self-contained BaseSchema for client independence with automatic field mapping
-        # Use absolute core import path - add_import will handle it correctly
-        context.add_import(f"{context.core_package_name}.schemas", "BaseSchema")
+        # No BaseSchema needed - using cattrs for serialization
+        # Field mappings will be handled by cattrs converter
 
         # Add __all__ export
         writer.write_line(f'__all__ = ["{class_name}"]')
         writer.write_line("")  # Add a blank line for separation
 
         writer.write_line("@dataclass")
-        writer.write_line(f"class {class_name}(BaseSchema):")
+        writer.write_line(f"class {class_name}:")
         writer.indent()
 
         # Build and write docstring
@@ -199,9 +198,9 @@ class PythonConstructRenderer:
         for name, type_hint, _, field_desc in fields:
             field_args.append((name, type_hint, field_desc or ""))
 
-        # Enhanced description with automatic field mapping
+        # Simple description
         base_description = description or f"{class_name} dataclass"
-        enhanced_description = f"{base_description} with automatic JSON field mapping."
+        enhanced_description = base_description
 
         doc_block = DocumentationBlock(
             summary=enhanced_description,
@@ -238,21 +237,30 @@ class PythonConstructRenderer:
                     line += f"  # {comment_text}"
                 writer.write_line(line)
 
-        # Add Meta class if field mappings are provided (for BaseSchema field mapping)
+        # Add Meta class if field mappings are provided (for cattrs field mapping)
         if field_mappings:
             writer.write_line("")  # Blank line before Meta class
             writer.write_line("class Meta:")
             writer.indent()
             writer.write_line('"""Configure field name mapping for JSON conversion."""')
+
+            # key_transform_with_load: API field name -> Python field name (for deserialization)
             writer.write_line("key_transform_with_load = {")
             writer.indent()
-
-            # Sort mappings for consistent output
             for api_field, python_field in sorted(field_mappings.items()):
                 writer.write_line(f'"{api_field}": "{python_field}",')
-
             writer.dedent()
             writer.write_line("}")
+
+            # key_transform_with_dump: Python field name -> API field name (for serialization)
+            writer.write_line("key_transform_with_dump = {")
+            writer.indent()
+            # Reverse the mapping for dump
+            for api_field, python_field in sorted(field_mappings.items(), key=lambda x: x[1]):
+                writer.write_line(f'"{python_field}": "{api_field}",')
+            writer.dedent()
+            writer.write_line("}")
+
             writer.dedent()
 
         writer.dedent()

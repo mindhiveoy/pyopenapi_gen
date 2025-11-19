@@ -86,12 +86,12 @@ def test_field_mapping__roundtrip__preserves_data() -> None:
 
     Scenario:
         - Generate client from business_swagger.json
-        - Create DocumentUpdate from dict with camelCase keys (API response)
+        - Create DocumentUpdate from dict with camelCase keys (API response) using cattrs
         - Serialize back to dict
         - Verify field names are preserved
 
     Expected Outcome:
-        - from_dict should accept camelCase and map to snake_case attributes
+        - structure_from_dict should accept camelCase and map to snake_case attributes
         - DataclassSerializer should map snake_case attributes back to camelCase
         - Data should be preserved through the roundtrip
     """
@@ -113,17 +113,18 @@ def test_field_mapping__roundtrip__preserves_data() -> None:
         import sys
 
         sys.path.insert(0, str(project_root))
+        from businessapi.core.cattrs_converter import structure_from_dict
         from businessapi.core.utils import DataclassSerializer
         from businessapi.models.document_update import DocumentUpdate
 
-        # Act - Create from API response (camelCase)
+        # Act - Create from API response (camelCase) using cattrs
         api_response = {
             "url": "https://example.com/doc",
             "dataSourceId": "source-456",
             "mimeType": "application/json",
             "lastModified": "2024-10-23T15:30:00Z",
         }
-        doc_update = DocumentUpdate.from_dict(api_response)
+        doc_update = structure_from_dict(api_response, DocumentUpdate)
 
         # Verify attributes are accessible via snake_case
         assert doc_update.data_source_id == "source-456"

@@ -84,7 +84,7 @@ class TestEndpointResponseHandlerGenerator:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         assert any(
-            c[0][0].strip() == "return Item.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), Item)"
             for c in code_writer_mock.write_line.call_args_list
         )
         render_context_mock.add_import.assert_any_call(
@@ -149,7 +149,7 @@ class TestEndpointResponseHandlerGenerator:
     def test_get_extraction_code_any_type(self, generator, render_context_mock, mock_op) -> None:
         """
         Scenario: _get_extraction_code is called with return_type="Any"
-        Expected Outcome: Returns "response.json()  # Type is Any" and registers import for Any
+        Expected Outcome: Returns "response.json())  # Type is Any" and registers import for Any
         """
         # Act
         code = generator._get_extraction_code(return_type="Any", context=render_context_mock, op=mock_op)
@@ -161,13 +161,13 @@ class TestEndpointResponseHandlerGenerator:
     def test_get_extraction_code_model_type(self, generator, render_context_mock, mock_op) -> None:
         """
         Scenario: _get_extraction_code is called with a model type string (e.g., "MyModel")
-        Expected Outcome: Returns "MyModel.from_dict(response.json())" for BaseSchema deserialization and registers imports
+        Expected Outcome: Returns "structure_from_dict(response.json(), MyModel)" for BaseSchema deserialization and registers imports
         """
         # Act
         code = generator._get_extraction_code(return_type="MyModel", context=render_context_mock, op=mock_op)
 
         # Assert
-        assert code == "MyModel.from_dict(response.json())"
+        assert code == "structure_from_dict(response.json(), MyModel)"
         render_context_mock.add_typing_imports_for_type.assert_called_with("MyModel")
 
     def test_get_extraction_code_model_type_no_unwrapping(self, generator, render_context_mock, mock_op) -> None:
@@ -179,7 +179,7 @@ class TestEndpointResponseHandlerGenerator:
         code = generator._get_extraction_code(return_type="MyDataModel", context=render_context_mock, op=mock_op)
 
         # Assert
-        assert code == "MyDataModel.from_dict(response.json())"
+        assert code == "structure_from_dict(response.json(), MyDataModel)"
         render_context_mock.add_typing_imports_for_type.assert_called_with("MyDataModel")
 
     def test_generate_response_handling_error_404(self, generator, code_writer_mock, render_context_mock) -> None:
@@ -297,7 +297,7 @@ class TestEndpointResponseHandlerGenerator:
         # Default case can be handled with case _ if status_code >= 0 or case _
         assert "case _ if response.status_code >= 0:" in written_code or "case _:" in written_code
         assert any(
-            c[0][0].strip() == "return DefaultSuccessData.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), DefaultSuccessData)"
             for c in code_writer_mock.write_line.call_args_list
         )
         # Verify proper imports are registered
@@ -348,7 +348,7 @@ class TestEndpointResponseHandlerGenerator:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         assert any(
-            c[0][0].strip() == "return SuccessData.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), SuccessData)"
             for c in code_writer_mock.write_line.call_args_list
         )
 
@@ -409,7 +409,7 @@ class TestEndpointResponseHandlerGenerator:
             # Default case can be handled with case _ if status_code >= 0 or case _
             assert "case _ if response.status_code >= 0:" in written_code or "case _:" in written_code
             assert any(
-                c[0][0].strip() == "return PrimaryDefault.from_dict(response.json())"
+                c[0][0].strip() == "return structure_from_dict(response.json(), PrimaryDefault)"
                 for c in code_writer_mock.write_line.call_args_list
             )
             # Verify that proper imports are registered
@@ -472,12 +472,12 @@ class TestEndpointResponseHandlerGenerator:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         assert any(
-            c[0][0].strip() == "return ModelA.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), ModelA)"
             for c in code_writer_mock.write_line.call_args_list
         )
         assert "case 201:" in written_code
         assert any(
-            c[0][0].strip() == "return ModelB.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), ModelB)"
             for c in code_writer_mock.write_line.call_args_list
         )
 
@@ -630,13 +630,13 @@ class TestEndpointResponseHandlerGenerator:
         assert "case 200:" in written_code
         assert "try:" in written_code
         assert any(
-            c[0][0].strip() == "return ModelA.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), ModelA)"
             for c in code_writer_mock.write_line.call_args_list
             if "try:" in written_code and "except Exception:" not in written_code[: written_code.find(c[0][0])]
         )
         assert "except Exception:" in written_code
         assert any(
-            c[0][0].strip() == "return ModelB.from_dict(response.json())"
+            c[0][0].strip() == "return structure_from_dict(response.json(), ModelB)"
             for c in code_writer_mock.write_line.call_args_list
             if "except Exception:" in written_code[: written_code.find(c[0][0])]
         )
@@ -683,13 +683,13 @@ class TestEndpointResponseHandlerGenerator:
         assert "case 200:" in written_code_union
         assert "try:" in written_code_union
         # With unified service, no manual unwrapping should be generated for union types
-        assert "return ModelA.from_dict(response.json())" in written_lines_stripped_union
+        assert "return structure_from_dict(response.json(), ModelA)" in written_lines_stripped_union
         assert "except Exception:" in written_code_union
-        assert "return ModelB.from_dict(response.json())" in written_lines_stripped_union
+        assert "return structure_from_dict(response.json(), ModelB)" in written_lines_stripped_union
 
         # Ensure no unwrapping code is generated (unified service handles it)
-        assert "raw_data = response.json().get('data')" not in written_lines_stripped_union
-        assert "return_value = ModelA.from_dict(raw_data)" not in written_lines_stripped_union
+        assert "raw_data = response.json()).get('data')" not in written_lines_stripped_union
+        assert "return_value = structure_from_dict(raw_data, ModelA)" not in written_lines_stripped_union
         assert "return return_value" not in written_lines_stripped_union
 
     def test_generate_response_handling_simple_type_with_unwrap(
@@ -726,12 +726,86 @@ class TestEndpointResponseHandlerGenerator:
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
         # With unified service, no manual unwrapping should be generated
-        assert "return ModelC.from_dict(response.json())" in written_lines_stripped
+        assert "return structure_from_dict(response.json(), ModelC)" in written_lines_stripped
 
         # Ensure no unwrapping code is generated (unified service handles it)
-        assert "raw_data = response.json().get('data')" not in written_lines_stripped
-        assert "ModelC.from_dict(raw_data)" not in written_code
+        assert "raw_data = response.json()).get('data')" not in written_lines_stripped
+        assert "structure_from_dict(raw_data, ModelC)" not in written_code
         assert "return return_value" not in written_code
+
+    def test_generate_response_handling__wrapper_with_data_field__unwraps_data_field(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
+        """
+        Scenario: Response schema is a wrapper object with 'data' field (e.g., paginated response)
+        Expected Outcome: Generated code unwraps the data field using response.json())["data"]
+        """
+        # Arrange - Create a paginated response wrapper schema
+        item_schema = IRSchema(type="object", properties={"id": IRSchema(type="integer")}, name="Agent")
+
+        data_array_schema = IRSchema(type="array", items=item_schema)
+
+        meta_schema = IRSchema(
+            type="object",
+            properties={
+                "page": IRSchema(type="integer"),
+                "pageSize": IRSchema(type="integer"),
+                "total": IRSchema(type="integer"),
+            },
+            name="PaginationMeta",
+        )
+
+        wrapper_schema = IRSchema(
+            type="object",
+            properties={"data": data_array_schema, "meta": meta_schema},
+            name="AgentListResponse",
+        )
+
+        operation = IROperation(
+            operation_id="list_agents",
+            summary="List agents",
+            description="Retrieve all agents with pagination",
+            method=HTTPMethod.GET,
+            path="/api/tenants/{tenantId}/agents",
+            tags=["agents"],
+            parameters=[],
+            request_body=None,
+            responses=[
+                IRResponse(
+                    status_code="200",
+                    description="Successful response",
+                    content={"application/json": wrapper_schema},
+                )
+            ],
+        )
+
+        # Create strategy with the wrapper schema
+        strategy = ResponseStrategy(
+            return_type="AgentListResponse",
+            response_schema=wrapper_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0],
+        )
+
+        generator.schemas = {"AgentListResponse": wrapper_schema, "Agent": item_schema}
+
+        # Act
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
+
+        # Assert
+        written_lines = [call[0][0] for call in code_writer_mock.write_line.call_args_list]
+        written_lines_stripped = [line.strip() for line in written_lines]
+
+        # Check that unwrapping code is generated
+        assert any(
+            'response.json()["data"]' in line for line in written_lines_stripped
+        ), "Expected data field unwrapping in generated code. Generated lines: " + "\n".join(written_lines_stripped)
+
+        # Check that the return statement uses the unwrapped data
+        assert any(
+            'return structure_from_dict(response.json()["data"], AgentListResponse)' in line
+            for line in written_lines_stripped
+        ), "Expected return statement to use unwrapped data field"
 
 
 if __name__ == "__main__":
