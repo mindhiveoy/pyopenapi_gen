@@ -376,11 +376,10 @@ def test_dataclass_serializer__baseschema_with_mappings__uses_api_field_names() 
     # Arrange
     from dataclasses import dataclass
 
-    from pyopenapi_gen.core.schemas import BaseSchema
     from pyopenapi_gen.core.utils import DataclassSerializer
 
     @dataclass
-    class DocumentUpdate(BaseSchema):
+    class DocumentUpdate:
         """Test schema with field mappings."""
 
         data_source_id: str
@@ -428,11 +427,10 @@ def test_dataclass_serializer__nested_baseschema__maps_recursively() -> None:
     # Arrange
     from dataclasses import dataclass
 
-    from pyopenapi_gen.core.schemas import BaseSchema
     from pyopenapi_gen.core.utils import DataclassSerializer
 
     @dataclass
-    class Address(BaseSchema):
+    class Address:
         """Nested schema with field mappings."""
 
         street_name: str
@@ -444,7 +442,7 @@ def test_dataclass_serializer__nested_baseschema__maps_recursively() -> None:
             key_transform_with_load = {"streetName": "street_name", "postalCode": "postal_code"}
 
     @dataclass
-    class User(BaseSchema):
+    class User:
         """Parent schema with field mappings."""
 
         user_id: str
@@ -528,11 +526,10 @@ def test_dataclass_serializer__exclude_none_handling() -> None:
     # Arrange
     from dataclasses import dataclass
 
-    from pyopenapi_gen.core.schemas import BaseSchema
     from pyopenapi_gen.core.utils import DataclassSerializer
 
     @dataclass
-    class OptionalFields(BaseSchema):
+    class OptionalFields:
         """Schema with optional fields."""
 
         required_field: str
@@ -575,11 +572,10 @@ def test_dataclass_serializer__list_of_baseschema__maps_all_items() -> None:
     # Arrange
     from dataclasses import dataclass
 
-    from pyopenapi_gen.core.schemas import BaseSchema
     from pyopenapi_gen.core.utils import DataclassSerializer
 
     @dataclass
-    class Item(BaseSchema):
+    class Item:
         """Schema with field mappings."""
 
         item_id: str

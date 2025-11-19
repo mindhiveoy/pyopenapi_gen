@@ -1,11 +1,11 @@
 """
-Unit tests for PythonConstructRenderer BaseSchema functionality.
+Unit tests for PythonConstructRenderer dataclass functionality with cattrs.
 
 Scenario: Test the PythonConstructRenderer's ability to generate dataclasses
-with BaseSchema inheritance and field mapping configuration.
+with field mapping configuration for cattrs serialization.
 
-Expected Outcome: Generated code includes BaseSchema inheritance and proper
-field mapping configuration when needed.
+Expected Outcome: Generated code uses standard dataclasses with Meta classes
+for field mapping configuration when needed.
 """
 
 from pyopenapi_gen.context.render_context import RenderContext
@@ -35,8 +35,7 @@ class TestPythonConstructRendererBaseSchema:
         )
 
         # Assert
-        assert "class User(BaseSchema):" in result
-        assert "with automatic JSON field mapping" in result
+        assert "class User:" in result
         assert "key_transform_with_load" not in result  # No Meta class when no mappings
         assert "@dataclass" in result
         assert "name: str" in result
@@ -68,8 +67,7 @@ class TestPythonConstructRendererBaseSchema:
         )
 
         # Assert
-        assert "class User(BaseSchema):" in result
-        assert "with automatic JSON field mapping" in result
+        assert "class User:" in result
         assert "class Meta:" in result
         assert "key_transform_with_load = {" in result
         assert '"firstName": "first_name",' in result
@@ -97,14 +95,13 @@ class TestPythonConstructRendererBaseSchema:
         )
 
         # Assert
-        assert "class User(BaseSchema):" in result
-        assert "with automatic JSON field mapping" in result
+        assert "class User:" in result
         assert "key_transform_with_load" not in result  # No Meta class for empty mappings
 
     def test_render_dataclass__with_field_mappings__adds_proper_imports(self) -> None:
         """
         Scenario: Render a dataclass with field mappings and check imports.
-        Expected Outcome: Both dataclass and BaseSchema imports are added.
+        Expected Outcome: dataclass import is added.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -125,13 +122,11 @@ class TestPythonConstructRendererBaseSchema:
         imports = context.import_collector.imports
         assert "dataclasses" in imports
         assert "dataclass" in imports["dataclasses"]
-        assert "core.schemas" in imports
-        assert "BaseSchema" in imports["core.schemas"]
 
-    def test_render_dataclass__no_field_mappings__includes_base_schema_import(self) -> None:
+    def test_render_dataclass__no_field_mappings__includes_dataclass_import(self) -> None:
         """
         Scenario: Render a dataclass without field mappings and check imports.
-        Expected Outcome: Both dataclass and BaseSchema imports are added.
+        Expected Outcome: dataclass import is added.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -145,8 +140,6 @@ class TestPythonConstructRendererBaseSchema:
         imports = context.import_collector.imports
         assert "dataclasses" in imports
         assert "dataclass" in imports["dataclasses"]
-        assert "core.schemas" in imports
-        assert "BaseSchema" in imports["core.schemas"]
 
     def test_render_dataclass__sorted_field_mappings__generates_deterministic_output(self) -> None:
         """
@@ -187,9 +180,8 @@ class TestPythonConstructRendererBaseSchema:
         result = renderer.render_dataclass(class_name="Empty", fields=[], description="Empty class", context=context)
 
         # Assert
-        assert "class Empty(BaseSchema):" in result
+        assert "class Empty:" in result
         assert "pass" in result or "No properties defined in schema" in result
-        assert "with automatic JSON field mapping" in result
 
     def test_render_dataclass__single_field_mapping__generates_meta_class(self) -> None:
         """
@@ -208,6 +200,6 @@ class TestPythonConstructRendererBaseSchema:
         )
 
         # Assert
-        assert "class User(BaseSchema):" in result
+        assert "class User:" in result
         assert "class Meta:" in result
         assert '"userId": "user_id",' in result

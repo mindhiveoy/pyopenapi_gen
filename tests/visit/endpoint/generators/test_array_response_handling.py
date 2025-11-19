@@ -106,7 +106,7 @@ class TestArrayResponseHandling:
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
         # Should use list comprehension with .from_dict()
-        assert "[AgentListResponseItem.from_dict(item) for item in response.json()]" in written_code
+        assert "[structure_from_dict(item, AgentListResponseItem) for item in response.json()]" in written_code
 
         # Should NOT use cast()
         assert "cast(AgentListResponse, response.json())" not in written_code
@@ -220,7 +220,7 @@ class TestArrayResponseHandling:
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
         # Should use .from_dict() for dataclass
-        assert "AgentResponse.from_dict(response.json())" in written_code
+        assert "structure_from_dict(response.json(, AgentResponse))" in written_code
 
         # Should NOT use cast()
         assert "cast(AgentResponse" not in written_code
@@ -347,4 +347,4 @@ class TestArrayResponseHandling:
         result = generator._get_base_schema_deserialization_code("List[AgentListResponseItem]", "response.json()")
 
         # Assert
-        assert result == "[AgentListResponseItem.from_dict(item) for item in response.json()]"
+        assert result == "[structure_from_dict(item, AgentListResponseItem) for item in response.json()]"

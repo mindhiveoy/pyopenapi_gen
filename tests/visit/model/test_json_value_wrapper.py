@@ -38,7 +38,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "JsonValue", context)
 
         # Assert
-        assert "class JsonValue(BaseSchema):" in result
+        assert "class JsonValue:" in result
         assert "_data: dict[str, Any] = field(default_factory=dict, repr=False)" in result
         assert "def from_dict(cls, data: dict[str, Any])" in result
         assert "def to_dict(self" in result
@@ -76,7 +76,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "JsonValue", context)
 
         # Assert
-        assert "class JsonValue(BaseSchema):" in result
+        assert "class JsonValue:" in result
         assert "_data: dict[str, Any]" in result
         assert "from_dict" in result
         assert "to_dict" in result
@@ -106,7 +106,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "User", context)
 
         # Assert
-        assert "class User(BaseSchema):" in result
+        assert "class User:" in result
         assert "name: str" in result
         assert "age: int | None" in result
         # Should NOT be a wrapper since it has properties
@@ -134,7 +134,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "Empty", context)
 
         # Assert
-        assert "class Empty(BaseSchema):" in result
+        assert "class Empty:" in result
         # Should NOT be a wrapper since additional properties are forbidden
         assert "_data: dict[str, Any]" not in result
         # Should have pass or docstring
@@ -191,7 +191,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "Default", context)
 
         # Assert
-        assert "class Default(BaseSchema):" in result
+        assert "class Default:" in result
         # OpenAPI default (None) should NOT generate wrapper
         # because it's semantically different from explicit true
         assert "_data: dict[str, Any]" not in result
@@ -223,7 +223,7 @@ class TestJsonValueWrapper:
         result = generator.generate(schema, "JsonValue", context)
 
         # Assert
-        assert "class JsonValue(BaseSchema):" in result
+        assert "class JsonValue:" in result
         assert "_data: dict[str, Any] = field(default_factory=dict, repr=False)" in result
         assert "def from_dict(cls, data: dict[str, Any])" in result
         assert "def to_dict(self" in result

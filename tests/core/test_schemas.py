@@ -11,7 +11,7 @@ from pyopenapi_gen.core.schemas import BaseSchema
 
 
 @dataclass
-class User(BaseSchema):
+class User:
     """User dataclass for BaseSchema testing."""
 
     name: str
@@ -21,7 +21,7 @@ class User(BaseSchema):
 
 
 @dataclass
-class Product(BaseSchema):
+class Product:
     """Product dataclass with required fields only."""
 
     id: str
@@ -29,7 +29,7 @@ class Product(BaseSchema):
 
 
 @dataclass
-class UserWithFactory(BaseSchema):
+class UserWithFactory:
     """User dataclass with default factory."""
 
     name: str
@@ -37,7 +37,7 @@ class UserWithFactory(BaseSchema):
 
 
 @dataclass
-class Address(BaseSchema):
+class Address:
     """Address dataclass for nested object testing."""
 
     street: str
@@ -46,7 +46,7 @@ class Address(BaseSchema):
 
 
 @dataclass
-class UserWithAddress(BaseSchema):
+class UserWithAddress:
     """User with nested address object."""
 
     name: str
@@ -54,7 +54,7 @@ class UserWithAddress(BaseSchema):
 
 
 @dataclass
-class Company(BaseSchema):
+class Company:
     """Company with list of employees."""
 
     name: str
@@ -62,7 +62,7 @@ class Company(BaseSchema):
 
 
 @dataclass
-class ComplexData(BaseSchema):
+class ComplexData:
     """Schema with all JSON types for comprehensive testing."""
 
     string_field: str
@@ -75,7 +75,7 @@ class ComplexData(BaseSchema):
 
 
 @dataclass
-class UserWithMapping(BaseSchema):
+class UserWithMapping:
     """User with field name mappings."""
 
     name: str
@@ -758,7 +758,7 @@ class TestErrorConditions:
 
         # Create a schema with forward reference that might cause get_type_hints issues
         @dataclass
-        class CircularTest(BaseSchema):
+        class CircularTest:
             name: str
             # Using string annotation that might cause get_type_hints to fail
             self_ref: Optional["CircularTest"] = None
@@ -775,7 +775,7 @@ class TestErrorConditions:
 
 
 @dataclass
-class DocumentWithBinary(BaseSchema):
+class DocumentWithBinary:
     """Document with binary content field."""
 
     name: str
@@ -783,7 +783,7 @@ class DocumentWithBinary(BaseSchema):
 
 
 @dataclass
-class FileWithOptionalBinary(BaseSchema):
+class FileWithOptionalBinary:
     """File with optional binary field."""
 
     filename: str
@@ -791,7 +791,7 @@ class FileWithOptionalBinary(BaseSchema):
 
 
 @dataclass
-class ImageCollection(BaseSchema):
+class ImageCollection:
     """Collection with list of binary thumbnails."""
 
     title: str

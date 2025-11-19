@@ -42,8 +42,7 @@ class TestDataclassGeneratorBaseSchema:
         result = generator.generate(schema, "User", context)
 
         # Assert
-        assert "class User(BaseSchema):" in result
-        assert "with automatic JSON field mapping" in result
+        assert "class User:" in result
         assert "class Meta:" in result
         assert "key_transform_with_load = {" in result
         assert '"emailAddress": "email_address",' in result
@@ -75,7 +74,7 @@ class TestDataclassGeneratorBaseSchema:
         result = generator.generate(schema, "Data", context)
 
         # Assert
-        assert "class Data(BaseSchema):" in result
+        assert "class Data:" in result
         assert '"class": "class_",' in result
         assert '"id": "id_",' in result
         assert '"type": "type_",' in result
@@ -105,8 +104,7 @@ class TestDataclassGeneratorBaseSchema:
         result = generator.generate(schema, "Simple", context)
 
         # Assert
-        assert "class Simple(BaseSchema):" in result
-        assert "with automatic JSON field mapping" in result
+        assert "class Simple:" in result
         assert "key_transform_with_load" not in result  # No Meta class when no mappings needed
 
     def test_generate__mixed_fields__generates_base_schema_for_mapped_fields_only(self) -> None:
@@ -135,7 +133,7 @@ class TestDataclassGeneratorBaseSchema:
         result = generator.generate(schema, "Mixed", context)
 
         # Assert
-        assert "class Mixed(BaseSchema):" in result
+        assert "class Mixed:" in result
         assert '"firstName": "first_name",' in result
         assert '"id": "id_",' in result
         # name and status shouldn't appear in mappings since they don't need mapping
@@ -193,8 +191,7 @@ class TestDataclassGeneratorBaseSchema:
         result = generator.generate(schema, "UserList", context)
 
         # Assert
-        assert "class UserList(BaseSchema):" in result
-        assert "with automatic JSON field mapping" in result
+        assert "class UserList:" in result
         # Array wrapper shouldn't have field mappings Meta class
         assert "key_transform_with_load" not in result
 
@@ -241,8 +238,7 @@ class TestDataclassGeneratorBaseSchema:
         result = generator.generate(schema, "Empty", context)
 
         # Assert
-        assert "class Empty(BaseSchema):" in result
-        assert "with automatic JSON field mapping" in result
+        assert "class Empty:" in result
         assert "pass" in result or "No properties defined in schema" in result
         # Should not have Meta class since no field mappings
         assert "key_transform_with_load" not in result

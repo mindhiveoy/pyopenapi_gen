@@ -237,21 +237,30 @@ class PythonConstructRenderer:
                     line += f"  # {comment_text}"
                 writer.write_line(line)
 
-        # Add Meta class if field mappings are provided (for BaseSchema field mapping)
+        # Add Meta class if field mappings are provided (for cattrs field mapping)
         if field_mappings:
             writer.write_line("")  # Blank line before Meta class
             writer.write_line("class Meta:")
             writer.indent()
             writer.write_line('"""Configure field name mapping for JSON conversion."""')
+
+            # key_transform_with_load: API field name -> Python field name (for deserialization)
             writer.write_line("key_transform_with_load = {")
             writer.indent()
-
-            # Sort mappings for consistent output
             for api_field, python_field in sorted(field_mappings.items()):
                 writer.write_line(f'"{api_field}": "{python_field}",')
-
             writer.dedent()
             writer.write_line("}")
+
+            # key_transform_with_dump: Python field name -> API field name (for serialization)
+            writer.write_line("key_transform_with_dump = {")
+            writer.indent()
+            # Reverse the mapping for dump
+            for api_field, python_field in sorted(field_mappings.items(), key=lambda x: x[1]):
+                writer.write_line(f'"{python_field}": "{api_field}",')
+            writer.dedent()
+            writer.write_line("}")
+
             writer.dedent()
 
         writer.dedent()

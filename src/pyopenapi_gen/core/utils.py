@@ -382,18 +382,29 @@ class DataclassSerializer:
             finally:
                 visited.discard(obj_id)
 
-        # Handle regular dataclass instances (no field mapping)
+        # Handle regular dataclass instances (with cattrs field mapping support)
         if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
             visited.add(obj_id)
             try:
+                # Use cattrs unstructure to handle field mappings via Meta.key_transform_with_dump
+                from cattrs import Converter
+
+                converter = Converter()
+                data: dict[str, Any] = converter.unstructure(obj)
+
+                # Apply field name mapping if Meta class exists
+                if hasattr(obj, "Meta") and hasattr(obj.Meta, "key_transform_with_dump"):
+                    mappings = obj.Meta.key_transform_with_dump
+                    # Transform keys according to mapping
+                    data = {mappings.get(k, k): v for k, v in data.items()}
+
+                # Recursively serialize nested objects and skip None values
                 result = {}
-                for field in dataclasses.fields(obj):
-                    value = getattr(obj, field.name)
-                    # Skip None values to keep JSON clean
+                for key, value in data.items():
                     if value is not None:
                         serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
                         if serialized_value is not None:
-                            result[field.name] = serialized_value
+                            result[key] = serialized_value
                 return result
             finally:
                 visited.discard(obj_id)

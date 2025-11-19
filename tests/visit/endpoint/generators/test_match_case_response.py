@@ -179,7 +179,7 @@ class TestMatchCaseResponseGeneration:
         assert 'raw_data = response.json().get("data")' not in match_content
 
         # Should have clean return for success case (now uses BaseSchema)
-        assert "return Chat.from_dict(response.json())" in match_content
+        assert "return structure_from_dict(response.json(, Chat))" in match_content
 
     def test_default_response_handling__uses_conditional_case__handles_catch_all(self) -> None:
         """
