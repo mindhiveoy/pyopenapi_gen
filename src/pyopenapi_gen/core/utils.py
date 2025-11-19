@@ -328,7 +328,8 @@ class DataclassSerializer:
             The serialized object with dataclasses converted to dictionaries.
 
         Handles:
-        - BaseSchema instances: Uses to_dict() method with field name mapping (e.g., snake_case -> camelCase)
+        - Dataclass instances with Meta.key_transform_with_dump: Applies field name mapping (snake_case → camelCase)
+        - Legacy BaseSchema instances: Falls back to to_dict() if present (backward compatibility)
         - Regular dataclass instances: Converted to dictionaries using field names
         - Lists: Recursively serialize each item
         - Dictionaries: Recursively serialize values
@@ -365,12 +366,12 @@ class DataclassSerializer:
         if isinstance(obj, Enum) and not isinstance(obj, type):
             return obj.value
 
-        # Handle BaseSchema instances (respects field name mappings)
+        # Handle legacy BaseSchema instances (backward compatibility)
         # Check for BaseSchema by looking for both to_dict and _get_field_mappings methods
         if hasattr(obj, "to_dict") and hasattr(obj, "_get_field_mappings") and callable(obj.to_dict):
             visited.add(obj_id)
             try:
-                # Use BaseSchema's to_dict() which handles field name mapping
+                # Use legacy BaseSchema's to_dict() which handles field name mapping
                 result_dict = obj.to_dict(exclude_none=True)
                 # Recursively serialize nested objects in the result
                 serialized_result = {}
@@ -386,11 +387,11 @@ class DataclassSerializer:
         if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
             visited.add(obj_id)
             try:
-                # Use cattrs unstructure to handle field mappings via Meta.key_transform_with_dump
-                from cattrs import Converter
-
-                converter = Converter()
-                data: dict[str, Any] = converter.unstructure(obj)
+                # Build dict from dataclass fields without recursive unstructuring
+                data: dict[str, Any] = {}
+                for field in dataclasses.fields(obj):
+                    value = getattr(obj, field.name)
+                    data[field.name] = value
 
                 # Apply field name mapping if Meta class exists
                 if hasattr(obj, "Meta") and hasattr(obj.Meta, "key_transform_with_dump"):

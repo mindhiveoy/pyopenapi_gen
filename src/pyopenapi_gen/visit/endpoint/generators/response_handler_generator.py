@@ -57,7 +57,7 @@ class EndpointResponseHandlerGenerator:
 
         This helps distinguish between:
         - Type aliases: AgentHistoryListResponse = List[AgentHistory] (should use array deserialization)
-        - Dataclasses: class AgentHistoryListResponse(BaseSchema): ... (should use .from_dict())
+        - Dataclasses: class AgentHistoryListResponse: ... (should use structure_from_dict())
 
         Args:
             type_name: The Python type name (e.g., "AgentHistoryListResponse")
@@ -96,7 +96,7 @@ class EndpointResponseHandlerGenerator:
 
         This helps distinguish between:
         - Type aliases: StringAlias = str (should use cast())
-        - Dataclasses: class MyModel(BaseSchema): ... (should use .from_dict())
+        - Dataclasses: class MyModel: ... (should use .from_dict())
 
         Args:
             type_name: The Python type name (e.g., "StringAlias")
@@ -169,7 +169,7 @@ class EndpointResponseHandlerGenerator:
         """
         Check if a type name refers to a dataclass (not a primitive or type alias).
 
-        This is used to determine if a type needs BaseSchema .from_dict() deserialisation.
+        This is used to determine if a type needs structure_from_dict() deserialisation.
 
         Args:
             type_name: The Python type name (e.g., "User", "AgentListResponseItem")
@@ -210,13 +210,13 @@ class EndpointResponseHandlerGenerator:
 
     def _should_use_cattrs_structure(self, type_name: str) -> bool:
         """
-        Determine if a type should use BaseSchema deserialization.
+        Determine if a type should use cattrs deserialization.
 
         Args:
             type_name: The Python type name (e.g., "User", "List[User]", "User | None")
 
         Returns:
-            True if the type should use BaseSchema .from_dict() deserialization
+            True if the type should use structure_from_dict() deserialization
         """
         # Extract the base type name from complex types
         base_type = type_name
@@ -267,7 +267,7 @@ class EndpointResponseHandlerGenerator:
             # Check if item type is a dataclass that needs .from_dict()
             return self._is_dataclass_type(item_type)
 
-        # All custom model types now inherit from BaseSchema for automatic field mapping
+        # All custom model types use cattrs via Meta class for automatic field mapping
         # Check if it's a model type (contains a dot indicating it's from models package)
         # or if it's a simple class name that's likely a generated model (starts with uppercase)
         return "." in base_type or (
@@ -348,14 +348,14 @@ class EndpointResponseHandlerGenerator:
 
     def _get_cattrs_deserialization_code(self, return_type: str, data_expr: str) -> str:
         """
-        Generate BaseSchema deserialization code for a given type.
+        Generate cattrs deserialization code for a given type.
 
         Args:
             return_type: The return type (e.g., "User", "List[User]", "list[User]", "AgentListResponse")
             data_expr: The expression containing the raw data to deserialize
 
         Returns:
-            Code string for deserializing the data using BaseSchema .from_dict()
+            Code string for deserializing the data using structure_from_dict()
         """
         # Check if this is an array type alias (e.g., AgentListResponse = List[AgentListResponseItem])
         if self._is_type_alias_to_array(return_type):
@@ -404,7 +404,7 @@ class EndpointResponseHandlerGenerator:
             # Handle simple Model types only - this should not be called for list types
             if "[" in return_type and "]" in return_type:
                 # This is a complex type that we missed - should not happen
-                raise ValueError(f"Unsupported complex type for BaseSchema deserialization: {return_type}")
+                raise ValueError(f"Unsupported complex type for cattrs deserialization: {return_type}")
 
             # Safety check: catch the specific issue we're debugging
             if return_type.startswith("list[") or return_type.startswith("List["):
@@ -465,11 +465,11 @@ class EndpointResponseHandlerGenerator:
         else:  # Includes schema-defined models, List[], dict[], Optional[]
             context.add_typing_imports_for_type(return_type)  # Ensure model itself is imported
 
-            # Check if we should use BaseSchema deserialization instead of cast()
+            # Check if we should use cattrs deserialization instead of cast()
             use_base_schema = self._should_use_cattrs_structure(return_type)
 
             if not use_base_schema:
-                # Fallback to cast() for non-BaseSchema types
+                # Fallback to cast() for non-dataclass types
                 context.add_import("typing", "cast")
 
             # Direct deserialization using schemas as-is (no unwrapping)
@@ -537,9 +537,7 @@ class EndpointResponseHandlerGenerator:
                             type_service = UnifiedTypeService(self.schemas)
                             response_type = type_service.resolve_schema_type(resp_schema, context)
                             if self._should_use_cattrs_structure(response_type):
-                                deserialization_code = self._get_cattrs_deserialization_code(
-                                    response_type, data_expr
-                                )
+                                deserialization_code = self._get_cattrs_deserialization_code(response_type, data_expr)
                                 writer.write_line(f"return {deserialization_code}")
                                 self._register_imports_for_type(response_type, context)
                             else:
@@ -758,7 +756,7 @@ class EndpointResponseHandlerGenerator:
             elif python_type == "str":
                 writer.write_line("return response.text")
             elif self._should_use_cattrs_structure(python_type):
-                # Complex type - use BaseSchema deserialization
+                # Complex type - use cattrs deserialization
                 context.add_typing_imports_for_type(python_type)
                 deserialization_code = self._get_cattrs_deserialization_code(python_type, "response.json()")
                 writer.write_line(f"return {deserialization_code}")

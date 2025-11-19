@@ -79,7 +79,10 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
         )
 
     def test_generate_response_handling__wrapper_schema_response__unwraps_data_field(
-        self, generator, code_writer_mock, render_context_mock,
+        self,
+        generator,
+        code_writer_mock,
+        render_context_mock,
     ) -> None:
         """
         Scenario: Response with wrapper schema containing data field (e.g., paginated response)

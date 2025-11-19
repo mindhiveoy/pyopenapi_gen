@@ -178,8 +178,8 @@ class TestMatchCaseResponseGeneration:
         # Verify no unwrapping code appears (since no data wrapper expected)
         assert 'raw_data = response.json().get("data")' not in match_content
 
-        # Should have clean return for success case (now uses BaseSchema)
-        assert "return structure_from_dict(response.json(, Chat))" in match_content
+        # Should have clean return for success case (now uses cattrs)
+        assert "return structure_from_dict(response.json(), Chat)" in match_content
 
     def test_default_response_handling__uses_conditional_case__handles_catch_all(self) -> None:
         """

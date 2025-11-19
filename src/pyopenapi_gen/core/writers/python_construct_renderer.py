@@ -149,14 +149,14 @@ class PythonConstructRenderer:
         field_mappings: dict[str, str] | None = None,
     ) -> str:
         """
-        Render a dataclass as Python code with BaseSchema support.
+        Render a dataclass as Python code with cattrs field mapping support.
 
         Args:
             class_name: The name of the dataclass
             fields: List of (name, type_hint, default_expr, description) tuples for each field
             description: Optional description for the class docstring
             context: The rendering context for import registration
-            field_mappings: Optional mapping of API field names to Python field names for BaseSchema
+            field_mappings: Optional mapping of API field names to Python field names (Meta class)
 
         Returns:
             Formatted Python code for the dataclass
@@ -164,8 +164,8 @@ class PythonConstructRenderer:
         Example:
             ```python
             @dataclass
-            class User(BaseSchema):
-                \"\"\"User information with automatic JSON field mapping.\"\"\"
+            class User:
+                \"\"\"User information with automatic JSON field mapping via cattrs.\"\"\"
                 id_: str
                 first_name: str
                 email: str | None = None

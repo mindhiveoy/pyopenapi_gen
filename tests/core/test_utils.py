@@ -389,10 +389,10 @@ def test_dataclass_serializer__baseschema_with_mappings__uses_api_field_names() 
         class Meta:
             """Field mappings."""
 
-            key_transform_with_load = {
-                "dataSourceId": "data_source_id",
-                "mimeType": "mime_type",
-                "lastModified": "last_modified",
+            key_transform_with_dump = {
+                "data_source_id": "dataSourceId",
+                "mime_type": "mimeType",
+                "last_modified": "lastModified",
             }
 
     obj = DocumentUpdate(data_source_id="source-123", mime_type="text/html", last_modified="2024-10-23")
@@ -439,7 +439,7 @@ def test_dataclass_serializer__nested_baseschema__maps_recursively() -> None:
         class Meta:
             """Field mappings."""
 
-            key_transform_with_load = {"streetName": "street_name", "postalCode": "postal_code"}
+            key_transform_with_dump = {"street_name": "streetName", "postal_code": "postalCode"}
 
     @dataclass
     class User:
@@ -452,10 +452,10 @@ def test_dataclass_serializer__nested_baseschema__maps_recursively() -> None:
         class Meta:
             """Field mappings."""
 
-            key_transform_with_load = {
-                "userId": "user_id",
-                "fullName": "full_name",
-                "homeAddress": "home_address",
+            key_transform_with_dump = {
+                "user_id": "userId",
+                "full_name": "fullName",
+                "home_address": "homeAddress",
             }
 
     address = Address(street_name="Main St", postal_code="12345")
@@ -539,10 +539,10 @@ def test_dataclass_serializer__exclude_none_handling() -> None:
         class Meta:
             """Field mappings."""
 
-            key_transform_with_load = {
-                "requiredField": "required_field",
-                "optionalField": "optional_field",
-                "anotherOptional": "another_optional",
+            key_transform_with_dump = {
+                "required_field": "requiredField",
+                "optional_field": "optionalField",
+                "another_optional": "anotherOptional",
             }
 
     obj = OptionalFields(required_field="present", optional_field=None, another_optional=None)
@@ -584,7 +584,7 @@ def test_dataclass_serializer__list_of_baseschema__maps_all_items() -> None:
         class Meta:
             """Field mappings."""
 
-            key_transform_with_load = {"itemId": "item_id", "itemName": "item_name"}
+            key_transform_with_dump = {"item_id": "itemId", "item_name": "itemName"}
 
     items = [Item(item_id="1", item_name="First"), Item(item_id="2", item_name="Second")]
 

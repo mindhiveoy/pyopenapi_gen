@@ -40,8 +40,8 @@ class TestJsonValueWrapper:
         # Assert
         assert "class JsonValue:" in result
         assert "_data: dict[str, Any] = field(default_factory=dict, repr=False)" in result
-        assert "def from_dict(cls, data: dict[str, Any])" in result
-        assert "def to_dict(self" in result
+        assert "structure_from_dict" in result  # cattrs usage documented
+        assert "unstructure_to_dict" in result  # cattrs usage documented
         assert "def get(self, key: str, default: Any = None)" in result
         assert "def __getitem__(self, key: str)" in result
         assert "def __setitem__(self, key: str, value: Any)" in result
@@ -50,9 +50,6 @@ class TestJsonValueWrapper:
         assert "def keys(self)" in result
         assert "def values(self)" in result
         assert "def items(self)" in result
-
-        # Should not be empty with just pass
-        assert "pass" not in result or "pass" in result and len(result.split("pass")) == 1
 
     def test_generate__object_with_additional_properties_schema__generates_wrapper_class(self) -> None:
         """
@@ -78,8 +75,8 @@ class TestJsonValueWrapper:
         # Assert
         assert "class JsonValue:" in result
         assert "_data: dict[str, Any]" in result
-        assert "from_dict" in result
-        assert "to_dict" in result
+        assert "structure_from_dict" in result  # cattrs usage documented
+        assert "unstructure_to_dict" in result  # cattrs usage documented
 
     def test_generate__object_with_properties__generates_normal_dataclass(self) -> None:
         """
@@ -225,8 +222,8 @@ class TestJsonValueWrapper:
         # Assert
         assert "class JsonValue:" in result
         assert "_data: dict[str, Any] = field(default_factory=dict, repr=False)" in result
-        assert "def from_dict(cls, data: dict[str, Any])" in result
-        assert "def to_dict(self" in result
+        assert "structure_from_dict" in result  # cattrs usage documented
+        assert "unstructure_to_dict" in result  # cattrs usage documented
         assert "def get(self, key: str, default: Any = None)" in result
         assert "def __getitem__(self, key: str)" in result
         assert "def keys(self)" in result

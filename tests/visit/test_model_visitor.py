@@ -623,7 +623,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn('nullable_with_default: str | None = "Nullable Default"', generated_code)
         self.assertIn("tags: List[str] | None = field(default_factory=list)", generated_code)
 
-        # Check for BaseSchema Meta class
+        # Check for Meta class with field mappings (for cattrs)
         self.assertIn("class Meta:", generated_code)
         self.assertIn("key_transform_with_load = {", generated_code)
         self.assertIn('"config": "config_",', generated_code)
@@ -633,7 +633,7 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("Dict", context.import_collector.imports.get("typing", set()))
         self.assertIn("Any", context.import_collector.imports.get("typing", set()))
         # Modern Python 3.10+ doesn't need Optional imports (uses | None syntax)
-        self.assertIn("BaseSchema", context.import_collector.imports.get("core.schemas", set()))
+        # Note: BaseSchema no longer used - now using cattrs with Meta class
         self.assertIn("dataclass", context.import_collector.imports.get("dataclasses", set()))
         self.assertIn("dataclasses", context.import_collector.imports)
         self.assertIn("field", context.import_collector.imports["dataclasses"])

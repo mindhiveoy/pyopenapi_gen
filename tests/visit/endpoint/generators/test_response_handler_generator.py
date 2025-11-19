@@ -803,7 +803,8 @@ class TestEndpointResponseHandlerGenerator:
 
         # Check that the return statement uses the unwrapped data
         assert any(
-            'return structure_from_dict(response.json()["data"], AgentListResponse)' in line for line in written_lines_stripped
+            'return structure_from_dict(response.json()["data"], AgentListResponse)' in line
+            for line in written_lines_stripped
         ), "Expected return statement to use unwrapped data field"
 
 
