@@ -733,6 +733,79 @@ class TestEndpointResponseHandlerGenerator:
         assert "ModelC.from_dict(raw_data)" not in written_code
         assert "return return_value" not in written_code
 
+    def test_generate_response_handling__wrapper_with_data_field__unwraps_data_field(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
+        """
+        Scenario: Response schema is a wrapper object with 'data' field (e.g., paginated response)
+        Expected Outcome: Generated code unwraps the data field using response.json()["data"]
+        """
+        # Arrange - Create a paginated response wrapper schema
+        item_schema = IRSchema(type="object", properties={"id": IRSchema(type="integer")}, name="Agent")
+
+        data_array_schema = IRSchema(type="array", items=item_schema)
+
+        meta_schema = IRSchema(
+            type="object",
+            properties={
+                "page": IRSchema(type="integer"),
+                "pageSize": IRSchema(type="integer"),
+                "total": IRSchema(type="integer"),
+            },
+            name="PaginationMeta",
+        )
+
+        wrapper_schema = IRSchema(
+            type="object",
+            properties={"data": data_array_schema, "meta": meta_schema},
+            name="AgentListResponse",
+        )
+
+        operation = IROperation(
+            operation_id="list_agents",
+            summary="List agents",
+            description="Retrieve all agents with pagination",
+            method=HTTPMethod.GET,
+            path="/api/tenants/{tenantId}/agents",
+            tags=["agents"],
+            parameters=[],
+            request_body=None,
+            responses=[
+                IRResponse(
+                    status_code="200",
+                    description="Successful response",
+                    content={"application/json": wrapper_schema},
+                )
+            ],
+        )
+
+        # Create strategy with the wrapper schema
+        strategy = ResponseStrategy(
+            return_type="AgentListResponse",
+            response_schema=wrapper_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0],
+        )
+
+        generator.schemas = {"AgentListResponse": wrapper_schema, "Agent": item_schema}
+
+        # Act
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
+
+        # Assert
+        written_lines = [call[0][0] for call in code_writer_mock.write_line.call_args_list]
+        written_lines_stripped = [line.strip() for line in written_lines]
+
+        # Check that unwrapping code is generated
+        assert any(
+            'response.json()["data"]' in line for line in written_lines_stripped
+        ), "Expected data field unwrapping in generated code. Generated lines: " + "\n".join(written_lines_stripped)
+
+        # Check that the return statement uses the unwrapped data
+        assert any(
+            'return AgentListResponse.from_dict(response.json()["data"])' in line for line in written_lines_stripped
+        ), "Expected return statement to use unwrapped data field"
+
 
 if __name__ == "__main__":
     unittest.main()

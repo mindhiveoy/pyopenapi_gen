@@ -182,16 +182,15 @@ class PythonConstructRenderer:
         writer = CodeWriter()
         context.add_import("dataclasses", "dataclass")
 
-        # Always use self-contained BaseSchema for client independence with automatic field mapping
-        # Use absolute core import path - add_import will handle it correctly
-        context.add_import(f"{context.core_package_name}.schemas", "BaseSchema")
+        # No BaseSchema needed - using cattrs for serialization
+        # Field mappings will be handled by cattrs converter
 
         # Add __all__ export
         writer.write_line(f'__all__ = ["{class_name}"]')
         writer.write_line("")  # Add a blank line for separation
 
         writer.write_line("@dataclass")
-        writer.write_line(f"class {class_name}(BaseSchema):")
+        writer.write_line(f"class {class_name}:")
         writer.indent()
 
         # Build and write docstring
@@ -199,9 +198,9 @@ class PythonConstructRenderer:
         for name, type_hint, _, field_desc in fields:
             field_args.append((name, type_hint, field_desc or ""))
 
-        # Enhanced description with automatic field mapping
+        # Simple description
         base_description = description or f"{class_name} dataclass"
-        enhanced_description = f"{base_description} with automatic JSON field mapping."
+        enhanced_description = base_description
 
         doc_block = DocumentationBlock(
             summary=enhanced_description,

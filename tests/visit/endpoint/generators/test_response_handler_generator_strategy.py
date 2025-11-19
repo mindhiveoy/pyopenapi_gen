@@ -78,12 +78,12 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
             for c in code_writer_mock.write_line.call_args_list
         )
 
-    def test_generate_response_handling__wrapper_schema_response__uses_schema_as_is(
-        self, generator, code_writer_mock, render_context_mock
+    def test_generate_response_handling__wrapper_schema_response__unwraps_data_field(
+        self, generator, code_writer_mock, render_context_mock,
     ) -> None:
         """
-        Scenario: Response with wrapper schema containing data field
-        Expected Outcome: Uses the wrapper schema as-is, no unwrapping (matches OpenAPI spec exactly)
+        Scenario: Response with wrapper schema containing data field (e.g., paginated response)
+        Expected Outcome: Automatically unwraps the data field using response.json()["data"]
         """
         # Arrange
         user_schema = IRSchema(type="object", name="User")
@@ -121,10 +121,10 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
 
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
-        # Should use the wrapper schema as-is (no unwrapping)
-        assert "return UserResponse.from_dict(response.json())" in written_code
-        # Should NOT contain unwrapping logic
-        assert "raw_data = response.json().get('data')" not in written_code
+        # NEW BEHAVIOUR: Should unwrap the data field automatically
+        assert 'UserResponse.from_dict(response.json()["data"])' in written_code
+        # Should NOT use response.json() without unwrapping
+        assert "return UserResponse.from_dict(response.json())" not in written_code
 
     def test_generate_response_handling__none_return_type__generates_return_none(
         self, generator, code_writer_mock, render_context_mock
