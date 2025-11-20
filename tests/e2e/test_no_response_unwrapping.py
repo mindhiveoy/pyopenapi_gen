@@ -98,14 +98,14 @@ def test_response_with_data_field__no_automatic_unwrapping() -> None:
 
         # NEW BEHAVIOR: No automatic unwrapping
         # Even though VectorDatabaseListResponse has a "data" field, we use full response.json()
-        assert "return structure_from_dict(response.json(), VectorDatabaseListResponse)" in endpoint_content, (
-            "Should use response.json() directly without unwrapping"
-        )
+        assert (
+            "return structure_from_dict(response.json(), VectorDatabaseListResponse)" in endpoint_content
+        ), "Should use response.json() directly without unwrapping"
 
         # Verify NO unwrapping happens
-        assert 'response.json()["data"]' not in endpoint_content, (
-            "Should NOT automatically unwrap data field - this was the bug we're fixing"
-        )
+        assert (
+            'response.json()["data"]' not in endpoint_content
+        ), "Should NOT automatically unwrap data field - this was the bug we're fixing"
 
         # Additional check: The response schema should be imported correctly
         assert "from ..models.vector_database_list_response import VectorDatabaseListResponse" in endpoint_content
@@ -128,9 +128,7 @@ def test_simple_response_without_data_field__uses_response_json() -> None:
                 "get": {
                     "operationId": "get_user",
                     "summary": "Get user by ID",
-                    "parameters": [
-                        {"name": "userId", "in": "path", "required": True, "schema": {"type": "string"}}
-                    ],
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "string"}}],
                     "responses": {
                         "200": {
                             "description": "Success",
@@ -180,9 +178,9 @@ def test_simple_response_without_data_field__uses_response_json() -> None:
         endpoint_content = endpoint_file.read_text()
 
         # Should use response.json() directly
-        assert "return structure_from_dict(response.json(), User)" in endpoint_content, (
-            "Should use response.json() directly for simple schemas"
-        )
+        assert (
+            "return structure_from_dict(response.json(), User)" in endpoint_content
+        ), "Should use response.json() directly for simple schemas"
 
         # Verify NO unwrapping
         assert 'response.json()["data"]' not in endpoint_content, "Should NOT unwrap data field"

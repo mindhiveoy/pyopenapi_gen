@@ -799,8 +799,7 @@ class TestEndpointResponseHandlerGenerator:
         # NEW BEHAVIOR: No automatic unwrapping - use full response.json()
         # Even if the schema has a "data" property, we treat it as part of the response structure
         assert any(
-            "return structure_from_dict(response.json(), AgentListResponse)" in line
-            for line in written_lines_stripped
+            "return structure_from_dict(response.json(), AgentListResponse)" in line for line in written_lines_stripped
         ), "Expected return statement to use full response.json() without unwrapping. Generated lines: " + "\n".join(
             written_lines_stripped
         )
