@@ -8,8 +8,6 @@ API responses to ensure the converter works correctly for nested structures.
 from dataclasses import dataclass, field
 from typing import List
 
-import pytest
-
 from pyopenapi_gen.core.cattrs_converter import structure_from_dict, unstructure_to_dict
 
 

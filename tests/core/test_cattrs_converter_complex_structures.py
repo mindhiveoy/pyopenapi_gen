@@ -11,12 +11,9 @@ Tests various real-world API response patterns including:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Union
-
-import pytest
+from typing import List
 
 from pyopenapi_gen.core.cattrs_converter import structure_from_dict, unstructure_to_dict
-
 
 # ===== Test 1: Array at Root Level =====
 

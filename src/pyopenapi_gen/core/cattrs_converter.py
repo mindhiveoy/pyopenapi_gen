@@ -119,15 +119,15 @@ def _make_dataclass_structure_fn(cls: Type[T]) -> Any:
         with automatic field name transformation.
     """
     # Get field renaming map (JSON key → Python field name)
-    field_overrides = {}
+    field_overrides: dict[str, Any] = {}
     if dataclasses.is_dataclass(cls):
         for field in dataclasses.fields(cls):
             python_name = field.name
             json_key = python_name  # Default: no transformation
 
             # Check if class has Meta with explicit mappings
-            if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_load"):
-                mappings = cls.Meta.key_transform_with_load
+            if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_load"):  # type: ignore[attr-defined]
+                mappings: dict[str, str] = cls.Meta.key_transform_with_load  # type: ignore[attr-defined]
                 # Meta.key_transform_with_load is: {"json_key": "python_field"}
                 # Find the JSON key that maps to this Python field
                 for jk, pf in mappings.items():
@@ -161,7 +161,7 @@ def _make_dataclass_unstructure_fn(cls: Type[T]) -> Any:
         with automatic field name transformation.
     """
     # Get field renaming map (Python field name → JSON key)
-    field_overrides = {}
+    field_overrides: dict[str, Any] = {}
     if dataclasses.is_dataclass(cls):
         for field in dataclasses.fields(cls):
             python_name = field.name
@@ -169,8 +169,8 @@ def _make_dataclass_unstructure_fn(cls: Type[T]) -> Any:
             json_key = snake_to_camel(python_name)
 
             # Check if class has Meta with explicit mappings
-            if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_dump"):
-                mappings = cls.Meta.key_transform_with_dump
+            if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_dump"):  # type: ignore[attr-defined]
+                mappings: dict[str, str] = cls.Meta.key_transform_with_dump  # type: ignore[attr-defined]
                 # Use explicit mapping if available
                 json_key = mappings.get(python_name, json_key)
 
@@ -249,14 +249,20 @@ def _register_structure_hooks_recursively(cls: Type[Any], visited: set[Type[Any]
     try:
         # Use closure to capture cls value
         def make_hook(captured_cls: Type[Any]) -> Any:
-            return lambda d, t: _make_dataclass_structure_fn(captured_cls)(d, t)
+            def hook(d: dict[str, Any], t: Type[Any]) -> Any:
+                return _make_dataclass_structure_fn(captured_cls)(d, t)
+
+            return hook
+
+        def predicate(t: Type[Any], captured_cls: Type[Any] = cls) -> bool:
+            return t is captured_cls
 
         converter.register_structure_hook_func(
-            lambda t, captured_cls=cls: t is captured_cls,
+            predicate,
             make_hook(cls),
         )
-    except Exception:
-        # Hook might already be registered
+    except Exception:  # nosec B110
+        # Hook might already be registered - this is expected and safe to ignore
         pass
 
     # Recursively register hooks for nested dataclass fields
@@ -266,7 +272,7 @@ def _register_structure_hooks_recursively(cls: Type[Any], visited: set[Type[Any]
         field_type = field.type
 
         # Handle direct dataclass types
-        if dataclasses.is_dataclass(field_type):
+        if isinstance(field_type, type) and dataclasses.is_dataclass(field_type):
             _register_structure_hooks_recursively(field_type, visited)
             continue
 
@@ -338,14 +344,20 @@ def _register_unstructure_hooks_recursively(cls: Type[Any], visited: set[Type[An
     try:
         # Use closure to capture cls value
         def make_hook(captured_cls: Type[Any]) -> Any:
-            return lambda obj: _make_dataclass_unstructure_fn(captured_cls)(obj)
+            def hook(obj: Any) -> Any:
+                return _make_dataclass_unstructure_fn(captured_cls)(obj)
+
+            return hook
+
+        def predicate(t: Type[Any], captured_cls: Type[Any] = cls) -> bool:
+            return t is captured_cls
 
         converter.register_unstructure_hook_func(
-            lambda t, captured_cls=cls: t is captured_cls,
+            predicate,
             make_hook(cls),
         )
-    except Exception:
-        # Hook might already be registered
+    except Exception:  # nosec B110
+        # Hook might already be registered - this is expected and safe to ignore
         pass
 
     # Recursively register hooks for nested dataclass fields
@@ -355,7 +367,7 @@ def _register_unstructure_hooks_recursively(cls: Type[Any], visited: set[Type[An
         field_type = field.type
 
         # Handle direct dataclass types
-        if dataclasses.is_dataclass(field_type):
+        if isinstance(field_type, type) and dataclasses.is_dataclass(field_type):
             _register_unstructure_hooks_recursively(field_type, visited)
             continue
 
@@ -393,7 +405,8 @@ def unstructure_to_dict(instance: Any) -> dict[str, Any]:
     if dataclasses.is_dataclass(cls):
         _register_unstructure_hooks_recursively(cls)
 
-    return converter.unstructure(instance)
+    result: dict[str, Any] = converter.unstructure(instance)
+    return result
 
 
 __all__ = [

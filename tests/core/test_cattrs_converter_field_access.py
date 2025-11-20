@@ -12,8 +12,6 @@ with correct types. No defensive coding needed.
 from dataclasses import dataclass, field
 from typing import List
 
-import pytest
-
 from pyopenapi_gen.core.cattrs_converter import structure_from_dict
 
 
@@ -501,7 +499,12 @@ def test_direct_field_access__nested_field_chain__no_intermediate_checks():
         "orderItems": [
             {
                 "itemId": 1,
-                "productInfo": {"productId": 701, "productName": "Deep Nested Item", "unitPrice": 99.99, "inStock": True},
+                "productInfo": {
+                    "productId": 701,
+                    "productName": "Deep Nested Item",
+                    "unitPrice": 99.99,
+                    "inStock": True,
+                },
                 "orderQuantity": 5,
             }
         ],
