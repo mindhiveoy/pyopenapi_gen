@@ -124,10 +124,11 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
 
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
-        # NEW BEHAVIOUR: Should unwrap the data field automatically
-        assert 'structure_from_dict(response.json()["data"], UserResponse)' in written_code
-        # Should NOT use response.json() without unwrapping
-        assert "return structure_from_dict(response.json(), UserResponse)" not in written_code
+        # NEW BEHAVIOR: No automatic unwrapping - use full response.json()
+        # Even if the schema has a "data" property, we treat it as part of the response structure
+        assert "return structure_from_dict(response.json(), UserResponse)" in written_code
+        # Should NOT unwrap data field automatically
+        assert 'response.json()["data"]' not in written_code
 
     def test_generate_response_handling__none_return_type__generates_return_none(
         self, generator, code_writer_mock, render_context_mock
