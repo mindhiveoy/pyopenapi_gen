@@ -796,16 +796,19 @@ class TestEndpointResponseHandlerGenerator:
         written_lines = [call[0][0] for call in code_writer_mock.write_line.call_args_list]
         written_lines_stripped = [line.strip() for line in written_lines]
 
-        # Check that unwrapping code is generated
+        # NEW BEHAVIOR: No automatic unwrapping - use full response.json()
+        # Even if the schema has a "data" property, we treat it as part of the response structure
         assert any(
-            'response.json()["data"]' in line for line in written_lines_stripped
-        ), "Expected data field unwrapping in generated code. Generated lines: " + "\n".join(written_lines_stripped)
-
-        # Check that the return statement uses the unwrapped data
-        assert any(
-            'return structure_from_dict(response.json()["data"], AgentListResponse)' in line
+            "return structure_from_dict(response.json(), AgentListResponse)" in line
             for line in written_lines_stripped
-        ), "Expected return statement to use unwrapped data field"
+        ), "Expected return statement to use full response.json() without unwrapping. Generated lines: " + "\n".join(
+            written_lines_stripped
+        )
+
+        # Verify NO unwrapping happens
+        assert not any(
+            'response.json()["data"]' in line for line in written_lines_stripped
+        ), "Should NOT unwrap data field automatically"
 
 
 if __name__ == "__main__":

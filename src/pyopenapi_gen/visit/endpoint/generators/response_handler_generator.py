@@ -290,62 +290,6 @@ class EndpointResponseHandlerGenerator:
             item_type = self._extract_array_item_type(return_type)
             context.add_typing_imports_for_type(item_type)
 
-    def _is_wrapper_schema(self, schema: IRSchema | None) -> bool:
-        """
-        Check if a schema is a wrapper object with a 'data' field.
-
-        A wrapper schema is an object with:
-        - type: "object"
-        - properties containing a "data" field
-        - Optionally other fields like "meta", "pagination", etc.
-
-        Args:
-            schema: The schema to check
-
-        Returns:
-            True if this is a wrapper schema with a 'data' field
-        """
-        if not schema:
-            return False
-
-        # Must be an object type
-        if not hasattr(schema, "type") or schema.type != "object":
-            return False
-
-        # Must have properties
-        if not hasattr(schema, "properties") or not schema.properties:
-            return False
-
-        # Must have a 'data' property
-        return "data" in schema.properties
-
-    def _get_unwrapped_data_expression(self, schema: IRSchema | None, base_expr: str) -> tuple[str, IRSchema | None]:
-        """
-        Get the expression to access the unwrapped data and its schema.
-
-        Args:
-            schema: The wrapper schema
-            base_expr: The base expression (e.g., "response.json()")
-
-        Returns:
-            Tuple of (data_expression, data_schema)
-            - If wrapper detected: (base_expr + '["data"]', data_schema)
-            - If not wrapper: (base_expr, schema)
-        """
-        if not self._is_wrapper_schema(schema):
-            return base_expr, schema
-
-        # Extract the data field schema
-        data_schema = schema.properties.get("data")  # type: ignore[union-attr]
-        data_expr = f'{base_expr}["data"]'
-
-        logger.info(
-            f"Detected wrapper response schema '{getattr(schema, 'name', 'unnamed')}' with 'data' field. "
-            f"Will unwrap using: {data_expr}"
-        )
-
-        return data_expr, data_schema
-
     def _get_cattrs_deserialization_code(self, return_type: str, data_expr: str) -> str:
         """
         Generate cattrs deserialization code for a given type.
@@ -529,10 +473,8 @@ class EndpointResponseHandlerGenerator:
                         # Resolve the specific return type for this response
                         resp_schema = self._get_response_schema(resp_ir)
                         if resp_schema:
-                            # Check if we need to unwrap this response
-                            data_expr, unwrapped_schema = self._get_unwrapped_data_expression(
-                                resp_schema, "response.json()"
-                            )
+                            # Use response.json() directly - no automatic unwrapping
+                            data_expr = "response.json()"
 
                             type_service = UnifiedTypeService(self.schemas)
                             response_type = type_service.resolve_schema_type(resp_schema, context)
@@ -615,10 +557,10 @@ class EndpointResponseHandlerGenerator:
                 writer.write_line("return  # Explicit return for async generator")
             return
 
-        # Check if we need to unwrap a wrapper response (e.g., { data: [...], meta: {...} })
-        data_expr, unwrapped_schema = self._get_unwrapped_data_expression(strategy.response_schema, "response.json()")
+        # Use response.json() directly - no automatic unwrapping
+        data_expr = "response.json()"
 
-        # Handle responses using the schema (with unwrapping if needed)
+        # Handle responses using the schema
         if strategy.return_type.startswith("Union["):
             # Check if this is a multi-content-type Union (has content_type_mapping)
             if strategy.content_type_mapping:
