@@ -2,7 +2,7 @@ name: Claude Auto-Approve
 
 on:
   workflow_run:
-    workflows: ["Claude Code"]
+    workflows: ["Claude Code", "Dependabot Poetry Lock Fix"]
     types: [completed]
   issue_comment:
     types: [created]
@@ -55,18 +55,81 @@ jobs:
             core.setOutput('pr_number', prNumber);
             return prNumber;
       
+      - name: Wait for Poetry lock fix workflow
+        id: wait_poetry_fix
+        if: steps.pr_number.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ steps.pr_number.outputs.pr_number }}';
+
+            if (!prNumber || prNumber === 'null') {
+              return { should_wait: false };
+            }
+
+            // Get PR details
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: parseInt(prNumber)
+            });
+
+            // Only wait for dependabot PRs
+            if (pr.user.login !== 'dependabot[bot]') {
+              console.log('Not a dependabot PR, no need to wait');
+              return { should_wait: false };
+            }
+
+            console.log('Dependabot PR detected, checking for Poetry lock fix workflow...');
+
+            // Get check runs for the PR
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha,
+              per_page: 100
+            });
+
+            // Look for the Poetry lock fix workflow
+            const poetryFixRun = checkRuns.check_runs.find(
+              run => run.name === 'fix-poetry-lock'
+            );
+
+            if (!poetryFixRun) {
+              console.log('Poetry lock fix workflow not found, PR likely has no conflicts');
+              return { should_wait: false };
+            }
+
+            console.log(`Poetry lock fix workflow status: ${poetryFixRun.status}, conclusion: ${poetryFixRun.conclusion}`);
+
+            // If workflow is still running, we should wait
+            if (poetryFixRun.status !== 'completed') {
+              console.log('⏳ Poetry lock fix workflow still running, will retry later');
+              core.setFailed('Poetry lock fix workflow not completed yet');
+              return { should_wait: true };
+            }
+
+            // If workflow failed, don't auto-approve
+            if (poetryFixRun.conclusion !== 'success') {
+              console.log('❌ Poetry lock fix workflow failed');
+              return { should_wait: false, poetry_fix_failed: true };
+            }
+
+            console.log('✅ Poetry lock fix workflow completed successfully');
+            return { should_wait: false, poetry_fix_success: true };
+
       - name: Check if PR can be auto-approved
         id: check_approval
         if: steps.pr_number.outputs.pr_number != ''
         run: |
           pr_number="${{ steps.pr_number.outputs.pr_number }}"
-          
+
           if [[ -z "$pr_number" || "$pr_number" == "null" ]]; then
             echo "No PR number found, skipping auto-approval"
             echo "auto_approve=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Get PR details
           pr_data=$(gh pr view $pr_number --json author,title,baseRefName,mergeable,reviewDecision,headRefName)
           pr_author=$(echo "$pr_data" | jq -r '.author.login')
@@ -75,36 +138,37 @@ jobs:
           pr_head=$(echo "$pr_data" | jq -r '.headRefName')
           pr_mergeable=$(echo "$pr_data" | jq -r '.mergeable')
           review_decision=$(echo "$pr_data" | jq -r '.reviewDecision')
-          
+
           echo "PR #$pr_number Analysis:"
           echo "  Author: $pr_author"
-          echo "  Title: $pr_title" 
+          echo "  Title: $pr_title"
           echo "  Base: $pr_base"
           echo "  Head: $pr_head"
           echo "  Mergeable: $pr_mergeable"
           echo "  Review Decision: $review_decision"
-          
+
           # Check if this is an eligible PR for auto-approval
           auto_approve=false
-          
+
           # Auto-approve conditions:
           # 1. Hotfix branches (fix critical issues)
           # 2. DevOps bot PRs with fix/chore/release prefixes
-          # 3. Dependabot PRs
+          # 3. Dependabot PRs (but only if mergeable - conflicts should be resolved by now)
           if [[ "$pr_head" =~ ^hotfix/ ]] || \
              [[ "$pr_author" == "dependabot[bot]" ]] || \
              ([[ "$pr_author" == "devops-mindhive" ]] && [[ "$pr_title" =~ ^(fix|chore|release): ]]); then
-            
+
             if [[ "$pr_mergeable" == "MERGEABLE" ]]; then
               auto_approve=true
               echo "✅ PR eligible for auto-approval"
             else
               echo "❌ PR not mergeable, skipping auto-approval"
+              echo "💡 For dependabot PRs, conflicts should have been auto-resolved by Poetry lock fix workflow"
             fi
           else
             echo "❌ PR does not meet auto-approval criteria"
           fi
-          
+
           echo "auto_approve=$auto_approve" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
