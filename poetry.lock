@@ -3122,4 +3122,4 @@ dev = ["bandit", "black", "dataclass-wizard", "httpx", "mypy", "pytest", "pytest
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0.0"
-content-hash = "ef035727500ab80b0a1ac2004a7cd4d7903b9bfa64aaf62258af6e8aa1990430"
+content-hash = "11084bc7a48b3db8787b6c80332fa2e93f21e9175f8e4bcc58be3968f56b1559"
