@@ -31,12 +31,37 @@ jobs:
         fetch-depth: 0
         token: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
+    - name: Check if triggered by release commit
+      id: check_trigger
+      run: |
+        # Get the commit author and message
+        COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')
+        COMMIT_EMAIL=$(git log -1 --pretty=format:'%ae')
+        COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')
+
+        echo "Commit author: $COMMIT_AUTHOR <$COMMIT_EMAIL>"
+        echo "Commit message: $COMMIT_MESSAGE"
+
+        # Skip if commit is from semantic-release or github-actions
+        if [[ "$COMMIT_AUTHOR" == "semantic-release" ]] || \
+           [[ "$COMMIT_EMAIL" == "semantic-release" ]] || \
+           [[ "$COMMIT_AUTHOR" == *"github-actions"* ]] || \
+           [[ "$COMMIT_MESSAGE" == "chore(release):"* ]]; then
+          echo "skip_release=true" >> $GITHUB_OUTPUT
+          echo "⏭️ Skipping release - commit is from automated release process"
+        else
+          echo "skip_release=false" >> $GITHUB_OUTPUT
+          echo "✅ Proceeding with release check"
+        fi
+
     - name: Set up Python
+      if: steps.check_trigger.outputs.skip_release != 'true'
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
     - name: Install Poetry
+      if: steps.check_trigger.outputs.skip_release != 'true'
       uses: snok/install-poetry@v1
       with:
         version: latest
@@ -45,10 +70,12 @@ jobs:
         virtualenvs-path: .venv
 
     - name: Install dependencies
+      if: steps.check_trigger.outputs.skip_release != 'true'
       run: |
         poetry install --with dev
 
     - name: Check for release-worthy changes
+      if: steps.check_trigger.outputs.skip_release != 'true'
       id: check_changes
       run: |
         # Check if there are any commits since the last tag that would trigger a release
@@ -102,7 +129,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add src/pyopenapi_gen/__init__.py
-          git commit -m "chore(release): sync __init__.py version [skip ci]"
+          git commit -m "chore(release): sync __init__.py version"
           git push origin main
           echo "✅ Version sync complete and committed"
         fi
