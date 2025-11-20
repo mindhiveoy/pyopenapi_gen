@@ -55,13 +55,13 @@ jobs:
         fi
 
     - name: Set up Python
-      if: steps.check_trigger.outputs.skip_release != 'true'
+      if: steps.check_trigger.outputs.skip_release != 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
     - name: Install Poetry
-      if: steps.check_trigger.outputs.skip_release != 'true'
+      if: steps.check_trigger.outputs.skip_release != 'true' || github.event_name == 'workflow_dispatch'
       uses: snok/install-poetry@v1
       with:
         version: latest
@@ -70,12 +70,12 @@ jobs:
         virtualenvs-path: .venv
 
     - name: Install dependencies
-      if: steps.check_trigger.outputs.skip_release != 'true'
+      if: steps.check_trigger.outputs.skip_release != 'true' || github.event_name == 'workflow_dispatch'
       run: |
         poetry install --with dev
 
     - name: Check for release-worthy changes
-      if: steps.check_trigger.outputs.skip_release != 'true'
+      if: steps.check_trigger.outputs.skip_release != 'true' || github.event_name == 'workflow_dispatch'
       id: check_changes
       run: |
         # Check if there are any commits since the last tag that would trigger a release
