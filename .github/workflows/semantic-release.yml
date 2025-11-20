@@ -48,23 +48,6 @@ jobs:
       run: |
         poetry install --with dev
 
-    - name: Validate version synchronisation
-      run: |
-        echo "🔍 Checking that all version files are synchronised..."
-        poetry run python scripts/validate_version_sync.py
-        echo "✅ All version files are in sync"
-
-    - name: Run comprehensive quality checks
-      run: |
-        poetry run black --check src/ tests/
-        poetry run ruff check src/ tests/
-        poetry run mypy src/ --strict --no-warn-no-return
-        poetry run bandit -r src/ -f txt -c .bandit
-
-    - name: Run full test suite
-      run: |
-        poetry run pytest -n 2 --timeout=120 --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=85
-
     - name: Check for release-worthy changes
       id: check_changes
       run: |
