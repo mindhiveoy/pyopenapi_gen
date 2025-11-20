@@ -14,8 +14,84 @@ The Claude GitHub App is configured with extensive permissions to independently 
   - Type checking errors
   - Security issues
   - Small bugs and improvements
+  - Poetry lock conflicts (see Poetry Lock Conflict Resolution below)
 - **Quality Assurance**: Runs `make quality` and `make test` to ensure all changes meet standards
 - **Merge Decisions**: Approves and merges PRs when all criteria are met
+
+### Poetry Lock Conflict Resolution
+
+**AUTOMATIC RESOLUTION PROTOCOL**: When a dependabot PR has merge conflicts in `pyproject.toml` or `poetry.lock`:
+
+#### Detection
+- Monitor dependabot PRs for merge conflicts
+- Check if conflicts are limited to `pyproject.toml` and/or `poetry.lock`
+- Verify the PR is a straightforward dependency update (no breaking changes)
+
+#### Resolution Steps
+1. **Checkout the PR branch**:
+   ```bash
+   git fetch origin <branch-name>
+   git checkout <branch-name>
+   ```
+
+2. **Merge and resolve conflicts**:
+   ```bash
+   # Fetch latest base branch (usually develop or main)
+   git fetch origin <base-branch>
+   git merge origin/<base-branch>
+   ```
+
+3. **For pyproject.toml conflicts**:
+   - Accept base branch version: `git checkout --theirs pyproject.toml`
+   - Update only the specific dependency version from the PR
+   - Keep all other dependencies from base branch
+
+4. **For poetry.lock conflicts**:
+   - Accept base branch version: `git checkout --theirs poetry.lock`
+   - **CRITICAL**: Always regenerate lock file after updating pyproject.toml:
+     ```bash
+     source .venv/bin/activate
+     poetry lock  # Regenerate with updated dependencies
+     ```
+
+5. **Verify dependency resolution**:
+   ```bash
+   source .venv/bin/activate
+   poetry install  # MUST succeed - confirms dependency resolution is correct
+   ```
+   - If `poetry install` fails, it indicates a dependency conflict
+   - Do NOT proceed if poetry install fails - escalate to human review
+
+6. **Run quality gates and tests**:
+   ```bash
+   make quality  # Must pass: formatting, linting, type checking, security
+   make test     # Must pass: all tests with 85%+ coverage
+   ```
+
+7. **Commit and push resolution**:
+   ```bash
+   git add pyproject.toml poetry.lock
+   git commit -m "chore(deps): resolve merge conflict - update to <package> <version>"
+   git push origin <branch-name>
+   ```
+
+#### Quality Gates
+- ✅ All formatting checks pass (Black)
+- ✅ All linting checks pass (Ruff)
+- ✅ All type checks pass (mypy strict)
+- ✅ All security checks pass (Bandit)
+- ✅ All tests pass (1344 tests)
+- ✅ Code coverage ≥85%
+
+#### When to Escalate
+Do NOT auto-resolve if:
+- Multiple dependency updates in single PR
+- Breaking changes indicated in changelog
+- Test failures after resolution
+- Security vulnerabilities detected
+- Conflicts extend beyond `pyproject.toml` and `poetry.lock`
+
+Create an issue for human review in these cases.
 
 ### Repository Management
 - **Issue Creation**: Creates detailed issues for complex problems that need human attention
