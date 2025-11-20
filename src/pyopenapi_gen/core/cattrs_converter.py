@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import dataclasses
 import re
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import cattrs
@@ -217,6 +218,90 @@ converter.register_structure_hook(bytes, structure_with_base64_bytes)
 converter.register_unstructure_hook(bytes, unstructure_bytes_to_base64)
 
 
+def structure_datetime(data: str | datetime, _: Type[datetime]) -> datetime:
+    """
+    Structure hook for datetime fields.
+
+    Handles OpenAPI format "date-time" which is ISO 8601 string.
+
+    Args:
+        data: Either ISO 8601 string or datetime object
+        _: Target type (datetime)
+
+    Returns:
+        datetime object
+
+    Raises:
+        ValueError: If string is not valid ISO 8601 format
+    """
+    if isinstance(data, datetime):
+        return data
+    if isinstance(data, str):
+        # Try ISO 8601 format with timezone
+        try:
+            return datetime.fromisoformat(data.replace("Z", "+00:00"))
+        except ValueError:
+            # Try without timezone
+            return datetime.fromisoformat(data)
+    raise TypeError(f"Cannot convert {type(data)} to datetime")
+
+
+def unstructure_datetime(data: datetime) -> str:
+    """
+    Unstructure hook for datetime to ISO 8601 string.
+
+    Args:
+        data: datetime object
+
+    Returns:
+        ISO 8601 formatted string
+    """
+    return data.isoformat()
+
+
+def structure_date(data: str | date, _: Type[date]) -> date:
+    """
+    Structure hook for date fields.
+
+    Handles OpenAPI format "date" which is ISO 8601 date string.
+
+    Args:
+        data: Either ISO 8601 date string or date object
+        _: Target type (date)
+
+    Returns:
+        date object
+
+    Raises:
+        ValueError: If string is not valid ISO 8601 date format
+    """
+    if isinstance(data, date):
+        return data
+    if isinstance(data, str):
+        return date.fromisoformat(data)
+    raise TypeError(f"Cannot convert {type(data)} to date")
+
+
+def unstructure_date(data: date) -> str:
+    """
+    Unstructure hook for date to ISO 8601 string.
+
+    Args:
+        data: date object
+
+    Returns:
+        ISO 8601 formatted date string (YYYY-MM-DD)
+    """
+    return data.isoformat()
+
+
+# Register datetime and date handling
+converter.register_structure_hook(datetime, structure_datetime)
+converter.register_unstructure_hook(datetime, unstructure_datetime)
+converter.register_structure_hook(date, structure_date)
+converter.register_unstructure_hook(date, unstructure_date)
+
+
 def _register_structure_hooks_recursively(cls: Type[Any], visited: set[Type[Any]] | None = None) -> None:
     """
     Recursively register structure hooks for a dataclass and all its nested dataclass types.
@@ -415,6 +500,10 @@ __all__ = [
     "unstructure_to_dict",
     "structure_with_base64_bytes",
     "unstructure_bytes_to_base64",
+    "structure_datetime",
+    "unstructure_datetime",
+    "structure_date",
+    "unstructure_date",
     "camel_to_snake",
     "snake_to_camel",
 ]
