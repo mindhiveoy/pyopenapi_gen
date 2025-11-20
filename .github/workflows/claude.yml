@@ -49,6 +49,13 @@ jobs:
             The CI pipeline already handles: Black, Ruff, mypy, Bandit, and pytest.
             Focus on code logic, architecture, and security only.
 
+            **For Dependabot PRs with Poetry lock conflicts:**
+            1. Check if conflicts are only in `pyproject.toml` and/or `poetry.lock`
+            2. If yes, follow the Poetry Lock Conflict Resolution protocol in CLAUDE.md
+            3. Resolve conflicts, regenerate lock file, run quality checks and tests
+            4. Commit and push the resolution
+            5. Comment on PR with resolution details
+
             **For hotfixes and minor fixes:**
             1. If code logic is sound and architecture is good, fix any issues directly
             2. Provide detailed analysis in comments
@@ -65,6 +72,7 @@ jobs:
             - Architecture decisions and design patterns
             - API compatibility and breaking changes
             - Algorithm efficiency and performance implications
+            - Poetry lock conflict resolution (for dependabot PRs)
 
             **Skip (CI handles these):**
             - Formatting checks (Black)
