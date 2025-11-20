@@ -375,8 +375,8 @@ class TestEndpointResponseHandlerGeneratorWithStrategy:
 
         assert "match response.status_code:" in written_code
         assert "case 200:" in written_code
-        # Should handle list deserialization
-        assert "[structure_from_dict(item, User) for item in response.json()]" in written_code
+        # Should handle list deserialization using generic cattrs approach
+        assert "structure_from_dict(response.json(), List[User])" in written_code
 
     def test_generate_response_handling__multiple_success_responses__handles_all_success_codes(
         self, generator, code_writer_mock, render_context_mock

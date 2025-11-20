@@ -303,17 +303,12 @@ class EndpointResponseHandlerGenerator:
         """
         # Check if this is an array type alias (e.g., AgentListResponse = List[AgentListResponseItem])
         if self._is_type_alias_to_array(return_type):
-            # Extract the item type from the type alias
-            item_type = self._extract_array_item_type(return_type)
-            return f"[structure_from_dict(item, {item_type}) for item in {data_expr}]"
+            # Use the type alias directly - cattrs handles List[Type] natively
+            return f"structure_from_dict({data_expr}, {return_type})"
 
         if return_type.startswith("List[") or return_type.startswith("list["):
-            # Handle List[Model] or list[Model] types
-            if return_type.startswith("List["):
-                item_type = return_type[5:-1]  # Remove 'List[' and ']'
-            else:  # starts with "list["
-                item_type = return_type[5:-1]  # Remove 'list[' and ']'
-            return f"[structure_from_dict(item, {item_type}) for item in {data_expr}]"
+            # Handle List[Model] or list[Model] types - cattrs handles this natively
+            return f"structure_from_dict({data_expr}, {return_type})"
         elif return_type.startswith("Optional["):
             # SANITY CHECK: Unified type system should never produce Optional[X]
             logger.error(
