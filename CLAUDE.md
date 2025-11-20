@@ -113,6 +113,96 @@ The Claude GitHub App has the following permissions:
 2. **Manual**: Comment `@claude` on any PR, issue, or review to request assistance
 3. **On PR Events**: New PRs automatically get Claude attention for quality review
 
+## Semantic Release & Commit Conventions
+
+### Critical: Commit Message Naming for Release PRs
+
+**NEVER use `chore(release):` prefix in PR titles or manual commits** - this prefix is reserved exclusively for semantic-release bot's automated commits.
+
+#### Why This Matters
+
+The semantic-release workflow has a skip condition that prevents infinite loops:
+```yaml
+if [[ "$COMMIT_MESSAGE" == "chore(release):"* ]]; then
+  echo "skip_release=true"
+```
+
+When a PR to main uses `chore(release):` in its merge commit:
+1. ❌ Semantic-release workflow detects the prefix
+2. ❌ Workflow sets `skip_release=true` and exits
+3. ❌ No version bump, no changelog, no release created
+4. ❌ Must manually trigger workflow to create release
+
+#### Correct Commit Prefixes for Release PRs
+
+Use standard conventional commit prefixes based on the changes:
+
+**For Feature PRs to main:**
+```bash
+feat(scope): description
+# Example: feat(core): add datetime handling to cattrs converter
+```
+
+**For Bug Fix PRs to main:**
+```bash
+fix(scope): description
+# Example: fix(core): resolve array item schema false positive cycle detection
+```
+
+**For Dependency Updates:**
+```bash
+chore(deps): description
+# Example: chore(deps): update pytest to 9.0.1
+```
+
+**For CI/Pipeline Changes:**
+```bash
+fix(ci): description   # If fixing a bug
+feat(ci): description  # If adding functionality
+# Example: fix(ci): allow workflow_dispatch to bypass commit skip checks
+```
+
+**For Sync/Merge Commits (develop → main):**
+```bash
+# Use the primary change type from the PR content:
+fix: merge develop with array schema fix and response optimization
+feat: merge develop with datetime handling and pipeline improvements
+
+# NOT: chore(release): merge develop into main
+```
+
+#### When Semantic-Release Doesn't Trigger
+
+If you accidentally use `chore(release):` and the workflow doesn't trigger:
+
+1. **Check the commit message** on main branch:
+   ```bash
+   git log -1 origin/main --pretty=format:'%s'
+   ```
+
+2. **If it starts with `chore(release):`**, you have two options:
+   - **Wait**: Next regular commit to main will trigger release for all pending changes
+   - **Manual trigger**: Use workflow_dispatch to force the release:
+     ```bash
+     gh workflow run "Semantic Release" --ref main -f reason="Release v2.x.x with [description]"
+     ```
+
+3. **After manual trigger**, the workflow will create the release with all pending fix/feat commits
+
+#### Reserved Prefixes
+
+These prefixes are **ONLY** for automated tools:
+- `chore(release):` - semantic-release bot only
+- `chore(deps):` - dependabot only (for dependency updates)
+
+#### Version Bump Reference
+
+Semantic-release determines version bumps from commit messages:
+- `fix:` → Patch version (1.0.0 → 1.0.1)
+- `feat:` → Minor version (1.0.0 → 1.1.0)
+- `BREAKING CHANGE:` in body → Major version (1.0.0 → 2.0.0)
+- `chore:`, `docs:`, `style:`, `refactor:`, `test:`, `build:` → No version bump
+
 # PyOpenAPI Generator
 
 PyOpenAPI Generator creates modern, async-first, and strongly-typed Python clients from OpenAPI specifications. Built for enterprise-grade developer experience with advanced cycle detection, unified type resolution, and production-ready generated code. Generated clients are fully independent and require no runtime dependency on this generator.
