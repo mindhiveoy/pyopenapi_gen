@@ -6,7 +6,7 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/auth/change-password": {
+    "/api/auth/change-password": {
       "post": {
         "summary": "Change user password",
         "operationId": "changePassword",
@@ -103,159 +103,6 @@
           }
         },
         "parameters": []
-      }
-    },
-    "/api/auth/login": {
-      "post": {
-        "summary": "Authenticate user with credentials",
-        "operationId": "authenticateUser",
-        "tags": [
-          "Authentication"
-        ],
-        "description": "Authenticates a user with email and password credentials.\nReturns a JWT token for API access.\n\n## Authentication\nThis is a public endpoint - no authentication required.\n\n## Access Control\n- Public endpoint accessible to anyone\n- Rate limiting applied to prevent brute force attacks\n\n## User Types\n1. **Mindhive Internal Users** (@mindhive.fi email)\n   - Can authenticate from any tenant domain\n   - Typically have system or admin roles\n\n2. **Tenant Users** (regular email)\n   - Must authenticate from their tenant's domain\n   - Or provide explicit tenantId in request\n\n## Tenant Resolution\nFor non-Mindhive users, tenant is determined by:\n1. Explicit `tenantId` in request body\n2. Hostname of the request (e.g., tenant1.mainio.app)\n\n## Token Details\n- Algorithm: HS256\n- Expiration: 30 days\n- Contains: user ID, email, name, role, tenant info\n",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PostApiAuthLoginRequestBody"
-              },
-              "examples": {
-                "tenantUser": {
-                  "summary": "Tenant user login",
-                  "value": {
-                    "email": "john.doe@company.com",
-                    "password": "MySecurePassword123"
-                  }
-                },
-                "mindhiveUser": {
-                  "summary": "Mindhive internal user login",
-                  "value": {
-                    "email": "admin@mindhive.fi",
-                    "password": "AdminPassword123"
-                  }
-                },
-                "withTenantId": {
-                  "summary": "Login with explicit tenant ID",
-                  "value": {
-                    "email": "user@example.com",
-                    "password": "UserPassword123",
-                    "tenantId": "clh1234567890abcdef"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Authentication successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostApiAuthLoginResponse200"
-                },
-                "example": {
-                  "success": true,
-                  "data": {
-                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbGgxMjM0NTY3ODkwYWJjZGVmIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6InVzZXIiLCJ0ZW5hbnRJZCI6ImNsaDA5ODc2NTQzMjFmZWRjYmEiLCJ0ZW5hbnQiOnsiaWQiOiJjbGgwOTg3NjU0MzIxZmVkY2JhIiwibmFtZSI6IkFjbWUgQ29ycG9yYXRpb24iLCJkb21haW4iOiJhY21lLm1haW5pby5hcHAifSwiaWF0IjoxNzA1MzI1MDAwLCJleHAiOjE3MDc5MTcwMDB9.abc123...",
-                    "user": {
-                      "id": "clh1234567890abcdef",
-                      "email": "user@example.com",
-                      "name": "John Doe",
-                      "role": "user",
-                      "tenantId": "clh0987654321fedcba",
-                      "tenant": {
-                        "id": "clh0987654321fedcba",
-                        "name": "Acme Corporation",
-                        "domain": "acme.mainio.app"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                },
-                "examples": {
-                  "missingFields": {
-                    "summary": "Missing required fields",
-                    "value": {
-                      "error": {
-                        "code": "VALIDATION_ERROR",
-                        "message": "Email and password are required",
-                        "details": {
-                          "email": [
-                            "Email is required"
-                          ],
-                          "password": [
-                            "Password is required"
-                          ]
-                        }
-                      }
-                    }
-                  },
-                  "invalidTypes": {
-                    "summary": "Invalid data types",
-                    "value": {
-                      "error": {
-                        "code": "VALIDATION_ERROR",
-                        "message": "Invalid data types",
-                        "details": {
-                          "email": [
-                            "Email must be a string"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnauthorizedError"
-                },
-                "example": {
-                  "error": {
-                    "code": "UNAUTHORIZED",
-                    "message": "Invalid credentials"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tenant not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundError"
-                },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "Tenant not found"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
-        }
       }
     },
     "/api/auth/logout": {
@@ -412,7 +259,7 @@
         }
       }
     },
-    "/embeddings/{embeddingId}": {
+    "/api/embeddings/{embeddingId}": {
       "get": {
         "summary": "Get a specific embedding",
         "operationId": "getEmbedding",
@@ -437,7 +284,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetEmbeddingsEmbeddingIdResponse200"
+                  "$ref": "#/components/schemas/GetApiEmbeddingsEmbeddingIdResponse200"
                 }
               }
             }
@@ -479,7 +326,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutEmbeddingsEmbeddingIdRequestBody"
+                "$ref": "#/components/schemas/PutApiEmbeddingsEmbeddingIdRequestBody"
               }
             }
           }
@@ -490,7 +337,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetEmbeddingsEmbeddingIdResponse200"
+                  "$ref": "#/components/schemas/GetApiEmbeddingsEmbeddingIdResponse200"
                 }
               }
             }
@@ -549,7 +396,7 @@
         }
       }
     },
-    "/embeddings": {
+    "/api/embeddings": {
       "get": {
         "summary": "Get all embeddings",
         "operationId": "listEmbeddings",
@@ -568,7 +415,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetEmbeddingsResponse200"
+                  "$ref": "#/components/schemas/GetApiEmbeddingsResponse200"
                 }
               }
             }
@@ -599,7 +446,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutEmbeddingsEmbeddingIdRequestBody"
+                "$ref": "#/components/schemas/PutApiEmbeddingsEmbeddingIdRequestBody"
               }
             }
           }
@@ -610,7 +457,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetEmbeddingsEmbeddingIdResponse200"
+                  "$ref": "#/components/schemas/GetApiEmbeddingsEmbeddingIdResponse200"
                 }
               }
             }
@@ -631,7 +478,7 @@
         "parameters": []
       }
     },
-    "/foundation-models/{modelId}": {
+    "/api/foundation-models/{modelId}": {
       "get": {
         "summary": "Get a specific foundation model",
         "operationId": "getFoundationModel",
@@ -691,7 +538,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutFoundationModelsModelIdRequestBody"
+                "$ref": "#/components/schemas/PutApiFoundationModelsModelIdRequestBody"
               }
             }
           }
@@ -754,7 +601,7 @@
         }
       }
     },
-    "/foundation-models": {
+    "/api/foundation-models": {
       "get": {
         "summary": "Get all foundation models",
         "operationId": "listFoundationModels",
@@ -800,7 +647,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutFoundationModelsModelIdRequestBody"
+                "$ref": "#/components/schemas/PutApiFoundationModelsModelIdRequestBody"
               }
             }
           }
@@ -825,34 +672,31 @@
         "parameters": []
       }
     },
-    "/health": {
+    "/api/health": {
       "get": {
         "summary": "Get system health status",
         "operationId": "getSystemHealth",
         "tags": [
           "System"
         ],
-        "description": "Returns the health status of the system and its dependent services.\nThis endpoint forwards the request to the backend health check and\nwraps the response in the standard API format.\n",
+        "description": "Returns the health status of the web service.\nThis is a simple endpoint suitable for Docker health checks.\n",
         "responses": {
           "200": {
-            "description": "System health status",
+            "description": "Service is healthy",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetHealthResponse200"
+                  "$ref": "#/components/schemas/GetApiHealthResponse200"
                 }
               }
             }
           },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          },
           "503": {
-            "description": "One or more services are unhealthy",
+            "description": "Service is unhealthy",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetHealthResponse503"
+                  "$ref": "#/components/schemas/GetApiHealthResponse503"
                 }
               }
             }
@@ -861,7 +705,7 @@
         "parameters": []
       }
     },
-    "/jobs/{jobId}/executions": {
+    "/api/jobs/{jobId}/executions": {
       "get": {
         "summary": "Get job execution history",
         "tags": [
@@ -927,7 +771,7 @@
         }
       }
     },
-    "/jobs/{jobId}": {
+    "/api/jobs/{jobId}": {
       "get": {
         "summary": "Get a specific job",
         "tags": [
@@ -1064,7 +908,7 @@
         }
       }
     },
-    "/jobs/platform-detector/detect": {
+    "/api/jobs/platform-detector/detect": {
       "post": {
         "summary": "Detect platform of a website",
         "tags": [
@@ -1077,7 +921,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostJobsPlatformDetectorDetectRequestBody"
+                "$ref": "#/components/schemas/PostApiJobsPlatformDetectorDetectRequestBody"
               }
             }
           }
@@ -1088,7 +932,7 @@
             "content": {
               "text/event-stream": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostJobsPlatformDetectorDetectResponse200"
+                  "$ref": "#/components/schemas/PostApiJobsPlatformDetectorDetectResponse200"
                 }
               }
             }
@@ -1103,7 +947,7 @@
         "parameters": []
       }
     },
-    "/jobs": {
+    "/api/jobs": {
       "get": {
         "summary": "List system-level jobs",
         "tags": [
@@ -1248,7 +1092,7 @@
         "parameters": []
       }
     },
-    "/listen": {
+    "/api/listen": {
       "get": {
         "summary": "Establish a Server-Sent Events connection",
         "tags": [
@@ -1286,7 +1130,7 @@
         }
       }
     },
-    "/monitoring/alerts": {
+    "/api/monitoring/alerts": {
       "get": {
         "summary": "Get system alerts",
         "operationId": "getAlerts",
@@ -1299,7 +1143,7 @@
             "name": "status",
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/GetMonitoringAlertsParam0Enum"
+              "$ref": "#/components/schemas/GetApiMonitoringAlertsParam0Enum"
             },
             "description": "Filter alerts by status"
           },
@@ -1307,7 +1151,7 @@
             "name": "severity",
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/PostMonitoringAlertsRequestBodySeverityEnum"
+              "$ref": "#/components/schemas/PostApiMonitoringAlertsRequestBodySeverityEnum"
             },
             "description": "Filter alerts by severity"
           },
@@ -1329,7 +1173,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMonitoringAlertsResponse200"
+                  "$ref": "#/components/schemas/GetApiMonitoringAlertsResponse200"
                 }
               }
             }
@@ -1348,7 +1192,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostMonitoringAlertsRequestBody"
+                "$ref": "#/components/schemas/PostApiMonitoringAlertsRequestBody"
               }
             }
           }
@@ -1364,7 +1208,7 @@
         "parameters": []
       }
     },
-    "/monitoring/alerts/{alertId}": {
+    "/api/monitoring/alerts/{alertId}": {
       "patch": {
         "summary": "Resolve an alert",
         "operationId": "resolveAlert",
@@ -1386,7 +1230,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchMonitoringAlertsAlertIdRequestBody"
+                "$ref": "#/components/schemas/PatchApiMonitoringAlertsAlertIdRequestBody"
               }
             }
           }
@@ -1401,7 +1245,7 @@
         }
       }
     },
-    "/monitoring/dashboard": {
+    "/api/monitoring/dashboard": {
       "get": {
         "summary": "Get monitoring dashboard data",
         "operationId": "getMonitoringDashboard",
@@ -1414,7 +1258,7 @@
             "name": "timeRange",
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/GetMonitoringDashboardParam0Enum"
+              "$ref": "#/components/schemas/GetApiMonitoringDashboardParam0Enum"
             },
             "description": "Time range for metrics"
           },
@@ -1452,7 +1296,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMonitoringDashboardResponse200"
+                  "$ref": "#/components/schemas/GetApiMonitoringDashboardResponse200"
                 }
               }
             }
@@ -1466,7 +1310,7 @@
         }
       }
     },
-    "/monitoring/metrics": {
+    "/api/monitoring/metrics": {
       "get": {
         "summary": "Get system metrics",
         "operationId": "getMetrics",
@@ -1479,7 +1323,7 @@
             "name": "format",
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/GetMonitoringMetricsParam0Enum"
+              "$ref": "#/components/schemas/GetApiMonitoringMetricsParam0Enum"
             },
             "description": "Output format"
           },
@@ -1522,7 +1366,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostMonitoringMetricsRequestBody"
+                "$ref": "#/components/schemas/PostApiMonitoringMetricsRequestBody"
               }
             }
           }
@@ -1538,7 +1382,7 @@
         "parameters": []
       }
     },
-    "/monitoring/validation-cache": {
+    "/api/monitoring/validation-cache": {
       "get": {
         "summary": "Get validation cache statistics",
         "operationId": "getValidationCacheStats",
@@ -1551,7 +1395,7 @@
             "name": "cache",
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/PostMonitoringValidationCacheRequestBodyCacheEnum"
+              "$ref": "#/components/schemas/PostApiMonitoringValidationCacheRequestBodyCacheEnum"
             },
             "description": "Which cache to get stats for"
           },
@@ -1571,7 +1415,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMonitoringValidationCacheResponse200"
+                  "$ref": "#/components/schemas/GetApiMonitoringValidationCacheResponse200"
                 }
               }
             }
@@ -1596,7 +1440,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostMonitoringValidationCacheRequestBody"
+                "$ref": "#/components/schemas/PostApiMonitoringValidationCacheRequestBody"
               }
             }
           }
@@ -1615,7 +1459,7 @@
         "parameters": []
       }
     },
-    "/session/stats": {
+    "/api/session/stats": {
       "get": {
         "summary": "Get session statistics",
         "operationId": "getSessionStats",
@@ -1647,7 +1491,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetSessionStatsResponse200"
+                  "$ref": "#/components/schemas/GetApiSessionStatsResponse200"
                 }
               }
             }
@@ -1658,7 +1502,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chat-link": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chat-link": {
       "get": {
         "summary": "Get the chat link for an agent",
         "operationId": "getChatLink",
@@ -1692,7 +1536,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatLinkResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatLinkResponse200"
                 }
               }
             }
@@ -1712,7 +1556,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/{messageId}/debug": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/{messageId}/debug": {
       "post": {
         "summary": "Add debug messages to a message",
         "operationId": "addDebugMessage",
@@ -1763,7 +1607,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBody"
               }
             }
           }
@@ -1774,7 +1618,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200"
                 }
               }
             }
@@ -1847,7 +1691,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200"
                 }
               }
             }
@@ -1867,7 +1711,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/{messageId}/feedback": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/{messageId}/feedback": {
       "post": {
         "summary": "Add feedback to a message",
         "operationId": "addFeedback",
@@ -1918,7 +1762,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdFeedbackRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdFeedbackRequestBody"
               }
             }
           }
@@ -2008,7 +1852,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/{messageId}": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/{messageId}": {
       "get": {
         "summary": "Get a specific message",
         "operationId": "getMessage",
@@ -2082,7 +1926,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/batch": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages/batch": {
       "post": {
         "summary": "Add multiple messages to a chat in a single transaction",
         "operationId": "addMessages",
@@ -2134,7 +1978,7 @@
               "schema": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItem"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItem"
                 }
               }
             }
@@ -2162,7 +2006,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats/{chatId}/messages": {
       "post": {
         "summary": "Add a message to a chat",
         "operationId": "addMessage",
@@ -2212,7 +2056,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesRequestBody"
               }
             }
           }
@@ -2308,7 +2152,7 @@
             "name": "sortBy",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam6Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam6Enum"
             },
             "description": "Field to sort by (must be indexed)"
           },
@@ -2317,7 +2161,7 @@
             "name": "sortOrder",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order"
           },
@@ -2363,7 +2207,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats/{chatId}": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats/{chatId}": {
       "get": {
         "summary": "Get a specific chat",
         "operationId": "getChat",
@@ -2482,7 +2326,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats": {
       "get": {
         "summary": "Get chats for an agent",
         "operationId": "getChats",
@@ -2531,7 +2375,7 @@
             "name": "sortBy",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsParam4Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsParam4Enum"
             },
             "description": "Field to sort by"
           },
@@ -2540,7 +2384,7 @@
             "name": "order",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order (asc or desc)"
           }
@@ -2551,7 +2395,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsResponse200"
                 }
               }
             }
@@ -2635,7 +2479,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/chats/stream": {
+    "/api/tenants/{tenantId}/agents/{agentId}/chats/stream": {
       "get": {
         "summary": "Open a chat stream connection",
         "operationId": "getChatStream",
@@ -2746,7 +2590,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400"
                 }
               }
             }
@@ -2756,7 +2600,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse429"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse429"
                 }
               }
             },
@@ -2774,7 +2618,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse500"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse500"
                 }
               }
             }
@@ -2782,7 +2626,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/datasources/{dataSourceId}": {
+    "/api/tenants/{tenantId}/agents/{agentId}/datasources/{dataSourceId}": {
       "get": {
         "summary": "Get a specific agent data source",
         "operationId": "getAgentDataSource",
@@ -2886,7 +2730,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdRequestBody"
+                "$ref": "#/components/schemas/PutApiTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdRequestBody"
               }
             }
           }
@@ -2966,7 +2810,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/datasources": {
+    "/api/tenants/{tenantId}/agents/{agentId}/datasources": {
       "get": {
         "summary": "Get all data sources for an agent",
         "operationId": "getAgentDataSources",
@@ -3046,7 +2890,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdDatasourcesRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdDatasourcesRequestBody"
               }
             }
           }
@@ -3073,7 +2917,74 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/revisions/{revision}/restore": {
+    "/api/tenants/{tenantId}/agents/{agentId}/optimize": {
+      "post": {
+        "summary": "Optimize agent instructions using AI",
+        "operationId": "optimizeAgentInstructions",
+        "tags": [
+          "Agents"
+        ],
+        "description": "Uses AI to analyze and improve agent instructions, providing\ndetailed change tracking and recommendations.\n\nThis endpoint does NOT automatically update the agent - it only\nprovides suggestions. Use PUT /agents/{agentId} to apply changes.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the tenant"
+          },
+          {
+            "in": "path",
+            "name": "agentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the agent"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdOptimizeRequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully optimized instructions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/agents/{agentId}/revisions/{revision}/restore": {
       "post": {
         "tags": [
           "Agents"
@@ -3122,7 +3033,7 @@
                       "$ref": "#/components/schemas/AgentResponse"
                     },
                     {
-                      "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdRevisionsRevisionRestoreResponse200AllOf"
+                      "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdRevisionsRevisionRestoreResponse200AllOf"
                     }
                   ],
                   "example": {
@@ -3164,7 +3075,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/revisions": {
+    "/api/tenants/{tenantId}/agents/{agentId}/revisions": {
       "get": {
         "tags": [
           "Agents"
@@ -3218,7 +3129,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}": {
+    "/api/tenants/{tenantId}/agents/{agentId}": {
       "get": {
         "tags": [
           "Agents"
@@ -3280,7 +3191,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdParam4Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdParam4Enum"
             },
             "description": "Field to sort chats by (when chats are included)"
           },
@@ -3289,7 +3200,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order for chats"
           }
@@ -3642,7 +3553,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchTenantsTenantIdAgentsAgentIdRequestBody"
+                "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBody"
               },
               "examples": {
                 "updateTheme": {
@@ -3794,7 +3705,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents": {
+    "/api/tenants/{tenantId}/agents": {
       "get": {
         "summary": "Get all agents for a tenant",
         "tags": [
@@ -3846,7 +3757,7 @@
             "name": "sortBy",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsParam3Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsParam3Enum"
             },
             "description": "Field to sort by"
           },
@@ -3855,7 +3766,7 @@
             "name": "order",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order"
           },
@@ -4127,7 +4038,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/analytics/chat-stats": {
+    "/api/tenants/{tenantId}/analytics/chat-stats": {
       "get": {
         "summary": "Get chat statistics for a tenant",
         "operationId": "getTenantChatStats",
@@ -4173,7 +4084,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAnalyticsChatStatsResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAnalyticsChatStatsResponse200"
                 }
               }
             }
@@ -4193,7 +4104,55 @@
         }
       }
     },
-    "/tenants/{tenantId}/crawler/stream": {
+    "/api/tenants/{tenantId}/auth/providers": {
+      "get": {
+        "summary": "Get tenant authentication provider settings",
+        "operationId": "getTenantAuthProviders",
+        "tags": [
+          "Authentication",
+          "Tenants"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "description": "Returns the public authentication provider configuration for a specific tenant.\nThis endpoint is used by mobile clients to determine which authentication methods\nare available and to retrieve necessary configuration (client IDs) for native OAuth flows.\n\n## Authentication\nRequires internal service token via `x-mainio-internal-token` header.\n\n## Access Control\n- Internal services only\n- Mobile app uses this during tenant selection to configure available auth methods\n\n## Response\nReturns which providers (email, Google, Microsoft) are enabled for this tenant,\nplus any client IDs needed to initialize native OAuth SDKs.\n",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The tenant ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider settings retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAuthProvidersResponse200"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/crawler/stream": {
       "get": {
         "summary": "Open a crawler events stream connection",
         "operationId": "getCrawlerStream",
@@ -4277,7 +4236,105 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents/{documentId}/index": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/scrape": {
+      "post": {
+        "summary": "Start scraping a data source",
+        "tags": [
+          "Datasources"
+        ],
+        "description": "Triggers a web scraping job for the specified data source. The job will be processed asynchronously\nby the scraper service. Returns a job ID that can be used to track progress via SSE events.\n\n**Authentication**: Requires system role only. This endpoint is restricted to internal service calls.\n",
+        "operationId": "startScraping",
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID of the tenant"
+          },
+          {
+            "name": "dataSourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "CUID of the data source"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdScrapeRequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Crawl job created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdScrapeResponse201"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - system role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/{documentId}/index": {
       "get": {
         "summary": "Index a document's content into the vector database.",
         "operationId": "indexDocument",
@@ -4437,7 +4494,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents/{documentId}": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/{documentId}": {
       "put": {
         "summary": "Update a document",
         "operationId": "updateDocument",
@@ -4484,7 +4541,7 @@
             },
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBody"
+                "$ref": "#/components/schemas/DocumentUpdate"
               }
             }
           }
@@ -4711,7 +4768,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents/bulk-update-metadata": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/bulk-update-metadata": {
       "post": {
         "summary": "Bulk update document metadata using AI",
         "operationId": "bulkUpdateDocumentMetadata",
@@ -4744,7 +4801,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataRequestBody"
               }
             }
           }
@@ -4755,7 +4812,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataResponse200"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataResponse200"
                 }
               }
             }
@@ -4775,7 +4832,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents/count": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/count": {
       "get": {
         "summary": "Get document count",
         "operationId": "getDocumentCount",
@@ -4815,7 +4872,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdDatasourcesDataSourceIdDocumentsCountResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdDatasourcesDataSourceIdDocumentsCountResponse200"
                 }
               }
             }
@@ -4835,7 +4892,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents/index/batch": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/index/batch": {
       "post": {
         "summary": "Enqueue batch document indexing",
         "operationId": "enqueueBatchIndexing",
@@ -4932,7 +4989,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200"
                 },
                 "example": {
                   "status": "queued",
@@ -5025,7 +5082,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents/log": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/log": {
       "post": {
         "summary": "Log an event for a data source",
         "operationId": "logDocumentEvent",
@@ -5058,7 +5115,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBody"
               }
             }
           }
@@ -5069,7 +5126,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsLogResponse200"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsLogResponse200"
                 }
               }
             }
@@ -5092,11 +5149,11 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents": {
       "get": {
         "summary": "List documents for a datasource",
         "operationId": "listDocuments",
-        "description": "Returns a paginated list of documents for the specified datasource. Supports both cursor-based (default) and page-based pagination.",
+        "description": "Returns a cursor-paginated list of documents for the specified datasource. Requires system role.\n\n**Field Selection vs Includes:**\nThe `fields` and `include` query parameters are mutually exclusive due to Prisma limitations:\n- When `fields` is specified, only the requested fields are returned and `include` is ignored\n- When `fields` is not specified, all fields are returned and `include` relations can be added\n- To get relations, omit the `fields` parameter and use `include` only\n",
         "tags": [
           "Documents"
         ],
@@ -5120,7 +5177,7 @@
               "type": "string"
             },
             "required": false,
-            "description": "Cursor for pagination (document ID) - cursor-based mode"
+            "description": "Cursor for pagination (document ID)"
           },
           {
             "in": "query",
@@ -5131,44 +5188,40 @@
               "maximum": 100,
               "default": 50
             },
-            "description": "Maximum number of items to return - cursor-based mode"
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0
-            },
-            "required": false,
-            "description": "Page number (0-based) - page-based mode"
-          },
-          {
-            "in": "query",
-            "name": "pageSize",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            },
-            "description": "Number of items per page - page-based mode"
+            "description": "Maximum number of items to return"
           },
           {
             "in": "query",
             "name": "status",
             "schema": {
-              "$ref": "#/components/schemas/DocumentStatus"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DocumentStatus"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(indexed|waiting|processing|error)(,(indexed|waiting|processing|error))*$"
+                }
+              ]
             },
             "required": false,
-            "description": "Filter documents by status"
+            "description": "Filter documents by status. Accepts either:\n- A single status value (e.g., `indexed`)\n- A comma-separated list of statuses (e.g., `indexed,waiting,processing`)\n\nWhen multiple statuses are provided, documents matching ANY of the statuses are returned (OR logic).\n",
+            "examples": {
+              "single": {
+                "value": "indexed",
+                "summary": "Filter by single status"
+              },
+              "multiple": {
+                "value": "indexed,waiting,processing",
+                "summary": "Filter by multiple statuses"
+              }
+            }
           },
           {
             "in": "query",
             "name": "sortBy",
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdDatasourcesDataSourceIdDocumentsParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdDatasourcesDataSourceIdDocumentsParam5Enum"
             },
             "description": "Field to sort by"
           },
@@ -5176,7 +5229,7 @@
             "in": "query",
             "name": "order",
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order"
           },
@@ -5202,7 +5255,8 @@
             "schema": {
               "type": "string"
             },
-            "description": "Comma-separated list of fields to include in the response"
+            "description": "Comma-separated list of specific fields to include in the response (e.g., \"id,url,status\").\n**MUTUALLY EXCLUSIVE with `include`** - when specified, the `include` parameter is ignored.\nTo include relations, omit this parameter and use `include` instead.\n",
+            "example": "id,url,mimeType,status,createdAt"
           },
           {
             "in": "query",
@@ -5210,9 +5264,16 @@
             "schema": {
               "type": "string"
             },
-            "description": "Comma-separated list of relations to include (dataSource,tenant,chunks)"
+            "description": "Comma-separated list of relations to include (dataSource).\n**MUTUALLY EXCLUSIVE with `fields`** - only works when `fields` is not specified.\nWhen used, all document fields plus the specified relations are returned.\n",
+            "example": "dataSource"
           }
         ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-role": "system",
         "responses": {
           "200": {
             "description": "List of documents",
@@ -5243,7 +5304,7 @@
         "tags": [
           "Documents"
         ],
-        "description": "Creates a new document for the specified datasource. System users can create documents for any tenant. Supports both JSON and multipart/form-data.",
+        "description": "Creates a new document for the specified datasource. Requires system role.\n\n**Content Types:**\n- Supports both JSON and multipart/form-data uploads\n- Binary content is automatically transformed to base64 in API responses\n\n**Metadata:**\n- Optional structured metadata following DocumentMetadata schema\n- Includes AI processing information (summary, questions, tokens, timing)\n",
         "operationId": "createDocument",
         "parameters": [
           {
@@ -5269,11 +5330,17 @@
             },
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsRequestBody"
+                "$ref": "#/components/schemas/DocumentCreate"
               }
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-role": "system",
         "responses": {
           "201": {
             "description": "Document created successfully",
@@ -5303,11 +5370,66 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/documents/sync": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/status": {
+      "put": {
+        "summary": "Batch update document status",
+        "tags": [
+          "Documents"
+        ],
+        "description": "Batch updates the status of documents for a datasource.",
+        "operationId": "batchUpdateDocumentStatus",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenant_id"
+          },
+          {
+            "in": "path",
+            "name": "dataSourceId",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Data source identifier."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Document status updated successfully"
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/sync": {
       "post": {
-        "summary": "Sync a document from scraper",
+        "summary": "Sync a document from scraper (DEPRECATED)",
         "operationId": "syncDocument",
-        "description": "Creates or updates a document based on URL matching. Detects significant content changes to avoid unnecessary re-indexing.",
+        "deprecated": true,
+        "description": "**DEPRECATED:** Use POST /documents/upsert instead.\n\nCreates or updates a document based on URL matching. Detects significant content changes to avoid unnecessary re-indexing.\n\nThis endpoint is kept for backwards compatibility but will be removed in a future version.\n",
         "tags": [
           "Documents"
         ],
@@ -5330,7 +5452,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBody"
               }
             }
           }
@@ -5341,7 +5463,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200"
                 }
               }
             }
@@ -5364,7 +5486,68 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/events": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/documents/upsert": {
+      "post": {
+        "summary": "Upsert a document (create or update)",
+        "operationId": "upsertDocument",
+        "description": "Creates or updates a document based on URL matching. Detects significant content changes to avoid unnecessary re-indexing.\n\n**Use this endpoint for:**\n- Initial sync when no manifest exists\n- Recovery scenarios when document state is uncertain\n- Safety fallback when unsure if document exists\n\n**For normal operations, prefer explicit create/update endpoints:**\n- POST /documents for new documents\n- PUT /documents/{documentId} for updates to known documents\n",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenant_id"
+          },
+          {
+            "in": "path",
+            "name": "dataSourceId",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "ID of the datasource"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document upserted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/events": {
       "get": {
         "summary": "Get events for a data source",
         "operationId": "getDataSourceEvents",
@@ -5416,7 +5599,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdDatasourcesDataSourceIdEventsResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdDatasourcesDataSourceIdEventsResponse200"
                 }
               }
             }
@@ -5436,7 +5619,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}/flush": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}/flush": {
       "post": {
         "summary": "Flush local cached content for a datasource",
         "operationId": "flushDatasource",
@@ -5470,7 +5653,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdFlushResponse200"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdFlushResponse200"
                 }
               }
             }
@@ -5490,7 +5673,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources/{dataSourceId}": {
+    "/api/tenants/{tenantId}/datasources/{dataSourceId}": {
       "get": {
         "summary": "Get a datasource",
         "operationId": "getDatasource",
@@ -5612,7 +5795,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/agents/{agentId}/datasources/{dataSourceId}/search": {
+    "/api/tenants/{tenantId}/agents/{agentId}/datasources/{dataSourceId}/search": {
       "post": {
         "summary": "Search a datasource and return elaborated phrase and results",
         "operationId": "elaborateSearchPhrase",
@@ -5654,7 +5837,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchRequestBody"
+                "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchRequestBody"
               }
             }
           }
@@ -5665,7 +5848,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchResponse200"
+                  "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchResponse200"
                 }
               }
             }
@@ -5750,7 +5933,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/datasources": {
+    "/api/tenants/{tenantId}/datasources": {
       "get": {
         "summary": "List all data sources for a tenant with filtering and relations",
         "operationId": "listDatasources",
@@ -5802,7 +5985,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdDatasourcesParam3Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdDatasourcesParam3Enum"
             },
             "description": "Field to sort documents by (when documents are included)"
           },
@@ -5811,7 +5994,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order for documents"
           },
@@ -5820,7 +6003,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdDatasourcesParam5Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdDatasourcesParam5Enum"
             },
             "description": "Field to sort events by (when events are included)"
           },
@@ -5829,7 +6012,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order for events"
           }
@@ -6168,7 +6351,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/feedback": {
+    "/api/tenants/{tenantId}/feedback": {
       "get": {
         "summary": "Get all feedback for a tenant",
         "operationId": "getTenantFeedback",
@@ -6254,7 +6437,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/jobs/{jobId}/executions": {
+    "/api/tenants/{tenantId}/jobs/{jobId}/executions": {
       "get": {
         "summary": "Get job executions",
         "operationId": "listJobExecutions",
@@ -6305,7 +6488,7 @@
             "name": "order",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order (asc or desc)"
           }
@@ -6395,7 +6578,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/jobs/{jobId}": {
+    "/api/tenants/{tenantId}/jobs/{jobId}": {
       "get": {
         "summary": "Get a specific job",
         "operationId": "getTenantJob",
@@ -6455,7 +6638,7 @@
             "name": "executionsOrder",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order for executions (asc or desc)"
           }
@@ -6590,7 +6773,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/jobs": {
+    "/api/tenants/{tenantId}/jobs": {
       "get": {
         "summary": "List all jobs for a tenant with filtering and execution history",
         "operationId": "listTenantJobs",
@@ -6642,7 +6825,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdJobsParam3Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdJobsParam3Enum"
             },
             "description": "Field to sort jobs by"
           },
@@ -6651,7 +6834,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order for jobs"
           },
@@ -6660,7 +6843,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdJobsParam5Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdJobsParam5Enum"
             },
             "description": "Field to sort executions by (when executions are included)"
           },
@@ -6669,7 +6852,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order for executions"
           }
@@ -7007,7 +7190,7 @@
         }
       }
     },
-    "/tenants/{tenantId}": {
+    "/api/tenants/{tenantId}": {
       "get": {
         "summary": "Get a specific tenant by ID",
         "operationId": "getTenant",
@@ -7178,80 +7361,7 @@
         }
       }
     },
-    "/scraper/crawl": {
-      "post": {
-        "summary": "Trigger a web scraping job",
-        "tags": [
-          "Scraper"
-        ],
-        "description": "Creates a new web scraping job for the specified URLs. The job will be processed asynchronously\nby the scraper service. Returns a job ID that can be used to track progress via SSE events.\n",
-        "operationId": "triggerCrawl",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PostScraperCrawlRequestBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Crawl job created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostScraperCrawlResponse201"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "parameters": []
-      }
-    },
-    "/scraper/events": {
+    "/api/scraper/events": {
       "get": {
         "summary": "Stream scraper events via Server-Sent Events",
         "tags": [
@@ -7338,7 +7448,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/users/{id}": {
+    "/api/tenants/{tenantId}/users/{id}": {
       "get": {
         "summary": "Get a specific user",
         "operationId": "getTenantUser",
@@ -7423,7 +7533,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutTenantsTenantIdUsersIdRequestBody"
+                "$ref": "#/components/schemas/PutApiTenantsTenantIdUsersIdRequestBody"
               }
             }
           }
@@ -7502,14 +7612,14 @@
         }
       }
     },
-    "/tenants/{tenantId}/users/check-email": {
+    "/api/tenants/{tenantId}/users/check-email": {
       "get": {
-        "summary": "Check if an email is available (not in use) within a tenant",
+        "summary": "Check if an email exists/is in use within a tenant",
         "operationId": "checkTenantUserEmail",
         "tags": [
           "Users"
         ],
-        "description": "Checks if an email address is available for use within a specific tenant. Returns true if the email is available, false if it's already in use.\n",
+        "description": "Checks if an email address exists/is in use within a specific tenant. Returns true if the email exists, false if it's available for use.\n",
         "parameters": [
           {
             "name": "tenantId",
@@ -7537,7 +7647,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdUsersCheckEmailResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdUsersCheckEmailResponse200"
                 }
               }
             }
@@ -7554,7 +7664,7 @@
         }
       }
     },
-    "/tenants/{tenantId}/users": {
+    "/api/tenants/{tenantId}/users": {
       "get": {
         "summary": "List users in a tenant with pagination and filtering",
         "operationId": "listTenantUsers",
@@ -7596,7 +7706,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdUsersParam2Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdUsersParam2Enum"
             },
             "description": "Field to sort by"
           },
@@ -7605,7 +7715,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order"
           },
@@ -7983,7 +8093,7 @@
         }
       }
     },
-    "/tenants": {
+    "/api/tenants": {
       "get": {
         "summary": "Get all tenants",
         "tags": [
@@ -8040,7 +8150,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTenantsResponse200"
+                  "$ref": "#/components/schemas/GetApiTenantsResponse200"
                 }
               }
             }
@@ -8160,7 +8270,7 @@
         }
       }
     },
-    "/users/{userId}": {
+    "/api/users/{userId}": {
       "get": {
         "summary": "Get a specific user",
         "operationId": "getUser",
@@ -8297,7 +8407,7 @@
         }
       }
     },
-    "/users": {
+    "/api/users": {
       "get": {
         "summary": "Get all users",
         "tags": [
@@ -8334,7 +8444,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetUsersParam2Enum"
+              "$ref": "#/components/schemas/GetApiUsersParam2Enum"
             },
             "description": "Field to sort by"
           },
@@ -8343,7 +8453,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order"
           }
@@ -8414,7 +8524,7 @@
         "parameters": []
       }
     },
-    "/vector-databases/{vectorDatabaseId}/indices/{indexId}": {
+    "/api/vector-databases/{vectorDatabaseId}/indices/{indexId}": {
       "get": {
         "summary": "Get a specific vector index",
         "operationId": "getVectorIndex",
@@ -8522,7 +8632,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutVectorDatabasesVectorDatabaseIdIndicesIndexIdResponse409"
+                  "$ref": "#/components/schemas/PutApiVectorDatabasesVectorDatabaseIdIndicesIndexIdResponse409"
                 }
               }
             }
@@ -8583,7 +8693,7 @@
         }
       }
     },
-    "/vector-databases/{vectorDatabaseId}/indices": {
+    "/api/vector-databases/{vectorDatabaseId}/indices": {
       "get": {
         "summary": "List vector indices for a database",
         "tags": [
@@ -8615,7 +8725,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetVectorDatabasesVectorDatabaseIdIndicesParam2Enum"
+              "$ref": "#/components/schemas/GetApiVectorDatabasesVectorDatabaseIdIndicesParam2Enum"
             },
             "description": "Field to sort by"
           },
@@ -8624,7 +8734,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order"
           },
@@ -8729,7 +8839,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostVectorDatabasesVectorDatabaseIdIndicesResponse201"
+                  "$ref": "#/components/schemas/PostApiVectorDatabasesVectorDatabaseIdIndicesResponse201"
                 }
               }
             }
@@ -8752,7 +8862,7 @@
         }
       }
     },
-    "/vector-databases": {
+    "/api/vector-databases": {
       "get": {
         "summary": "Get all vector databases",
         "tags": [
@@ -8790,7 +8900,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
             },
             "description": "Sort order (asc or desc)"
           }
@@ -8935,13 +9045,15 @@
           },
           "nextRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "lastRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "attempts": {
             "type": "integer"
@@ -8958,23 +9070,25 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "startedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "completedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           }
         },
         "required": [
@@ -9022,8 +9136,8 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "createdById": {
             "type": "string"
@@ -9128,7 +9242,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Error422ValidationErrorsItem"
-            }
+            },
+            "description": "Detailed validation errors"
           }
         },
         "required": [
@@ -9192,7 +9307,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Error422ValidationErrorsItem"
-            }
+            },
+            "description": "Detailed validation errors"
           }
         },
         "required": [
@@ -9367,17 +9483,20 @@
             "maxLength": 200000
           },
           "config": {
+            "$ref": "#/components/schemas/AgentConfig"
+          },
+          "configVersion": {
             "$ref": "#/components/schemas/JsonValue"
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -9437,6 +9556,9 @@
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "settingsVersion": {
+            "type": "integer"
+          },
           "theme": {
             "$ref": "#/components/schemas/JsonValue"
           },
@@ -9445,13 +9567,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -9459,6 +9581,7 @@
           "id",
           "name",
           "domain",
+          "settingsVersion",
           "theme",
           "active",
           "createdAt",
@@ -9497,7 +9620,8 @@
           "password": {
             "type": "string",
             "nullable": true,
-            "minLength": 8
+            "minLength": 8,
+            "maxLength": 40
           },
           "salt": {
             "type": "string",
@@ -9505,8 +9629,9 @@
           },
           "emailVerified": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "image": {
             "type": "string",
@@ -9515,8 +9640,9 @@
           },
           "lastLoginAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "tenantId": {
             "type": "string"
@@ -9524,15 +9650,18 @@
           "userSettings": {
             "$ref": "#/components/schemas/UserUserSettings"
           },
+          "userSettingsVersion": {
+            "type": "integer"
+          },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -9541,6 +9670,7 @@
           "name",
           "email",
           "tenantId",
+          "userSettingsVersion",
           "createdAt",
           "updatedAt"
         ],
@@ -9608,15 +9738,18 @@
           "config": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "configVersion": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
@@ -9663,8 +9796,8 @@
           },
           "binary": {
             "type": "string",
-            "format": "binary",
-            "description": "Binary content of the document"
+            "format": "byte",
+            "description": "Binary content of the document (base64-encoded). Accepts Buffer, Uint8Array, or base64 strings at runtime."
           },
           "markdown": {
             "type": "string",
@@ -9696,13 +9829,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -9767,13 +9900,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "tokens": {
             "$ref": "#/components/schemas/JsonValue"
@@ -9811,13 +9944,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "tokens": {
             "$ref": "#/components/schemas/JsonValue"
@@ -9854,13 +9987,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -9905,13 +10038,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -9972,13 +10105,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "knowledgeCutOff": {
             "type": "string",
@@ -10026,13 +10159,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -10080,13 +10213,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -10116,13 +10249,14 @@
           },
           "startedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "completedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "duration": {
             "type": "integer",
@@ -10138,13 +10272,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -10178,13 +10312,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -10365,17 +10499,20 @@
             "maxLength": 200000
           },
           "config": {
+            "$ref": "#/components/schemas/AgentConfig"
+          },
+          "configVersion": {
             "$ref": "#/components/schemas/JsonValue"
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "_count": {
             "$ref": "#/components/schemas/AgentResponseCount"
@@ -10538,7 +10675,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -10680,7 +10817,8 @@
           "password": {
             "type": "string",
             "nullable": true,
-            "minLength": 8
+            "minLength": 8,
+            "maxLength": 40
           }
         },
         "description": "Schema for updating an existing user"
@@ -10707,7 +10845,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -10767,15 +10905,15 @@
           },
           "binary": {
             "type": "string",
-            "format": "binary",
-            "description": "Binary content of the document"
+            "format": "byte",
+            "description": "Binary content of the document (base64-encoded). Accepts Buffer, Uint8Array, or base64 strings at runtime."
           }
         },
         "required": [
           "url",
           "type"
         ],
-        "description": "Schema for creating a new document (dataSourceId from path)"
+        "description": "Schema for creating a new document (dataSourceId from path). Use the binary field for file content in multipart/form-data."
       },
       "DocumentUpdate": {
         "type": "object",
@@ -10831,11 +10969,23 @@
           },
           "binary": {
             "type": "string",
-            "format": "binary",
-            "description": "Binary content of the document"
+            "format": "byte",
+            "description": "Binary content of the document (base64-encoded). Accepts Buffer, Uint8Array, or base64 strings at runtime."
           }
         },
-        "description": "Schema for updating a document"
+        "description": "Schema for updating a document. Use the binary field for file content in multipart/form-data."
+      },
+      "DocumentStatusUpdate": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "description": "Schema for updating document status"
       },
       "DocumentResponse": {
         "type": "object",
@@ -10859,7 +11009,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -10885,8 +11035,8 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "userId": {
             "type": "string",
@@ -10894,8 +11044,8 @@
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "tokens": {
             "$ref": "#/components/schemas/JsonValue"
@@ -10920,7 +11070,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -10976,7 +11126,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -10999,8 +11149,9 @@
           },
           "completedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -11019,16 +11170,18 @@
           },
           "lastRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "maxAttempts": {
             "type": "integer"
           },
           "nextRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "priority": {
             "$ref": "#/components/schemas/JobPriorityEnum"
@@ -11044,8 +11197,9 @@
           },
           "startedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "timeout": {
             "type": "integer"
@@ -11072,26 +11226,30 @@
           },
           "nextRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "lastRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "attempts": {
             "type": "integer"
           },
           "startedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "completedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           }
         },
         "description": "Schema for updating a job"
@@ -11118,7 +11276,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11167,7 +11325,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11331,7 +11489,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11373,13 +11531,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -11459,7 +11617,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11556,7 +11714,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11662,7 +11820,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11763,7 +11921,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11859,7 +12017,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -11949,7 +12107,7 @@
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/TenantListResponseMeta"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -12006,8 +12164,9 @@
           },
           "completedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -12026,16 +12185,18 @@
           },
           "lastRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "maxAttempts": {
             "type": "integer"
           },
           "nextRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "priority": {
             "$ref": "#/components/schemas/JobPriorityEnum"
@@ -12051,8 +12212,9 @@
           },
           "startedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "timeout": {
             "type": "integer"
@@ -12303,6 +12465,33 @@
           "code"
         ]
       },
+      "AgentConfig": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/AgentTypeEnum"
+          },
+          "chatConfig": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "scraperConfig": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "toolsConfig": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "defaultLocation": {
+            "type": "string"
+          },
+          "enabledFeatures": {
+            "$ref": "#/components/schemas/AgentConfigEnabledFeatures"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
       "UserUserSettings": {
         "type": "object",
         "nullable": true,
@@ -12367,8 +12556,8 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -12410,15 +12599,18 @@
           "config": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "configVersion": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "_count": {
             "$ref": "#/components/schemas/AgentResponseCount"
@@ -12459,9 +12651,12 @@
         "type": "object",
         "properties": {
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/AgentConfig"
           }
-        }
+        },
+        "required": [
+          "config"
+        ]
       },
       "AgentChatLinkResponseData": {
         "type": "object",
@@ -12502,6 +12697,9 @@
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "settingsVersion": {
+            "type": "integer"
+          },
           "theme": {
             "$ref": "#/components/schemas/JsonValue"
           },
@@ -12510,13 +12708,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -12524,6 +12722,7 @@
           "id",
           "name",
           "domain",
+          "settingsVersion",
           "theme",
           "active",
           "createdAt",
@@ -12558,6 +12757,9 @@
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "settingsVersion": {
+            "type": "integer"
+          },
           "theme": {
             "$ref": "#/components/schemas/JsonValue"
           },
@@ -12566,13 +12768,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "_count": {
             "$ref": "#/components/schemas/TenantListResponseDataItemCount"
@@ -12583,46 +12785,13 @@
           "id",
           "name",
           "domain",
+          "settingsVersion",
           "theme",
           "active",
           "createdAt",
           "updatedAt",
           "_count"
         ]
-      },
-      "TenantListResponseMeta": {
-        "type": "object",
-        "properties": {
-          "page": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "pageSize": {
-            "type": "integer",
-            "minimum": 0,
-            "exclusiveMinimum": true
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "totalPages": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "nextCursor": {
-            "type": "string"
-          },
-          "prevCursor": {
-            "type": "string"
-          },
-          "hasNext": {
-            "type": "boolean"
-          },
-          "hasPrevious": {
-            "type": "boolean"
-          }
-        }
       },
       "UserResponseData": {
         "type": "object",
@@ -12645,7 +12814,8 @@
           "password": {
             "type": "string",
             "nullable": true,
-            "minLength": 8
+            "minLength": 8,
+            "maxLength": 40
           },
           "salt": {
             "type": "string",
@@ -12653,8 +12823,9 @@
           },
           "emailVerified": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "image": {
             "type": "string",
@@ -12663,8 +12834,9 @@
           },
           "lastLoginAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "tenantId": {
             "type": "string"
@@ -12672,15 +12844,18 @@
           "userSettings": {
             "$ref": "#/components/schemas/UserUserSettings"
           },
+          "userSettingsVersion": {
+            "type": "integer"
+          },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -12689,6 +12864,7 @@
           "name",
           "email",
           "tenantId",
+          "userSettingsVersion",
           "createdAt",
           "updatedAt"
         ]
@@ -12720,11 +12896,6 @@
             "nullable": true,
             "minimum": 0
           },
-          "binary": {
-            "type": "string",
-            "format": "binary",
-            "description": "Binary content of the document"
-          },
           "markdown": {
             "type": "string",
             "nullable": true
@@ -12750,18 +12921,23 @@
             "nullable": true,
             "minimum": 0
           },
-          "metadata": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "binary": {
+            "type": "string",
+            "format": "binary",
+            "description": "Binary content of the document (base64 encoded)"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JsonValue"
           }
         },
         "required": [
@@ -12791,8 +12967,8 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "userId": {
             "type": "string",
@@ -12800,8 +12976,8 @@
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "tokens": {
             "$ref": "#/components/schemas/JsonValue"
@@ -12832,13 +13008,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "tokens": {
             "$ref": "#/components/schemas/JsonValue"
@@ -12898,13 +13074,15 @@
           },
           "nextRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "lastRun": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "attempts": {
             "type": "integer"
@@ -12921,23 +13099,25 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "startedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           },
           "completedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
           }
         },
         "required": [
@@ -13009,15 +13189,18 @@
           "config": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "configVersion": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
@@ -13087,15 +13270,18 @@
           "config": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "configVersion": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "settings": {
             "$ref": "#/components/schemas/JsonValue"
@@ -13166,13 +13352,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -13232,13 +13418,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "knowledgeCutOff": {
             "type": "string",
@@ -13292,13 +13478,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "embedding": {
             "$ref": "#/components/schemas/EmbeddingResponseData"
@@ -13342,13 +13528,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -13395,13 +13581,13 @@
           },
           "createdAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           },
           "updatedAt": {
             "type": "string",
-            "nullable": true,
-            "format": "date"
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
           }
         },
         "required": [
@@ -13427,44 +13613,6 @@
           "success",
           "message"
         ]
-      },
-      "PostApiAuthLoginRequestBody": {
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "description": "User's email address",
-            "example": "user@example.com"
-          },
-          "password": {
-            "type": "string",
-            "description": "User's password",
-            "minLength": 8,
-            "example": "securePassword123"
-          },
-          "tenantId": {
-            "type": "string",
-            "description": "Optional tenant ID (can be derived from hostname)",
-            "example": "clh1234567890abcdef"
-          }
-        }
-      },
-      "PostApiAuthLoginResponse200": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
-          },
-          "data": {
-            "$ref": "#/components/schemas/PostApiAuthLoginResponse200Data"
-          }
-        }
       },
       "PostApiAuthLogoutRequestBody": {
         "type": "object",
@@ -13494,7 +13642,7 @@
           }
         }
       },
-      "GetEmbeddingsEmbeddingIdResponse200": {
+      "GetApiEmbeddingsEmbeddingIdResponse200": {
         "type": "object",
         "properties": {
           "data": {
@@ -13502,7 +13650,7 @@
           }
         }
       },
-      "PutEmbeddingsEmbeddingIdRequestBody": {
+      "PutApiEmbeddingsEmbeddingIdRequestBody": {
         "type": "object",
         "required": [
           "name",
@@ -13531,7 +13679,7 @@
           }
         }
       },
-      "GetEmbeddingsResponse200": {
+      "GetApiEmbeddingsResponse200": {
         "type": "object",
         "properties": {
           "data": {
@@ -13542,7 +13690,7 @@
           }
         }
       },
-      "PutFoundationModelsModelIdRequestBody": {
+      "PutApiFoundationModelsModelIdRequestBody": {
         "type": "object",
         "required": [
           "name",
@@ -13560,7 +13708,7 @@
             "description": "Internal name for the foundation model"
           },
           "type": {
-            "$ref": "#/components/schemas/PutFoundationModelsModelIdRequestBodyTypeEnum"
+            "$ref": "#/components/schemas/PutApiFoundationModelsModelIdRequestBodyTypeEnum"
           },
           "description": {
             "type": "string",
@@ -13579,41 +13727,38 @@
           }
         }
       },
-      "GetHealthResponse200": {
+      "GetApiHealthResponse200": {
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/GetHealthResponse200StatusEnum"
+            "$ref": "#/components/schemas/GetApiHealthResponse200StatusEnum"
           },
-          "services": {
-            "$ref": "#/components/schemas/GetHealthResponse200Services"
+          "service": {
+            "type": "string"
           },
           "timestamp": {
             "type": "integer"
-          },
-          "uptimes": {
-            "$ref": "#/components/schemas/GetHealthResponse200Uptimes"
           }
         }
       },
-      "GetHealthResponse503": {
+      "GetApiHealthResponse503": {
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/GetHealthResponse503StatusEnum"
+            "$ref": "#/components/schemas/GetApiHealthResponse503StatusEnum"
           },
-          "services": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+          "service": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
           },
           "timestamp": {
             "type": "integer"
-          },
-          "uptimes": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
           }
         }
       },
-      "PostJobsPlatformDetectorDetectRequestBody": {
+      "PostApiJobsPlatformDetectorDetectRequestBody": {
         "type": "object",
         "properties": {
           "url": {
@@ -13623,21 +13768,21 @@
           }
         }
       },
-      "PostJobsPlatformDetectorDetectResponse200": {
+      "PostApiJobsPlatformDetectorDetectResponse200": {
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/PostJobsPlatformDetectorDetectResponse200StatusEnum"
+            "$ref": "#/components/schemas/PostApiJobsPlatformDetectorDetectResponse200StatusEnum"
           },
           "message": {
             "type": "string"
           },
           "result": {
-            "$ref": "#/components/schemas/PostJobsPlatformDetectorDetectResponse200Result"
+            "$ref": "#/components/schemas/PostApiJobsPlatformDetectorDetectResponse200Result"
           }
         }
       },
-      "GetMonitoringAlertsResponse200": {
+      "GetApiMonitoringAlertsResponse200": {
         "type": "object",
         "properties": {
           "timestamp": {
@@ -13649,12 +13794,12 @@
           "alerts": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetMonitoringAlertsResponse200AlertsItem"
+              "$ref": "#/components/schemas/GetApiMonitoringAlertsResponse200AlertsItem"
             }
           }
         }
       },
-      "PostMonitoringAlertsRequestBody": {
+      "PostApiMonitoringAlertsRequestBody": {
         "type": "object",
         "required": [
           "name",
@@ -13679,7 +13824,7 @@
             "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
           },
           "severity": {
-            "$ref": "#/components/schemas/PostMonitoringAlertsRequestBodySeverityEnum"
+            "$ref": "#/components/schemas/PostApiMonitoringAlertsRequestBodySeverityEnum"
           },
           "enabled": {
             "type": "boolean",
@@ -13687,18 +13832,18 @@
           }
         }
       },
-      "PatchMonitoringAlertsAlertIdRequestBody": {
+      "PatchApiMonitoringAlertsAlertIdRequestBody": {
         "type": "object",
         "properties": {
           "action": {
-            "$ref": "#/components/schemas/PatchMonitoringAlertsAlertIdRequestBodyActionEnum"
+            "$ref": "#/components/schemas/PatchApiMonitoringAlertsAlertIdRequestBodyActionEnum"
           },
           "comment": {
             "type": "string"
           }
         }
       },
-      "GetMonitoringDashboardResponse200": {
+      "GetApiMonitoringDashboardResponse200": {
         "type": "object",
         "properties": {
           "timestamp": {
@@ -13710,7 +13855,7 @@
             "description": "Requested time range"
           },
           "system": {
-            "$ref": "#/components/schemas/GetMonitoringDashboardResponse200System"
+            "$ref": "#/components/schemas/GetApiMonitoringDashboardResponse200System"
           },
           "metrics": {
             "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
@@ -13723,7 +13868,7 @@
           }
         }
       },
-      "PostMonitoringMetricsRequestBody": {
+      "PostApiMonitoringMetricsRequestBody": {
         "type": "object",
         "required": [
           "name",
@@ -13740,14 +13885,14 @@
             "description": "Metric value"
           },
           "type": {
-            "$ref": "#/components/schemas/PostMonitoringMetricsRequestBodyTypeEnum"
+            "$ref": "#/components/schemas/PostApiMonitoringMetricsRequestBodyTypeEnum"
           },
           "labels": {
             "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
           }
         }
       },
-      "GetMonitoringValidationCacheResponse200": {
+      "GetApiMonitoringValidationCacheResponse200": {
         "type": "object",
         "properties": {
           "timestamp": {
@@ -13761,17 +13906,17 @@
           }
         }
       },
-      "PostMonitoringValidationCacheRequestBody": {
+      "PostApiMonitoringValidationCacheRequestBody": {
         "type": "object",
         "required": [
           "operation"
         ],
         "properties": {
           "operation": {
-            "$ref": "#/components/schemas/PostMonitoringValidationCacheRequestBodyOperationEnum"
+            "$ref": "#/components/schemas/PostApiMonitoringValidationCacheRequestBodyOperationEnum"
           },
           "cache": {
-            "$ref": "#/components/schemas/PostMonitoringValidationCacheRequestBodyCacheEnum"
+            "$ref": "#/components/schemas/PostApiMonitoringValidationCacheRequestBodyCacheEnum"
           },
           "pattern": {
             "type": "string",
@@ -13786,46 +13931,46 @@
           }
         }
       },
-      "GetSessionStatsResponse200": {
+      "GetApiSessionStatsResponse200": {
         "type": "object",
         "properties": {
           "timestamp": {
             "type": "number"
           },
           "global": {
-            "$ref": "#/components/schemas/GetSessionStatsResponse200Global"
+            "$ref": "#/components/schemas/GetApiSessionStatsResponse200Global"
           },
           "byTenant": {
-            "$ref": "#/components/schemas/GetHealthResponse200Uptimes"
+            "$ref": "#/components/schemas/GetApiSessionStatsResponse200ByTenant"
           },
           "tenant": {
-            "$ref": "#/components/schemas/GetSessionStatsResponse200Tenant"
+            "$ref": "#/components/schemas/GetApiSessionStatsResponse200Tenant"
           },
           "user": {
-            "$ref": "#/components/schemas/GetSessionStatsResponse200User"
+            "$ref": "#/components/schemas/GetApiSessionStatsResponse200User"
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatLinkResponse200": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatLinkResponse200": {
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatLinkResponse200Data"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatLinkResponse200Data"
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200": {
         "type": "object",
         "properties": {
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItem"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItem"
             }
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBody": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBody": {
         "type": "object",
         "required": [
           "messages"
@@ -13835,20 +13980,20 @@
             "type": "array",
             "description": "Array of debug messages",
             "items": {
-              "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBodyMessagesItem"
+              "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBodyMessagesItem"
             }
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200": {
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200Data"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200Data"
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdFeedbackRequestBody": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdFeedbackRequestBody": {
         "type": "object",
         "required": [
           "rating"
@@ -13859,7 +14004,7 @@
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItem": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItem": {
         "type": "object",
         "required": [
           "message",
@@ -13871,14 +14016,14 @@
             "description": "The message content"
           },
           "role": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum"
           },
           "tokens": {
             "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesRequestBody": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesRequestBody": {
         "type": "object",
         "required": [
           "message",
@@ -13890,52 +14035,52 @@
             "description": "The message content"
           },
           "role": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum"
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsResponse200": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsResponse200": {
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsResponse200Data"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsResponse200Data"
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum"
-          },
-          "data": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400Data"
-          }
-        }
-      },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse429": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400": {
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum"
           },
           "data": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse429Data"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400Data"
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse500": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse429": {
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum"
           },
           "data": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse500Data"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse429Data"
           }
         }
       },
-      "PutTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdRequestBody": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse500": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum"
+          },
+          "data": {
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse500Data"
+          }
+        }
+      },
+      "PutApiTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdRequestBody": {
         "type": "object",
         "properties": {
           "description": {
@@ -13949,7 +14094,7 @@
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdDatasourcesRequestBody": {
+      "PostApiTenantsTenantIdAgentsAgentIdDatasourcesRequestBody": {
         "type": "object",
         "required": [
           "dataSourceId"
@@ -13969,7 +14114,43 @@
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdRevisionsRevisionRestoreResponse200AllOf": {
+      "PostApiTenantsTenantIdAgentsAgentIdOptimizeRequestBody": {
+        "type": "object",
+        "required": [
+          "currentInstructions"
+        ],
+        "properties": {
+          "currentInstructions": {
+            "type": "string",
+            "description": "Current agent instructions to optimize"
+          },
+          "extraGuidance": {
+            "type": "string",
+            "description": "Optional additional guidance for optimization"
+          },
+          "iterationContext": {
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdOptimizeRequestBodyIterationContext"
+          }
+        }
+      },
+      "PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200": {
+        "type": "object",
+        "properties": {
+          "improvedInstructions": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200ChangesItem"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200Meta"
+          }
+        }
+      },
+      "PostApiTenantsTenantIdAgentsAgentIdRevisionsRevisionRestoreResponse200AllOf": {
         "type": "object",
         "properties": {
           "revision": {
@@ -13978,7 +14159,7 @@
           }
         }
       },
-      "PatchTenantsTenantIdAgentsAgentIdRequestBody": {
+      "PatchApiTenantsTenantIdAgentsAgentIdRequestBody": {
         "type": "object",
         "required": [
           "field",
@@ -13986,18 +14167,18 @@
         ],
         "properties": {
           "field": {
-            "$ref": "#/components/schemas/PatchTenantsTenantIdAgentsAgentIdRequestBodyFieldEnum"
+            "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyFieldEnum"
           },
           "updates": {
             "type": "array",
             "minItems": 1,
             "items": {
-              "$ref": "#/components/schemas/PatchTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItem"
+              "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItem"
             }
           }
         }
       },
-      "GetTenantsTenantIdAnalyticsChatStatsResponse200": {
+      "GetApiTenantsTenantIdAnalyticsChatStatsResponse200": {
         "type": "object",
         "properties": {
           "totalChats": {
@@ -14017,13 +14198,75 @@
             "example": 5
           },
           "feedback": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAnalyticsChatStatsResponse200Feedback"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAnalyticsChatStatsResponse200Feedback"
           },
           "agentStats": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetTenantsTenantIdAnalyticsChatStatsResponse200AgentStatsItem"
+              "$ref": "#/components/schemas/GetApiTenantsTenantIdAnalyticsChatStatsResponse200AgentStatsItem"
             }
+          }
+        }
+      },
+      "GetApiTenantsTenantIdAuthProvidersResponse200": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAuthProvidersResponse200Data"
+          }
+        }
+      },
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdScrapeRequestBody": {
+        "type": "object",
+        "properties": {
+          "max_depth": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Maximum depth to crawl from the start URL"
+          },
+          "max_pages": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "Maximum number of pages to crawl"
+          },
+          "follow_links": {
+            "type": "boolean",
+            "description": "Whether to follow links on pages"
+          }
+        }
+      },
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdScrapeResponse201": {
+        "type": "object",
+        "required": [
+          "success",
+          "start_url",
+          "pages_crawled",
+          "job_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the job was created successfully"
+          },
+          "start_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The starting URL for the crawl job"
+          },
+          "pages_crawled": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Number of pages crawled so far"
+          },
+          "job_id": {
+            "type": "string",
+            "description": "Unique identifier for the crawl job"
           }
         }
       },
@@ -14036,20 +14279,6 @@
           },
           "indexingConfig": {
             "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdReindexRequestBodyIndexingConfig"
-          }
-        }
-      },
-      "PutTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdRequestBody": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "string",
-            "description": "JSON string containing document update fields"
-          },
-          "file": {
-            "type": "string",
-            "format": "binary",
-            "description": "Binary file content (optional)"
           }
         }
       },
@@ -14082,7 +14311,7 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataRequestBody": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataRequestBody": {
         "type": "object",
         "properties": {
           "prompt": {
@@ -14091,7 +14320,7 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataResponse200": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsBulkUpdateMetadataResponse200": {
         "type": "object",
         "properties": {
           "message": {
@@ -14108,7 +14337,7 @@
           }
         }
       },
-      "GetTenantsTenantIdDatasourcesDataSourceIdDocumentsCountResponse200": {
+      "GetApiTenantsTenantIdDatasourcesDataSourceIdDocumentsCountResponse200": {
         "type": "object",
         "properties": {
           "count": {
@@ -14116,11 +14345,11 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200": {
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200StatusEnum"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200StatusEnum"
           },
           "tenant_id": {
             "type": "string",
@@ -14144,7 +14373,7 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBody": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBody": {
         "type": "object",
         "required": [
           "type",
@@ -14170,11 +14399,11 @@
             "description": "Optional error message if type is 'error'"
           },
           "costs": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBodyCosts"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBodyCosts"
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsLogResponse200": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsLogResponse200": {
         "type": "object",
         "properties": {
           "data": {
@@ -14182,20 +14411,7 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsRequestBody": {
-        "type": "object",
-        "properties": {
-          "file": {
-            "type": "string",
-            "format": "binary"
-          },
-          "data": {
-            "type": "string",
-            "description": "JSON string with additional metadata"
-          }
-        }
-      },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBody": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBody": {
         "type": "object",
         "required": [
           "type",
@@ -14208,7 +14424,7 @@
             "description": "URL to match for create/update decision"
           },
           "type": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBodyTypeEnum"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBodyTypeEnum"
           },
           "mimeType": {
             "type": "string"
@@ -14234,18 +14450,18 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200": {
         "type": "object",
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Document"
           },
           "syncResult": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResult"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResult"
           }
         }
       },
-      "GetTenantsTenantIdDatasourcesDataSourceIdEventsResponse200": {
+      "GetApiTenantsTenantIdDatasourcesDataSourceIdEventsResponse200": {
         "type": "object",
         "properties": {
           "data": {
@@ -14264,7 +14480,7 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdFlushResponse200": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdFlushResponse200": {
         "type": "object",
         "properties": {
           "success": {
@@ -14284,7 +14500,7 @@
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchRequestBody": {
+      "PostApiTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchRequestBody": {
         "type": "object",
         "properties": {
           "searchPhrase": {
@@ -14301,7 +14517,7 @@
           "instructions"
         ]
       },
-      "PostTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchResponse200": {
+      "PostApiTenantsTenantIdAgentsAgentIdDatasourcesDataSourceIdSearchResponse200": {
         "type": "object",
         "properties": {
           "embeddings": {
@@ -14374,39 +14590,7 @@
           }
         }
       },
-      "PostScraperCrawlRequestBody": {
-        "type": "object",
-        "required": [
-          "urls"
-        ],
-        "properties": {
-          "urls": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "minItems": 1,
-            "maxItems": 100,
-            "description": "List of URLs to scrape"
-          },
-          "config": {
-            "$ref": "#/components/schemas/PostScraperCrawlRequestBodyConfig"
-          }
-        }
-      },
-      "PostScraperCrawlResponse201": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/PostScraperCrawlResponse201Data"
-          }
-        }
-      },
-      "PutTenantsTenantIdUsersIdRequestBody": {
+      "PutApiTenantsTenantIdUsersIdRequestBody": {
         "type": "object",
         "properties": {
           "name": {
@@ -14432,12 +14616,12 @@
           }
         }
       },
-      "GetTenantsTenantIdUsersCheckEmailResponse200": {
+      "GetApiTenantsTenantIdUsersCheckEmailResponse200": {
         "type": "object",
         "properties": {
-          "available": {
+          "exists": {
             "type": "boolean",
-            "description": "Whether the email is available (not in use)"
+            "description": "Whether the email exists/is in use"
           }
         }
       },
@@ -14454,17 +14638,17 @@
           }
         }
       },
-      "GetTenantsResponse200": {
+      "GetApiTenantsResponse200": {
         "type": "object",
         "properties": {
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetTenantsResponse200DataItem"
+              "$ref": "#/components/schemas/GetApiTenantsResponse200DataItem"
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/GetTenantsResponse200Meta"
+            "$ref": "#/components/schemas/GetApiTenantsResponse200Meta"
           }
         },
         "required": [
@@ -14485,7 +14669,7 @@
           }
         }
       },
-      "PutVectorDatabasesVectorDatabaseIdIndicesIndexIdResponse409": {
+      "PutApiVectorDatabasesVectorDatabaseIdIndicesIndexIdResponse409": {
         "type": "object",
         "properties": {
           "error": {
@@ -14498,11 +14682,22 @@
           }
         }
       },
-      "PostVectorDatabasesVectorDatabaseIdIndicesResponse201": {
+      "PostApiVectorDatabasesVectorDatabaseIdIndicesResponse201": {
         "type": "object",
         "properties": {
           "data": {
             "$ref": "#/components/schemas/VectorIndex"
+          }
+        }
+      },
+      "AgentConfigEnabledFeatures": {
+        "type": "object",
+        "properties": {
+          "dynamicVariables": {
+            "$ref": "#/components/schemas/AgentConfigEnabledFeaturesDynamicVariables"
+          },
+          "internalTools": {
+            "$ref": "#/components/schemas/AgentConfigEnabledFeaturesInternalTools"
           }
         }
       },
@@ -14534,19 +14729,6 @@
           }
         }
       },
-      "PostApiAuthLoginResponse200Data": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "description": "JWT token for API authentication",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-          },
-          "user": {
-            "$ref": "#/components/schemas/PostApiAuthLoginResponse200DataUser"
-          }
-        }
-      },
       "PostApiAuthLogoutResponse200Data": {
         "type": "object",
         "properties": {
@@ -14560,36 +14742,11 @@
         "type": "object",
         "properties": {
           "user": {
-            "$ref": "#/components/schemas/PostApiAuthLoginResponse200DataUser"
+            "$ref": "#/components/schemas/GetApiAuthValidateSessionResponse200DataUser"
           }
         }
       },
-      "GetHealthResponse200Services": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "healthy",
-                "unhealthy"
-              ]
-            },
-            "message": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        }
-      },
-      "GetHealthResponse200Uptimes": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "number"
-        }
-      },
-      "PostJobsPlatformDetectorDetectResponse200Result": {
+      "PostApiJobsPlatformDetectorDetectResponse200Result": {
         "type": "object",
         "properties": {
           "platform": {
@@ -14606,7 +14763,7 @@
           }
         }
       },
-      "GetMonitoringAlertsResponse200AlertsItem": {
+      "GetApiMonitoringAlertsResponse200AlertsItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -14626,11 +14783,11 @@
           }
         }
       },
-      "GetMonitoringDashboardResponse200System": {
+      "GetApiMonitoringDashboardResponse200System": {
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/GetMonitoringDashboardResponse200SystemStatusEnum"
+            "$ref": "#/components/schemas/GetApiMonitoringDashboardResponse200SystemStatusEnum"
           },
           "uptime": {
             "type": "number",
@@ -14641,7 +14798,7 @@
           }
         }
       },
-      "GetSessionStatsResponse200Global": {
+      "GetApiSessionStatsResponse200Global": {
         "type": "object",
         "properties": {
           "total": {
@@ -14658,7 +14815,13 @@
           }
         }
       },
-      "GetSessionStatsResponse200Tenant": {
+      "GetApiSessionStatsResponse200ByTenant": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "number"
+        }
+      },
+      "GetApiSessionStatsResponse200Tenant": {
         "type": "object",
         "properties": {
           "tenantId": {
@@ -14676,12 +14839,12 @@
           "sessions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetSessionStatsResponse200TenantSessionsItem"
+              "$ref": "#/components/schemas/GetApiSessionStatsResponse200TenantSessionsItem"
             }
           }
         }
       },
-      "GetSessionStatsResponse200User": {
+      "GetApiSessionStatsResponse200User": {
         "type": "object",
         "properties": {
           "userId": {
@@ -14699,12 +14862,12 @@
           "sessions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetSessionStatsResponse200UserSessionsItem"
+              "$ref": "#/components/schemas/GetApiSessionStatsResponse200UserSessionsItem"
             }
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatLinkResponse200Data": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatLinkResponse200Data": {
         "type": "object",
         "properties": {
           "url": {
@@ -14713,7 +14876,7 @@
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItem": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -14723,7 +14886,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItemTypeEnum"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItemTypeEnum"
           },
           "content": {
             "type": "string"
@@ -14734,7 +14897,7 @@
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBodyMessagesItem": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugRequestBodyMessagesItem": {
         "type": "object",
         "required": [
           "content",
@@ -14746,11 +14909,11 @@
             "description": "The debug message content"
           },
           "type": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItemTypeEnum"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItemTypeEnum"
           }
         }
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200Data": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200Data": {
         "type": "object",
         "properties": {
           "count": {
@@ -14759,7 +14922,7 @@
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsResponse200Data": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsResponse200Data": {
         "type": "object",
         "properties": {
           "chats": {
@@ -14770,7 +14933,7 @@
                   "$ref": "#/components/schemas/Chat"
                 },
                 {
-                  "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsResponse200DataChatsItemAllOf"
+                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsResponse200DataChatsItemAllOf"
                 }
               ]
             }
@@ -14789,40 +14952,80 @@
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400Data": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400Data": {
         "type": "object",
         "properties": {
           "code": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400DataCodeEnum"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400DataCodeEnum"
           },
           "message": {
             "type": "string"
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse429Data": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse429Data": {
         "type": "object",
         "properties": {
           "code": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse429DataCodeEnum"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse429DataCodeEnum"
           },
           "message": {
             "type": "string"
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse500Data": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse500Data": {
         "type": "object",
         "properties": {
           "code": {
-            "$ref": "#/components/schemas/GetTenantsTenantIdAgentsAgentIdChatsStreamResponse500DataCodeEnum"
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse500DataCodeEnum"
           },
           "message": {
             "type": "string"
           }
         }
       },
-      "PatchTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItem": {
+      "PostApiTenantsTenantIdAgentsAgentIdOptimizeRequestBodyIterationContext": {
+        "type": "object",
+        "properties": {
+          "userFeedback": {
+            "type": "string",
+            "description": "User feedback from previous iteration"
+          }
+        }
+      },
+      "PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200ChangesItem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200ChangesItemTypeEnum"
+          },
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "ruleRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200Meta": {
+        "type": "object",
+        "properties": {
+          "tokenUsage": {
+            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+          }
+        }
+      },
+      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItem": {
         "type": "object",
         "required": [
           "path",
@@ -14834,11 +15037,11 @@
             "description": "Dot-notation path to the value"
           },
           "operation": {
-            "$ref": "#/components/schemas/PatchTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperation"
+            "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperation"
           }
         }
       },
-      "GetTenantsTenantIdAnalyticsChatStatsResponse200Feedback": {
+      "GetApiTenantsTenantIdAnalyticsChatStatsResponse200Feedback": {
         "type": "object",
         "properties": {
           "total": {
@@ -14864,7 +15067,7 @@
           }
         }
       },
-      "GetTenantsTenantIdAnalyticsChatStatsResponse200AgentStatsItem": {
+      "GetApiTenantsTenantIdAnalyticsChatStatsResponse200AgentStatsItem": {
         "type": "object",
         "properties": {
           "agentId": {
@@ -14908,6 +15111,14 @@
             "format": "float",
             "description": "Ratio of positive feedback for this agent",
             "example": 0.83
+          }
+        }
+      },
+      "GetApiTenantsTenantIdAuthProvidersResponse200Data": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAuthProvidersResponse200DataProviders"
           }
         }
       },
@@ -14975,7 +15186,7 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBodyCosts": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsLogRequestBodyCosts": {
         "type": "object",
         "description": "Cost tracking data",
         "properties": {
@@ -14993,46 +15204,20 @@
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResult": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResult": {
         "type": "object",
         "properties": {
           "action": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultActionEnum"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultActionEnum"
           },
           "documentId": {
             "type": "string"
           },
           "changes": {
-            "$ref": "#/components/schemas/PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultChanges"
+            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultChanges"
           },
           "reason": {
             "type": "string"
-          }
-        }
-      },
-      "PostScraperCrawlRequestBodyConfig": {
-        "type": "object",
-        "properties": {
-          "cleaningFilters": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
-          }
-        }
-      },
-      "PostScraperCrawlResponse201Data": {
-        "type": "object",
-        "properties": {
-          "jobId": {
-            "type": "string",
-            "description": "Unique identifier for the crawl job"
-          },
-          "status": {
-            "$ref": "#/components/schemas/PostScraperCrawlResponse201DataStatusEnum"
-          },
-          "progress": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Progress percentage"
           }
         }
       },
@@ -15054,7 +15239,7 @@
           }
         }
       },
-      "GetTenantsResponse200DataItem": {
+      "GetApiTenantsResponse200DataItem": {
         "type": "object",
         "required": [
           "id",
@@ -15074,27 +15259,27 @@
           "users": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetTenantsResponse200DataItemUsersItem"
+              "$ref": "#/components/schemas/GetApiTenantsResponse200DataItemUsersItem"
             }
           },
           "agents": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetTenantsResponse200DataItemAgentsItem"
+              "$ref": "#/components/schemas/GetApiTenantsResponse200DataItemAgentsItem"
             }
           },
           "dataSources": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GetTenantsResponse200DataItemAgentsItem"
+              "$ref": "#/components/schemas/GetApiTenantsResponse200DataItemAgentsItem"
             }
           },
           "_count": {
-            "$ref": "#/components/schemas/GetTenantsResponse200DataItemCount"
+            "$ref": "#/components/schemas/GetApiTenantsResponse200DataItemCount"
           }
         }
       },
-      "GetTenantsResponse200Meta": {
+      "GetApiTenantsResponse200Meta": {
         "type": "object",
         "required": [
           "page",
@@ -15152,7 +15337,61 @@
           }
         }
       },
-      "PostApiAuthLoginResponse200DataUser": {
+      "AgentConfigEnabledFeaturesDynamicVariables": {
+        "type": "object",
+        "properties": {
+          "currentDate": {
+            "type": "boolean"
+          },
+          "currentTime": {
+            "type": "boolean"
+          },
+          "dayOfWeek": {
+            "type": "boolean"
+          },
+          "currentUrl": {
+            "type": "boolean"
+          },
+          "context": {
+            "type": "boolean"
+          },
+          "defaultLocation": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "currentDate",
+          "currentTime",
+          "dayOfWeek",
+          "currentUrl",
+          "context",
+          "defaultLocation"
+        ]
+      },
+      "AgentConfigEnabledFeaturesInternalTools": {
+        "type": "object",
+        "properties": {
+          "conversationMemory": {
+            "type": "boolean"
+          },
+          "weather": {
+            "type": "boolean"
+          },
+          "time": {
+            "type": "boolean"
+          },
+          "calculator": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "conversationMemory",
+          "weather",
+          "time",
+          "calculator"
+        ]
+      },
+      "GetApiAuthValidateSessionResponse200DataUser": {
         "type": "object",
         "properties": {
           "id": {
@@ -15176,11 +15415,11 @@
             "example": "clh0987654321fedcba"
           },
           "tenant": {
-            "$ref": "#/components/schemas/PostApiAuthLoginResponse200DataUserTenant"
+            "$ref": "#/components/schemas/GetApiAuthValidateSessionResponse200DataUserTenant"
           }
         }
       },
-      "GetSessionStatsResponse200TenantSessionsItem": {
+      "GetApiSessionStatsResponse200TenantSessionsItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -15209,7 +15448,7 @@
           }
         }
       },
-      "GetSessionStatsResponse200UserSessionsItem": {
+      "GetApiSessionStatsResponse200UserSessionsItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -15238,7 +15477,7 @@
           }
         }
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsResponse200DataChatsItemAllOf": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsResponse200DataChatsItemAllOf": {
         "type": "object",
         "properties": {
           "messageCount": {
@@ -15251,21 +15490,35 @@
           }
         }
       },
-      "PatchTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperation": {
+      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperation": {
         "type": "object",
         "required": [
           "op"
         ],
         "properties": {
           "op": {
-            "$ref": "#/components/schemas/PatchTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperationOpEnum"
+            "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperationOpEnum"
           },
           "value": {
             "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
           }
         }
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultChanges": {
+      "GetApiTenantsTenantIdAuthProvidersResponse200DataProviders": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAuthProvidersResponse200DataProvidersEmail"
+          },
+          "google": {
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAuthProvidersResponse200DataProvidersGoogle"
+          },
+          "microsoft": {
+            "$ref": "#/components/schemas/GetApiTenantsTenantIdAuthProvidersResponse200DataProvidersMicrosoft"
+          }
+        }
+      },
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultChanges": {
         "type": "object",
         "properties": {
           "content": {
@@ -15276,7 +15529,7 @@
           }
         }
       },
-      "GetTenantsResponse200DataItemUsersItem": {
+      "GetApiTenantsResponse200DataItemUsersItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -15287,7 +15540,7 @@
           }
         }
       },
-      "GetTenantsResponse200DataItemAgentsItem": {
+      "GetApiTenantsResponse200DataItemAgentsItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -15298,7 +15551,7 @@
           }
         }
       },
-      "GetTenantsResponse200DataItemCount": {
+      "GetApiTenantsResponse200DataItemCount": {
         "type": "object",
         "properties": {
           "users": {
@@ -15312,7 +15565,7 @@
           }
         }
       },
-      "PostApiAuthLoginResponse200DataUserTenant": {
+      "GetApiAuthValidateSessionResponse200DataUserTenant": {
         "type": "object",
         "properties": {
           "id": {
@@ -15326,6 +15579,42 @@
           "domain": {
             "type": "string",
             "example": "acme.mainio.app"
+          }
+        }
+      },
+      "GetApiTenantsTenantIdAuthProvidersResponse200DataProvidersEmail": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GetApiTenantsTenantIdAuthProvidersResponse200DataProvidersGoogle": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "GetApiTenantsTenantIdAuthProvidersResponse200DataProvidersMicrosoft": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -15466,7 +15755,7 @@
           "azure"
         ]
       },
-      "PutFoundationModelsModelIdRequestBodyTypeEnum": {
+      "PutApiFoundationModelsModelIdRequestBodyTypeEnum": {
         "type": "string",
         "enum": [
           "llm",
@@ -15477,20 +15766,19 @@
         ],
         "description": "Type of the foundation model"
       },
-      "GetHealthResponse200StatusEnum": {
+      "GetApiHealthResponse200StatusEnum": {
         "type": "string",
         "enum": [
-          "healthy",
+          "healthy"
+        ]
+      },
+      "GetApiHealthResponse503StatusEnum": {
+        "type": "string",
+        "enum": [
           "unhealthy"
         ]
       },
-      "GetHealthResponse503StatusEnum": {
-        "type": "string",
-        "enum": [
-          "unhealthy"
-        ]
-      },
-      "PostJobsPlatformDetectorDetectResponse200StatusEnum": {
+      "PostApiJobsPlatformDetectorDetectResponse200StatusEnum": {
         "type": "string",
         "enum": [
           "started",
@@ -15499,7 +15787,7 @@
           "error"
         ]
       },
-      "PostMonitoringAlertsRequestBodySeverityEnum": {
+      "PostApiMonitoringAlertsRequestBodySeverityEnum": {
         "type": "string",
         "enum": [
           "info",
@@ -15508,14 +15796,14 @@
           "critical"
         ]
       },
-      "PatchMonitoringAlertsAlertIdRequestBodyActionEnum": {
+      "PatchApiMonitoringAlertsAlertIdRequestBodyActionEnum": {
         "type": "string",
         "enum": [
           "resolve",
           "acknowledge"
         ]
       },
-      "PostMonitoringMetricsRequestBodyTypeEnum": {
+      "PostApiMonitoringMetricsRequestBodyTypeEnum": {
         "type": "string",
         "enum": [
           "counter",
@@ -15524,7 +15812,7 @@
         ],
         "description": "Metric type"
       },
-      "PostMonitoringValidationCacheRequestBodyOperationEnum": {
+      "PostApiMonitoringValidationCacheRequestBodyOperationEnum": {
         "type": "string",
         "enum": [
           "clear",
@@ -15533,7 +15821,7 @@
         ],
         "description": "Operation to perform"
       },
-      "PostMonitoringValidationCacheRequestBodyCacheEnum": {
+      "PostApiMonitoringValidationCacheRequestBodyCacheEnum": {
         "type": "string",
         "enum": [
           "all",
@@ -15544,7 +15832,7 @@
         ],
         "description": "Which cache to operate on"
       },
-      "PostTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum": {
+      "PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum": {
         "type": "string",
         "enum": [
           "user",
@@ -15553,13 +15841,13 @@
         ],
         "description": "The role of the message sender"
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400TypeEnum": {
         "type": "string",
         "enum": [
           "ERROR"
         ]
       },
-      "PatchTenantsTenantIdAgentsAgentIdRequestBodyFieldEnum": {
+      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyFieldEnum": {
         "type": "string",
         "enum": [
           "config",
@@ -15567,14 +15855,14 @@
         ],
         "description": "The JSON field to update"
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200StatusEnum": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200StatusEnum": {
         "type": "string",
         "enum": [
           "queued"
         ],
         "description": "Status of the batch operation"
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBodyTypeEnum": {
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncRequestBodyTypeEnum": {
         "type": "string",
         "enum": [
           "pdf",
@@ -15589,7 +15877,7 @@
           "wordpress"
         ]
       },
-      "GetMonitoringDashboardResponse200SystemStatusEnum": {
+      "GetApiMonitoringDashboardResponse200SystemStatusEnum": {
         "type": "string",
         "enum": [
           "healthy",
@@ -15597,7 +15885,7 @@
           "unhealthy"
         ]
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItemTypeEnum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesMessageIdDebugResponse200DataItemTypeEnum": {
         "type": "string",
         "enum": [
           "system",
@@ -15609,25 +15897,38 @@
           "rag"
         ]
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse400DataCodeEnum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400DataCodeEnum": {
         "type": "string",
         "enum": [
           "VALIDATION_ERROR"
         ]
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse429DataCodeEnum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse429DataCodeEnum": {
         "type": "string",
         "enum": [
           "RATE_LIMIT"
         ]
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsStreamResponse500DataCodeEnum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse500DataCodeEnum": {
         "type": "string",
         "enum": [
           "API_ERROR"
         ]
       },
-      "PostTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultActionEnum": {
+      "PostApiTenantsTenantIdAgentsAgentIdOptimizeResponse200ChangesItemTypeEnum": {
+        "type": "string",
+        "enum": [
+          "add",
+          "remove",
+          "modify",
+          "reorder",
+          "tighten",
+          "clarify",
+          "constrain",
+          "example"
+        ]
+      },
+      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultActionEnum": {
         "type": "string",
         "enum": [
           "created",
@@ -15635,17 +15936,7 @@
           "unchanged"
         ]
       },
-      "PostScraperCrawlResponse201DataStatusEnum": {
-        "type": "string",
-        "enum": [
-          "queued",
-          "running",
-          "completed",
-          "failed"
-        ],
-        "description": "Current status of the job"
-      },
-      "PatchTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperationOpEnum": {
+      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperationOpEnum": {
         "type": "string",
         "enum": [
           "set",
@@ -15653,7 +15944,7 @@
           "merge"
         ]
       },
-      "GetMonitoringAlertsParam0Enum": {
+      "GetApiMonitoringAlertsParam0Enum": {
         "type": "string",
         "enum": [
           "active",
@@ -15662,7 +15953,7 @@
         ],
         "default": "all"
       },
-      "GetMonitoringDashboardParam0Enum": {
+      "GetApiMonitoringDashboardParam0Enum": {
         "type": "string",
         "enum": [
           "1h",
@@ -15672,7 +15963,7 @@
         ],
         "default": "1h"
       },
-      "GetMonitoringMetricsParam0Enum": {
+      "GetApiMonitoringMetricsParam0Enum": {
         "type": "string",
         "enum": [
           "json",
@@ -15680,14 +15971,14 @@
         ],
         "default": "json"
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam6Enum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam6Enum": {
         "type": "string",
         "enum": [
           "createdAt"
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum": {
         "type": "string",
         "enum": [
           "asc",
@@ -15695,7 +15986,7 @@
         ],
         "default": "asc"
       },
-      "GetTenantsTenantIdAgentsAgentIdChatsParam4Enum": {
+      "GetApiTenantsTenantIdAgentsAgentIdChatsParam4Enum": {
         "type": "string",
         "enum": [
           "createdAt",
@@ -15703,7 +15994,7 @@
           "title"
         ]
       },
-      "GetTenantsTenantIdAgentsAgentIdParam4Enum": {
+      "GetApiTenantsTenantIdAgentsAgentIdParam4Enum": {
         "type": "string",
         "enum": [
           "createdAt",
@@ -15711,7 +16002,7 @@
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdAgentsParam3Enum": {
+      "GetApiTenantsTenantIdAgentsParam3Enum": {
         "type": "string",
         "enum": [
           "name",
@@ -15720,7 +16011,7 @@
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdDatasourcesDataSourceIdDocumentsParam7Enum": {
+      "GetApiTenantsTenantIdDatasourcesDataSourceIdDocumentsParam5Enum": {
         "type": "string",
         "enum": [
           "url",
@@ -15729,7 +16020,7 @@
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdDatasourcesParam3Enum": {
+      "GetApiTenantsTenantIdDatasourcesParam3Enum": {
         "type": "string",
         "enum": [
           "createdAt",
@@ -15737,7 +16028,7 @@
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdDatasourcesParam5Enum": {
+      "GetApiTenantsTenantIdDatasourcesParam5Enum": {
         "type": "string",
         "enum": [
           "createdAt",
@@ -15745,7 +16036,7 @@
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdJobsParam3Enum": {
+      "GetApiTenantsTenantIdJobsParam3Enum": {
         "type": "string",
         "enum": [
           "createdAt",
@@ -15755,7 +16046,7 @@
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdJobsParam5Enum": {
+      "GetApiTenantsTenantIdJobsParam5Enum": {
         "type": "string",
         "enum": [
           "createdAt",
@@ -15763,7 +16054,7 @@
         ],
         "default": "createdAt"
       },
-      "GetTenantsTenantIdUsersParam2Enum": {
+      "GetApiTenantsTenantIdUsersParam2Enum": {
         "type": "string",
         "enum": [
           "email",
@@ -15774,7 +16065,7 @@
         ],
         "default": "email"
       },
-      "GetUsersParam2Enum": {
+      "GetApiUsersParam2Enum": {
         "type": "string",
         "enum": [
           "name",
@@ -15784,7 +16075,7 @@
           "updatedAt"
         ]
       },
-      "GetVectorDatabasesVectorDatabaseIdIndicesParam2Enum": {
+      "GetApiVectorDatabasesVectorDatabaseIdIndicesParam2Enum": {
         "type": "string",
         "enum": [
           "createdAt",
@@ -16781,16 +17072,20 @@
       "description": "Operations related to Analytics"
     },
     {
+      "name": "Tenants",
+      "description": "Operations related to Tenants"
+    },
+    {
       "name": "Crawler",
       "description": "Operations related to Crawler"
     },
     {
-      "name": "Documents",
-      "description": "Operations related to Documents"
-    },
-    {
       "name": "Datasources",
       "description": "Operations related to Datasources"
+    },
+    {
+      "name": "Documents",
+      "description": "Operations related to Documents"
     },
     {
       "name": "Search",
@@ -16799,10 +17094,6 @@
     {
       "name": "Testing",
       "description": "Operations related to Testing"
-    },
-    {
-      "name": "Tenants",
-      "description": "Operations related to Tenants"
     },
     {
       "name": "Scraper",

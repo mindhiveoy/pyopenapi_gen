@@ -105,8 +105,11 @@ class TestArrayResponseHandling:
         # Assert
         written_code = "\n".join([call[0][0] for call in code_writer_mock.write_line.call_args_list])
 
-        # Should use list comprehension with .from_dict()
-        assert "[structure_from_dict(item, AgentListResponseItem) for item in response.json()]" in written_code
+        # Should use single structure_from_dict call with the type alias
+        assert "structure_from_dict(response.json(), AgentListResponse)" in written_code
+
+        # Should NOT use manual list comprehension
+        assert "[structure_from_dict(item, AgentListResponseItem) for item in response.json()]" not in written_code
 
         # Should NOT use cast()
         assert "cast(AgentListResponse, response.json())" not in written_code
@@ -335,10 +338,10 @@ class TestArrayResponseHandling:
         # Assert
         assert result is False
 
-    def test_get_cattrs_deserialization_code__list_of_dataclass__generates_list_comprehension(self):
+    def test_get_cattrs_deserialization_code__list_of_dataclass__generates_generic_call(self):
         """
         Scenario: Generate deserialisation code for List[DataclassModel].
-        Expected Outcome: Returns list comprehension with structure_from_dict() for each item.
+        Expected Outcome: Returns single structure_from_dict() call with List[Type] - cattrs handles this natively.
         """
         # Arrange
         generator = EndpointResponseHandlerGenerator(schemas={})
@@ -347,4 +350,4 @@ class TestArrayResponseHandling:
         result = generator._get_cattrs_deserialization_code("List[AgentListResponseItem]", "response.json()")
 
         # Assert
-        assert result == "[structure_from_dict(item, AgentListResponseItem) for item in response.json()]"
+        assert result == "structure_from_dict(response.json(), List[AgentListResponseItem])"
