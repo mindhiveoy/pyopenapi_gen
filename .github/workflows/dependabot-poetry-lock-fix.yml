@@ -44,7 +44,7 @@ jobs:
 
       - name: Checkout PR branch
         if: steps.check_conflicts.outputs.has_conflicts == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.check_conflicts.outputs.pr_head }}
           fetch-depth: 0
