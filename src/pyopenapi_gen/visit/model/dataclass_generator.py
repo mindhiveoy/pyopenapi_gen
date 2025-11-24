@@ -92,19 +92,19 @@ class {class_name}:
     {description}
 
     This class wraps arbitrary JSON objects with no defined schema,
-    preserving all data during serialisation/deserialisation.
+    preserving all data during serialization/deserialization.
 
     Example:
         from {context.core_package_name}.cattrs_converter import structure_from_dict, unstructure_to_dict
 
-        # Deserialise from API response
+        # Deserialize from API response
         obj = structure_from_dict({{"key": "value"}}, {class_name})
 
         # Access data
         print(obj["key"])  # "value"
         obj["new_key"] = "new_value"
 
-        # Serialise for API request
+        # Serialize for API request
         data = unstructure_to_dict(obj)  # {{"key": "value", "new_key": "new_value"}}
     """
 
@@ -188,6 +188,17 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
             return "field(default_factory=dict)"
 
         if ps.default is not None:
+            # Check if this is an enum field (has a name that references another schema with enum values)
+            if ps.name and self.all_schemas:
+                enum_schema = self.all_schemas.get(ps.name)
+                if enum_schema and enum_schema.enum:
+                    # This is an enum field - convert default value to enum member access
+                    # e.g., "default" -> JobPriorityEnum.DEFAULT
+                    default_str = str(ps.default)
+                    # Convert the value to the enum member name (e.g., "default" -> "DEFAULT")
+                    enum_member_name = default_str.upper().replace("-", "_").replace(" ", "_")
+                    return f"{ps.name}.{enum_member_name}"
+
             if isinstance(ps.default, str):
                 escaped_inner_content = json.dumps(ps.default)[1:-1]
                 return '"' + escaped_inner_content + '"'
@@ -197,7 +208,7 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
                 return str(ps.default)
             else:
                 logger.warning(
-                    f"DataclassGenerator: Complex default value '{ps.default}' for field '{ps.name}' of type '{ps.type}"
+                    f"DataclassGenerator: Complex default value '{ps.default}' for field '{ps.name}' of type '{ps.type}'"
                     f" cannot be directly rendered. Falling back to None. Type: {type(ps.default)}"
                 )
         return "None"

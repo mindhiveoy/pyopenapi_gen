@@ -128,7 +128,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+                "$ref": "#/components/schemas/JobConfig"
               }
             }
           }
@@ -280,14 +280,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Embedding retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetApiEmbeddingsEmbeddingIdResponse200"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/EmbeddingResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -333,14 +326,7 @@
         },
         "responses": {
           "200": {
-            "description": "Embedding updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetApiEmbeddingsEmbeddingIdResponse200"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/EmbeddingResponse"
           },
           "400": {
             "$ref": "#/components/responses/BadRequestError"
@@ -411,14 +397,7 @@
         "description": "Returns all available embedding models.\n\n**Authentication:** Required\n**Authorization:** All authenticated users\n\n## Access Control\n- **Required Role:** Any authenticated user\n- **Allowed Roles:** All\n\nThis endpoint allows all authenticated users to list available\nembedding models for use in data sources. Only system administrators\ncan create or modify embedding configurations.\n",
         "responses": {
           "200": {
-            "description": "List of embeddings",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetApiEmbeddingsResponse200"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/EmbeddingListResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -453,14 +432,7 @@
         },
         "responses": {
           "201": {
-            "description": "Embedding created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetApiEmbeddingsEmbeddingIdResponse200"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/EmbeddingResponse"
           },
           "400": {
             "$ref": "#/components/responses/BadRequestError"
@@ -617,47 +589,6 @@
         "responses": {
           "200": {
             "$ref": "#/components/schemas/FoundationModelListResponse"
-          },
-          "401": {
-            "$ref": "#/components/responses/UnauthorizedError"
-          },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenError"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
-        },
-        "parameters": []
-      },
-      "post": {
-        "summary": "Create a new foundation model",
-        "tags": [
-          "Foundation Models"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "description": "Creates a new foundation model configuration.\n\n**Authentication:** Required\n**Authorization:** System role only\n\n## Access Control\n- **Required Role:** `system`\n- **Allowed Roles:** None (system only)\n\nThis endpoint is restricted to system administrators for creating\nnew AI model configurations that can be used across all tenants.\n",
-        "operationId": "createFoundationModel",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PutApiFoundationModelsModelIdRequestBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "$ref": "#/components/schemas/FoundationModelResponse"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequestError"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -1342,7 +1273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+                  "$ref": "#/components/schemas/JobConfig"
                 }
               },
               "text/plain": {
@@ -2161,7 +2092,7 @@
             "name": "sortOrder",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order"
           },
@@ -2255,7 +2186,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/schemas/ChatResponse"
+            "$ref": "#/components/schemas/ChatOutput"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -2384,7 +2315,7 @@
             "name": "order",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order (asc or desc)"
           }
@@ -2395,7 +2326,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsResponse200"
+                  "$ref": "#/components/schemas/ChatListPaginatedOutput"
                 }
               }
             }
@@ -2452,14 +2383,7 @@
         },
         "responses": {
           "201": {
-            "description": "Chat created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Chat"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/ChatOutput"
           },
           "400": {
             "$ref": "#/components/responses/BadRequestError"
@@ -3200,7 +3124,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order for chats"
           }
@@ -3553,7 +3477,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBody"
+                "$ref": "#/components/schemas/AgentPatchSchema"
               },
               "examples": {
                 "updateTheme": {
@@ -3766,7 +3690,7 @@
             "name": "order",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order"
           },
@@ -5229,7 +5153,7 @@
             "in": "query",
             "name": "order",
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order"
           },
@@ -5276,14 +5200,7 @@
         "x-required-role": "system",
         "responses": {
           "200": {
-            "description": "List of documents",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentListResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/DocumentListResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -5343,14 +5260,7 @@
         "x-required-role": "system",
         "responses": {
           "201": {
-            "description": "Document created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/DocumentResponse"
           },
           "400": {
             "$ref": "#/components/responses/ValidationError"
@@ -5459,14 +5369,7 @@
         },
         "responses": {
           "200": {
-            "description": "Document synced successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/DocumentSyncOutput"
           },
           "400": {
             "$ref": "#/components/responses/ValidationError"
@@ -5520,14 +5423,7 @@
         },
         "responses": {
           "200": {
-            "description": "Document upserted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/DocumentUpsertOutput"
           },
           "400": {
             "$ref": "#/components/responses/ValidationError"
@@ -5706,14 +5602,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Datasource retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataSource"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/DataSourceResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -5994,7 +5883,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order for documents"
           },
@@ -6012,7 +5901,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order for events"
           }
@@ -6488,7 +6377,7 @@
             "name": "order",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order (asc or desc)"
           }
@@ -6638,7 +6527,7 @@
             "name": "executionsOrder",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order for executions (asc or desc)"
           }
@@ -6834,7 +6723,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order for jobs"
           },
@@ -6852,7 +6741,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order for executions"
           }
@@ -7715,7 +7604,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order"
           },
@@ -7750,7 +7639,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserListResponse"
+                  "$ref": "#/components/schemas/TenantUserListResponse"
                 },
                 "examples": {
                   "standardPage": {
@@ -8428,6 +8317,15 @@
             "description": "Page number (0-based)"
           },
           {
+            "name": "tenantId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by tenant ID (system users only)"
+          },
+          {
             "name": "pageSize",
             "in": "query",
             "required": false,
@@ -8444,7 +8342,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiUsersParam2Enum"
+              "$ref": "#/components/schemas/GetApiUsersParam3Enum"
             },
             "description": "Field to sort by"
           },
@@ -8453,7 +8351,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order"
           }
@@ -8734,7 +8632,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order"
           },
@@ -8782,14 +8680,7 @@
         ],
         "responses": {
           "200": {
-            "description": "List of indices with pagination",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VectorIndexListResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/VectorIndexListResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -8835,14 +8726,7 @@
         },
         "responses": {
           "201": {
-            "description": "Vector index created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostApiVectorDatabasesVectorDatabaseIdIndicesResponse201"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/VectorIndexResponse"
           },
           "400": {
             "$ref": "#/components/responses/ValidationError"
@@ -8900,21 +8784,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum"
+              "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
             },
             "description": "Sort order (asc or desc)"
           }
         ],
         "responses": {
           "200": {
-            "description": "List of vector databases",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VectorDatabaseListResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/VectorDatabaseListResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -8951,14 +8828,7 @@
         },
         "responses": {
           "201": {
-            "description": "Vector database created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VectorDatabaseResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/VectorDatabaseResponse"
           },
           "400": {
             "$ref": "#/components/responses/BadRequestError"
@@ -9003,155 +8873,140 @@
       },
       "Job": {
         "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "status",
+          "createdAt"
+        ],
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the job"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the job",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description of the job",
+            "maxLength": 500
+          },
           "type": {
             "$ref": "#/components/schemas/JobType"
           },
           "status": {
             "$ref": "#/components/schemas/JobStatus"
           },
+          "queue": {
+            "type": "string",
+            "description": "Queue name for the job"
+          },
           "priority": {
             "$ref": "#/components/schemas/JobPriorityEnum"
           },
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string",
-            "nullable": true
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "queue": {
-            "type": "string"
-          },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/JobConfig"
+          },
+          "scheduled": {
+            "type": "boolean",
+            "description": "Whether the job is scheduled to run periodically",
+            "default": false
+          },
+          "cronString": {
+            "type": "string",
+            "description": "Cron expression for scheduled jobs"
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "description": "Maximum number of retry attempts",
+            "minimum": 1,
+            "default": 3
+          },
+          "timeout": {
+            "type": "integer",
+            "description": "Timeout in seconds",
+            "minimum": 1
           },
           "result": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "error": {
             "type": "string",
-            "nullable": true
-          },
-          "scheduled": {
-            "type": "boolean"
-          },
-          "nextRun": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string or null",
-            "nullable": true
-          },
-          "lastRun": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string or null",
-            "nullable": true
-          },
-          "attempts": {
-            "type": "integer"
-          },
-          "maxAttempts": {
-            "type": "integer"
-          },
-          "timeout": {
-            "type": "integer"
-          },
-          "dataSourceId": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
+            "nullable": true,
+            "description": "Error message if job failed"
           },
           "startedAt": {
             "type": "string",
             "format": "date-time",
-            "description": "ISO 8601 date-time string or null",
-            "nullable": true
+            "description": "When the job started executing"
           },
           "completedAt": {
             "type": "string",
             "format": "date-time",
-            "description": "ISO 8601 date-time string or null",
-            "nullable": true
+            "nullable": true,
+            "description": "When the job completed executing"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the job was created"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the job was last updated"
           }
-        },
-        "required": [
-          "type",
-          "status",
-          "priority",
-          "id",
-          "name",
-          "queue",
-          "result",
-          "scheduled",
-          "attempts",
-          "maxAttempts",
-          "timeout",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Background job"
+        }
       },
       "AgentHistory": {
         "type": "object",
         "properties": {
           "agentId": {
-            "type": "string"
+            "type": "string",
+            "description": "The ID of the agent this revision belongs to"
           },
           "revision": {
-            "type": "number",
-            "minimum": 0
+            "type": "integer",
+            "description": "The revision number"
           },
           "name": {
             "type": "string",
-            "maxLength": 255
+            "description": "Agent name at the time of this revision"
           },
           "description": {
             "type": "string",
             "nullable": true,
-            "maxLength": 2000
+            "description": "Agent description at the time of this revision"
           },
           "instructions": {
             "type": "string",
-            "maxLength": 200000
+            "nullable": true,
+            "description": "Agent instructions at the time of this revision"
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/AgentHistoryConfig"
           },
           "createdAt": {
             "type": "string",
             "format": "date-time",
-            "description": "ISO 8601 date-time string"
+            "description": "Timestamp when this revision was created"
           },
-          "createdById": {
-            "type": "string"
+          "createdBy": {
+            "$ref": "#/components/schemas/AgentHistoryCreatedBy"
           }
         },
         "required": [
           "agentId",
           "revision",
           "name",
-          "instructions",
           "createdAt",
-          "createdById"
-        ],
-        "description": "Agent revision history"
+          "createdBy"
+        ]
       },
       "AgentHistoryListResponse": {
         "type": "array",
@@ -9451,885 +9306,6 @@
         },
         "description": "Pagination metadata"
       },
-      "Agent": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/AgentTypeEnum"
-          },
-          "id": {
-            "type": "string"
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000
-          },
-          "instructions": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 200000
-          },
-          "config": {
-            "$ref": "#/components/schemas/AgentConfig"
-          },
-          "configVersion": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "type",
-          "id",
-          "revision",
-          "tenantId",
-          "name",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "AI agent configuration",
-        "example": {
-          "id": "123e4567-e89b-12d3-a456-426614174000",
-          "revision": 1,
-          "tenantId": "123e4567-e89b-12d3-a456-426614174000",
-          "type": "CHAT",
-          "name": "Customer Support Agent",
-          "description": "Handles customer inquiries",
-          "instructions": "Be helpful and friendly when answering customer questions",
-          "config": {
-            "chatConfig": {
-              "theme": {
-                "primaryColor": "#0066CC"
-              }
-            }
-          },
-          "createdAt": "2023-01-01T00:00:00Z",
-          "updatedAt": "2023-01-01T00:00:00Z"
-        }
-      },
-      "Tenant": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/TenantStatus"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "domain": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 255
-          },
-          "settings": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "settingsVersion": {
-            "type": "integer"
-          },
-          "theme": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "active": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "status",
-          "id",
-          "name",
-          "domain",
-          "settingsVersion",
-          "theme",
-          "active",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Tenant organization information",
-        "example": {
-          "id": "123e4567-e89b-12d3-a456-426614174000",
-          "name": "Example Organization",
-          "domain": "example.com",
-          "description": "An example organization",
-          "status": "ACTIVE",
-          "active": true,
-          "createdAt": "2023-01-01T00:00:00Z",
-          "updatedAt": "2023-01-01T00:00:00Z"
-        }
-      },
-      "User": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "$ref": "#/components/schemas/UserRole"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "email": {
-            "type": "string",
-            "format": "email"
-          },
-          "password": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 8,
-            "maxLength": 40
-          },
-          "salt": {
-            "type": "string",
-            "nullable": true
-          },
-          "emailVerified": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string or null",
-            "nullable": true
-          },
-          "image": {
-            "type": "string",
-            "nullable": true,
-            "format": "uri"
-          },
-          "lastLoginAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string or null",
-            "nullable": true
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "userSettings": {
-            "$ref": "#/components/schemas/UserUserSettings"
-          },
-          "userSettingsVersion": {
-            "type": "integer"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "role",
-          "id",
-          "name",
-          "email",
-          "tenantId",
-          "userSettingsVersion",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "User account information",
-        "example": {
-          "id": "123e4567-e89b-12d3-a456-426614174000",
-          "email": "user@example.com",
-          "name": "John Doe",
-          "role": "USER",
-          "tenantId": "123e4567-e89b-12d3-a456-426614174000",
-          "createdAt": "2023-01-01T00:00:00Z",
-          "updatedAt": "2023-01-01T00:00:00Z"
-        }
-      },
-      "DataSource": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/DataSourceType"
-          },
-          "intervalType": {
-            "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "tenantId": {
-            "type": "string",
-            "nullable": true
-          },
-          "vectorDatabaseId": {
-            "type": "string",
-            "nullable": true
-          },
-          "vectorIndexId": {
-            "type": "string",
-            "nullable": true
-          },
-          "embedModelId": {
-            "type": "string",
-            "nullable": true
-          },
-          "intervalValue": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 365
-          },
-          "targetUrls": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "configVersion": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "settings": {
-            "$ref": "#/components/schemas/JsonValue"
-          }
-        },
-        "required": [
-          "type",
-          "intervalType",
-          "id",
-          "name",
-          "intervalValue",
-          "targetUrls",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Data source for agent knowledge"
-      },
-      "Document": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/DocumentStatus"
-          },
-          "type": {
-            "$ref": "#/components/schemas/DocumentType"
-          },
-          "id": {
-            "type": "string"
-          },
-          "dataSourceId": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          },
-          "mimeType": {
-            "type": "string",
-            "nullable": true
-          },
-          "size": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 0
-          },
-          "binary": {
-            "type": "string",
-            "format": "byte",
-            "description": "Binary content of the document (base64-encoded). Accepts Buffer, Uint8Array, or base64 strings at runtime."
-          },
-          "markdown": {
-            "type": "string",
-            "nullable": true
-          },
-          "html": {
-            "type": "string",
-            "nullable": true
-          },
-          "hash": {
-            "type": "string",
-            "nullable": true
-          },
-          "lastModified": {
-            "type": "string",
-            "nullable": true
-          },
-          "etag": {
-            "type": "string",
-            "nullable": true
-          },
-          "tokens": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 0
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "status",
-          "type",
-          "id",
-          "dataSourceId",
-          "url",
-          "binary",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Document in a data source"
-      },
-      "AgentDataSource": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "agentId": {
-            "type": "string"
-          },
-          "dataSourceId": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 1000
-          },
-          "instructions": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 10000
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          }
-        },
-        "required": [
-          "id",
-          "agentId",
-          "dataSourceId"
-        ],
-        "description": "Agent data source relationship"
-      },
-      "Chat": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "agentId": {
-            "type": "string"
-          },
-          "info": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "tokens": {
-            "$ref": "#/components/schemas/JsonValue"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "agentId",
-          "info",
-          "createdAt",
-          "updatedAt",
-          "tokens"
-        ],
-        "description": "Chat conversation"
-      },
-      "Message": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "chatId": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "userId": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "tokens": {
-            "$ref": "#/components/schemas/JsonValue"
-          }
-        },
-        "required": [
-          "id",
-          "chatId",
-          "role",
-          "message",
-          "createdAt",
-          "updatedAt",
-          "tokens"
-        ],
-        "description": "Chat message"
-      },
-      "Tool": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "params": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "code": {
-            "type": "string",
-            "minLength": 1
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "params",
-          "code",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Agent tool/function"
-      },
-      "Embedding": {
-        "type": "object",
-        "properties": {
-          "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "internalName": {
-            "type": "string"
-          },
-          "dimension": {
-            "type": "number",
-            "minimum": 1
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "vendor",
-          "id",
-          "name",
-          "internalName",
-          "dimension",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Vector embedding model"
-      },
-      "FoundationModel": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/FoundationModelType"
-          },
-          "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
-          },
-          "id": {
-            "type": "string"
-          },
-          "alias": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 16
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "internalName": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "contextWindow": {
-            "type": "number",
-            "minimum": 1
-          },
-          "maxOutput": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 1
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "knowledgeCutOff": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "type",
-          "vendor",
-          "id",
-          "name",
-          "internalName",
-          "contextWindow",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Foundation AI model configuration"
-      },
-      "VectorDatabase": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/VectorDatabaseType"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "tenantId": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "type",
-          "id",
-          "name",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Vector database configuration"
-      },
-      "VectorIndex": {
-        "type": "object",
-        "properties": {
-          "metric": {
-            "$ref": "#/components/schemas/VectorMetricType"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "dimension": {
-            "type": "number",
-            "minimum": 1
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "vectorDatabaseId": {
-            "type": "string"
-          },
-          "embedModelId": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "dimension",
-          "vectorDatabaseId",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Vector index configuration"
-      },
-      "JobExecution": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/JobStatus"
-          },
-          "id": {
-            "type": "string"
-          },
-          "jobId": {
-            "type": "string"
-          },
-          "attemptNumber": {
-            "type": "integer"
-          },
-          "startedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "completedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string or null",
-            "nullable": true
-          },
-          "duration": {
-            "type": "integer",
-            "nullable": true
-          },
-          "error": {
-            "type": "string",
-            "nullable": true
-          },
-          "logs": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "status",
-          "id",
-          "jobId",
-          "attemptNumber",
-          "startedAt",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "Job execution record"
-      },
-      "Feedback": {
-        "type": "object",
-        "properties": {
-          "rating": {
-            "$ref": "#/components/schemas/FeedbackRating"
-          },
-          "id": {
-            "type": "string"
-          },
-          "messageId": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 4000
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "rating",
-          "id",
-          "messageId",
-          "createdAt",
-          "updatedAt"
-        ],
-        "description": "User feedback"
-      },
       "AgentCreate": {
         "type": "object",
         "properties": {
@@ -10352,7 +9328,7 @@
             "maxLength": 2000
           },
           "type": {
-            "$ref": "#/components/schemas/AgentTypeEnum"
+            "$ref": "#/components/schemas/AgentCreateTypeEnum"
           }
         },
         "required": [
@@ -10383,7 +9359,7 @@
             "maxLength": 2000
           },
           "type": {
-            "$ref": "#/components/schemas/AgentTypeEnum"
+            "$ref": "#/components/schemas/AgentCreateTypeEnum"
           }
         },
         "required": [
@@ -10411,7 +9387,7 @@
             "maxLength": 2000
           },
           "type": {
-            "$ref": "#/components/schemas/AgentTypeEnum"
+            "$ref": "#/components/schemas/AgentCreateTypeEnum"
           }
         },
         "required": [
@@ -10438,7 +9414,7 @@
             "maxLength": 2000
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/AgentConfigResponse"
           }
         },
         "description": "Schema for updating an existing agent"
@@ -10462,122 +9438,152 @@
             "maxLength": 2000
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/AgentConfigResponse"
           }
         },
         "description": "Schema for updating an existing agent (alias)"
       },
-      "AgentResponse": {
+      "AgentPatchSchema": {
         "type": "object",
         "properties": {
-          "type": {
-            "$ref": "#/components/schemas/AgentTypeEnum"
+          "field": {
+            "$ref": "#/components/schemas/AgentPatchSchemaFieldEnum"
           },
-          "id": {
-            "type": "string"
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000
-          },
-          "instructions": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 200000
-          },
-          "config": {
-            "$ref": "#/components/schemas/AgentConfig"
-          },
-          "configVersion": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "_count": {
-            "$ref": "#/components/schemas/AgentResponseCount"
-          },
-          "tenant": {
-            "$ref": "#/components/schemas/AgentResponseTenant"
-          },
-          "functions": {
+          "updates": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentResponseTenant"
-            }
-          },
-          "datasources": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentResponseDatasourcesItem"
-            }
-          },
-          "chats": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentResponseChatsItem"
+              "$ref": "#/components/schemas/AgentPatchSchemaUpdatesItem"
             }
           }
         },
         "required": [
-          "type",
-          "id",
-          "revision",
-          "tenantId",
-          "name",
-          "createdAt",
-          "updatedAt"
+          "field",
+          "updates"
+        ],
+        "description": "Schema for partially updating agent JSON fields"
+      },
+      "AgentQuerySchema": {
+        "type": "object",
+        "properties": {
+          "include": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string"
+          },
+          "chatsSortBy": {
+            "type": "string"
+          },
+          "chatsOrder": {
+            "type": "string"
+          }
+        },
+        "description": "Schema for agent query parameters"
+      },
+      "AgentResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentResponseData"
+          }
+        },
+        "required": [
+          "data"
         ],
         "description": "Agent data with optional related information based on include query parameter"
       },
       "AgentListResponse": {
-        "type": "array",
-        "items": {
-          "$ref": "#/components/schemas/AgentListResponseItem"
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentResponseData"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
         },
+        "required": [
+          "data",
+          "meta"
+        ],
         "description": "List of agents with pagination"
       },
       "AgentConfigResponse": {
         "type": "object",
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/AgentConfigResponseData"
+          "type": {
+            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+          },
+          "chatConfig": {
+            "$ref": "#/components/schemas/AgentChatConfigResponse"
+          },
+          "scraperConfig": {
+            "$ref": "#/components/schemas/AgentConfigResponseScraperConfig"
+          },
+          "toolsConfig": {
+            "$ref": "#/components/schemas/AgentConfigResponseToolsConfig"
+          },
+          "defaultLocation": {
+            "type": "string"
+          },
+          "enabledFeatures": {
+            "$ref": "#/components/schemas/AgentConfigResponseEnabledFeatures"
           }
         },
         "required": [
-          "data"
+          "type"
         ],
         "description": "Agent configuration response"
+      },
+      "AgentChatConfigResponse": {
+        "type": "object",
+        "properties": {
+          "agentType": {
+            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "initialLanguage": {
+            "$ref": "#/components/schemas/AgentChatConfigResponseInitialLanguageEnum"
+          },
+          "languages": {
+            "$ref": "#/components/schemas/AgentChatConfigResponseLanguages"
+          },
+          "showDefaultQuestions": {
+            "type": "boolean"
+          },
+          "defaultQuestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentChatConfigResponseDefaultQuestionsItem"
+            }
+          },
+          "translations": {
+            "$ref": "#/components/schemas/AgentChatConfigResponseTranslations"
+          },
+          "features": {
+            "$ref": "#/components/schemas/AgentChatConfigResponseFeatures"
+          }
+        },
+        "required": [
+          "initialLanguage",
+          "languages"
+        ],
+        "description": "Agent public chat configuration response"
       },
       "AgentChatLinkResponse": {
         "type": "object",
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/AgentChatLinkResponseData"
+          "url": {
+            "type": "string"
           }
         },
         "required": [
-          "data"
+          "url"
         ],
         "description": "Agent chat link response"
       },
@@ -10597,14 +9603,13 @@
           "description": {
             "type": "string",
             "nullable": true,
-            "minLength": 1,
             "maxLength": 1000
           },
           "status": {
             "$ref": "#/components/schemas/TenantStatus"
           },
           "settings": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/TenantCreateSettings"
           },
           "theme": {
             "$ref": "#/components/schemas/JsonValue"
@@ -10635,14 +9640,13 @@
           "description": {
             "type": "string",
             "nullable": true,
-            "minLength": 1,
             "maxLength": 1000
           },
           "status": {
             "$ref": "#/components/schemas/TenantStatus"
           },
           "settings": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/TenantCreateSettings"
           },
           "theme": {
             "$ref": "#/components/schemas/JsonValue"
@@ -10652,6 +9656,42 @@
           }
         },
         "description": "Schema for updating an existing tenant"
+      },
+      "TenantListQuerySchema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 100
+          },
+          "include": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "pageSize"
+        ],
+        "description": "Schema for tenant list query parameters"
+      },
+      "TenantQuerySchema": {
+        "type": "object",
+        "properties": {
+          "include": {
+            "type": "string"
+          }
+        },
+        "description": "Schema for tenant query parameters"
       },
       "TenantResponse": {
         "type": "object",
@@ -10823,6 +9863,78 @@
         },
         "description": "Schema for updating an existing user"
       },
+      "UserListQuerySchema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 100
+          },
+          "sortBy": {
+            "type": "string"
+          },
+          "order": {
+            "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "order"
+        ],
+        "description": "Schema for user list query parameters (global)"
+      },
+      "TenantUserListQuerySchema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "nullable": true,
+                "minimum": 0
+              },
+              {
+                "$ref": "#/components/schemas/TenantUserListQuerySchemaPageAnyOfEnum"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 100
+          },
+          "sortBy": {
+            "type": "string"
+          },
+          "order": {
+            "$ref": "#/components/schemas/UserListQuerySchemaOrderEnum"
+          },
+          "fields": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "order"
+        ],
+        "description": "Schema for tenant user list query parameters"
+      },
       "UserResponse": {
         "type": "object",
         "properties": {
@@ -10852,7 +9964,26 @@
           "data",
           "meta"
         ],
-        "description": "List of users with pagination"
+        "description": "List of users with pagination (global/unsafe)"
+      },
+      "TenantUserListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserResponseData"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "description": "List of users with pagination (tenant/safe)"
       },
       "DocumentCreate": {
         "type": "object",
@@ -10905,8 +10036,8 @@
           },
           "binary": {
             "type": "string",
-            "format": "byte",
-            "description": "Binary content of the document (base64-encoded). Accepts Buffer, Uint8Array, or base64 strings at runtime."
+            "format": "binary",
+            "description": "Binary content of the document (base64 encoded)"
           }
         },
         "required": [
@@ -10969,8 +10100,8 @@
           },
           "binary": {
             "type": "string",
-            "format": "byte",
-            "description": "Binary content of the document (base64-encoded). Accepts Buffer, Uint8Array, or base64 strings at runtime."
+            "format": "binary",
+            "description": "Binary content of the document (base64 encoded)"
           }
         },
         "description": "Schema for updating a document. Use the binary field for file content in multipart/form-data."
@@ -10986,6 +10117,38 @@
           "status"
         ],
         "description": "Schema for updating document status"
+      },
+      "DocumentSyncOutput": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DocumentSyncOutputData"
+          },
+          "syncResult": {
+            "$ref": "#/components/schemas/DocumentSyncOutputSyncResult"
+          }
+        },
+        "required": [
+          "data",
+          "syncResult"
+        ],
+        "description": "Schema for document sync output"
+      },
+      "DocumentUpsertOutput": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DocumentSyncOutputData"
+          },
+          "syncResult": {
+            "$ref": "#/components/schemas/DocumentSyncOutputSyncResult"
+          }
+        },
+        "required": [
+          "data",
+          "syncResult"
+        ],
+        "description": "Schema for document upsert output"
       },
       "DocumentResponse": {
         "type": "object",
@@ -11005,7 +10168,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DocumentResponseData"
+              "$ref": "#/components/schemas/DocumentListResponseDataItem"
             }
           },
           "meta": {
@@ -11108,13 +10271,53 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/ChatResponseData"
+            "$ref": "#/components/schemas/ChatOutput"
           }
         },
         "required": [
           "data"
         ],
-        "description": "Single chat response"
+        "description": "Single chat response (wrapped)"
+      },
+      "ChatOutput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "info": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "agentId",
+          "info",
+          "createdAt",
+          "updatedAt",
+          "tokens"
+        ],
+        "description": "Single chat output (flat)"
       },
       "ChatListResponse": {
         "type": "object",
@@ -11122,7 +10325,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ChatResponseData"
+              "$ref": "#/components/schemas/ChatOutput"
             }
           },
           "meta": {
@@ -11133,7 +10336,38 @@
           "data",
           "meta"
         ],
-        "description": "List of chats with pagination"
+        "description": "List of chats with pagination (standard)"
+      },
+      "ChatListPaginatedOutput": {
+        "type": "object",
+        "properties": {
+          "chats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatListPaginatedOutputChatsItem"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalCount": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "chats",
+          "page",
+          "limit",
+          "totalCount",
+          "totalPages"
+        ],
+        "description": "List of chats with pagination (flat structure)"
       },
       "JobCreate": {
         "type": "object",
@@ -11307,7 +10541,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/Feedback"
+            "$ref": "#/components/schemas/FeedbackResponseData"
           }
         },
         "required": [
@@ -11321,7 +10555,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Feedback"
+              "$ref": "#/components/schemas/FeedbackResponseData"
             }
           },
           "meta": {
@@ -11346,7 +10580,7 @@
             "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
-            "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
+            "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
           },
           "intervalValue": {
             "type": "number",
@@ -11372,7 +10606,7 @@
             "nullable": true
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/DataSourceCreateConfig"
           },
           "targetUrls": {
             "type": "array",
@@ -11407,7 +10641,7 @@
             "$ref": "#/components/schemas/DataSourceType"
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/DataSourceCreateConfig"
           },
           "vectorDatabaseId": {
             "type": "string",
@@ -11422,7 +10656,7 @@
             "nullable": true
           },
           "intervalType": {
-            "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
+            "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
           },
           "intervalValue": {
             "type": "number",
@@ -11463,7 +10697,8 @@
         },
         "required": [
           "type",
-          "message"
+          "message",
+          "metadata"
         ],
         "description": "Schema for creating a data source event"
       },
@@ -11545,6 +10780,7 @@
           "id",
           "dataSourceId",
           "message",
+          "metadata",
           "costs",
           "createdAt",
           "updatedAt"
@@ -11642,7 +10878,7 @@
             "minimum": 1
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
           },
           "description": {
             "type": "string",
@@ -11678,7 +10914,7 @@
             "minimum": 1
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
           },
           "description": {
             "type": "string",
@@ -11739,7 +10975,7 @@
             "$ref": "#/components/schemas/FoundationModelType"
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
           },
           "contextWindow": {
             "type": "number",
@@ -11747,11 +10983,14 @@
           },
           "description": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 1000
           },
           "maxOutput": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": 1
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -11770,27 +11009,34 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
           },
           "internalName": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "type": {
             "$ref": "#/components/schemas/FoundationModelType"
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
           },
           "description": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 1000
           },
           "contextWindow": {
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "maxOutput": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": 1
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -12089,7 +11335,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/JobExecution"
+            "$ref": "#/components/schemas/JobExecutionResponseData"
           }
         },
         "required": [
@@ -12103,7 +11349,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/JobExecution"
+              "$ref": "#/components/schemas/JobExecutionResponseData"
             }
           },
           "meta": {
@@ -12238,7 +11484,7 @@
             "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
-            "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
+            "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
           },
           "intervalValue": {
             "type": "number",
@@ -12264,7 +11510,7 @@
             "nullable": true
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/DataSourceCreateConfig"
           },
           "targetUrls": {
             "type": "array",
@@ -12443,6 +11689,35 @@
         ],
         "description": "Feedback rating enum"
       },
+      "JobConfig": {
+        "type": "object",
+        "description": "Job-specific configuration"
+      },
+      "AgentHistoryConfig": {
+        "type": "object",
+        "description": "Agent configuration snapshot at the time of this revision (structure depends on agent type/settings)",
+        "additionalProperties": true
+      },
+      "AgentHistoryCreatedBy": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID of the user who created this revision"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the user who created this revision"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "format": "email",
+            "description": "Email of the user who created this revision"
+          }
+        }
+      },
       "Error422ValidationErrorsItem": {
         "type": "object",
         "properties": {
@@ -12465,111 +11740,26 @@
           "code"
         ]
       },
-      "AgentConfig": {
+      "AgentPatchSchemaUpdatesItem": {
         "type": "object",
-        "nullable": true,
         "properties": {
-          "type": {
-            "$ref": "#/components/schemas/AgentTypeEnum"
-          },
-          "chatConfig": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "scraperConfig": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "toolsConfig": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "defaultLocation": {
+          "path": {
             "type": "string"
           },
-          "enabledFeatures": {
-            "$ref": "#/components/schemas/AgentConfigEnabledFeatures"
+          "operation": {
+            "$ref": "#/components/schemas/AgentPatchSchemaUpdatesItemOperation"
           }
         },
         "required": [
-          "type"
+          "path",
+          "operation"
         ]
       },
-      "UserUserSettings": {
-        "type": "object",
-        "nullable": true,
-        "properties": {
-          "socialAccounts": {
-            "$ref": "#/components/schemas/UserUserSettingsSocialAccounts"
-          }
-        }
-      },
-      "AgentResponseCount": {
-        "type": "object",
-        "properties": {
-          "functions": {
-            "type": "number"
-          },
-          "datasources": {
-            "type": "number"
-          },
-          "chats": {
-            "type": "number"
-          }
-        }
-      },
-      "AgentResponseTenant": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ]
-      },
-      "AgentResponseDatasourcesItem": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "AgentResponseChatsItem": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          }
-        },
-        "required": [
-          "id",
-          "createdAt"
-        ]
-      },
-      "AgentListResponseItem": {
+      "AgentResponseData": {
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/AgentTypeEnum"
+            "$ref": "#/components/schemas/AgentCreateTypeEnum"
           },
           "id": {
             "type": "string"
@@ -12577,6 +11767,10 @@
           "revision": {
             "type": "integer",
             "minimum": 0
+          },
+          "modelId": {
+            "type": "string",
+            "nullable": true
           },
           "tenantId": {
             "type": "string"
@@ -12597,10 +11791,10 @@
             "maxLength": 200000
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/AgentConfigResponse"
           },
           "configVersion": {
-            "$ref": "#/components/schemas/JsonValue"
+            "type": "integer"
           },
           "createdAt": {
             "type": "string",
@@ -12613,27 +11807,27 @@
             "description": "ISO 8601 date-time string"
           },
           "_count": {
-            "$ref": "#/components/schemas/AgentResponseCount"
+            "$ref": "#/components/schemas/AgentResponseDataCount"
           },
           "tenant": {
-            "$ref": "#/components/schemas/AgentResponseTenant"
+            "$ref": "#/components/schemas/AgentResponseDataTenant"
           },
           "functions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentResponseTenant"
+              "$ref": "#/components/schemas/AgentResponseDataTenant"
             }
           },
           "datasources": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentResponseDatasourcesItem"
+              "$ref": "#/components/schemas/AgentResponseDataDatasourcesItem"
             }
           },
           "chats": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentResponseChatsItem"
+              "$ref": "#/components/schemas/AgentResponseDataChatsItem"
             }
           }
         },
@@ -12643,30 +11837,280 @@
           "revision",
           "tenantId",
           "name",
+          "configVersion",
           "createdAt",
           "updatedAt"
         ]
       },
-      "AgentConfigResponseData": {
+      "AgentConfigResponseScraperConfig": {
         "type": "object",
         "properties": {
-          "config": {
-            "$ref": "#/components/schemas/AgentConfig"
+          "cleaningFilters": {
+            "$ref": "#/components/schemas/AgentConfigResponseScraperConfigCleaningFilters"
+          }
+        }
+      },
+      "AgentConfigResponseToolsConfig": {
+        "type": "object",
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "dataset"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "dataSourceId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "dataSourceId"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "http-call"
+                  ]
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "DELETE",
+                    "PATCH"
+                  ]
+                },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "body": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "url",
+                "name",
+                "method",
+                "headers"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "internal"
+                  ]
+                },
+                "name": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "current_weather"
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "get_weather_forecast"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "toolMapping"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "dataSourceId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "dataSourceId"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "sub-agent"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "agentId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "agentId"
+              ]
+            }
+          ]
+        }
+      },
+      "AgentConfigResponseEnabledFeatures": {
+        "type": "object",
+        "properties": {
+          "dynamicVariables": {
+            "$ref": "#/components/schemas/AgentConfigResponseEnabledFeaturesDynamicVariables"
+          },
+          "internalTools": {
+            "$ref": "#/components/schemas/AgentConfigResponseEnabledFeaturesInternalTools"
+          }
+        }
+      },
+      "AgentChatConfigResponseLanguages": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentChatConfigResponseInitialLanguageEnum"
+            }
+          },
+          "default": {
+            "$ref": "#/components/schemas/AgentChatConfigResponseInitialLanguageEnum"
           }
         },
         "required": [
-          "config"
+          "supported",
+          "default"
         ]
       },
-      "AgentChatLinkResponseData": {
+      "AgentChatConfigResponseDefaultQuestionsItem": {
         "type": "object",
         "properties": {
-          "url": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
             "type": "string"
           }
         },
         "required": [
-          "url"
+          "text"
+        ]
+      },
+      "AgentChatConfigResponseTranslations": {
+        "type": "object",
+        "properties": {
+          "en": {
+            "nullable": true
+          },
+          "fi": {
+            "nullable": true
+          },
+          "sv": {
+            "nullable": true
+          },
+          "de": {
+            "nullable": true
+          },
+          "es": {
+            "nullable": true
+          },
+          "fr": {
+            "nullable": true
+          }
+        }
+      },
+      "AgentChatConfigResponseFeatures": {
+        "type": "object",
+        "properties": {
+          "heyMainioTrigger": {
+            "type": "boolean"
+          },
+          "inputAudio": {
+            "type": "boolean"
+          },
+          "outputAudio": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "heyMainioTrigger",
+          "inputAudio",
+          "outputAudio"
+        ]
+      },
+      "TenantCreateSettings": {
+        "type": "object",
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/TenantCreateSettingsAuth"
+          }
+        },
+        "required": [
+          "auth"
         ]
       },
       "TenantResponseData": {
@@ -12686,7 +12130,6 @@
           "description": {
             "type": "string",
             "nullable": true,
-            "minLength": 1,
             "maxLength": 1000
           },
           "domain": {
@@ -12695,7 +12138,7 @@
             "maxLength": 255
           },
           "settings": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/TenantCreateSettings"
           },
           "settingsVersion": {
             "type": "integer"
@@ -12722,6 +12165,7 @@
           "id",
           "name",
           "domain",
+          "settings",
           "settingsVersion",
           "theme",
           "active",
@@ -12732,9 +12176,6 @@
       "TenantListResponseDataItem": {
         "type": "object",
         "properties": {
-          "status": {
-            "$ref": "#/components/schemas/TenantStatus"
-          },
           "id": {
             "type": "string"
           },
@@ -12743,54 +12184,37 @@
             "minLength": 1,
             "maxLength": 255
           },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
           "domain": {
             "type": "string",
             "minLength": 3,
             "maxLength": 255
           },
-          "settings": {
-            "$ref": "#/components/schemas/JsonValue"
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantListResponseDataItemUsersItem"
+            }
           },
-          "settingsVersion": {
-            "type": "integer"
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentResponseDataTenant"
+            }
           },
-          "theme": {
-            "$ref": "#/components/schemas/JsonValue"
-          },
-          "active": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 date-time string"
+          "dataSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentResponseDataTenant"
+            }
           },
           "_count": {
             "$ref": "#/components/schemas/TenantListResponseDataItemCount"
           }
         },
         "required": [
-          "status",
           "id",
           "name",
-          "domain",
-          "settingsVersion",
-          "theme",
-          "active",
-          "createdAt",
-          "updatedAt",
-          "_count"
+          "domain"
         ]
       },
       "UserResponseData": {
@@ -12842,7 +12266,7 @@
             "type": "string"
           },
           "userSettings": {
-            "$ref": "#/components/schemas/UserUserSettings"
+            "$ref": "#/components/schemas/UserResponseDataUserSettings"
           },
           "userSettingsVersion": {
             "type": "integer"
@@ -12867,6 +12291,107 @@
           "userSettingsVersion",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "DocumentSyncOutputData": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          },
+          "type": {
+            "$ref": "#/components/schemas/DocumentType"
+          },
+          "id": {
+            "type": "string"
+          },
+          "dataSourceId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "binary": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "markdown": {
+            "type": "string",
+            "nullable": true
+          },
+          "html": {
+            "type": "string",
+            "nullable": true
+          },
+          "hash": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastModified": {
+            "type": "string",
+            "nullable": true
+          },
+          "etag": {
+            "type": "string",
+            "nullable": true
+          },
+          "tokens": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          }
+        },
+        "required": [
+          "status",
+          "type",
+          "id",
+          "dataSourceId",
+          "url",
+          "metadata",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "DocumentSyncOutputSyncResult": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/DocumentSyncOutputSyncResultActionEnum"
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "changes": {
+            "$ref": "#/components/schemas/DocumentSyncOutputSyncResultChanges"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "documentId"
         ]
       },
       "DocumentResponseData": {
@@ -12896,6 +12421,11 @@
             "nullable": true,
             "minimum": 0
           },
+          "binary": {
+            "type": "string",
+            "format": "binary",
+            "description": "Binary content of the document (base64 encoded)"
+          },
           "markdown": {
             "type": "string",
             "nullable": true
@@ -12921,6 +12451,9 @@
             "nullable": true,
             "minimum": 0
           },
+          "metadata": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -12930,14 +12463,6 @@
             "type": "string",
             "format": "date-time",
             "description": "ISO 8601 date-time string"
-          },
-          "binary": {
-            "type": "string",
-            "format": "binary",
-            "description": "Binary content of the document (base64 encoded)"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/JsonValue"
           }
         },
         "required": [
@@ -12946,9 +12471,82 @@
           "id",
           "dataSourceId",
           "url",
+          "metadata",
           "createdAt",
           "updatedAt"
         ]
+      },
+      "DocumentListResponseDataItem": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          },
+          "type": {
+            "$ref": "#/components/schemas/DocumentType"
+          },
+          "id": {
+            "type": "string"
+          },
+          "dataSourceId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "binary": {
+            "type": "string",
+            "format": "binary",
+            "description": "Binary content of the document (base64 encoded)"
+          },
+          "markdown": {
+            "type": "string",
+            "nullable": true
+          },
+          "html": {
+            "type": "string",
+            "nullable": true
+          },
+          "hash": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastModified": {
+            "type": "string",
+            "nullable": true
+          },
+          "etag": {
+            "type": "string",
+            "nullable": true
+          },
+          "tokens": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          }
+        }
       },
       "MessageListResponseDataItem": {
         "type": "object",
@@ -12991,7 +12589,7 @@
           "createdAt"
         ]
       },
-      "ChatResponseData": {
+      "ChatListPaginatedOutputChatsItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -13018,6 +12616,12 @@
           },
           "tokens": {
             "$ref": "#/components/schemas/JsonValue"
+          },
+          "messageCount": {
+            "type": "number"
+          },
+          "feedbackCount": {
+            "type": "number"
           }
         },
         "required": [
@@ -13127,6 +12731,7 @@
           "id",
           "name",
           "queue",
+          "config",
           "result",
           "scheduled",
           "attempts",
@@ -13136,6 +12741,64 @@
           "updatedAt"
         ]
       },
+      "FeedbackResponseData": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "$ref": "#/components/schemas/FeedbackRating"
+          },
+          "id": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          }
+        },
+        "required": [
+          "rating",
+          "id",
+          "messageId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "DataSourceCreateConfig": {
+        "type": "object",
+        "properties": {
+          "cleaningFilters": {
+            "$ref": "#/components/schemas/DataSourceCreateConfigCleaningFilters"
+          },
+          "indexing": {
+            "$ref": "#/components/schemas/DataSourceCreateConfigIndexing"
+          },
+          "ontology": {
+            "$ref": "#/components/schemas/DataSourceCreateConfigOntology"
+          },
+          "targetUrls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      },
       "DataSourceResponseData": {
         "type": "object",
         "properties": {
@@ -13143,7 +12806,7 @@
             "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
-            "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
+            "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
           },
           "id": {
             "type": "string"
@@ -13187,10 +12850,10 @@
             }
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/DataSourceCreateConfig"
           },
           "configVersion": {
-            "$ref": "#/components/schemas/JsonValue"
+            "type": "integer"
           },
           "createdAt": {
             "type": "string",
@@ -13203,7 +12866,7 @@
             "description": "ISO 8601 date-time string"
           },
           "settings": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/DataSourceResponseDataSettings"
           }
         },
         "required": [
@@ -13213,8 +12876,11 @@
           "name",
           "intervalValue",
           "targetUrls",
+          "config",
+          "configVersion",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "settings"
         ]
       },
       "DataSourceListResponseDataItem": {
@@ -13224,7 +12890,7 @@
             "$ref": "#/components/schemas/DataSourceType"
           },
           "intervalType": {
-            "$ref": "#/components/schemas/DataSourceIntervalTypeEnum"
+            "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
           },
           "id": {
             "type": "string"
@@ -13268,10 +12934,10 @@
             }
           },
           "config": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/DataSourceCreateConfig"
           },
           "configVersion": {
-            "$ref": "#/components/schemas/JsonValue"
+            "type": "integer"
           },
           "createdAt": {
             "type": "string",
@@ -13284,7 +12950,7 @@
             "description": "ISO 8601 date-time string"
           },
           "settings": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/DataSourceResponseDataSettings"
           }
         }
       },
@@ -13317,14 +12983,15 @@
         "required": [
           "id",
           "agentId",
-          "dataSourceId"
+          "dataSourceId",
+          "config"
         ]
       },
       "EmbeddingResponseData": {
         "type": "object",
         "properties": {
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
           },
           "id": {
             "type": "string"
@@ -13367,6 +13034,7 @@
           "name",
           "internalName",
           "dimension",
+          "config",
           "createdAt",
           "updatedAt"
         ]
@@ -13378,7 +13046,13 @@
             "$ref": "#/components/schemas/FoundationModelType"
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingVendorEnum"
+            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
+          },
+          "supportedAgentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentCreateTypeEnum"
+            }
           },
           "id": {
             "type": "string"
@@ -13429,17 +13103,26 @@
           "knowledgeCutOff": {
             "type": "string",
             "nullable": true
+          },
+          "deprecated": {
+            "type": "boolean"
+          },
+          "features": {
+            "$ref": "#/components/schemas/FoundationModelResponseDataFeatures"
           }
         },
         "required": [
           "type",
           "vendor",
+          "supportedAgentTypes",
           "id",
           "name",
           "internalName",
           "contextWindow",
+          "config",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "deprecated"
         ]
       },
       "VectorIndexWithEmbeddingResponseData": {
@@ -13494,6 +13177,7 @@
           "id",
           "name",
           "dimension",
+          "config",
           "vectorDatabaseId",
           "createdAt",
           "updatedAt"
@@ -13541,6 +13225,7 @@
           "type",
           "id",
           "name",
+          "config",
           "createdAt",
           "updatedAt"
         ]
@@ -13594,6 +13279,7 @@
           "id",
           "name",
           "dimension",
+          "config",
           "vectorDatabaseId",
           "createdAt",
           "updatedAt"
@@ -13614,9 +13300,64 @@
           "message"
         ]
       },
-      "PostApiAuthLogoutRequestBody": {
+      "JobExecutionResponseData": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "id": {
+            "type": "string"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "attemptNumber": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string or null",
+            "nullable": true
+          },
+          "duration": {
+            "type": "integer",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "logs": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "jobId",
+          "attemptNumber",
+          "startedAt",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "PostApiAuthLogoutResponse200": {
         "type": "object",
@@ -13639,14 +13380,6 @@
           },
           "data": {
             "$ref": "#/components/schemas/GetApiAuthValidateSessionResponse200Data"
-          }
-        }
-      },
-      "GetApiEmbeddingsEmbeddingIdResponse200": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Embedding"
           }
         }
       },
@@ -13675,18 +13408,7 @@
             "description": "Dimension of the embedding vectors"
           },
           "config": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
-          }
-        }
-      },
-      "GetApiEmbeddingsResponse200": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Embedding"
-            }
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -13723,7 +13445,7 @@
             "description": "Maximum output size for the foundation model"
           },
           "config": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -13789,7 +13511,7 @@
             "type": "number"
           },
           "stats": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "alerts": {
             "type": "array",
@@ -13821,7 +13543,7 @@
             "description": "Metric name to monitor"
           },
           "condition": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "severity": {
             "$ref": "#/components/schemas/PostApiMonitoringAlertsRequestBodySeverityEnum"
@@ -13858,13 +13580,13 @@
             "$ref": "#/components/schemas/GetApiMonitoringDashboardResponse200System"
           },
           "metrics": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "alerts": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "health": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -13888,7 +13610,7 @@
             "$ref": "#/components/schemas/PostApiMonitoringMetricsRequestBodyTypeEnum"
           },
           "labels": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -13899,10 +13621,10 @@
             "type": "number"
           },
           "caches": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "summary": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -14019,7 +13741,7 @@
             "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum"
           },
           "tokens": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -14036,14 +13758,6 @@
           },
           "role": {
             "$ref": "#/components/schemas/PostApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesBatchRequestBodyItemRoleEnum"
-          }
-        }
-      },
-      "GetApiTenantsTenantIdAgentsAgentIdChatsResponse200": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsResponse200Data"
           }
         }
       },
@@ -14090,7 +13804,7 @@
             "type": "string"
           },
           "config": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -14110,7 +13824,7 @@
             "type": "string"
           },
           "config": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -14156,25 +13870,6 @@
           "revision": {
             "type": "integer",
             "description": "The revision number the agent was restored to"
-          }
-        }
-      },
-      "PatchApiTenantsTenantIdAgentsAgentIdRequestBody": {
-        "type": "object",
-        "required": [
-          "field",
-          "updates"
-        ],
-        "properties": {
-          "field": {
-            "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyFieldEnum"
-          },
-          "updates": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItem"
-            }
           }
         }
       },
@@ -14278,7 +13973,7 @@
             "default": false
           },
           "indexingConfig": {
-            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdReindexRequestBodyIndexingConfig"
+            "$ref": "#/components/schemas/DataSourceCreateConfigIndexing"
           }
         }
       },
@@ -14388,7 +14083,7 @@
             "description": "Human-readable description of the event"
           },
           "metadata": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "documentId": {
             "type": "string",
@@ -14446,18 +14141,7 @@
             "description": "ETag from source for change detection"
           },
           "metadata": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
-          }
-        }
-      },
-      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Document"
-          },
-          "syncResult": {
-            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResult"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -14540,7 +14224,7 @@
           "searchResults": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+              "$ref": "#/components/schemas/JobConfig"
             },
             "description": "The search results from the agent datasource."
           }
@@ -14562,7 +14246,7 @@
             "description": "Data source ID (auto-populated from path)"
           },
           "config": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           },
           "original_html": {
             "type": "string",
@@ -14586,7 +14270,7 @@
             "description": "Original HTML for comparison"
           },
           "metadata": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -14682,38 +14366,193 @@
           }
         }
       },
-      "PostApiVectorDatabasesVectorDatabaseIdIndicesResponse201": {
+      "AgentPatchSchemaUpdatesItemOperation": {
         "type": "object",
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/VectorIndex"
+          "op": {
+            "$ref": "#/components/schemas/AgentPatchSchemaUpdatesItemOperationOpEnum"
+          },
+          "value": {
+            "nullable": true
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "AgentResponseDataCount": {
+        "type": "object",
+        "properties": {
+          "functions": {
+            "type": "number"
+          },
+          "datasources": {
+            "type": "number"
+          },
+          "chats": {
+            "type": "number"
           }
         }
       },
-      "AgentConfigEnabledFeatures": {
+      "AgentResponseDataTenant": {
         "type": "object",
         "properties": {
-          "dynamicVariables": {
-            "$ref": "#/components/schemas/AgentConfigEnabledFeaturesDynamicVariables"
+          "id": {
+            "type": "string"
           },
-          "internalTools": {
-            "$ref": "#/components/schemas/AgentConfigEnabledFeaturesInternalTools"
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "AgentResponseDataDatasourcesItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "AgentResponseDataChatsItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt"
+        ]
+      },
+      "AgentConfigResponseScraperConfigCleaningFilters": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tagClasses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "protectedTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
-      "UserUserSettingsSocialAccounts": {
+      "AgentConfigResponseEnabledFeaturesDynamicVariables": {
         "type": "object",
         "properties": {
-          "google": {
-            "type": "string"
+          "currentDate": {
+            "type": "boolean"
           },
-          "slack": {
-            "type": "string"
+          "currentTime": {
+            "type": "boolean"
           },
-          "clickUp": {
-            "type": "string"
+          "dayOfWeek": {
+            "type": "boolean"
+          },
+          "currentUrl": {
+            "type": "boolean"
+          },
+          "context": {
+            "type": "boolean"
+          },
+          "defaultLocation": {
+            "type": "boolean"
           }
-        }
+        },
+        "required": [
+          "currentDate",
+          "currentTime",
+          "dayOfWeek",
+          "currentUrl",
+          "context",
+          "defaultLocation"
+        ]
+      },
+      "AgentConfigResponseEnabledFeaturesInternalTools": {
+        "type": "object",
+        "properties": {
+          "conversationMemory": {
+            "type": "boolean"
+          },
+          "weather": {
+            "type": "boolean"
+          },
+          "time": {
+            "type": "boolean"
+          },
+          "calculator": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "conversationMemory",
+          "weather",
+          "time",
+          "calculator"
+        ]
+      },
+      "TenantCreateSettingsAuth": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "$ref": "#/components/schemas/TenantCreateSettingsAuthProviders"
+          }
+        },
+        "required": [
+          "providers"
+        ]
+      },
+      "TenantListResponseDataItemUsersItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ]
       },
       "TenantListResponseDataItemCount": {
         "type": "object",
@@ -14726,6 +14565,148 @@
           },
           "dataSources": {
             "type": "number"
+          }
+        }
+      },
+      "UserResponseDataUserSettings": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "socialAccounts": {
+            "$ref": "#/components/schemas/UserResponseDataUserSettingsSocialAccounts"
+          }
+        }
+      },
+      "DocumentSyncOutputSyncResultChanges": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DataSourceCreateConfigCleaningFilters": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tagClasses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skip": {
+            "$ref": "#/components/schemas/DataSourceCreateConfigCleaningFiltersSkip"
+          }
+        }
+      },
+      "DataSourceCreateConfigIndexing": {
+        "type": "object",
+        "properties": {
+          "chunk_size": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 5000
+          },
+          "chunk_overlap": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "max_chunk_size": {
+            "type": "number",
+            "minimum": 500,
+            "maximum": 10000
+          },
+          "preserve_hierarchy": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DataSourceCreateConfigOntology": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "entity_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "relationship_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "extraction_hints": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "DataSourceResponseDataSettings": {
+        "type": "object",
+        "properties": {
+          "preprocessor": {
+            "$ref": "#/components/schemas/DataSourceResponseDataSettingsPreprocessor"
+          },
+          "crawler": {
+            "$ref": "#/components/schemas/DataSourceResponseDataSettingsCrawler"
+          }
+        }
+      },
+      "FoundationModelResponseDataFeatures": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "reasoning": {
+            "type": "boolean"
+          },
+          "resoningEfforts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "audio": {
+            "type": "boolean"
+          },
+          "video": {
+            "type": "boolean"
+          },
+          "images": {
+            "type": "boolean"
+          },
+          "webSearch": {
+            "type": "boolean"
           }
         }
       },
@@ -14922,36 +14903,6 @@
           }
         }
       },
-      "GetApiTenantsTenantIdAgentsAgentIdChatsResponse200Data": {
-        "type": "object",
-        "properties": {
-          "chats": {
-            "type": "array",
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Chat"
-                },
-                {
-                  "$ref": "#/components/schemas/GetApiTenantsTenantIdAgentsAgentIdChatsResponse200DataChatsItemAllOf"
-                }
-              ]
-            }
-          },
-          "page": {
-            "type": "integer"
-          },
-          "limit": {
-            "type": "integer"
-          },
-          "totalCount": {
-            "type": "integer"
-          },
-          "totalPages": {
-            "type": "integer"
-          }
-        }
-      },
       "GetApiTenantsTenantIdAgentsAgentIdChatsStreamResponse400Data": {
         "type": "object",
         "properties": {
@@ -15021,23 +14972,7 @@
         "type": "object",
         "properties": {
           "tokenUsage": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
-          }
-        }
-      },
-      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItem": {
-        "type": "object",
-        "required": [
-          "path",
-          "operation"
-        ],
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Dot-notation path to the value"
-          },
-          "operation": {
-            "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperation"
+            "$ref": "#/components/schemas/JobConfig"
           }
         }
       },
@@ -15122,29 +15057,6 @@
           }
         }
       },
-      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdReindexRequestBodyIndexingConfig": {
-        "type": "object",
-        "properties": {
-          "chunk_size": {
-            "type": "number",
-            "minimum": 100,
-            "maximum": 5000
-          },
-          "chunk_overlap": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1000
-          },
-          "max_chunk_size": {
-            "type": "number",
-            "minimum": 500,
-            "maximum": 10000
-          },
-          "preserve_hierarchy": {
-            "type": "boolean"
-          }
-        }
-      },
       "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsDocumentIdSplitRequestBodyConfig": {
         "type": "object",
         "properties": {
@@ -15201,23 +15113,6 @@
           },
           "totalCost": {
             "type": "number"
-          }
-        }
-      },
-      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResult": {
-        "type": "object",
-        "properties": {
-          "action": {
-            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultActionEnum"
-          },
-          "documentId": {
-            "type": "string"
-          },
-          "changes": {
-            "$ref": "#/components/schemas/PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultChanges"
-          },
-          "reason": {
-            "type": "string"
           }
         }
       },
@@ -15337,59 +15232,95 @@
           }
         }
       },
-      "AgentConfigEnabledFeaturesDynamicVariables": {
+      "TenantCreateSettingsAuthProviders": {
         "type": "object",
         "properties": {
-          "currentDate": {
-            "type": "boolean"
+          "email": {
+            "$ref": "#/components/schemas/TenantCreateSettingsAuthProvidersEmail"
           },
-          "currentTime": {
-            "type": "boolean"
+          "google": {
+            "$ref": "#/components/schemas/TenantCreateSettingsAuthProvidersGoogle"
           },
-          "dayOfWeek": {
-            "type": "boolean"
-          },
-          "currentUrl": {
-            "type": "boolean"
-          },
-          "context": {
-            "type": "boolean"
-          },
-          "defaultLocation": {
-            "type": "boolean"
+          "microsoft": {
+            "$ref": "#/components/schemas/TenantCreateSettingsAuthProvidersMicrosoft"
           }
         },
         "required": [
-          "currentDate",
-          "currentTime",
-          "dayOfWeek",
-          "currentUrl",
-          "context",
-          "defaultLocation"
+          "email",
+          "google",
+          "microsoft"
         ]
       },
-      "AgentConfigEnabledFeaturesInternalTools": {
+      "UserResponseDataUserSettingsSocialAccounts": {
         "type": "object",
         "properties": {
-          "conversationMemory": {
+          "google": {
+            "type": "string"
+          },
+          "slack": {
+            "type": "string"
+          },
+          "clickUp": {
+            "type": "string"
+          }
+        }
+      },
+      "DataSourceCreateConfigCleaningFiltersSkip": {
+        "type": "object",
+        "properties": {
+          "removal": {
             "type": "boolean"
           },
-          "weather": {
+          "sanitation": {
             "type": "boolean"
           },
-          "time": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unwrap": {
             "type": "boolean"
           },
-          "calculator": {
+          "postProcessing": {
             "type": "boolean"
           }
-        },
-        "required": [
-          "conversationMemory",
-          "weather",
-          "time",
-          "calculator"
-        ]
+        }
+      },
+      "DataSourceResponseDataSettingsPreprocessor": {
+        "type": "object",
+        "properties": {
+          "removeTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removeClasses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DataSourceResponseDataSettingsCrawler": {
+        "type": "object",
+        "properties": {
+          "lastCrawledAt": {
+            "type": "string"
+          },
+          "cacheFlush": {
+            "$ref": "#/components/schemas/DataSourceResponseDataSettingsCrawlerCacheFlush"
+          }
+        }
       },
       "GetApiAuthValidateSessionResponse200DataUser": {
         "type": "object",
@@ -15477,33 +15408,6 @@
           }
         }
       },
-      "GetApiTenantsTenantIdAgentsAgentIdChatsResponse200DataChatsItemAllOf": {
-        "type": "object",
-        "properties": {
-          "messageCount": {
-            "type": "integer",
-            "description": "Number of messages in the chat (included when messageCount is in include parameter)"
-          },
-          "feedbackCount": {
-            "type": "integer",
-            "description": "Number of feedback messages in the chat (included when feedbackCount is in include parameter)"
-          }
-        }
-      },
-      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperation": {
-        "type": "object",
-        "required": [
-          "op"
-        ],
-        "properties": {
-          "op": {
-            "$ref": "#/components/schemas/PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperationOpEnum"
-          },
-          "value": {
-            "$ref": "#/components/schemas/PostApiAuthLogoutRequestBody"
-          }
-        }
-      },
       "GetApiTenantsTenantIdAuthProvidersResponse200DataProviders": {
         "type": "object",
         "properties": {
@@ -15515,17 +15419,6 @@
           },
           "microsoft": {
             "$ref": "#/components/schemas/GetApiTenantsTenantIdAuthProvidersResponse200DataProvidersMicrosoft"
-          }
-        }
-      },
-      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultChanges": {
-        "type": "object",
-        "properties": {
-          "content": {
-            "type": "boolean"
-          },
-          "metadata": {
-            "type": "boolean"
           }
         }
       },
@@ -15562,6 +15455,79 @@
           },
           "dataSources": {
             "type": "integer"
+          }
+        }
+      },
+      "TenantCreateSettingsAuthProvidersEmail": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "TenantCreateSettingsAuthProvidersGoogle": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "clientSecret": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hasClientSecret": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "TenantCreateSettingsAuthProvidersMicrosoft": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "clientSecret": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tenantId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hasClientSecret": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "DataSourceResponseDataSettingsCrawlerCacheFlush": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "filesDeleted": {
+            "type": "number"
+          },
+          "foldersDeleted": {
+            "type": "number"
           }
         }
       },
@@ -15641,42 +15607,6 @@
           "connectionId"
         ]
       },
-      "ChatCreate": {
-        "type": "object",
-        "description": "Schema for creating Chat",
-        "properties": {},
-        "additionalProperties": true
-      },
-      "ChatUpdate": {
-        "type": "object",
-        "description": "Schema for updating Chat",
-        "properties": {},
-        "additionalProperties": true
-      },
-      "FeedbackUpdate": {
-        "type": "object",
-        "description": "Schema for updating Feedback",
-        "properties": {},
-        "additionalProperties": true
-      },
-      "JobExecutionUpdate": {
-        "type": "object",
-        "description": "Schema for updating JobExecution",
-        "properties": {},
-        "additionalProperties": true
-      },
-      "VectorIndexCreate": {
-        "type": "object",
-        "description": "Schema for creating VectorIndex",
-        "properties": {},
-        "additionalProperties": true
-      },
-      "VectorIndexUpdate": {
-        "type": "object",
-        "description": "Schema for updating VectorIndex",
-        "properties": {},
-        "additionalProperties": true
-      },
       "AgentDatasourceResponseData": {
         "type": "object",
         "properties": {
@@ -15724,9 +15654,11 @@
           "low",
           "default",
           "high"
-        ]
+        ],
+        "description": "Priority level of the job",
+        "default": "default"
       },
-      "AgentTypeEnum": {
+      "AgentCreateTypeEnum": {
         "type": "string",
         "enum": [
           "chatAssistant",
@@ -15736,7 +15668,38 @@
           "subAgent"
         ]
       },
-      "DataSourceIntervalTypeEnum": {
+      "AgentPatchSchemaFieldEnum": {
+        "type": "string",
+        "enum": [
+          "config",
+          "instructions"
+        ]
+      },
+      "AgentChatConfigResponseInitialLanguageEnum": {
+        "type": "string",
+        "enum": [
+          "en",
+          "fi",
+          "sv",
+          "de",
+          "es",
+          "fr"
+        ]
+      },
+      "UserListQuerySchemaOrderEnum": {
+        "type": "string",
+        "enum": [
+          "asc",
+          "desc"
+        ]
+      },
+      "TenantUserListQuerySchemaPageAnyOfEnum": {
+        "type": "string",
+        "enum": [
+          "all"
+        ]
+      },
+      "DataSourceCreateIntervalTypeEnum": {
         "type": "string",
         "enum": [
           "daily",
@@ -15746,13 +15709,21 @@
           "webHook"
         ]
       },
-      "EmbeddingVendorEnum": {
+      "EmbeddingCreateVendorEnum": {
         "type": "string",
         "enum": [
           "openai",
           "anthropic",
           "google",
           "azure"
+        ]
+      },
+      "DocumentSyncOutputSyncResultActionEnum": {
+        "type": "string",
+        "enum": [
+          "created",
+          "updated",
+          "unchanged"
         ]
       },
       "PutApiFoundationModelsModelIdRequestBodyTypeEnum": {
@@ -15847,14 +15818,6 @@
           "ERROR"
         ]
       },
-      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyFieldEnum": {
-        "type": "string",
-        "enum": [
-          "config",
-          "instructions"
-        ],
-        "description": "The JSON field to update"
-      },
       "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsIndexBatchResponse200StatusEnum": {
         "type": "string",
         "enum": [
@@ -15875,6 +15838,14 @@
           "json",
           "url",
           "wordpress"
+        ]
+      },
+      "AgentPatchSchemaUpdatesItemOperationOpEnum": {
+        "type": "string",
+        "enum": [
+          "set",
+          "delete",
+          "merge"
         ]
       },
       "GetApiMonitoringDashboardResponse200SystemStatusEnum": {
@@ -15928,22 +15899,6 @@
           "example"
         ]
       },
-      "PostApiTenantsTenantIdDatasourcesDataSourceIdDocumentsSyncResponse200SyncResultActionEnum": {
-        "type": "string",
-        "enum": [
-          "created",
-          "updated",
-          "unchanged"
-        ]
-      },
-      "PatchApiTenantsTenantIdAgentsAgentIdRequestBodyUpdatesItemOperationOpEnum": {
-        "type": "string",
-        "enum": [
-          "set",
-          "delete",
-          "merge"
-        ]
-      },
       "GetApiMonitoringAlertsParam0Enum": {
         "type": "string",
         "enum": [
@@ -15977,14 +15932,6 @@
           "createdAt"
         ],
         "default": "createdAt"
-      },
-      "GetApiTenantsTenantIdAgentsAgentIdChatsChatIdMessagesParam7Enum": {
-        "type": "string",
-        "enum": [
-          "asc",
-          "desc"
-        ],
-        "default": "asc"
       },
       "GetApiTenantsTenantIdAgentsAgentIdChatsParam4Enum": {
         "type": "string",
@@ -16065,7 +16012,7 @@
         ],
         "default": "email"
       },
-      "GetApiUsersParam2Enum": {
+      "GetApiUsersParam3Enum": {
         "type": "string",
         "enum": [
           "name",
@@ -16624,146 +16571,6 @@
           }
         }
       },
-      "AgentResponse": {
-        "description": "AgentResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/AgentResponse"
-            }
-          }
-        }
-      },
-      "AgentListResponse": {
-        "description": "AgentListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/AgentListResponse"
-            }
-          }
-        }
-      },
-      "ChatResponse": {
-        "description": "ChatResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/ChatResponse"
-            }
-          }
-        }
-      },
-      "ChatListResponse": {
-        "description": "ChatListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/ChatListResponse"
-            }
-          }
-        }
-      },
-      "DataSourceResponse": {
-        "description": "DataSourceResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/DataSourceResponse"
-            }
-          }
-        }
-      },
-      "DataSourceListResponse": {
-        "description": "DataSourceListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/DataSourceListResponse"
-            }
-          }
-        }
-      },
-      "DocumentResponse": {
-        "description": "DocumentResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/DocumentResponse"
-            }
-          }
-        }
-      },
-      "DocumentListResponse": {
-        "description": "DocumentListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/DocumentListResponse"
-            }
-          }
-        }
-      },
-      "EmbeddingResponse": {
-        "description": "EmbeddingResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/EmbeddingResponse"
-            }
-          }
-        }
-      },
-      "EmbeddingListResponse": {
-        "description": "EmbeddingListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/EmbeddingListResponse"
-            }
-          }
-        }
-      },
-      "FeedbackResponse": {
-        "description": "FeedbackResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/FeedbackResponse"
-            }
-          }
-        }
-      },
-      "FeedbackListResponse": {
-        "description": "FeedbackListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/FeedbackListResponse"
-            }
-          }
-        }
-      },
-      "FoundationModelResponse": {
-        "description": "FoundationModelResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/FoundationModelResponse"
-            }
-          }
-        }
-      },
-      "FoundationModelListResponse": {
-        "description": "FoundationModelListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/FoundationModelListResponse"
-            }
-          }
-        }
-      },
       "JobResponse": {
         "description": "JobResponse successful response",
         "content": {
@@ -16780,106 +16587,6 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/JobListResponse"
-            }
-          }
-        }
-      },
-      "JobExecutionResponse": {
-        "description": "JobExecutionResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/JobExecutionResponse"
-            }
-          }
-        }
-      },
-      "JobExecutionListResponse": {
-        "description": "JobExecutionListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/JobExecutionListResponse"
-            }
-          }
-        }
-      },
-      "TenantResponse": {
-        "description": "TenantResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/TenantResponse"
-            }
-          }
-        }
-      },
-      "TenantListResponse": {
-        "description": "TenantListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/TenantListResponse"
-            }
-          }
-        }
-      },
-      "UserResponse": {
-        "description": "UserResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/UserResponse"
-            }
-          }
-        }
-      },
-      "UserListResponse": {
-        "description": "UserListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/UserListResponse"
-            }
-          }
-        }
-      },
-      "VectorDatabaseResponse": {
-        "description": "VectorDatabaseResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/VectorDatabaseResponse"
-            }
-          }
-        }
-      },
-      "VectorDatabaseListResponse": {
-        "description": "VectorDatabaseListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/VectorDatabaseListResponse"
-            }
-          }
-        }
-      },
-      "VectorIndexResponse": {
-        "description": "VectorIndexResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/VectorIndexResponse"
-            }
-          }
-        }
-      },
-      "VectorIndexListResponse": {
-        "description": "VectorIndexListResponse successful response",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/VectorIndexListResponse"
             }
           }
         }
