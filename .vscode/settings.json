@@ -11,5 +11,11 @@
   "pytest_runner.check_config": true,
   "pytest_runner.pytest_options": "-v",
   "makefile.configureOnOpen": false,
-  "cSpell.words": ["Finalizer", "pyopenapi", "Unstructure", "unstructuring"]
+  "cSpell.words": [
+    "Finalizer",
+    "jsonvalue",
+    "pyopenapi",
+    "Unstructure",
+    "unstructuring"
+  ]
 }

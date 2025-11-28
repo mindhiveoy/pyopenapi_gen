@@ -1,4 +1,5 @@
 import typing
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -73,3 +74,35 @@ async def test_no_auth_no_header() -> None:
     headers = typing.cast(dict[str, str], captured["headers"])
     assert "authorization" not in headers
     await client.close()
+
+
+def test_verify_ssl__default__ssl_verification_enabled() -> None:
+    """
+    Scenario: HttpxTransport created without verify_ssl parameter.
+    Expected Outcome: SSL verification is enabled by default (verify=True passed to httpx).
+    """
+    # Arrange
+    mock_client = MagicMock()
+
+    # Act
+    with patch("pyopenapi_gen.core.http_transport.httpx.AsyncClient", return_value=mock_client) as mock_async_client:
+        HttpxTransport(base_url="https://api.example.com")
+
+    # Assert
+    mock_async_client.assert_called_once_with(base_url="https://api.example.com", timeout=None, verify=True)
+
+
+def test_verify_ssl__disabled__ssl_verification_disabled() -> None:
+    """
+    Scenario: HttpxTransport created with verify_ssl=False for local development.
+    Expected Outcome: SSL verification is disabled (verify=False passed to httpx).
+    """
+    # Arrange
+    mock_client = MagicMock()
+
+    # Act
+    with patch("pyopenapi_gen.core.http_transport.httpx.AsyncClient", return_value=mock_client) as mock_async_client:
+        HttpxTransport(base_url="https://api.example.com", verify_ssl=False)
+
+    # Assert
+    mock_async_client.assert_called_once_with(base_url="https://api.example.com", timeout=None, verify=False)

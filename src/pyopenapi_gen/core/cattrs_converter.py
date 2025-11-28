@@ -333,7 +333,24 @@ def _register_structure_hooks_recursively(cls: type[Any], visited: set[type[Any]
     try:
         # Use closure to capture cls value
         def make_hook(captured_cls: type[Any]) -> Any:
-            def hook(d: dict[str, Any], t: type[Any]) -> Any:
+            def hook(d: dict[str, Any] | None, t: type[Any]) -> Any:
+                # Handle None input - cattrs passes None when JSON has null values
+                # for non-optional dataclass fields. This prevents TypeError when
+                # the generated structure function tries to check field presence
+                # using 'field_name' in d (which fails when d is None).
+                if d is None:
+                    # None received for a non-optional field is a schema violation.
+                    # This typically happens when:
+                    # 1. OpenAPI schema marks field as required but API returns null
+                    # 2. OpenAPI schema is missing 'nullable: true' for the field
+                    raise TypeError(
+                        f"Cannot structure None into {captured_cls.__name__}: "
+                        f"Received null value for non-optional field. "
+                        f"This is likely a schema mismatch - either the API is returning null "
+                        f"for a required field, or the OpenAPI schema is missing 'nullable: true'. "
+                        f"To fix: make the field optional in the OpenAPI spec by adding 'nullable: true' "
+                        f"or removing it from the 'required' array."
+                    )
                 return _make_dataclass_structure_fn(captured_cls)(d, t)
 
             return hook
