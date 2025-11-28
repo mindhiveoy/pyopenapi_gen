@@ -3131,54 +3131,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentResponse"
-                },
-                "examples": {
-                  "basic": {
-                    "summary": "Basic agent data",
-                    "value": {
-                      "data": {
-                        "id": "clh2345678901bcdefg",
-                        "name": "Customer Support Agent",
-                        "description": "Handles customer inquiries",
-                        "tenantId": "clh1234567890abcdef",
-                        "createdAt": "2024-01-15T10:30:00Z",
-                        "updatedAt": "2024-01-15T10:30:00Z"
-                      }
-                    }
-                  },
-                  "withRelations": {
-                    "summary": "Agent with relations",
-                    "value": {
-                      "data": {
-                        "id": "clh2345678901bcdefg",
-                        "name": "Customer Support Agent",
-                        "description": "Handles customer inquiries",
-                        "instructions": "You are a helpful assistant...",
-                        "config": {
-                          "theme": {
-                            "primaryColor": "#0066CC"
-                          }
-                        },
-                        "tenant": {
-                          "id": "clh1234567890abcdef",
-                          "name": "Acme Corp"
-                        },
-                        "_count": {
-                          "functions": 3,
-                          "datasources": 2,
-                          "chats": 150
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/schemas/AgentSchemaOutput"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -3187,34 +3140,7 @@
             "$ref": "#/components/responses/ForbiddenError"
           },
           "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundError"
-                },
-                "examples": {
-                  "agentNotFound": {
-                    "summary": "Agent not found",
-                    "value": {
-                      "error": {
-                        "code": "NOT_FOUND",
-                        "message": "Agent not found"
-                      }
-                    }
-                  },
-                  "tenantNotFound": {
-                    "summary": "Tenant not found",
-                    "value": {
-                      "error": {
-                        "code": "NOT_FOUND",
-                        "message": "Tenant not found"
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFoundError"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -3721,58 +3647,7 @@
         ],
         "responses": {
           "200": {
-            "description": "List of agents with role-based field filtering applied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentListResponse"
-                },
-                "examples": {
-                  "paginated": {
-                    "summary": "Paginated response",
-                    "value": {
-                      "data": [
-                        {
-                          "id": "clh1234567890abcdef",
-                          "name": "Customer Support Agent",
-                          "description": "AI assistant for customer inquiries",
-                          "tenantId": "clh0987654321fedcba",
-                          "createdAt": "2024-01-15T10:30:00Z",
-                          "updatedAt": "2024-01-15T10:30:00Z"
-                        }
-                      ],
-                      "meta": {
-                        "total": 25,
-                        "page": 0,
-                        "pageSize": 20,
-                        "totalPages": 2
-                      }
-                    }
-                  },
-                  "withRelations": {
-                    "summary": "Response with included relations",
-                    "value": {
-                      "data": [
-                        {
-                          "id": "clh1234567890abcdef",
-                          "name": "Customer Support Agent",
-                          "description": "AI assistant for customer inquiries",
-                          "tenant": {
-                            "id": "clh0987654321fedcba",
-                            "name": "Acme Corp"
-                          },
-                          "_count": {
-                            "functions": 3,
-                            "dataSources": 2,
-                            "chats": 150
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/schemas/AgentListResponse"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
@@ -3861,100 +3736,22 @@
         },
         "responses": {
           "201": {
-            "description": "Agent created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentResponse"
-                },
-                "example": {
-                  "data": {
-                    "id": "clh2345678901bcdefg",
-                    "revision": 0,
-                    "tenantId": "clh1234567890abcdef",
-                    "name": "Customer Support Agent",
-                    "description": "AI assistant for handling customer inquiries",
-                    "instructions": "You are a helpful customer support agent. Be polite and professional.",
-                    "config": null,
-                    "createdAt": "2024-01-15T10:30:00Z",
-                    "updatedAt": "2024-01-15T10:30:00Z"
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/AgentResponse"
           },
           "400": {
-            "description": "Bad request - validation failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                },
-                "example": {
-                  "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid agent data provided",
-                    "details": {
-                      "name": [
-                        "Name is required"
-                      ]
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
           },
           "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ForbiddenError"
-                },
-                "examples": {
-                  "tenantAccess": {
-                    "summary": "No access to tenant",
-                    "value": {
-                      "error": {
-                        "code": "FORBIDDEN",
-                        "message": "Access denied to this tenant"
-                      }
-                    }
-                  },
-                  "roleRestriction": {
-                    "summary": "Insufficient role",
-                    "value": {
-                      "error": {
-                        "code": "FORBIDDEN",
-                        "message": "User role cannot create agents"
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/ForbiddenError"
           },
           "404": {
             "$ref": "#/components/responses/NotFoundError"
           },
           "409": {
-            "description": "Conflict - agent name already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConflictError"
-                },
-                "example": {
-                  "error": {
-                    "code": "CONFLICT",
-                    "message": "An agent with this name already exists in the tenant"
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/ConflictError"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -5120,7 +4917,7 @@
             "schema": {
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/DocumentStatus"
+                  "$ref": "#/components/schemas/DocumentCreateStatusEnum"
                 },
                 {
                   "type": "string",
@@ -8859,7 +8656,7 @@
           "cancelled",
           "scheduled"
         ],
-        "description": "Job status enum"
+        "description": "Job status enumeration"
       },
       "JobType": {
         "type": "string",
@@ -8869,7 +8666,7 @@
           "fileStorage",
           "agentReport"
         ],
-        "description": "Job type enum"
+        "description": "Job type enumeration"
       },
       "Job": {
         "type": "object",
@@ -9306,6 +9103,70 @@
         },
         "description": "Pagination metadata"
       },
+      "Agent": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/AgentTypeEnum"
+          },
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "modelId": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200000
+          },
+          "config": {
+            "$ref": "#/components/schemas/AgentConfigResponse"
+          },
+          "configVersion": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "revision",
+          "tenantId",
+          "name",
+          "configVersion",
+          "createdAt",
+          "updatedAt"
+        ],
+        "description": "Agent"
+      },
       "AgentCreate": {
         "type": "object",
         "properties": {
@@ -9328,7 +9189,7 @@
             "maxLength": 2000
           },
           "type": {
-            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+            "$ref": "#/components/schemas/AgentTypeEnum"
           }
         },
         "required": [
@@ -9359,7 +9220,7 @@
             "maxLength": 2000
           },
           "type": {
-            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+            "$ref": "#/components/schemas/AgentTypeEnum"
           }
         },
         "required": [
@@ -9387,7 +9248,7 @@
             "maxLength": 2000
           },
           "type": {
-            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+            "$ref": "#/components/schemas/AgentTypeEnum"
           }
         },
         "required": [
@@ -9498,7 +9359,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentResponseData"
+              "$ref": "#/components/schemas/AgentListResponseDataItem"
             }
           },
           "meta": {
@@ -9515,7 +9376,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+            "$ref": "#/components/schemas/AgentTypeEnum"
           },
           "chatConfig": {
             "$ref": "#/components/schemas/AgentChatConfigResponse"
@@ -9542,7 +9403,7 @@
         "type": "object",
         "properties": {
           "agentType": {
-            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+            "$ref": "#/components/schemas/AgentTypeEnum"
           },
           "theme": {
             "$ref": "#/components/schemas/JsonValue"
@@ -9579,13 +9440,77 @@
         "type": "object",
         "properties": {
           "url": {
-            "type": "string"
+            "type": "string",
+            "format": "uri"
           }
         },
         "required": [
           "url"
         ],
         "description": "Agent chat link response"
+      },
+      "AgentSchemaOutput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AgentTypeEnum"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "modelId": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200000
+          },
+          "config": {
+            "$ref": "#/components/schemas/AgentConfigResponse"
+          },
+          "configVersion": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "dataSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSchemaOutputDataSourcesItem"
+            }
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "description": "Agent data"
       },
       "TenantCreate": {
         "type": "object",
@@ -9606,7 +9531,7 @@
             "maxLength": 1000
           },
           "status": {
-            "$ref": "#/components/schemas/TenantStatus"
+            "$ref": "#/components/schemas/TenantCreateStatusEnum"
           },
           "settings": {
             "$ref": "#/components/schemas/TenantCreateSettings"
@@ -9643,7 +9568,7 @@
             "maxLength": 1000
           },
           "status": {
-            "$ref": "#/components/schemas/TenantStatus"
+            "$ref": "#/components/schemas/TenantCreateStatusEnum"
           },
           "settings": {
             "$ref": "#/components/schemas/TenantCreateSettings"
@@ -9992,7 +9917,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentType"
+            "$ref": "#/components/schemas/DocumentCreateTypeEnum"
           },
           "mimeType": {
             "type": "string",
@@ -10024,7 +9949,7 @@
             "minimum": 0
           },
           "status": {
-            "$ref": "#/components/schemas/DocumentStatus"
+            "$ref": "#/components/schemas/DocumentCreateStatusEnum"
           },
           "size": {
             "type": "number",
@@ -10053,7 +9978,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentType"
+            "$ref": "#/components/schemas/DocumentCreateTypeEnum"
           },
           "dataSourceId": {
             "type": "string"
@@ -10088,7 +10013,7 @@
             "minimum": 0
           },
           "status": {
-            "$ref": "#/components/schemas/DocumentStatus"
+            "$ref": "#/components/schemas/DocumentCreateStatusEnum"
           },
           "size": {
             "type": "number",
@@ -10110,7 +10035,7 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/DocumentStatus"
+            "$ref": "#/components/schemas/DocumentCreateStatusEnum"
           }
         },
         "required": [
@@ -10523,7 +10448,7 @@
         "type": "object",
         "properties": {
           "rating": {
-            "$ref": "#/components/schemas/FeedbackRating"
+            "$ref": "#/components/schemas/FeedbackCreateRatingEnum"
           },
           "content": {
             "type": "string",
@@ -10577,7 +10502,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/DataSourceType"
+            "$ref": "#/components/schemas/DataSourceCreateTypeEnum"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
@@ -10638,7 +10563,7 @@
             "maxLength": 1000
           },
           "type": {
-            "$ref": "#/components/schemas/DataSourceType"
+            "$ref": "#/components/schemas/DataSourceCreateTypeEnum"
           },
           "config": {
             "$ref": "#/components/schemas/DataSourceCreateConfig"
@@ -10676,7 +10601,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceEventType"
+            "$ref": "#/components/schemas/DataSourceEventCreateTypeEnum"
           },
           "message": {
             "type": "string",
@@ -10737,7 +10662,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceEventType"
+            "$ref": "#/components/schemas/DataSourceEventCreateTypeEnum"
           },
           "id": {
             "type": "string"
@@ -10835,7 +10760,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/AgentDataSourceResponseData"
+            "$ref": "#/components/schemas/AgentSchemaOutputDataSourcesItem"
           }
         },
         "required": [
@@ -10849,7 +10774,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentDataSourceResponseData"
+              "$ref": "#/components/schemas/AgentSchemaOutputDataSourcesItem"
             }
           },
           "meta": {
@@ -10861,72 +10786,6 @@
           "meta"
         ],
         "description": "List of agent data sources with pagination"
-      },
-      "EmbeddingCreate": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "internalName": {
-            "type": "string"
-          },
-          "dimension": {
-            "type": "number",
-            "minimum": 1
-          },
-          "vendor": {
-            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          }
-        },
-        "required": [
-          "name",
-          "internalName",
-          "dimension",
-          "vendor"
-        ],
-        "description": "Schema for creating an embedding"
-      },
-      "EmbeddingUpdate": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "internalName": {
-            "type": "string"
-          },
-          "dimension": {
-            "type": "number",
-            "minimum": 1
-          },
-          "vendor": {
-            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          }
-        },
-        "description": "Schema for updating an embedding"
       },
       "EmbeddingResponse": {
         "type": "object",
@@ -10972,10 +10831,10 @@
             "minLength": 1
           },
           "type": {
-            "$ref": "#/components/schemas/FoundationModelType"
+            "$ref": "#/components/schemas/FoundationModelCreateTypeEnum"
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
+            "$ref": "#/components/schemas/FoundationModelCreateVendorEnum"
           },
           "contextWindow": {
             "type": "number",
@@ -11018,10 +10877,10 @@
             "minLength": 1
           },
           "type": {
-            "$ref": "#/components/schemas/FoundationModelType"
+            "$ref": "#/components/schemas/FoundationModelCreateTypeEnum"
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
+            "$ref": "#/components/schemas/FoundationModelCreateVendorEnum"
           },
           "description": {
             "type": "string",
@@ -11084,7 +10943,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/VectorDatabaseType"
+            "$ref": "#/components/schemas/VectorDatabaseCreateTypeEnum"
           },
           "description": {
             "type": "string",
@@ -11115,7 +10974,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/VectorDatabaseType"
+            "$ref": "#/components/schemas/VectorDatabaseCreateTypeEnum"
           },
           "description": {
             "type": "string",
@@ -11184,7 +11043,7 @@
             "minimum": 1
           },
           "metric": {
-            "$ref": "#/components/schemas/VectorMetricType"
+            "$ref": "#/components/schemas/VectorIndexCreateBodySchemaMetricEnum"
           },
           "embedModelId": {
             "type": "string",
@@ -11233,7 +11092,7 @@
             "minimum": 1
           },
           "metric": {
-            "$ref": "#/components/schemas/VectorMetricType"
+            "$ref": "#/components/schemas/VectorIndexCreateBodySchemaMetricEnum"
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -11481,7 +11340,7 @@
             "maxLength": 255
           },
           "type": {
-            "$ref": "#/components/schemas/DataSourceType"
+            "$ref": "#/components/schemas/DataSourceCreateTypeEnum"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
@@ -11561,134 +11420,6 @@
         ],
         "description": "Clean document response"
       },
-      "UserRole": {
-        "type": "string",
-        "enum": [
-          "user",
-          "admin",
-          "system"
-        ],
-        "description": "User role enum"
-      },
-      "TenantStatus": {
-        "type": "string",
-        "enum": [
-          "draft",
-          "prospect",
-          "active",
-          "archived"
-        ],
-        "description": "Tenant status enum"
-      },
-      "DataSourceType": {
-        "type": "string",
-        "enum": [
-          "fileStorage",
-          "webScraper",
-          "wordPressSite",
-          "toolMapping",
-          "dataset",
-          "scrapBook"
-        ],
-        "description": "Data source type enum"
-      },
-      "DataSourceEventType": {
-        "type": "string",
-        "enum": [
-          "created",
-          "configured",
-          "scheduled",
-          "documentAdded",
-          "documentUpdated",
-          "documentRemoved",
-          "error",
-          "info",
-          "warning"
-        ],
-        "description": "Data source event type enum"
-      },
-      "DocumentType": {
-        "type": "string",
-        "enum": [
-          "pdf",
-          "html",
-          "markdown",
-          "docx",
-          "txt",
-          "pptx",
-          "xlsx",
-          "csv",
-          "json",
-          "url",
-          "wordpress",
-          "image",
-          "unknown"
-        ],
-        "description": "Document type enum"
-      },
-      "DocumentStatus": {
-        "type": "string",
-        "enum": [
-          "indexed",
-          "waiting",
-          "processing",
-          "error"
-        ],
-        "description": "Document status enum"
-      },
-      "FoundationModelType": {
-        "type": "string",
-        "enum": [
-          "llm",
-          "image",
-          "tts",
-          "moderation",
-          "audio",
-          "realtime"
-        ],
-        "description": "Foundation model type enum"
-      },
-      "MessageRole": {
-        "type": "string",
-        "enum": [
-          "user",
-          "ai",
-          "function",
-          "error",
-          "thinking"
-        ],
-        "description": "Message role enum"
-      },
-      "VectorDatabaseType": {
-        "type": "string",
-        "enum": [
-          "pinecone",
-          "qdrant",
-          "weaviate",
-          "milvus",
-          "redis",
-          "pgvector"
-        ],
-        "description": "Vector database type enum"
-      },
-      "VectorMetricType": {
-        "type": "string",
-        "enum": [
-          "dot",
-          "cosine",
-          "euclid",
-          "manhattan"
-        ],
-        "description": "Vector metric type enum"
-      },
-      "FeedbackRating": {
-        "type": "string",
-        "enum": [
-          "positive",
-          "negative"
-        ],
-        "description": "Feedback rating enum"
-      },
       "JobConfig": {
         "type": "object",
         "description": "Job-specific configuration"
@@ -11759,7 +11490,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/AgentCreateTypeEnum"
+            "$ref": "#/components/schemas/AgentTypeEnum"
           },
           "id": {
             "type": "string"
@@ -11818,10 +11549,10 @@
               "$ref": "#/components/schemas/AgentResponseDataTenant"
             }
           },
-          "datasources": {
+          "dataSources": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentResponseDataDatasourcesItem"
+              "$ref": "#/components/schemas/AgentResponseDataDataSourcesItem"
             }
           },
           "chats": {
@@ -11840,6 +11571,86 @@
           "configVersion",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "AgentListResponseDataItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AgentTypeEnum"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "modelId": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200000
+          },
+          "config": {
+            "$ref": "#/components/schemas/AgentConfigResponse"
+          },
+          "configVersion": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date-time string"
+          },
+          "_count": {
+            "$ref": "#/components/schemas/AgentListResponseDataItemCount"
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/AgentResponseDataTenant"
+          },
+          "functions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentResponseDataTenant"
+            }
+          },
+          "dataSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentResponseDataDataSourcesItem"
+            }
+          },
+          "chats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentResponseDataChatsItem"
+            }
+          }
+        },
+        "required": [
+          "id"
         ]
       },
       "AgentConfigResponseScraperConfig": {
@@ -12102,6 +11913,39 @@
           "outputAudio"
         ]
       },
+      "AgentSchemaOutputDataSourcesItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "dataSourceId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 10000
+          },
+          "config": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "dataSourceId",
+          "config"
+        ]
+      },
       "TenantCreateSettings": {
         "type": "object",
         "properties": {
@@ -12117,7 +11961,7 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/TenantStatus"
+            "$ref": "#/components/schemas/TenantCreateStatusEnum"
           },
           "id": {
             "type": "string"
@@ -12297,10 +12141,10 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/DocumentStatus"
+            "$ref": "#/components/schemas/DocumentCreateStatusEnum"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentType"
+            "$ref": "#/components/schemas/DocumentCreateTypeEnum"
           },
           "id": {
             "type": "string"
@@ -12398,10 +12242,10 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/DocumentStatus"
+            "$ref": "#/components/schemas/DocumentCreateStatusEnum"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentType"
+            "$ref": "#/components/schemas/DocumentCreateTypeEnum"
           },
           "id": {
             "type": "string"
@@ -12480,10 +12324,10 @@
         "type": "object",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/DocumentStatus"
+            "$ref": "#/components/schemas/DocumentCreateStatusEnum"
           },
           "type": {
-            "$ref": "#/components/schemas/DocumentType"
+            "$ref": "#/components/schemas/DocumentCreateTypeEnum"
           },
           "id": {
             "type": "string"
@@ -12745,7 +12589,7 @@
         "type": "object",
         "properties": {
           "rating": {
-            "$ref": "#/components/schemas/FeedbackRating"
+            "$ref": "#/components/schemas/FeedbackCreateRatingEnum"
           },
           "id": {
             "type": "string"
@@ -12803,7 +12647,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceType"
+            "$ref": "#/components/schemas/DataSourceCreateTypeEnum"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
@@ -12887,7 +12731,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceType"
+            "$ref": "#/components/schemas/DataSourceCreateTypeEnum"
           },
           "intervalType": {
             "$ref": "#/components/schemas/DataSourceCreateIntervalTypeEnum"
@@ -12954,44 +12798,11 @@
           }
         }
       },
-      "AgentDataSourceResponseData": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "agentId": {
-            "type": "string"
-          },
-          "dataSourceId": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 1000
-          },
-          "instructions": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 10000
-          },
-          "config": {
-            "$ref": "#/components/schemas/JsonValue"
-          }
-        },
-        "required": [
-          "id",
-          "agentId",
-          "dataSourceId",
-          "config"
-        ]
-      },
       "EmbeddingResponseData": {
         "type": "object",
         "properties": {
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
+            "$ref": "#/components/schemas/FoundationModelCreateVendorEnum"
           },
           "id": {
             "type": "string"
@@ -13043,15 +12854,15 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/FoundationModelType"
+            "$ref": "#/components/schemas/FoundationModelCreateTypeEnum"
           },
           "vendor": {
-            "$ref": "#/components/schemas/EmbeddingCreateVendorEnum"
+            "$ref": "#/components/schemas/FoundationModelCreateVendorEnum"
           },
           "supportedAgentTypes": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AgentCreateTypeEnum"
+              "$ref": "#/components/schemas/AgentTypeEnum"
             }
           },
           "id": {
@@ -13147,7 +12958,7 @@
             "minimum": 1
           },
           "metric": {
-            "$ref": "#/components/schemas/VectorMetricType"
+            "$ref": "#/components/schemas/VectorIndexCreateBodySchemaMetricEnum"
           },
           "config": {
             "$ref": "#/components/schemas/JsonValue"
@@ -13187,7 +12998,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/VectorDatabaseType"
+            "$ref": "#/components/schemas/VectorDatabaseCreateTypeEnum"
           },
           "id": {
             "type": "string"
@@ -13234,7 +13045,7 @@
         "type": "object",
         "properties": {
           "metric": {
-            "$ref": "#/components/schemas/VectorMetricType"
+            "$ref": "#/components/schemas/VectorIndexCreateBodySchemaMetricEnum"
           },
           "id": {
             "type": "string"
@@ -13722,7 +13533,7 @@
         ],
         "properties": {
           "rating": {
-            "$ref": "#/components/schemas/FeedbackRating"
+            "$ref": "#/components/schemas/FeedbackCreateRatingEnum"
           }
         }
       },
@@ -14076,7 +13887,7 @@
         ],
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/DataSourceEventType"
+            "$ref": "#/components/schemas/DataSourceEventCreateTypeEnum"
           },
           "message": {
             "type": "string",
@@ -14411,7 +14222,7 @@
           "name"
         ]
       },
-      "AgentResponseDataDatasourcesItem": {
+      "AgentResponseDataDataSourcesItem": {
         "type": "object",
         "properties": {
           "id": {
@@ -14444,31 +14255,39 @@
           "createdAt"
         ]
       },
+      "AgentListResponseDataItemCount": {
+        "type": "object",
+        "properties": {
+          "dataSources": {
+            "type": "number"
+          }
+        }
+      },
       "AgentConfigResponseScraperConfigCleaningFilters": {
         "type": "object",
         "properties": {
           "ids": {
             "type": "array",
             "items": {
-              "type": "string"
+              "nullable": true
             }
           },
           "classes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "nullable": true
             }
           },
           "tagClasses": {
             "type": "array",
             "items": {
-              "type": "string"
+              "nullable": true
             }
           },
           "protectedTags": {
             "type": "array",
             "items": {
-              "type": "string"
+              "nullable": true
             }
           }
         }
@@ -15584,6 +15403,24 @@
           }
         }
       },
+      "UserRole": {
+        "type": "string",
+        "description": "User role enumeration",
+        "enum": [
+          "user",
+          "admin",
+          "system"
+        ]
+      },
+      "TenantStatus": {
+        "type": "string",
+        "description": "Tenant status enumeration",
+        "enum": [
+          "active",
+          "inactive",
+          "pending"
+        ]
+      },
       "JsonObject": {
         "type": "object",
         "description": "Generic JSON object",
@@ -15658,7 +15495,7 @@
         "description": "Priority level of the job",
         "default": "default"
       },
-      "AgentCreateTypeEnum": {
+      "AgentTypeEnum": {
         "type": "string",
         "enum": [
           "chatAssistant",
@@ -15686,6 +15523,15 @@
           "fr"
         ]
       },
+      "TenantCreateStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "prospect",
+          "active",
+          "archived"
+        ]
+      },
       "UserListQuerySchemaOrderEnum": {
         "type": "string",
         "enum": [
@@ -15699,6 +15545,51 @@
           "all"
         ]
       },
+      "DocumentCreateTypeEnum": {
+        "type": "string",
+        "enum": [
+          "pdf",
+          "html",
+          "markdown",
+          "docx",
+          "txt",
+          "pptx",
+          "xlsx",
+          "csv",
+          "json",
+          "url",
+          "wordpress",
+          "image",
+          "unknown"
+        ]
+      },
+      "DocumentCreateStatusEnum": {
+        "type": "string",
+        "enum": [
+          "indexed",
+          "waiting",
+          "processing",
+          "error"
+        ]
+      },
+      "FeedbackCreateRatingEnum": {
+        "type": "string",
+        "enum": [
+          "positive",
+          "negative"
+        ]
+      },
+      "DataSourceCreateTypeEnum": {
+        "type": "string",
+        "enum": [
+          "fileStorage",
+          "webScraper",
+          "wordPressSite",
+          "toolMapping",
+          "dataset",
+          "scrapBook"
+        ]
+      },
       "DataSourceCreateIntervalTypeEnum": {
         "type": "string",
         "enum": [
@@ -15709,13 +15600,59 @@
           "webHook"
         ]
       },
-      "EmbeddingCreateVendorEnum": {
+      "DataSourceEventCreateTypeEnum": {
+        "type": "string",
+        "enum": [
+          "created",
+          "configured",
+          "scheduled",
+          "documentAdded",
+          "documentUpdated",
+          "documentRemoved",
+          "error",
+          "info",
+          "warning"
+        ]
+      },
+      "FoundationModelCreateTypeEnum": {
+        "type": "string",
+        "enum": [
+          "llm",
+          "image",
+          "tts",
+          "moderation",
+          "audio",
+          "realtime"
+        ]
+      },
+      "FoundationModelCreateVendorEnum": {
         "type": "string",
         "enum": [
           "openai",
           "anthropic",
           "google",
           "azure"
+        ]
+      },
+      "VectorDatabaseCreateTypeEnum": {
+        "type": "string",
+        "enum": [
+          "pinecone",
+          "qdrant",
+          "weaviate",
+          "milvus",
+          "redis",
+          "pgvector"
+        ]
+      },
+      "VectorIndexCreateBodySchemaMetricEnum": {
+        "type": "string",
+        "nullable": true,
+        "enum": [
+          "dot",
+          "cosine",
+          "euclid",
+          "manhattan"
         ]
       },
       "DocumentSyncOutputSyncResultActionEnum": {
@@ -16567,6 +16504,26 @@
               "required": [
                 "error"
               ]
+            }
+          }
+        }
+      },
+      "AgentResponse": {
+        "description": "AgentResponse successful response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentResponse"
+            }
+          }
+        }
+      },
+      "AgentListResponse": {
+        "description": "AgentListResponse successful response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentListResponse"
             }
           }
         }
