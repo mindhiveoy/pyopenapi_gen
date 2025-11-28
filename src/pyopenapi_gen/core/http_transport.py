@@ -95,6 +95,7 @@ class HttpxTransport:
         auth: BaseAuth | None = None,
         bearer_token: str | None = None,
         default_headers: dict[str, str] | None = None,
+        verify_ssl: bool = True,
     ) -> None:
         """
         Initializes the HttpxTransport.
@@ -105,11 +106,13 @@ class HttpxTransport:
             auth (BaseAuth | None): Optional authentication plugin for request signing (can be CompositeAuth).
             bearer_token (str | None): Optional raw bearer token string for Authorization header.
             default_headers (dict[str, str] | None): Default headers to apply to all requests.
+            verify_ssl (bool): Whether to verify SSL certificates. Defaults to True.
+                Set to False for local development with self-signed certificates.
 
         Note:
             If both auth and bearer_token are provided, auth takes precedence.
         """
-        self._client: httpx.AsyncClient = httpx.AsyncClient(base_url=base_url, timeout=timeout)
+        self._client: httpx.AsyncClient = httpx.AsyncClient(base_url=base_url, timeout=timeout, verify=verify_ssl)
         self._auth: BaseAuth | None = auth
         self._bearer_token: str | None = bearer_token
         self._default_headers: dict[str, str] | None = default_headers
