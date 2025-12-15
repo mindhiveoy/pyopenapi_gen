@@ -14,6 +14,7 @@ from typing import Any, List
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
 from pyopenapi_gen.core.postprocess_manager import PostprocessManager
+from pyopenapi_gen.core.spec_fetcher import fetch_spec
 from pyopenapi_gen.core.warning_collector import WarningCollector
 from pyopenapi_gen.emitters.client_emitter import ClientEmitter
 from pyopenapi_gen.emitters.core_emitter import CoreEmitter
@@ -21,14 +22,12 @@ from pyopenapi_gen.emitters.endpoints_emitter import EndpointsEmitter
 from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 from pyopenapi_gen.emitters.mocks_emitter import MocksEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
+from pyopenapi_gen.generator.exceptions import GenerationError
 
 logger = logging.getLogger(__name__)
 
-
-class GenerationError(Exception):
-    """Raised when client generation fails due to errors or diffs."""
-
-    pass
+# Re-export for backwards compatibility
+__all__ = ["ClientGenerator", "GenerationError"]
 
 
 class ClientGenerator:
@@ -532,43 +531,17 @@ class ClientGenerator:
     def _load_spec(self, path_or_url: str) -> dict[str, Any]:
         """
         Load a spec from a file path or URL.
+
         Args:
-            path_or_url (str): Path or URL to the OpenAPI spec.
+            path_or_url: Path or URL to the OpenAPI spec.
+
         Returns:
-            dict[str, Any]: Parsed OpenAPI spec.
+            Parsed OpenAPI spec as a dictionary.
+
         Raises:
-            GenerationError: If loading fails or URL loading is not implemented.
+            GenerationError: If loading fails.
         """
-        spec_path_obj = Path(path_or_url)
-        if spec_path_obj.exists() and spec_path_obj.is_file():  # Added is_file() check
-            text = spec_path_obj.read_text()
-            # Prefer JSON for .json files to avoid optional PyYAML dependency in tests
-            if spec_path_obj.suffix.lower() == ".json":
-                import json
-
-                data = json.loads(text)
-            else:
-                try:
-                    import yaml
-
-                    data = yaml.safe_load(text)
-                except ModuleNotFoundError:
-                    # Fallback: attempt JSON parsing if YAML is unavailable
-                    import json
-
-                    data = json.loads(text)
-
-            if not isinstance(data, dict):
-                raise GenerationError("Loaded spec is not a dictionary.")
-            return data
-        elif not spec_path_obj.exists():
-            raise GenerationError(f"Specification file not found at {path_or_url}")
-        elif not spec_path_obj.is_file():
-            raise GenerationError(f"Specified path {path_or_url} is not a file.")
-        else:  # Fallback, should ideally not be reached with current checks
-            raise GenerationError(
-                f"Failed to load spec from {path_or_url}. URL loading not implemented or path is invalid."
-            )
+        return fetch_spec(path_or_url)
 
     def _show_diffs(self, old_dir: str, new_dir: str) -> bool:
         """
