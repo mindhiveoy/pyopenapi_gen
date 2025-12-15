@@ -17,8 +17,9 @@ from __future__ import annotations
 import base64
 import dataclasses
 import re
+import types
 from datetime import date, datetime
-from typing import Any, Callable, TypeVar, get_type_hints
+from typing import Any, Callable, TypeVar, Union, get_args, get_origin, get_type_hints
 
 import cattrs
 from cattrs.errors import BaseValidationError, ClassValidationError, IterableValidationError
@@ -299,6 +300,166 @@ converter.register_structure_hook(datetime, structure_datetime)
 converter.register_unstructure_hook(datetime, unstructure_datetime)
 converter.register_structure_hook(date, structure_date)
 converter.register_unstructure_hook(date, unstructure_date)
+
+
+# =============================================================================
+# Union Type Structure Hook
+# =============================================================================
+
+
+def _is_union_type(t: Any) -> bool:
+    """
+    Check if a type is a Union type.
+
+    Scenario:
+        Detect Union types including both typing.Union and Python 3.10+ X | Y syntax.
+
+    Expected Outcome:
+        Returns True for Union types, False otherwise.
+    """
+    origin = get_origin(t)
+    # Handle both typing.Union and types.UnionType (Python 3.10+ X | Y syntax)
+    return origin is Union or (hasattr(types, "UnionType") and isinstance(t, types.UnionType))
+
+
+def _structure_union(data: Any, union_type: type) -> Any:
+    """
+    Structure a Union type by trying each variant.
+
+    Scenario:
+        OpenAPI oneOf/anyOf schemas generate Union types. When deserialising
+        API responses, we need to determine which variant matches the data.
+
+    Expected Outcome:
+        Returns the structured data as the first matching Union variant.
+
+    Strategy:
+        1. If data is None and NoneType is in the union, return None
+        2. If data is a dict, try each dataclass variant
+        3. Try structuring with other variants (generic types, registered hooks)
+        4. Fall back to dict[str, Any] if present
+        5. Raise error if no variant matches
+
+    Args:
+        data: The raw data to structure
+        union_type: The Union type to structure into
+
+    Returns:
+        Structured data as one of the Union variants
+
+    Raises:
+        TypeError: If data is None but NoneType not in union
+        ValueError: If no Union variant matches the data
+    """
+    args = get_args(union_type)
+
+    # Handle None explicitly
+    if data is None:
+        if type(None) in args:
+            return None
+        raise TypeError(f"None is not valid for {union_type}")
+
+    # Separate variants by type category
+    dataclass_variants: list[type[Any]] = []
+    dict_any_fallback = False
+    other_variants: list[Any] = []  # Can include generic types like List[T]
+
+    for arg in args:
+        if arg is type(None):
+            continue
+        elif isinstance(arg, type) and dataclasses.is_dataclass(arg):
+            dataclass_variants.append(arg)
+        elif get_origin(arg) is dict:
+            # Check if it's dict[str, Any] - our fallback type
+            dict_args = get_args(arg)
+            if dict_args == (str, Any):
+                dict_any_fallback = True
+            else:
+                # Other dict types should be tried as variants
+                other_variants.append(arg)
+        else:
+            # Includes plain types (str, int, datetime) and generic types (List[T])
+            other_variants.append(arg)
+
+    # If data is a dict, try dataclass variants first
+    if isinstance(data, dict):
+        errors: list[tuple[str, str]] = []
+        for variant in dataclass_variants:
+            try:
+                # Ensure hooks are registered for this variant
+                _register_structure_hooks_recursively(variant)
+                return converter.structure(data, variant)
+            except Exception as e:
+                errors.append((variant.__name__, str(e)))
+                continue
+
+        # If no dataclass matched and dict fallback is available, return raw dict
+        if dict_any_fallback:
+            return data
+
+        # All variants failed - provide helpful error
+        if errors:
+            error_details = "\n".join(f"  - {name}: {err}" for name, err in errors)
+            raise ValueError(f"Could not structure dict into any variant of {union_type}:\n{error_details}")
+
+    # Try other variants using converter.structure
+    # This handles:
+    # - Types with registered hooks (datetime, date, bytes, etc.)
+    # - Generic types (List[T], Dict[K,V], etc.)
+    # - Plain types (str, int, etc.)
+    for variant in other_variants:
+        try:
+            return converter.structure(data, variant)
+        except Exception:  # nosec B112 - intentional: trying variants until one succeeds
+            continue
+
+    # Last resort: if dict fallback is available and we have dict data
+    if dict_any_fallback and isinstance(data, dict):
+        return data
+
+    raise TypeError(
+        f"Cannot structure {type(data).__name__} into {union_type}. "
+        f"Expected one of: {[arg for arg in args if arg is not type(None)]}"
+    )
+
+
+def _union_structure_hook(data: Any, union_type: type) -> Any:
+    """
+    Structure hook for Union types.
+
+    This hook is called directly by cattrs when structuring a Union type.
+    It delegates to _structure_union to handle the actual structuring logic.
+
+    Args:
+        data: The raw data to structure
+        union_type: The Union type to structure into
+
+    Returns:
+        Structured data as one of the Union variants
+    """
+    return _structure_union(data, union_type)
+
+
+def _register_union_structure_hook() -> None:
+    """
+    Register a structure hook for Union types.
+
+    Scenario:
+        cattrs doesn't natively handle Union types containing dataclasses.
+        This registers a hook that enables structuring for all Union types.
+
+    Expected Outcome:
+        All Union types (from OpenAPI oneOf/anyOf) can be structured correctly.
+    """
+
+    def predicate(t: type) -> bool:
+        return _is_union_type(t)
+
+    converter.register_structure_hook_func(predicate, _union_structure_hook)
+
+
+# Register the Union hook at module load time
+_register_union_structure_hook()
 
 
 def _register_structure_hooks_recursively(cls: type[Any], visited: set[type[Any]] | None = None) -> None:
