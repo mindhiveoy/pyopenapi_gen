@@ -1,18 +1,9 @@
 from pathlib import Path
-from typing import Any, Union
 
 import typer
-import yaml
 
+from .core.spec_fetcher import is_url
 from .generator.client_generator import ClientGenerator, GenerationError
-
-
-def _load_spec(path_or_url: str) -> Union[dict[str, Any], Any]:
-    """Load a spec from a file path or URL."""
-    if Path(path_or_url).exists():
-        return yaml.safe_load(Path(path_or_url).read_text())
-    typer.echo("URL loading not implemented", err=True)
-    raise typer.Exit(code=1)
 
 
 def main(
@@ -46,9 +37,11 @@ def main(
     if core_package is None:
         core_package = output_package + ".core"
     generator = ClientGenerator()
+    # Handle both URLs (pass as-is) and file paths (resolve to absolute)
+    spec_path = spec if is_url(spec) else str(Path(spec).resolve())
     try:
         generator.generate(
-            spec_path=str(Path(spec).resolve()),
+            spec_path=spec_path,
             project_root=project_root,
             output_package=output_package,
             force=force,

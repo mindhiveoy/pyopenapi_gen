@@ -112,8 +112,9 @@ def generate_client(
     without needing to instantiate classes or understand internal structure.
 
     Args:
-        spec_path: Path to the OpenAPI specification file (YAML or JSON).
-                  Can be a relative or absolute file path.
+        spec_path: Path or URL to the OpenAPI specification (YAML or JSON).
+                  Can be a relative/absolute file path or HTTP(S) URL.
+                  Examples: "input/spec.yaml", "https://api.example.com/openapi.json"
 
         project_root: Root directory of your Python project where the generated
                      client will be placed. This is the directory that contains
