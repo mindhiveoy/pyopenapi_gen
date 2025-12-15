@@ -26,13 +26,16 @@ def test_structure_with_future_annotations():
     Scenario:
         When `from __future__ import annotations` is used, type hints become strings.
         The converter must resolve these strings to actual types to register hooks recursively.
+        For user-defined dataclasses without Meta class, Python field names are expected
+        in the JSON (no automatic camelCase conversion).
 
     Expected Outcome:
         Nested dataclasses are correctly identified and structured.
     """
+    # User-defined dataclasses without Meta use Python field names (snake_case)
     data = {
-        "items": [{"itemId": 1, "name": "one"}, {"itemId": 2, "name": "two"}],
-        "singleItem": {"itemId": 3, "name": "three"},
+        "items": [{"item_id": 1, "name": "one"}, {"item_id": 2, "name": "two"}],
+        "single_item": {"item_id": 3, "name": "three"},
     }
 
     result = structure_from_dict(data, RootContainer)

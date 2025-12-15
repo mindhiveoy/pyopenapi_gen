@@ -4,7 +4,7 @@ Generates Python code for dataclasses from IRSchema objects.
 
 import json
 import logging
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -213,22 +213,6 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
                 )
         return "None"
 
-    def _requires_field_mapping(self, api_field: str, python_field: str) -> bool:
-        """Check if field mapping is required between API and Python field names."""
-        return api_field != python_field
-
-    def _generate_field_mappings(self, properties: dict[str, Any], sanitized_names: dict[str, str]) -> dict[str, str]:
-        """Generate field mappings for BaseSchema configuration."""
-        mappings = {}
-        for api_name, python_name in sanitized_names.items():
-            if api_name in properties and self._requires_field_mapping(api_name, python_name):
-                mappings[api_name] = python_name
-        return mappings
-
-    def _has_any_mappings(self, properties: dict[str, Any], sanitized_names: dict[str, str]) -> bool:
-        """Check if any field mappings are needed."""
-        return bool(self._generate_field_mappings(properties, sanitized_names))
-
     def generate(
         self,
         schema: IRSchema,
@@ -316,15 +300,35 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
         elif schema.properties:
             sorted_props = sorted(schema.properties.items(), key=lambda item: (item[0] not in schema.required, item[0]))
 
+            # Track sanitised names to detect collisions
+            seen_field_names: dict[str, str] = {}  # sanitised_name → original_api_name
+
             for prop_name, prop_schema in sorted_props:
                 is_required = prop_name in schema.required
 
                 # Sanitize the property name for use as a Python attribute
                 field_name = NameSanitizer.sanitize_method_name(prop_name)
 
-                # Track field mapping if the names differ
-                if self._requires_field_mapping(prop_name, field_name):
-                    field_mappings[prop_name] = field_name
+                # Collision detection: check if this sanitised name was already used
+                if field_name in seen_field_names:
+                    original_api_name = seen_field_names[field_name]
+                    base_field_name = field_name
+                    suffix = 2
+                    while field_name in seen_field_names:
+                        field_name = f"{base_field_name}_{suffix}"
+                        suffix += 1
+                    logger.warning(
+                        f"Field name collision in schema '{base_name}': "
+                        f"API fields '{original_api_name}' and '{prop_name}' both sanitise to '{base_field_name}'. "
+                        f"Using '{seen_field_names[base_field_name]}' for '{original_api_name}' "
+                        f"and '{field_name}' for '{prop_name}'."
+                    )
+
+                # Track this field name as used
+                seen_field_names[field_name] = prop_name
+
+                # Always create field mapping to preserve original API name
+                field_mappings[prop_name] = field_name
 
                 py_type = self.type_service.resolve_schema_type(prop_schema, context, required=is_required)
 
@@ -332,9 +336,9 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
                 if not is_required:
                     default_expr = self._get_field_default(prop_schema, context)
 
-                # Enhance field documentation for mapped fields
+                # Enhance field documentation for mapped fields when names differ
                 field_doc = prop_schema.description
-                if field_mappings.get(prop_name) == field_name and prop_name != field_name:
+                if prop_name != field_name:
                     if field_doc:
                         field_doc = f"{field_doc} (maps from '{prop_name}')"
                     else:
@@ -346,8 +350,8 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
         #     f"DataclassGenerator: Preparing to render dataclass '{class_name}' with fields: {fields_data}."
         # )
 
-        # Always use BaseSchema for better developer experience
-        # Only include field mappings if there are actual mappings needed
+        # Always include field mappings to preserve original API field names
+        # This ensures correct serialisation for any API naming convention
         rendered_code = self.renderer.render_dataclass(
             class_name=class_name,
             fields=fields_data,
