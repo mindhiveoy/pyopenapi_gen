@@ -134,12 +134,9 @@ def _make_dataclass_structure_fn(cls: type[T]) -> Any:
                     if pf == python_name:
                         json_key = jk
                         break
-                else:
-                    # If not in explicit mappings, try snake_to_camel conversion
-                    json_key = snake_to_camel(python_name)
-            else:
-                # No Meta mappings, use automatic conversion
-                json_key = snake_to_camel(python_name)
+                # If not in explicit mappings, use Python name as-is
+                # This preserves the original field name for user-defined dataclasses
+            # No Meta mappings - use Python name as-is (no camelCase assumption)
 
             # Only add override if JSON key differs from Python field name
             if json_key != python_name:
@@ -151,29 +148,30 @@ def _make_dataclass_structure_fn(cls: type[T]) -> Any:
 
 def _make_dataclass_unstructure_fn(cls: type[T]) -> Any:
     """
-    Create an unstructure function for a dataclass with automatic name transformation.
+    Create an unstructure function for a dataclass with field name transformation.
 
     Scenario:
-        Generate an unstructure function that automatically converts Python
-        dataclass field names (snake_case) to JSON keys (camelCase).
+        Generate an unstructure function that converts Python dataclass field names
+        to JSON keys using the Meta class mappings if available.
 
     Expected Outcome:
         A function that cattrs can use to unstructure the dataclass into JSON,
-        with automatic field name transformation.
+        with field name transformation based on Meta.key_transform_with_dump.
+        For user-defined dataclasses without Meta, Python field names are used as-is.
     """
     # Get field renaming map (Python field name → JSON key)
     field_overrides: dict[str, Any] = {}
     if dataclasses.is_dataclass(cls):
         for field in dataclasses.fields(cls):
             python_name = field.name
-            # Convert Python field name to JSON key
-            json_key = snake_to_camel(python_name)
+            json_key = python_name  # Default: no transformation
 
             # Check if class has Meta with explicit mappings
             if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_dump"):  # type: ignore[attr-defined]
                 mappings: dict[str, str] = cls.Meta.key_transform_with_dump  # type: ignore[attr-defined]
-                # Use explicit mapping if available
-                json_key = mappings.get(python_name, json_key)
+                # Use explicit mapping if available, otherwise keep Python name
+                json_key = mappings.get(python_name, python_name)
+            # No Meta mappings - use Python name as-is (no camelCase assumption)
 
             # Only add override if JSON key differs from Python field name
             if json_key != python_name:
