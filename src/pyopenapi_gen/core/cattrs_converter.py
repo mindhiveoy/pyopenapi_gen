@@ -462,7 +462,6 @@ def _register_union_structure_hook() -> None:
 _register_union_structure_hook()
 
 
-
 def _register_structure_hooks_recursively(cls: type[Any], visited: set[type[Any]] | None = None) -> None:
     """
     Recursively register structure hooks for a dataclass and all its nested dataclass types.
