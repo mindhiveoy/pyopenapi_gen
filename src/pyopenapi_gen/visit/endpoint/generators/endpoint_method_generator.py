@@ -1,10 +1,11 @@
 import logging
+import re
 from typing import Any
 
 from pyopenapi_gen import IROperation
 
 from ....context.render_context import RenderContext
-from ....core.utils import Formatter
+from ....core.utils import Formatter, NameSanitizer
 from ....core.writers.code_writer import CodeWriter
 from ....types.strategies import ResponseStrategyResolver
 from ..processors.import_analyzer import EndpointImportAnalyzer
@@ -148,8 +149,11 @@ class EndpointMethodGenerator:
             writer.write_line(f"- {content_type}")
         writer.write_line('"""')
 
-        # Generate URL construction
-        writer.write_line(f'url = f"{{self.base_url}}{op.path}"')
+        # Generate URL construction with sanitized path variables
+        formatted_path = re.sub(
+            r"{([^}]+)}", lambda m: f"{{{NameSanitizer.sanitize_method_name(str(m.group(1)))}}}", op.path
+        )
+        writer.write_line(f'url = f"{{self.base_url}}{formatted_path}"')
         writer.write_line("")
 
         # Generate runtime dispatch logic

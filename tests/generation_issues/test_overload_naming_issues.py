@@ -202,3 +202,117 @@ class TestFileHandlingIntegration:
 
                     # Should pass files directly
                     assert "files=files," in code or "files = files" in code, "Files should be passed directly"
+
+
+@pytest.fixture
+def spec_with_camelcase_path_params() -> dict:
+    """OpenAPI spec with camelCase path parameters and multi-content types."""
+    return {
+        "openapi": "3.0.0",
+        "info": {"title": "Test API", "version": "1.0.0"},
+        "paths": {
+            "/tenants/{tenantId}/datasources/{dataSourceId}/documents": {
+                "post": {
+                    "operationId": "createDocument",
+                    "summary": "Create a document",
+                    "tags": ["documents"],
+                    "parameters": [
+                        {"name": "tenantId", "in": "path", "required": True, "schema": {"type": "string"}},
+                        {"name": "dataSourceId", "in": "path", "required": True, "schema": {"type": "string"}},
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"title": {"type": "string"}},
+                                }
+                            },
+                            "multipart/form-data": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"file": {"type": "string", "format": "binary"}},
+                                }
+                            },
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "string"}},
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+        },
+    }
+
+
+class TestOverloadParameterNamingIntegration:
+    """Integration tests for camelCase parameter names in overloaded methods."""
+
+    def test_generate_client__camelcase_path_params_in_overload__converts_to_snake_case(
+        self, spec_with_camelcase_path_params: dict
+    ) -> None:
+        """
+        Scenario: Generate client from spec with camelCase path parameters in multi-content operation
+        Expected Outcome: Generated method parameters and URL should use snake_case
+
+        This test verifies the fix for the bug where multi-content-type endpoints
+        (with @overload) kept camelCase parameter names while standard endpoints
+        correctly converted them to snake_case.
+        """
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec_path = Path(tmpdir) / "spec.json"
+            with open(spec_path, "w") as f:
+                json.dump(spec_with_camelcase_path_params, f)
+
+            output_path = Path(tmpdir) / "output"
+            output_path.mkdir()
+
+            generator = ClientGenerator()
+
+            # Act
+            generated_files = generator.generate(
+                spec_path=str(spec_path),
+                project_root=output_path,
+                output_package="testapi",
+                force=True,
+                no_postprocess=True,
+            )
+
+            # Assert
+            endpoint_files = [
+                f for f in generated_files if "endpoints" in str(f) and not str(f).endswith("__init__.py")
+            ]
+            assert len(endpoint_files) > 0, "No endpoint files generated"
+
+            all_code = ""
+            for endpoint_file in endpoint_files:
+                with open(endpoint_file, "r") as f:
+                    all_code += f.read()
+
+            # Check parameter names are snake_case in @overload and implementation signatures
+            assert "tenant_id: str" in all_code, "tenantId should be converted to tenant_id"
+            assert "data_source_id: str" in all_code, "dataSourceId should be converted to data_source_id"
+
+            # Check they're NOT camelCase
+            assert "tenantId: str" not in all_code, "Parameter should not be camelCase tenantId"
+            assert "dataSourceId: str" not in all_code, "Parameter should not be camelCase dataSourceId"
+
+            # Check URL construction uses snake_case variables
+            assert "{tenant_id}" in all_code, "URL should use snake_case {tenant_id}"
+            assert "{data_source_id}" in all_code, "URL should use snake_case {data_source_id}"
+
+            # Check URL doesn't use camelCase variables
+            assert "{tenantId}" not in all_code, "URL should not use camelCase {tenantId}"
+            assert "{dataSourceId}" not in all_code, "URL should not use camelCase {dataSourceId}"
