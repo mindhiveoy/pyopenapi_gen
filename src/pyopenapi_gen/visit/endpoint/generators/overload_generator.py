@@ -121,7 +121,8 @@ class OverloadMethodGenerator:
             for param in op.parameters:
                 if param.param_in in ("path", "query", "header"):
                     param_type = type_service.resolve_schema_type(param.schema, context, required=param.required)
-                    param_parts.append(f"{param.name}: {param_type}")
+                    sanitized_name = NameSanitizer.sanitize_method_name(param.name)
+                    param_parts.append(f"{sanitized_name}: {param_type}")
 
         # Add keyword-only separator
         param_parts.append("*")
@@ -212,7 +213,8 @@ class OverloadMethodGenerator:
             for param in op.parameters:
                 if param.param_in in ("path", "query", "header"):
                     param_type = type_service.resolve_schema_type(param.schema, context, required=param.required)
-                    param_parts.append(f"{param.name}: {param_type}")
+                    sanitized_name = NameSanitizer.sanitize_method_name(param.name)
+                    param_parts.append(f"{sanitized_name}: {param_type}")
 
         # Add keyword-only separator
         param_parts.append("*")
