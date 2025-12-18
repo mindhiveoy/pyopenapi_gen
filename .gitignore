@@ -202,3 +202,9 @@ agent-plan.json
 *-analysis.md
 
 coverage.json
+
+# Project coordination file (runtime state)
+.mindvibe
+
+# Bridge ID files (temporary)
+.mindvibe-bridge-id

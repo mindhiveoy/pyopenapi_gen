@@ -543,3 +543,140 @@ class TestDataclassSerializationErrorHandling:
         assert isinstance(result, dict)
         assert result["name"] == "test"
         assert "custom" in result
+
+
+class TestDataclassSerializationBinaryTypes:
+    """Test bytes and bytearray serialisation to base64."""
+
+    def test_serialize_bytes__plain_bytes__returns_base64_encoded_string(self) -> None:
+        """
+        Scenario: Serialize bytes directly
+        Expected Outcome: Returns base64-encoded ASCII string
+        """
+        import base64
+
+        # Arrange
+        pdf_bytes = b"%PDF-1.7\n\nThis is test PDF content"
+
+        # Act
+        result = DataclassSerializer.serialize(pdf_bytes)
+
+        # Assert
+        expected = base64.b64encode(pdf_bytes).decode("ascii")
+        assert result == expected
+        assert isinstance(result, str)
+
+    def test_serialize_bytes__bytearray__returns_base64_encoded_string(self) -> None:
+        """
+        Scenario: Serialize bytearray directly
+        Expected Outcome: Returns base64-encoded ASCII string
+        """
+        import base64
+
+        # Arrange
+        data = bytearray(b"Hello, World!")
+
+        # Act
+        result = DataclassSerializer.serialize(data)
+
+        # Assert
+        expected = base64.b64encode(bytes(data)).decode("ascii")
+        assert result == expected
+        assert isinstance(result, str)
+
+    def test_serialize_bytes__in_dataclass_field__returns_base64_encoded_string(self) -> None:
+        """
+        Scenario: Serialize a dataclass containing a bytes field
+        Expected Outcome: Bytes field is converted to base64-encoded string
+        """
+        import base64
+
+        # Arrange
+        @dataclasses.dataclass
+        class Document:
+            name: str
+            binary: bytes
+
+        doc_content = b"%PDF-1.7\n\nDocument content here"
+        doc = Document(name="test.pdf", binary=doc_content)
+
+        # Act
+        result = DataclassSerializer.serialize(doc)
+
+        # Assert
+        expected_binary = base64.b64encode(doc_content).decode("ascii")
+        assert result == {"name": "test.pdf", "binary": expected_binary}
+        assert isinstance(result["binary"], str)
+
+    def test_serialize_bytes__in_list__returns_base64_encoded_strings(self) -> None:
+        """
+        Scenario: Serialize a list containing bytes values
+        Expected Outcome: Each bytes value is converted to base64-encoded string
+        """
+        import base64
+
+        # Arrange
+        data_list = [b"first", b"second", b"third"]
+
+        # Act
+        result = DataclassSerializer.serialize(data_list)
+
+        # Assert
+        expected = [base64.b64encode(b).decode("ascii") for b in data_list]
+        assert result == expected
+
+    def test_serialize_bytes__roundtrip_decode__matches_original(self) -> None:
+        """
+        Scenario: Verify that serialised bytes can be decoded back
+        Expected Outcome: Decoded bytes match the original input
+        """
+        import base64
+
+        # Arrange
+        original_bytes = b"%PDF-1.7\n\nThis is test PDF content with special chars: \x00\x01\x02"
+
+        # Act
+        serialized = DataclassSerializer.serialize(original_bytes)
+        decoded = base64.b64decode(serialized)
+
+        # Assert
+        assert decoded == original_bytes
+
+    def test_serialize_bytes__optional_none__excludes_from_output(self) -> None:
+        """
+        Scenario: Serialize a dataclass with optional bytes field set to None
+        Expected Outcome: None bytes field is excluded from the result
+        """
+
+        # Arrange
+        @dataclasses.dataclass
+        class DocumentOptional:
+            name: str
+            binary: bytes | None = None
+
+        doc = DocumentOptional(name="empty.txt")
+
+        # Act
+        result = DataclassSerializer.serialize(doc)
+
+        # Assert
+        assert result == {"name": "empty.txt"}
+        assert "binary" not in result
+
+    def test_serialize_bytes__empty_bytes__returns_empty_base64(self) -> None:
+        """
+        Scenario: Serialize empty bytes
+        Expected Outcome: Returns empty base64 string
+        """
+        import base64
+
+        # Arrange
+        empty_bytes = b""
+
+        # Act
+        result = DataclassSerializer.serialize(empty_bytes)
+
+        # Assert
+        expected = base64.b64encode(empty_bytes).decode("ascii")
+        assert result == expected
+        assert result == ""
