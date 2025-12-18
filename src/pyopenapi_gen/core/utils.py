@@ -3,6 +3,7 @@
 This module contains utility classes and functions used across the code generation process.
 """
 
+import base64
 import dataclasses
 import keyword
 import logging
@@ -335,6 +336,7 @@ class DataclassSerializer:
         - Dictionaries: Recursively serialize values
         - datetime: Convert to ISO format string
         - Enums: Convert to their value
+        - bytes/bytearray: Convert to base64-encoded ASCII string
         - Primitives: Return unchanged
         - None values: Excluded from output
         """
@@ -426,6 +428,10 @@ class DataclassSerializer:
         # Handle primitive types and unknown objects
         if isinstance(obj, (str, int, float, bool)):
             return obj
+
+        # Handle bytes - encode as base64 for JSON serialization
+        if isinstance(obj, (bytes, bytearray)):
+            return base64.b64encode(bytes(obj)).decode("ascii")
 
         # For unknown types, try to convert to string as fallback
         try:
