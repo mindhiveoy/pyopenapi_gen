@@ -68,6 +68,11 @@ class DataclassGenerator:
         This wrapper class preserves all JSON data and provides dict-like access,
         preventing data loss when deserializing API responses with arbitrary properties.
 
+        When additionalProperties references a typed schema, the wrapper will:
+        - Store values with proper type annotations
+        - Include _value_type ClassVar for runtime type resolution
+        - Generate hooks that deserialize values into their proper types
+
         Args:
             class_name: Name of the wrapper class.
             schema: The schema (should have additionalProperties but no properties).
@@ -83,8 +88,37 @@ class DataclassGenerator:
 
         description = schema.description or "Generic JSON value object that preserves arbitrary data."
 
-        # Generate the wrapper class code using cattrs with custom hooks
-        code = f'''__all__ = ["{class_name}"]
+        # Determine value type from additionalProperties
+        value_type = "Any"
+        has_typed_values = False
+
+        if isinstance(schema.additional_properties, IRSchema):
+            ap_schema = schema.additional_properties
+            # Resolve the type using UnifiedTypeService
+            resolved_type = self.type_service.resolve_schema_type(ap_schema, context, required=True)
+            # Only use typed wrapper if we have a concrete type (not Any or Any | None)
+            if resolved_type and resolved_type != "Any" and "Any" not in resolved_type:
+                value_type = resolved_type
+                has_typed_values = True
+
+        if has_typed_values:
+            # Generate typed wrapper with value deserialisation
+            context.add_import("typing", "ClassVar")
+            code = self._generate_typed_wrapper_class(class_name, value_type, description, context)
+        else:
+            # Generate untyped wrapper (existing behaviour)
+            code = self._generate_untyped_wrapper_class(class_name, description, context)
+
+        return code
+
+    def _generate_untyped_wrapper_class(
+        self,
+        class_name: str,
+        description: str,
+        context: RenderContext,
+    ) -> str:
+        """Generate wrapper class for untyped additionalProperties (Any values)."""
+        return f'''__all__ = ["{class_name}"]
 
 @dataclass
 class {class_name}:
@@ -142,10 +176,22 @@ class {class_name}:
         """Return dictionary items."""
         return self._data.items()
 
+    def __iter__(self) -> Any:
+        """Iterate over keys."""
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        """Return number of items."""
+        return len(self._data)
+
 
 # Register cattrs hooks for {class_name}
 def _structure_{class_name.lower()}(data: dict[str, Any], _: type[{class_name}]) -> {class_name}:
     """Structure hook for cattrs to handle {class_name} deserialization."""
+    if data is None:
+        return {class_name}()
+    if isinstance(data, {class_name}):
+        return data
     return {class_name}(_data=data)
 
 
@@ -153,7 +199,126 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
     """Unstructure hook for cattrs to handle {class_name} serialization."""
     return instance._data.copy()
 '''
-        return code
+
+    def _generate_typed_wrapper_class(
+        self,
+        class_name: str,
+        value_type: str,
+        description: str,
+        context: RenderContext,
+    ) -> str:
+        """Generate wrapper class for typed additionalProperties with value deserialisation."""
+        # Import Iterator and ValuesView for proper type hints
+        context.add_import("typing", "Iterator")
+        context.add_import("collections.abc", "ValuesView")
+        context.add_import("collections.abc", "ItemsView")
+        context.add_import("collections.abc", "KeysView")
+
+        return f'''__all__ = ["{class_name}"]
+
+@dataclass
+class {class_name}:
+    """
+    {description}
+
+    This class wraps a dictionary with typed values, providing dict-like access
+    while ensuring values are properly deserialised into {value_type} instances.
+
+    Example:
+        from {context.core_package_name}.cattrs_converter import structure_from_dict, unstructure_to_dict
+
+        # Deserialize from API response - values become {value_type} instances
+        obj = structure_from_dict({{"key": {{"field": "value"}}}}, {class_name})
+
+        # Access returns typed {value_type} instance
+        item = obj["key"]
+        print(item.field)  # "value" - direct attribute access
+
+        # Serialize for API request
+        data = unstructure_to_dict(obj)
+    """
+
+    _data: dict[str, {value_type}] = field(default_factory=dict, repr=False)
+
+    # Runtime type information for cattrs deserialisation
+    _value_type: ClassVar[str] = "{value_type}"
+
+    def get(self, key: str, default: {value_type} | None = None) -> {value_type} | None:
+        """Get value for key, returning default if key not present."""
+        return self._data.get(key, default)
+
+    def __getitem__(self, key: str) -> {value_type}:
+        """Get value for key."""
+        return self._data[key]
+
+    def __setitem__(self, key: str, value: {value_type}) -> None:
+        """Set value for key."""
+        self._data[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        """Check if key exists."""
+        return key in self._data
+
+    def __bool__(self) -> bool:
+        """Return True if wrapper contains any data."""
+        return bool(self._data)
+
+    def keys(self) -> KeysView[str]:
+        """Return dictionary keys."""
+        return self._data.keys()
+
+    def values(self) -> ValuesView[{value_type}]:
+        """Return dictionary values."""
+        return self._data.values()
+
+    def items(self) -> ItemsView[str, {value_type}]:
+        """Return dictionary items."""
+        return self._data.items()
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over keys."""
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        """Return number of items."""
+        return len(self._data)
+
+
+# Register cattrs hooks for {class_name}
+def _structure_{class_name.lower()}(data: dict[str, Any], _: type[{class_name}]) -> {class_name}:
+    """Structure hook for cattrs to handle {class_name} deserialization with typed values."""
+    if data is None:
+        return {class_name}()
+    if isinstance(data, {class_name}):
+        return data
+
+    # Import converter lazily to avoid circular imports
+    from {context.core_package_name}.cattrs_converter import converter, _register_structure_hooks_recursively
+
+    # Deserialise each value into {value_type}
+    structured_data: dict[str, {value_type}] = {{}}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            # Ensure hooks are registered for the value type
+            _register_structure_hooks_recursively({value_type})
+            structured_data[key] = converter.structure(value, {value_type})
+        else:
+            # Value is already the correct type or primitive
+            structured_data[key] = value
+
+    return {class_name}(_data=structured_data)
+
+
+def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
+    """Unstructure hook for cattrs to handle {class_name} serialization."""
+    from {context.core_package_name}.cattrs_converter import converter
+
+    # Unstructure each value
+    return {{
+        key: converter.unstructure(value)
+        for key, value in instance._data.items()
+    }}
+'''
 
     def _get_field_default(self, ps: IRSchema, context: RenderContext) -> str | None:
         """
