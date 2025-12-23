@@ -8,6 +8,10 @@ on:
         required: false
         default: 'Manual testing'
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build-and-testpypi:
     runs-on: ubuntu-latest

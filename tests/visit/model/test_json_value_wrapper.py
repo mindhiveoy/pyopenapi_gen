@@ -51,10 +51,10 @@ class TestJsonValueWrapper:
         assert "def values(self)" in result
         assert "def items(self)" in result
 
-    def test_generate__object_with_additional_properties_schema__generates_wrapper_class(self) -> None:
+    def test_generate__object_with_additional_properties_schema__generates_typed_wrapper_class(self) -> None:
         """
         Scenario: Generate dataclass for object with additionalProperties as schema and no properties.
-        Expected Outcome: Wrapper class that preserves all data.
+        Expected Outcome: Typed wrapper class with proper value types.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -74,7 +74,8 @@ class TestJsonValueWrapper:
 
         # Assert
         assert "class JsonValue:" in result
-        assert "_data: dict[str, Any]" in result
+        assert "_data: dict[str, str]" in result  # Typed values
+        assert '_value_type: ClassVar[str] = "str"' in result  # Runtime type info
         assert "structure_from_dict" in result  # cattrs usage documented
         assert "unstructure_to_dict" in result  # cattrs usage documented
 
@@ -193,12 +194,12 @@ class TestJsonValueWrapper:
         # because it's semantically different from explicit true
         assert "_data: dict[str, Any]" not in result
 
-    def test_generate__object_with_nullable_additional_properties_schema__generates_wrapper_class(self) -> None:
+    def test_generate__object_with_nullable_additional_properties_schema__generates_untyped_wrapper_class(self) -> None:
         """
         Scenario: Generate dataclass for object with additionalProperties as nullable schema object.
                   This matches the real-world JsonValue schema from business_swagger.json:
                   {"type": "object", "additionalProperties": {"nullable": true}}
-        Expected Outcome: Wrapper class that preserves all data with nullable value support.
+        Expected Outcome: Untyped wrapper class (Any) since nullable without type resolves to Any.
         """
         # Arrange
         renderer = PythonConstructRenderer()
@@ -219,7 +220,7 @@ class TestJsonValueWrapper:
         # Act
         result = generator.generate(schema, "JsonValue", context)
 
-        # Assert
+        # Assert - should be untyped (Any) since no concrete type specified
         assert "class JsonValue:" in result
         assert "_data: dict[str, Any] = field(default_factory=dict, repr=False)" in result
         assert "structure_from_dict" in result  # cattrs usage documented
@@ -229,3 +230,84 @@ class TestJsonValueWrapper:
         assert "def keys(self)" in result
         assert "def values(self)" in result
         assert "def items(self)" in result
+
+    def test_generate__object_with_ref_additional_properties__generates_typed_wrapper_with_deserialisation(
+        self,
+    ) -> None:
+        """
+        Scenario: Generate wrapper for additionalProperties with $ref to named schema.
+                  This is the main issue case: ToolsConfig with additionalProperties: {$ref: ToolConfig}
+        Expected Outcome: Typed wrapper that deserialises values into ToolConfig instances.
+        """
+        # Arrange
+        renderer = PythonConstructRenderer()
+
+        # Create a named schema that would be referenced (simulating ToolConfig)
+        tool_config_schema = IRSchema(
+            name="ToolConfig",
+            type="object",
+            properties={
+                "name": IRSchema(name="name", type="string"),
+                "type": IRSchema(name="type", type="string"),
+            },
+            required=["name", "type"],
+            generation_name="ToolConfig",
+            final_module_stem="tool_config",
+        )
+
+        all_schemas = {"ToolConfig": tool_config_schema}
+        generator = DataclassGenerator(renderer, all_schemas)
+        context = RenderContext()
+
+        # Schema with additionalProperties referencing ToolConfig
+        schema = IRSchema(
+            name="ToolsConfig",
+            type="object",
+            properties={},
+            required=[],
+            additional_properties=tool_config_schema,  # Reference to ToolConfig
+        )
+
+        # Act
+        result = generator.generate(schema, "ToolsConfig", context)
+
+        # Assert - should generate typed wrapper with ToolConfig values
+        assert "class ToolsConfig:" in result
+        assert "_data: dict[str, ToolConfig]" in result  # Typed values
+        assert '_value_type: ClassVar[str] = "ToolConfig"' in result  # Runtime type info
+
+        # Structure hook should deserialise values
+        assert "converter.structure(value, ToolConfig)" in result
+        assert "_register_structure_hooks_recursively(ToolConfig)" in result
+
+        # Method signatures should be typed
+        assert "def __getitem__(self, key: str) -> ToolConfig:" in result
+        assert "def values(self) -> ValuesView[ToolConfig]:" in result
+        assert "def items(self) -> ItemsView[str, ToolConfig]:" in result
+
+    def test_generate__object_with_integer_additional_properties__generates_typed_wrapper(self) -> None:
+        """
+        Scenario: Generate wrapper for additionalProperties with primitive type (integer).
+        Expected Outcome: Typed wrapper with int values.
+        """
+        # Arrange
+        renderer = PythonConstructRenderer()
+        generator = DataclassGenerator(renderer, {})
+        context = RenderContext()
+
+        schema = IRSchema(
+            name="IntMap",
+            type="object",
+            properties={},
+            required=[],
+            additional_properties=IRSchema(type="integer"),
+        )
+
+        # Act
+        result = generator.generate(schema, "IntMap", context)
+
+        # Assert
+        assert "class IntMap:" in result
+        assert "_data: dict[str, int]" in result
+        assert '_value_type: ClassVar[str] = "int"' in result
+        assert "def __getitem__(self, key: str) -> int:" in result
