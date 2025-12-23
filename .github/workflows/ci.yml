@@ -8,6 +8,9 @@ on:
     # Run on PRs to provide required "test" status check for branch protection
     # Actual testing is handled by pr-checks.yml, this just satisfies the requirement
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest

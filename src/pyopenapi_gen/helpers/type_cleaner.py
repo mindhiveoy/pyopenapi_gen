@@ -145,26 +145,6 @@ class TypeCleaner:
         return None
 
     @classmethod
-    def _clean_simple_patterns(cls, type_str: str) -> str:
-        """Clean simple patterns using regex."""
-        # Common error pattern: Dict with extra params
-        dict_pattern = re.compile(r"Dict\[([^,\[\]]+),\s*([^,\[\]]+)(?:,\s*[^,\[\]]+)*(?:,\s*None)?\]")
-        if dict_pattern.search(type_str):
-            type_str = dict_pattern.sub(r"dict[\1, \2]", type_str)
-
-        # Handle simple List with extra params
-        list_pattern = re.compile(r"List\[([^,\[\]]+)(?:,\s*[^,\[\]]+)*(?:,\s*None)?\]")
-        if list_pattern.search(type_str):
-            type_str = list_pattern.sub(r"List[\1]", type_str)
-
-        # Handle simple Optional with None
-        optional_pattern = re.compile(r"Optional\[([^,\[\]]+)(?:,\s*None)?\]")
-        if optional_pattern.search(type_str):
-            type_str = optional_pattern.sub(r"\1 | None", type_str)
-
-        return type_str
-
-    @classmethod
     def _split_at_top_level_commas(cls, content: str) -> List[str]:
         """Split a string at top-level commas, respecting bracket nesting."""
         parts = []
