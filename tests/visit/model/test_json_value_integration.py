@@ -272,3 +272,196 @@ class TestJsonValueIntegration:
 
         # Assert: Round-trip preserves structure with cattrs
         assert unstructure_to_dict(instance) == nested_data
+
+    def test_generated_typed_wrapper__dataclass_values__deserialises_correctly(self) -> None:
+        """
+        Scenario: Generate typed wrapper with dataclass additionalProperties.
+        Expected Outcome: Dict values are deserialised into proper dataclass instances.
+        """
+        # Arrange
+        from collections.abc import ItemsView, KeysView, ValuesView
+        from dataclasses import dataclass, field
+        from typing import ClassVar, Iterator
+
+        from pyopenapi_gen.core.cattrs_converter import (
+            _register_structure_hooks_recursively,
+            converter,
+        )
+
+        # Define the value type dataclass
+        @dataclass
+        class ToolConfig:
+            """Tool configuration."""
+
+            type_: str
+            name: str
+            description: str | None = None
+
+            class Meta:
+                key_transform_with_load = {"type": "type_"}
+                key_transform_with_dump = {"type_": "type"}
+
+        # Register structure hooks for ToolConfig
+        _register_structure_hooks_recursively(ToolConfig)
+
+        # Generate a typed wrapper schema
+        renderer = PythonConstructRenderer()
+
+        # Schema for the schemas registry (with generation_name set to indicate it's a named type)
+        tool_config_schema_registry = IRSchema(
+            name="ToolConfig",
+            generation_name="ToolConfig",
+            type="object",
+            properties={
+                "type": IRSchema(name=None, type="string"),
+                "name": IRSchema(name=None, type="string"),
+                "description": IRSchema(name=None, type="string"),
+            },
+            required=["type", "name"],
+        )
+
+        # Reference schema for additionalProperties (just name, no type - like a $ref)
+        tool_config_ref_schema = IRSchema(
+            name="ToolConfig",
+            generation_name="ToolConfig",
+        )
+
+        generator = DataclassGenerator(renderer, {"ToolConfig": tool_config_schema_registry})
+        # Set proper core_package_name for import resolution
+        context = RenderContext(core_package_name="pyopenapi_gen.core")
+
+        schema = IRSchema(
+            name="ToolsConfig",
+            type="object",
+            properties={},
+            required=[],
+            additional_properties=tool_config_ref_schema,
+        )
+
+        # Act: Generate the typed wrapper class
+        generated_code = generator.generate(schema, "ToolsConfig", context)
+
+        # Verify it's a typed wrapper (has _value_type ClassVar)
+        assert "_value_type" in generated_code
+        assert "ToolConfig" in generated_code
+
+        # Create namespace and execute
+        namespace: dict[str, Any] = {
+            "dataclass": dataclass,
+            "field": field,
+            "ClassVar": ClassVar,
+            "Iterator": Iterator,
+            "KeysView": KeysView,
+            "ValuesView": ValuesView,
+            "ItemsView": ItemsView,
+            "ToolConfig": ToolConfig,
+            "converter": converter,
+            "_register_structure_hooks_recursively": _register_structure_hooks_recursively,
+            "Any": Any,
+            "dict": dict,
+        }
+        exec(generated_code, namespace)
+        ToolsConfig = namespace["ToolsConfig"]
+
+        # Register hooks
+        structure_hook = namespace.get("_structure_toolsconfig")
+        if structure_hook:
+            converter.register_structure_hook(ToolsConfig, structure_hook)
+
+        unstructure_hook = namespace.get("_unstructure_toolsconfig")
+        if unstructure_hook:
+            converter.register_unstructure_hook(ToolsConfig, unstructure_hook)
+
+        # Test data
+        test_data = {
+            "tool1": {"type": "documentLookup", "name": "tool1", "description": "First tool"},
+            "tool2": {"type": "ragSearch", "name": "tool2"},
+        }
+
+        # Act: Structure the data
+        instance = converter.structure(test_data, ToolsConfig)
+
+        # Assert: Values are ToolConfig instances, not raw dicts
+        tool1 = instance["tool1"]
+        assert isinstance(tool1, ToolConfig), f"Expected ToolConfig, got {type(tool1)}"
+        assert tool1.type_ == "documentLookup"
+        assert tool1.name == "tool1"
+        assert tool1.description == "First tool"
+
+        tool2 = instance["tool2"]
+        assert isinstance(tool2, ToolConfig), f"Expected ToolConfig, got {type(tool2)}"
+        assert tool2.type_ == "ragSearch"
+        assert tool2.name == "tool2"
+        assert tool2.description is None
+
+    def test_generated_typed_wrapper__all_value_types__structured_correctly(self) -> None:
+        """
+        Scenario: Generate typed wrapper with primitive value type.
+        Expected Outcome: All value types (primitives) are properly structured.
+        """
+        # Arrange
+        from collections.abc import ItemsView, KeysView, ValuesView
+        from dataclasses import dataclass, field
+        from typing import ClassVar, Iterator
+
+        from pyopenapi_gen.core.cattrs_converter import converter
+
+        renderer = PythonConstructRenderer()
+        generator = DataclassGenerator(renderer, {})
+        # Set proper core_package_name for import resolution
+        context = RenderContext(core_package_name="pyopenapi_gen.core")
+
+        # Schema with string additionalProperties
+        string_value_schema = IRSchema(name=None, type="string")
+        schema = IRSchema(
+            name="StringDict",
+            type="object",
+            properties={},
+            required=[],
+            additional_properties=string_value_schema,
+        )
+
+        # Act: Generate the typed wrapper class
+        generated_code = generator.generate(schema, "StringDict", context)
+
+        # Verify it's a typed wrapper
+        assert "_value_type" in generated_code
+        assert "dict[str, str]" in generated_code
+
+        # Create namespace and execute
+        namespace: dict[str, Any] = {
+            "dataclass": dataclass,
+            "field": field,
+            "ClassVar": ClassVar,
+            "Iterator": Iterator,
+            "KeysView": KeysView,
+            "ValuesView": ValuesView,
+            "ItemsView": ItemsView,
+            "converter": converter,
+            "_register_structure_hooks_recursively": lambda x: None,  # Not needed for primitives
+            "Any": Any,
+            "dict": dict,
+            "str": str,
+        }
+        exec(generated_code, namespace)
+        StringDict = namespace["StringDict"]
+
+        # Register hooks
+        structure_hook = namespace.get("_structure_stringdict")
+        if structure_hook:
+            converter.register_structure_hook(StringDict, structure_hook)
+
+        # Test data
+        test_data = {"key1": "value1", "key2": "value2"}
+
+        # Act: Structure the data
+        instance = converter.structure(test_data, StringDict)
+
+        # Assert: Values are strings
+        assert instance["key1"] == "value1"
+        assert instance["key2"] == "value2"
+
+        # Test iteration
+        for key, value in instance.items():
+            assert isinstance(key, str)
+            assert isinstance(value, str)

@@ -320,6 +320,26 @@ def _is_union_type(t: Any) -> bool:
     return origin is Union or (hasattr(types, "UnionType") and isinstance(t, types.UnionType))
 
 
+def _truncate_data_repr(data: Any, max_length: int = 200) -> str:
+    """
+    Create a truncated string representation of data for error messages.
+
+    Args:
+        data: The data to represent
+        max_length: Maximum length of the output string
+
+    Returns:
+        A string representation, truncated if necessary
+    """
+    try:
+        repr_str = repr(data)
+        if len(repr_str) <= max_length:
+            return repr_str
+        return repr_str[: max_length - 3] + "..."
+    except Exception:
+        return f"<{type(data).__name__}: repr failed>"
+
+
 def _structure_union(data: Any, union_type: type) -> Any:
     """
     Structure a Union type by trying each variant.
@@ -395,28 +415,47 @@ def _structure_union(data: Any, union_type: type) -> Any:
         if dict_any_fallback:
             return data
 
-        # All variants failed - provide helpful error
+        # All variants failed - provide helpful error with data preview
         if errors:
+            data_preview = _truncate_data_repr(data)
             error_details = "\n".join(f"  - {name}: {err}" for name, err in errors)
-            raise ValueError(f"Could not structure dict into any variant of {union_type}:\n{error_details}")
+            raise ValueError(
+                f"Could not structure dict into any variant of {union_type}.\n"
+                f"Data: {data_preview}\n"
+                f"Tried variants:\n{error_details}"
+            )
 
-    # Try other variants using converter.structure
+    # Try other variants using converter.structure (accumulate errors for debugging)
     # This handles:
     # - Types with registered hooks (datetime, date, bytes, etc.)
     # - Generic types (List[T], Dict[K,V], etc.)
     # - Plain types (str, int, etc.)
+    other_errors: list[tuple[str, str]] = []
     for variant in other_variants:
         try:
             return converter.structure(data, variant)
-        except Exception:  # nosec B112 - intentional: trying variants until one succeeds
+        except Exception as e:  # nosec B112 - intentional: trying variants until one succeeds
+            variant_name = getattr(variant, "__name__", str(variant))
+            other_errors.append((variant_name, str(e)))
             continue
 
     # Last resort: if dict fallback is available and we have dict data
     if dict_any_fallback and isinstance(data, dict):
         return data
 
+    # Include data preview in error message for debugging
+    data_preview = _truncate_data_repr(data)
+    if other_errors:
+        error_details = "\n".join(f"  - {name}: {err}" for name, err in other_errors)
+        raise TypeError(
+            f"Cannot structure {type(data).__name__} into {union_type}.\n"
+            f"Data: {data_preview}\n"
+            f"Tried variants:\n{error_details}"
+        )
+
     raise TypeError(
-        f"Cannot structure {type(data).__name__} into {union_type}. "
+        f"Cannot structure {type(data).__name__} into {union_type}.\n"
+        f"Data: {data_preview}\n"
         f"Expected one of: {[arg for arg in args if arg is not type(None)]}"
     )
 
