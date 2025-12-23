@@ -295,16 +295,15 @@ def _structure_{class_name.lower()}(data: dict[str, Any], _: type[{class_name}])
     # Import converter lazily to avoid circular imports
     from {context.core_package_name}.cattrs_converter import converter, _register_structure_hooks_recursively
 
+    # Register hooks for dataclass value types (once, outside loop)
+    if hasattr({value_type}, '__dataclass_fields__'):
+        _register_structure_hooks_recursively({value_type})
+
     # Deserialise each value into {value_type}
+    # Using converter.structure() for all values - cattrs handles primitives, datetime, bytes, etc.
     structured_data: dict[str, {value_type}] = {{}}
     for key, value in data.items():
-        if isinstance(value, dict):
-            # Ensure hooks are registered for the value type
-            _register_structure_hooks_recursively({value_type})
-            structured_data[key] = converter.structure(value, {value_type})
-        else:
-            # Value is already the correct type or primitive
-            structured_data[key] = value
+        structured_data[key] = converter.structure(value, {value_type})
 
     return {class_name}(_data=structured_data)
 
