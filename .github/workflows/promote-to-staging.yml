@@ -9,6 +9,9 @@ on:
         default: 'develop'
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   promote-to-staging:
     runs-on: ubuntu-latest
