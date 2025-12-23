@@ -700,3 +700,89 @@ def test_structure_union__mixed_complex_types__structures_correctly():
     # Test with None
     none_result = converter.structure(None, union_type)
     assert none_result is None
+
+
+# =============================================================================
+# Test: Improved error messages with data preview
+# =============================================================================
+
+
+def test_structure_union__error_includes_data_preview():
+    """
+    Test that error message includes a preview of the failing data.
+
+    Scenario:
+        Data is a dict that doesn't match any dataclass variant.
+        No dict[str, Any] fallback is present.
+
+    Expected Outcome:
+        Error message includes a preview of the data that failed to structure.
+    """
+    # Arrange
+    union_type = Union[ConfigTypeA, ConfigTypeB]
+    data = {"unknownField": "some_value", "anotherField": 123}
+
+    # Act & Assert
+    with pytest.raises(ValueError) as exc_info:
+        converter.structure(data, union_type)
+
+    error_msg = str(exc_info.value)
+    assert "Data:" in error_msg
+    assert "unknownField" in error_msg
+    assert "some_value" in error_msg
+
+
+def test_structure_union__large_data__error_truncates_preview():
+    """
+    Test that large data payloads are truncated in error messages.
+
+    Scenario:
+        Data contains a very large string value.
+        Union structuring fails.
+
+    Expected Outcome:
+        Error message truncates the data preview to a reasonable length.
+    """
+    # Arrange
+    union_type = Union[ConfigTypeA, ConfigTypeB]
+    large_value = "x" * 500  # Very long string
+    data = {"field": large_value}
+
+    # Act & Assert
+    with pytest.raises(ValueError) as exc_info:
+        converter.structure(data, union_type)
+
+    error_msg = str(exc_info.value)
+    assert "Data:" in error_msg
+    # Data preview should be truncated (max 200 chars by default)
+    assert "..." in error_msg
+    # The full 500-char string should not appear
+    assert large_value not in error_msg
+
+
+def test_structure_union__non_dict_variant_errors__accumulated():
+    """
+    Test that non-dict variant failures are included in error message.
+
+    Scenario:
+        Union contains only primitive/non-dataclass types.
+        Data doesn't match any variant.
+
+    Expected Outcome:
+        Error includes details about which variants were tried.
+    """
+    # Arrange
+    from datetime import datetime
+
+    union_type = Union[datetime, int]  # No str variant
+    data = "not_a_datetime_or_int"
+
+    # Act & Assert
+    with pytest.raises(TypeError) as exc_info:
+        converter.structure(data, union_type)
+
+    error_msg = str(exc_info.value)
+    assert "Data:" in error_msg
+    assert "not_a_datetime_or_int" in error_msg
+    # Should mention what variants were tried
+    assert "Tried variants:" in error_msg or "Expected one of:" in error_msg
