@@ -209,6 +209,19 @@ def _parse_properties(
                 )
 
                 # Check if this is a simple array that should NOT be promoted to a separate schema
+                # This includes:
+                # 1. Arrays of referenced types (items has $ref)
+                # 2. Arrays of primitive types (items has type: string, integer, number, boolean)
+                items_node = prop_schema_node.get("items", {}) if isinstance(prop_schema_node, Mapping) else {}
+                is_primitive_items = (
+                    isinstance(items_node, Mapping)
+                    and items_node.get("type") in ["string", "integer", "number", "boolean"]
+                    and "$ref" not in items_node
+                    and "properties" not in items_node
+                    and "allOf" not in items_node
+                    and "anyOf" not in items_node
+                    and "oneOf" not in items_node
+                )
                 is_simple_array = (
                     isinstance(prop_schema_node, Mapping)
                     and prop_schema_node.get("type") == "array"
@@ -218,7 +231,10 @@ def _parse_properties(
                     and "anyOf" not in prop_schema_node
                     and "oneOf" not in prop_schema_node
                     and isinstance(prop_schema_node.get("items"), Mapping)
-                    and "$ref" in prop_schema_node.get("items", {})  # Array of referenced types
+                    and (
+                        "$ref" in items_node  # Array of referenced types
+                        or is_primitive_items  # Array of primitive types
+                    )
                 )
 
                 # Use a sanitized version of prop_name as context name for this sub-parse
@@ -231,6 +247,7 @@ def _parse_properties(
 
                 # For simple primitives and simple arrays, don't assign names to prevent
                 # them from being registered as standalone schemas
+                # Note: Inline enums DO get names so they're registered properly
                 schema_name_for_parsing = None if (is_simple_primitive or is_simple_array) else prop_context_name
 
                 parsed_prop_schema_ir = _parse_schema(
@@ -523,6 +540,14 @@ def _parse_schema(
                 if isinstance(items_node, Mapping) and "$ref" in items_node:
                     # For $ref items, pass None as schema_name to let _resolve_ref handle the naming
                     item_schema_name_for_recursive_parse = None
+                elif isinstance(items_node, Mapping) and items_node.get("type") in [
+                    "string",
+                    "integer",
+                    "number",
+                    "boolean",
+                ]:
+                    # Primitive items should NOT get names - they should remain inline as List[str] etc.
+                    item_schema_name_for_recursive_parse = None
                 else:
                     # For inline items, generate a synthetic name
                     base_name_for_item = schema_name or "AnonymousArray"
@@ -612,6 +637,9 @@ def _parse_schema(
             # Avoid generating synthetic names for $ref items - let the ref resolve naturally
             if "$ref" in raw_items_node:
                 item_schema_context_name_for_reparse = None
+            elif raw_items_node.get("type") in ["string", "integer", "number", "boolean"]:
+                # Primitive items should NOT get names - they should remain inline as List[str] etc.
+                item_schema_context_name_for_reparse = None
             else:
                 base_name_for_reparse_item = schema_name or "AnonymousArray"
                 item_schema_context_name_for_reparse = NameSanitizer.sanitize_class_name(
@@ -655,7 +683,20 @@ def _parse_schema(
             if existing_in_context._is_circular_ref and existing_in_context is not schema_ir:
                 return existing_in_context
 
-        if schema_name and not schema_ir._from_unresolved_ref and not schema_ir._max_depth_exceeded_marker:
+        # Don't register synthetic primitive type schemas as standalone schemas
+        # They should remain inline to avoid unnecessary schema proliferation
+        # BUT: Top-level schemas defined in components/schemas should always be registered,
+        # even if they are primitive types
+        is_primitive_schema = schema_ir.type in ["string", "integer", "number", "boolean"]
+        is_top_level_schema = schema_name and schema_name in context.raw_spec_schemas
+        is_synthetic_primitive = is_primitive_schema and not is_top_level_schema
+        should_register = (
+            schema_name
+            and not schema_ir._from_unresolved_ref
+            and not schema_ir._max_depth_exceeded_marker
+            and not is_synthetic_primitive
+        )
+        if should_register and schema_name:
             context.parsed_schemas[schema_name] = schema_ir
 
         # Ensure generation_name and final_module_stem are set if the schema has a name
