@@ -75,7 +75,7 @@ async def main():
         base_url="https://api.example.com",
         timeout=30.0
     )
-  
+
     # Optional: Add authentication
     auth = BearerAuth("your-api-token")
     transport = HttpxTransport(
@@ -83,12 +83,12 @@ async def main():
         timeout=config.timeout,
         auth=auth
     )
-  
+
     # Use as async context manager
     async with APIClient(config, transport=transport) as client:
         # Type-safe API calls with full IDE support
         users = await client.users.list_users(limit=10)
-  
+
         # All operations are fully typed
         user = await client.users.get_user(user_id=123)
         print(f"User: {user.name}, Email: {user.email}")
@@ -159,7 +159,7 @@ core_package = "pyapis.core"
 # Generate all clients
 for client_config in clients:
     print(f"Generating {client_config['package']}...")
-  
+
     generate_client(
         spec_path=client_config["spec"],
         project_root=".",
@@ -371,11 +371,11 @@ from my_api_client.core.auth.base import BaseAuth
 
 class CustomAuth(BaseAuth):
     """Your custom authentication logic"""
-  
+
     def __init__(self, api_key: str, secret: str):
         self.api_key = api_key
         self.secret = secret
-  
+
     async def authenticate_request(self, request_args: dict[str, Any]) -> dict[str, Any]:
         # Add custom authentication logic
         headers = dict(request_args.get("headers", {}))
@@ -383,7 +383,7 @@ class CustomAuth(BaseAuth):
         headers["X-Signature"] = self._generate_signature()
         request_args["headers"] = headers
         return request_args
-  
+
     def _generate_signature(self) -> str:
         # Your signature generation logic
         return "signature"
@@ -404,7 +404,7 @@ from my_api_client.core.exceptions import HTTPError, ClientError, ServerError
 try:
     user = await client.users.get_user(user_id=123)
     print(f"Found user: {user.name}")
-  
+
 except ClientError as e:
     # 4xx errors - client-side issues
     print(f"Client error {e.status_code}: {e.response.text}")
@@ -412,11 +412,11 @@ except ClientError as e:
         print("User not found")
     elif e.status_code == 401:
         print("Authentication required")
-  
+
 except ServerError as e:
     # 5xx errors - server-side issues
     print(f"Server error {e.status_code}: {e.response.text}")
-  
+
 except HTTPError as e:
     # Catch-all for any HTTP errors
     print(f"HTTP error {e.status_code}: {e.response.text}")
@@ -500,7 +500,7 @@ from myapp.clients.orders.client import APIClient as OrderClient
 async def process_order(user_id: int, order_id: int):
     async with UserClient(user_config) as user_client:
         user = await user_client.users.get_user(user_id=user_id)
-  
+
     async with OrderClient(order_config) as order_client:
         order = await order_client.orders.get_order(order_id=order_id)
 ```
@@ -591,18 +591,18 @@ For each OpenAPI tag, the generator creates:
 @runtime_checkable
 class UsersClientProtocol(Protocol):
     """Protocol defining the interface of UsersClient for dependency injection."""
-  
+
     async def get_user(self, user_id: int) -> User: ...
     async def list_users(self, limit: int = 10) -> list[User]: ...
     async def create_user(self, user: User) -> User: ...
 
 class UsersClient(UsersClientProtocol):
     """Real implementation - explicitly implements the protocol"""
-  
+
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url = base_url
-  
+
     async def get_user(self, user_id: int) -> User:
         # Real HTTP implementation
         ...
@@ -624,30 +624,30 @@ from my_api_client.models.order import Order
 class MockUsersClient(UsersClientProtocol):
     """
     Mock implementation that explicitly inherits from the generated Protocol.
-  
+
     CRITICAL: If UsersClientProtocol changes (new method, different signature),
     mypy will immediately flag this class as incomplete.
     """
-  
+
     def __init__(self):
         self.calls: list[tuple[str, dict]] = []  # Track method calls
         self.mock_data: dict[int, User] = {}     # Store mock responses
-  
+
     async def get_user(self, user_id: int) -> User:
         """Mock implementation of get_user"""
         self.calls.append(("get_user", {"user_id": user_id}))
-  
+
         # Return mock data
         if user_id in self.mock_data:
             return self.mock_data[user_id]
-  
+
         # Return default mock user
         return User(
             id=user_id,
             name="Test User",
             email=f"user{user_id}@example.com"
         )
-  
+
     async def list_users(self, limit: int = 10) -> list[User]:
         """Mock implementation of list_users"""
         self.calls.append(("list_users", {"limit": limit}))
@@ -655,7 +655,7 @@ class MockUsersClient(UsersClientProtocol):
             User(id=1, name="User 1", email="user1@example.com"),
             User(id=2, name="User 2", email="user2@example.com"),
         ][:limit]
-  
+
     async def create_user(self, user: User) -> User:
         """Mock implementation of create_user"""
         self.calls.append(("create_user", {"user": user}))
@@ -664,10 +664,10 @@ class MockUsersClient(UsersClientProtocol):
 
 class MockOrdersClient(OrdersClientProtocol):
     """Mock OrdersClient - explicitly implements the protocol"""
-  
+
     async def get_order(self, order_id: int) -> Order:
         return Order(id=order_id, status="completed", total=99.99)
-  
+
     async def create_order(self, order: Order) -> Order:
         order.id = 456
         order.status = "pending"
@@ -698,24 +698,24 @@ Now inject the mocks into your business logic:
 ```python
 async def test_user_service_with_mocks(mock_users_client, mock_orders_client):
     """Test your business logic with mocked API clients"""
-  
+
     # Your business logic that depends on API clients
     async def process_user_order(users_client, orders_client, user_id: int):
         user = await users_client.get_user(user_id=user_id)
         order = await orders_client.create_order(Order(user_id=user.id, items=[]))
         return user, order
-  
+
     # Test with mocked clients
     user, order = await process_user_order(
         mock_users_client,
         mock_orders_client,
         user_id=123
     )
-  
+
     # Assertions on business logic results
     assert user.name == "Test User"
     assert order.status == "pending"
-  
+
     # Verify interactions with the mock
     assert len(mock_users_client.calls) == 1
     assert mock_users_client.calls[0] == ("get_user", {"user_id": 123})
@@ -732,19 +732,19 @@ from my_api_client.endpoints.orders import OrdersClientProtocol
 class UserService:
     """
     Service that depends on Protocol interfaces.
-  
+
     CRITICAL: Accept Protocol types, not concrete classes!
     This allows injecting both real clients and mocks.
     """
-  
+
     def __init__(
-        self, 
+        self,
         users_client: UsersClientProtocol,  # Protocol type!
         orders_client: OrdersClientProtocol  # Protocol type!
     ):
         self.users = users_client
         self.orders = orders_client
-  
+
     async def get_user_with_orders(self, user_id: int):
         user = await self.users.get_user(user_id=user_id)
         orders = await self.orders.list_orders(user_id=user_id)
@@ -768,12 +768,12 @@ async def test_user_service(mock_users_client, mock_orders_client):
         users_client=mock_users_client,    # MockUsersClient implements UsersClientProtocol
         orders_client=mock_orders_client   # MockOrdersClient implements OrdersClientProtocol
     )
-  
+
     result = await service.get_user_with_orders(user_id=123)
-  
+
     assert result["user"].name == "Test User"
     assert len(result["orders"]) > 0
-  
+
     # Verify mock was called correctly
     assert ("get_user", {"user_id": 123}) in mock_users_client.calls
 ```
@@ -800,16 +800,16 @@ from my_api_client.models.user import User
 
 class UserRegistrationService:
     """Business logic for user registration"""
-  
+
     def __init__(self, users_client: UsersClientProtocol):
         self.users_client = users_client
-  
+
     async def register_user(self, name: str, email: str) -> User:
         """Register a new user with validation"""
         # Business logic
         if not email or "@" not in email:
             raise ValueError("Invalid email")
-  
+
         # Use API client
         user = User(name=name, email=email)
         return await self.users_client.create_user(user=user)
@@ -822,16 +822,16 @@ from my_api_client.models.user import User
 
 class MockUsersClient(UsersClientProtocol):
     """Type-safe mock for testing"""
-  
+
     def __init__(self):
         self.created_users: list[User] = []
-  
+
     async def get_user(self, user_id: int) -> User:
         return User(id=user_id, name="Test", email="test@example.com")
-  
+
     async def list_users(self, limit: int = 10) -> list[User]:
         return []
-  
+
     async def create_user(self, user: User) -> User:
         user.id = 123  # Simulate server assigning ID
         self.created_users.append(user)
@@ -847,9 +847,9 @@ async def test_register_user__valid_data__creates_user(mock_users_client):
     Then: User is created via API
     """
     service = UserRegistrationService(mock_users_client)
-  
+
     user = await service.register_user(name="John", email="john@example.com")
-  
+
     assert user.id == 123
     assert user.name == "John"
     assert len(mock_users_client.created_users) == 1
@@ -860,7 +860,7 @@ async def test_register_user__invalid_email__raises_error(mock_users_client):
     Then: ValueError is raised
     """
     service = UserRegistrationService(mock_users_client)
-  
+
     with pytest.raises(ValueError, match="Invalid email"):
         await service.register_user(name="John", email="invalid")
 
@@ -968,6 +968,7 @@ await mock.get_user(user_id=123)
 #### Comparison: Manual vs Auto-Generated
 
 **Manual Protocol Implementation** (always available):
+
 ```python
 from my_api_client.endpoints.users import UsersClientProtocol
 
@@ -980,6 +981,7 @@ class MockUsersClient(UsersClientProtocol):
 ```
 
 **Auto-Generated Helper** (faster, less boilerplate):
+
 ```python
 from my_api_client.mocks import MockUsersClient
 
@@ -993,28 +995,54 @@ class TestUsersClient(MockUsersClient):
 ```
 
 **Use auto-generated mocks when**:
+
 - You want to quickly get started with testing
 - You only need to override specific methods
 - You prefer helpful NotImplementedError messages over abstract method errors
 
 **Use manual Protocol implementation when**:
+
 - You need complete control over all mock behavior
 - You're building reusable test fixtures
 - You want explicit tracking of all method calls
 
 Both approaches are type-safe and provide compile-time validation!
 
+## Supported OpenAPI Formats
+
+The generator maps OpenAPI `format` specifiers to appropriate Python types with automatic serialisation/deserialisation:
+
+| OpenAPI Format     | Python Type             | Notes                            |
+| ------------------ | ----------------------- | -------------------------------- |
+| `date-time`        | `datetime.datetime`     | ISO 8601 parsing                 |
+| `date`             | `datetime.date`         | ISO 8601 parsing                 |
+| `time`             | `datetime.time`         | ISO 8601 parsing                 |
+| `duration`         | `datetime.timedelta`    | ISO 8601 duration                |
+| `uuid`             | `uuid.UUID`             | Standard UUID format             |
+| `binary`           | `bytes`                 | Raw binary data                  |
+| `byte`             | `bytes`                 | Base64 encoded (auto-decoded)    |
+| `ipv4`             | `ipaddress.IPv4Address` | IPv4 address validation          |
+| `ipv6`             | `ipaddress.IPv6Address` | IPv6 address validation          |
+| `uri` / `url`      | `str`                   | No special handling              |
+| `email`            | `str`                   | No special handling              |
+| `hostname`         | `str`                   | No special handling              |
+| `password`         | `str`                   | No special handling              |
+| `int32` / `int64`  | `int`                   | Python int (unlimited precision) |
+| `float` / `double` | `float`                 | Python float                     |
+
+> 💡 For `byte` format, the generated client automatically handles base64 encoding/decoding via cattrs hooks.
+
 ## Known Limitations
 
 Some OpenAPI features have simplified implementations:
 
-| Feature                           | Current Behavior                                        | Workaround                                         |
-| --------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
-| **Parameter Serialization**       | Uses httpx defaults (not OpenAPI `style`/`explode`)     | Manually format complex parameters                 |
-| **Response Headers**              | Only body is returned, headers are ignored              | Use custom transport to access full response       |
-| **Multipart Forms**               | Basic file upload only                                  | Complex multipart schemas may need manual handling |
-| **Parameter Defaults**            | Schema defaults not in method signatures                | Pass defaults explicitly when calling              |
-| **WebSockets**                    | Not currently supported                                 | Use separate WebSocket library                     |
+| Feature                     | Current Behavior                                    | Workaround                                         |
+| --------------------------- | --------------------------------------------------- | -------------------------------------------------- |
+| **Parameter Serialization** | Uses httpx defaults (not OpenAPI `style`/`explode`) | Manually format complex parameters                 |
+| **Response Headers**        | Only body is returned, headers are ignored          | Use custom transport to access full response       |
+| **Multipart Forms**         | Basic file upload only                              | Complex multipart schemas may need manual handling |
+| **Parameter Defaults**      | Schema defaults not in method signatures            | Pass defaults explicitly when calling              |
+| **WebSockets**              | Not currently supported                             | Use separate WebSocket library                     |
 
 > 💡 These limitations rarely affect real-world usage. Most APIs work perfectly with the current implementation.
 
@@ -1033,7 +1061,7 @@ graph TD
     G --> H[Generated Files]
     H --> I[Post-Processing]
     I --> J[Final Client Package]
-  
+
     subgraph "Key Components"
         K[Schema Parser]
         L[Cycle Detection]
