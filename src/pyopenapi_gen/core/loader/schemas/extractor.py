@@ -178,16 +178,58 @@ def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
 
         # Extract inline enums from properties
         for prop_name, prop_schema in list(schema.properties.items()):
-            if prop_schema.enum and not prop_schema.name:
-                enum_name = (
-                    f"{NameSanitizer.sanitize_class_name(schema_name)}"
-                    f"{NameSanitizer.sanitize_class_name(prop_name)}Enum"
+            # Check if this property has an inline enum that needs extraction
+            # An inline enum needs extraction if:
+            # 1. It has enum values defined
+            # 2. The enum doesn't already exist as a separate schema in the schemas dict
+            # Note: After schema parsing, property schemas have 'name' set to the property key
+            # and 'generation_name' set to a sanitised class name, but the enum itself
+            # isn't registered as a separate schema yet.
+            has_inline_enum = prop_schema.enum and prop_schema.type in ["string", "integer", "number"]
+
+            # Check if the enum was already extracted or is a named reference
+            # Case 1: generation_name exists in schemas dict (already extracted)
+            # Case 2: property name itself is a schema reference (e.g., ExistingStatusEnum)
+            enum_already_extracted = (
+                (
+                    prop_schema.generation_name
+                    and prop_schema.generation_name in schemas
+                    and schemas[prop_schema.generation_name].enum
                 )
+                or (
+                    # Property name is an explicit enum reference (class-like name, not property key)
+                    prop_schema.name
+                    and prop_schema.name in schemas
+                    and schemas[prop_schema.name].enum
+                )
+                or (
+                    # Property name looks like an enum class name (not a property key)
+                    # Property keys are typically snake_case, class names are PascalCase
+                    prop_schema.name
+                    and prop_schema.name[0].isupper()
+                    and "_" not in prop_schema.name
+                    and prop_schema.name != prop_name  # Name differs from property key
+                )
+            )
+
+            if has_inline_enum and not enum_already_extracted:
+                # Use property's existing generation_name if set, otherwise create a new name
+                # This keeps naming consistent with what the type resolver already assigned
+                if prop_schema.generation_name:
+                    enum_name = prop_schema.generation_name
+                else:
+                    enum_name = (
+                        f"{NameSanitizer.sanitize_class_name(schema_name)}"
+                        f"{NameSanitizer.sanitize_class_name(prop_name)}Enum"
+                    )
                 base_enum_name = enum_name
                 i = 1
                 while enum_name in schemas or enum_name in new_enums:
                     enum_name = f"{base_enum_name}{i}"
                     i += 1
+
+                # Derive module stem from final enum name
+                module_stem = NameSanitizer.sanitize_module_name(enum_name)
 
                 enum_schema = IRSchema(
                     name=enum_name,
@@ -195,12 +237,16 @@ def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
                     enum=copy.deepcopy(prop_schema.enum),
                     description=prop_schema.description or f"Enum for {schema_name}.{prop_name}",
                 )
-                enum_schema.generation_name = enum_name  # Set generation_name for extracted enums
+                enum_schema.generation_name = enum_name
+                enum_schema.final_module_stem = module_stem
                 new_enums[enum_name] = enum_schema
+                logger.debug(f"Extracted inline enum from {schema_name}.{prop_name}: {enum_name}")
 
                 # Update the original property to reference the extracted enum
                 prop_schema.name = enum_name
                 prop_schema.type = enum_name  # Make the property reference the enum by name
+                prop_schema.generation_name = enum_name  # Ensure property also has correct generation_name
+                prop_schema.final_module_stem = module_stem  # And module stem
                 prop_schema.enum = None  # Clear the inline enum since it's now extracted
 
     # Update the schemas dict with the new enums
