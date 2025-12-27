@@ -216,7 +216,7 @@ make quality
 - **Ruff**: Fast Python linter with auto-fix capabilities
 - **mypy**: Strict type checking with 100% coverage
 - **Bandit**: Security vulnerability scanning
-- **pytest**: Comprehensive test suite with ≥90% branch coverage
+- **pytest**: Comprehensive test suite with ≥85% branch coverage
 
 #### Individual Commands
 

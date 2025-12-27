@@ -79,8 +79,6 @@ pyopenapi-gen api.yaml --project-root . --output-package pyapis.client --core-pa
 # Options
 --force           # Overwrite without diff check
 --no-postprocess  # Skip Black/mypy (faster iteration)
---verbose         # Detailed output
---max-depth 200   # Custom recursion limit (default: 150)
 ```
 
 **Project root verification**: Generated code appears at `{project-root}/{output-package-as-path}`
