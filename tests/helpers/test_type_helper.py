@@ -564,7 +564,7 @@ class TestPrimitiveTypeResolver:  # Renamed class
             ("string", "date", "date", [("datetime", "date")]),
             ("string", "date-time", "datetime", [("datetime", "datetime")]),
             ("string", "binary", "bytes", []),
-            ("string", "byte", "str", []),  # 'byte' format should default to str if not binary
+            ("string", "byte", "bytes", []),  # 'byte' format is base64-encoded binary data
             ("string", "password", "str", []),  # Other string formats default to str
             ("object", None, None, []),  # Not a primitive type
             ("array", None, None, []),  # Not a primitive type

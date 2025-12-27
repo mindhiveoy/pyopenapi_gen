@@ -134,7 +134,7 @@ All contributions must pass our quality gates:
 ### Style Guidelines
 
 **Python Version Compatibility:**
-- Support Python 3.10, 3.11, and 3.12
+- Python 3.12+ required
 - Use modern Python features where appropriate
 - Avoid deprecated features
 

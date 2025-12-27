@@ -12,7 +12,7 @@ from pyopenapi_gen import IRSchema
 
 from ..context import ParsingContext
 
-ENV_MAX_DEPTH = int(os.environ.get("PYOPENAPI_MAX_DEPTH", "100"))
+ENV_MAX_DEPTH = int(os.environ.get("PYOPENAPI_MAX_DEPTH", "150"))
 
 if TYPE_CHECKING:
     pass
