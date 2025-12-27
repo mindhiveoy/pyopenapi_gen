@@ -110,8 +110,8 @@ The pipeline enforces the following quality gates:
 ### Testing
 - ✅ **Unit tests**: All tests must pass
 - ✅ **Integration tests**: End-to-end functionality verified
-- ✅ **Coverage**: Minimum 90% test coverage required
-- ✅ **Multi-Python version**: Tests on Python 3.10, 3.11, 3.12
+- ✅ **Coverage**: Minimum 85% test coverage required
+- ✅ **Python version**: Tests on Python 3.12+
 
 ### Security
 - ✅ **Safety check**: No known vulnerabilities in dependencies

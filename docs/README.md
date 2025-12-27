@@ -77,4 +77,4 @@ See our [Contributing Guide](../CONTRIBUTING.md) for detailed guidelines on docu
 
 ---
 
-**Need help?** Open an issue on [GitHub Issues](https://github.com/your-org/pyopenapi-gen/issues) or check our [Contributing Guide](../CONTRIBUTING.md) for support resources.
+**Need help?** Open an issue on [GitHub Issues](https://github.com/mindhiveoy/pyopenapi_gen/issues) or check our [Contributing Guide](../CONTRIBUTING.md) for support resources.
