@@ -612,13 +612,13 @@ class TestProcessAllOf(unittest.TestCase):
             f"{current_schema_name}.propX",
             node["properties"]["propX"],
             self.context,
-            100,  # Assuming default max_depth
+            150,  # Default max_depth from ENV_MAX_DEPTH
         )
         self.mock_parse_schema_func.assert_any_call(
             f"{current_schema_name}.propY",
             node["properties"]["propY"],
             self.context,
-            100,  # Assuming default max_depth
+            150,  # Default max_depth from ENV_MAX_DEPTH
         )
         self.assertEqual(self.mock_parse_schema_func.call_count, 2)
 
