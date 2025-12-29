@@ -102,11 +102,11 @@ class DataclassGenerator:
                 has_typed_values = True
 
         if has_typed_values:
-            # Generate typed wrapper with value deserialisation
+            # Generate typed wrapper with value deserialization
             context.add_import("typing", "ClassVar")
             code = self._generate_typed_wrapper_class(class_name, value_type, description, context)
         else:
-            # Generate untyped wrapper (existing behaviour)
+            # Generate untyped wrapper (existing behavior)
             code = self._generate_untyped_wrapper_class(class_name, description, context)
 
         return code
@@ -198,6 +198,12 @@ def _structure_{class_name.lower()}(data: dict[str, Any], _: type[{class_name}])
 def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
     """Unstructure hook for cattrs to handle {class_name} serialization."""
     return instance._data.copy()
+
+
+# Register hooks with cattrs converter at module import time
+from {context.core_package_name}.cattrs_converter import converter
+converter.register_structure_hook({class_name}, _structure_{class_name.lower()})
+converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower()})
 '''
 
     def _generate_typed_wrapper_class(
@@ -207,7 +213,7 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
         description: str,
         context: RenderContext,
     ) -> str:
-        """Generate wrapper class for typed additionalProperties with value deserialisation."""
+        """Generate wrapper class for typed additionalProperties with value deserialization."""
         # Import Iterator and ValuesView for proper type hints
         context.add_import("typing", "Iterator")
         context.add_import("collections.abc", "ValuesView")
@@ -222,7 +228,7 @@ class {class_name}:
     {description}
 
     This class wraps a dictionary with typed values, providing dict-like access
-    while ensuring values are properly deserialised into {value_type} instances.
+    while ensuring values are properly deserialized into {value_type} instances.
 
     Example:
         from {context.core_package_name}.cattrs_converter import structure_from_dict, unstructure_to_dict
@@ -240,7 +246,7 @@ class {class_name}:
 
     _data: dict[str, {value_type}] = field(default_factory=dict, repr=False)
 
-    # Runtime type information for cattrs deserialisation
+    # Runtime type information for cattrs deserialization
     _value_type: ClassVar[str] = "{value_type}"
 
     def get(self, key: str, default: {value_type} | None = None) -> {value_type} | None:
@@ -299,7 +305,7 @@ def _structure_{class_name.lower()}(data: dict[str, Any], _: type[{class_name}])
     if hasattr({value_type}, '__dataclass_fields__'):
         _register_structure_hooks_recursively({value_type})
 
-    # Deserialise each value into {value_type}
+    # Deserialize each value into {value_type}
     # Using converter.structure() for all values - cattrs handles primitives, datetime, bytes, etc.
     structured_data: dict[str, {value_type}] = {{}}
     for key, value in data.items():
@@ -317,6 +323,12 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
         key: converter.unstructure(value)
         for key, value in instance._data.items()
     }}
+
+
+# Register hooks with cattrs converter at module import time
+from {context.core_package_name}.cattrs_converter import converter
+converter.register_structure_hook({class_name}, _structure_{class_name.lower()})
+converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower()})
 '''
 
     def _get_field_default(self, ps: IRSchema, context: RenderContext) -> str | None:
@@ -464,8 +476,8 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
         elif schema.properties:
             sorted_props = sorted(schema.properties.items(), key=lambda item: (item[0] not in schema.required, item[0]))
 
-            # Track sanitised names to detect collisions
-            seen_field_names: dict[str, str] = {}  # sanitised_name → original_api_name
+            # Track sanitized names to detect collisions
+            seen_field_names: dict[str, str] = {}  # sanitized_name → original_api_name
 
             for prop_name, prop_schema in sorted_props:
                 is_required = prop_name in schema.required
@@ -473,7 +485,7 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
                 # Sanitize the property name for use as a Python attribute
                 field_name = NameSanitizer.sanitize_method_name(prop_name)
 
-                # Collision detection: check if this sanitised name was already used
+                # Collision detection: check if this sanitized name was already used
                 if field_name in seen_field_names:
                     original_api_name = seen_field_names[field_name]
                     base_field_name = field_name
@@ -483,7 +495,7 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
                         suffix += 1
                     logger.warning(
                         f"Field name collision in schema '{base_name}': "
-                        f"API fields '{original_api_name}' and '{prop_name}' both sanitise to '{base_field_name}'. "
+                        f"API fields '{original_api_name}' and '{prop_name}' both sanitize to '{base_field_name}'. "
                         f"Using '{seen_field_names[base_field_name]}' for '{original_api_name}' "
                         f"and '{field_name}' for '{prop_name}'."
                     )
@@ -515,7 +527,7 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
         # )
 
         # Always include field mappings to preserve original API field names
-        # This ensures correct serialisation for any API naming convention
+        # This ensures correct serialization for any API naming convention
         rendered_code = self.renderer.render_dataclass(
             class_name=class_name,
             fields=fields_data,

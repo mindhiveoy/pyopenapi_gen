@@ -12,10 +12,18 @@
   "pytest_runner.pytest_options": "-v",
   "makefile.configureOnOpen": false,
   "cSpell.words": [
+    "Dataclass",
+    "dataclasses",
     "Finalizer",
     "jsonvalue",
     "pyopenapi",
+    "pyproject",
+    "pytest",
     "Unstructure",
-    "unstructuring"
-  ]
+    "unstructuring",
+    "venv"
+  ],
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }
