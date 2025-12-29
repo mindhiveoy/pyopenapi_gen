@@ -222,6 +222,16 @@ def _parse_properties(
                     and "anyOf" not in items_node
                     and "oneOf" not in items_node
                 )
+                # Items with no type/ref/composition (malformed schema) should resolve to Any
+                is_typeless_items = (
+                    isinstance(items_node, Mapping)
+                    and not items_node.get("type")
+                    and "$ref" not in items_node
+                    and "properties" not in items_node
+                    and "allOf" not in items_node
+                    and "anyOf" not in items_node
+                    and "oneOf" not in items_node
+                )
                 is_simple_array = (
                     isinstance(prop_schema_node, Mapping)
                     and prop_schema_node.get("type") == "array"
@@ -234,6 +244,7 @@ def _parse_properties(
                     and (
                         "$ref" in items_node  # Array of referenced types
                         or is_primitive_items  # Array of primitive types
+                        or is_typeless_items  # Array with malformed items (no type) - resolves to List[Any]
                     )
                 )
 
@@ -548,6 +559,36 @@ def _parse_schema(
                 ]:
                     # Primitive items should NOT get names - they should remain inline as List[str] etc.
                     item_schema_name_for_recursive_parse = None
+                elif (
+                    isinstance(items_node, Mapping)
+                    and not items_node.get("type")
+                    and not items_node.get("$ref")
+                    and not items_node.get("allOf")
+                    and not items_node.get("anyOf")
+                    and not items_node.get("oneOf")
+                    and not items_node.get("properties")
+                ):
+                    # Items with no type, $ref, or composition (e.g., just {nullable: true}) - treat as Any
+                    # This is a malformed schema pattern, log a warning and use null type (resolves to Any)
+                    nullable_only = items_node.get("nullable", False) and len(items_node) == 1
+                    if nullable_only:
+                        logger.warning(
+                            f"Array items with only 'nullable: true' and no type "
+                            f"found{f' in {schema_name}' if schema_name else ''}. "
+                            "This is likely a malformed OpenAPI schema. Using 'Any' as item type. "
+                            "Consider adding 'type: string' or appropriate type to your OpenAPI spec."
+                        )
+                    else:
+                        logger.warning(
+                            f"Array items with no 'type' field found{f' in {schema_name}' if schema_name else ''}. "
+                            "Using 'Any' as item type. "
+                            "Consider adding 'type' to your OpenAPI spec for better type safety."
+                        )
+                    # Create a null-type schema that will resolve to Any
+                    items_ir = IRSchema(type="null", is_nullable=items_node.get("nullable", False))
+                elif isinstance(items_node, Mapping) and items_node.get("type") == "null":
+                    # Explicit null type for items - resolve to Any | None
+                    items_ir = IRSchema(type="null", is_nullable=True)
                 else:
                     # For inline items, generate a synthetic name
                     base_name_for_item = schema_name or "AnonymousArray"
@@ -564,27 +605,33 @@ def _parse_schema(
                             item_schema_name_for_recursive_parse = f"{original_name}{counter}"
                             counter += 1
 
-                actual_item_ir = _parse_schema(
-                    item_schema_name_for_recursive_parse, items_node, context, max_depth_override, allow_self_reference
-                )
-
-                is_promoted_inline_object = (
-                    isinstance(items_node, Mapping)
-                    and items_node.get("type") == "object"
-                    and "$ref" not in items_node
-                    and actual_item_ir.name == item_schema_name_for_recursive_parse
-                )
-
-                if is_promoted_inline_object:
-                    ref_holder_ir = IRSchema(
-                        name=None,
-                        type=actual_item_ir.name,
-                        description=actual_item_ir.description or items_node.get("description"),
+                # Only parse items if items_ir wasn't directly set above (for null/Any cases)
+                if items_ir is None:
+                    actual_item_ir = _parse_schema(
+                        item_schema_name_for_recursive_parse,
+                        items_node,
+                        context,
+                        max_depth_override,
+                        allow_self_reference,
                     )
-                    ref_holder_ir._refers_to_schema = actual_item_ir
-                    items_ir = ref_holder_ir
-                else:
-                    items_ir = actual_item_ir
+
+                    is_promoted_inline_object = (
+                        isinstance(items_node, Mapping)
+                        and items_node.get("type") == "object"
+                        and "$ref" not in items_node
+                        and actual_item_ir.name == item_schema_name_for_recursive_parse
+                    )
+
+                    if is_promoted_inline_object:
+                        ref_holder_ir = IRSchema(
+                            name=None,
+                            type=actual_item_ir.name,
+                            description=actual_item_ir.description or items_node.get("description"),
+                        )
+                        ref_holder_ir._refers_to_schema = actual_item_ir
+                        items_ir = ref_holder_ir
+                    else:
+                        items_ir = actual_item_ir
             else:
                 # Array without items specification - use object as safer default
                 # Log warning to help developers fix their specs
@@ -630,7 +677,13 @@ def _parse_schema(
             additional_properties=additional_properties_value,
         )
 
-        if schema_ir.type == "array" and isinstance(schema_node.get("items"), Mapping):
+        # Re-parse items for complex array types that need special handling
+        # Skip if items was already set to null type (typeless items that resolve to Any)
+        if (
+            schema_ir.type == "array"
+            and isinstance(schema_node.get("items"), Mapping)
+            and not (schema_ir.items and schema_ir.items.type == "null")  # Skip if already set to null/Any
+        ):
             raw_items_node = schema_node["items"]
             item_schema_context_name_for_reparse: str | None
 
@@ -639,6 +692,17 @@ def _parse_schema(
                 item_schema_context_name_for_reparse = None
             elif raw_items_node.get("type") in ["string", "integer", "number", "boolean"]:
                 # Primitive items should NOT get names - they should remain inline as List[str] etc.
+                item_schema_context_name_for_reparse = None
+            elif (
+                not raw_items_node.get("type")
+                and "$ref" not in raw_items_node
+                and "allOf" not in raw_items_node
+                and "anyOf" not in raw_items_node
+                and "oneOf" not in raw_items_node
+                and "properties" not in raw_items_node
+            ):
+                # Typeless items (e.g., just {nullable: true}) - don't create synthetic name
+                # These will resolve to Any type - but this case should be caught above
                 item_schema_context_name_for_reparse = None
             else:
                 base_name_for_reparse_item = schema_name or "AnonymousArray"
@@ -687,7 +751,8 @@ def _parse_schema(
         # They should remain inline to avoid unnecessary schema proliferation
         # BUT: Top-level schemas defined in components/schemas should always be registered,
         # even if they are primitive types
-        is_primitive_schema = schema_ir.type in ["string", "integer", "number", "boolean"]
+        # NOTE: Schemas with enums are NOT primitives - they need to be generated as enum classes
+        is_primitive_schema = schema_ir.type in ["string", "integer", "number", "boolean"] and not schema_ir.enum
         is_top_level_schema = schema_name and schema_name in context.raw_spec_schemas
         is_synthetic_primitive = is_primitive_schema and not is_top_level_schema
         should_register = (
@@ -699,8 +764,16 @@ def _parse_schema(
         if should_register and schema_name:
             context.parsed_schemas[schema_name] = schema_ir
 
-        # Ensure generation_name and final_module_stem are set if the schema has a name
-        if schema_ir.name:
+        # Set generation_name and final_module_stem for schemas that will be generated as separate files
+        # Skip for synthetic primitives (inline types) - they should remain without these attributes
+        # so the type resolver doesn't try to import them as separate modules
+        # Note: Boolean enums are handled inline as Literal[True/False] and should not be extracted
+        should_set_generation_names = (
+            schema_ir.name
+            and not is_synthetic_primitive
+            and not (schema_ir.type == "boolean" and schema_ir.enum)  # Boolean enums are inline Literal types
+        )
+        if should_set_generation_names and schema_ir.name:  # Extra check to help mypy narrow the type
             schema_ir.generation_name = NameSanitizer.sanitize_class_name(schema_ir.name)
             schema_ir.final_module_stem = NameSanitizer.sanitize_module_name(schema_ir.name)
 
