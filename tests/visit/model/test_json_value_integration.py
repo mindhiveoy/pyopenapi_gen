@@ -69,7 +69,7 @@ class TestJsonValueIntegration:
         # Arrange
         renderer = PythonConstructRenderer()
         generator = DataclassGenerator(renderer, {})
-        context = RenderContext()
+        context = RenderContext(core_package_name="pyopenapi_gen.core")
 
         schema = IRSchema(
             name="JsonValue",
@@ -121,7 +121,7 @@ class TestJsonValueIntegration:
         # Arrange
         renderer = PythonConstructRenderer()
         generator = DataclassGenerator(renderer, {})
-        context = RenderContext()
+        context = RenderContext(core_package_name="pyopenapi_gen.core")
 
         schema = IRSchema(
             name="Metadata",
@@ -166,7 +166,7 @@ class TestJsonValueIntegration:
         # Arrange
         renderer = PythonConstructRenderer()
         generator = DataclassGenerator(renderer, {})
-        context = RenderContext()
+        context = RenderContext(core_package_name="pyopenapi_gen.core")
 
         schema = IRSchema(
             name="JsonValue",
@@ -197,7 +197,7 @@ class TestJsonValueIntegration:
         # Arrange
         renderer = PythonConstructRenderer()
         generator = DataclassGenerator(renderer, {})
-        context = RenderContext()
+        context = RenderContext(core_package_name="pyopenapi_gen.core")
 
         schema = IRSchema(
             name="JsonValue",
@@ -232,7 +232,7 @@ class TestJsonValueIntegration:
         # Arrange
         renderer = PythonConstructRenderer()
         generator = DataclassGenerator(renderer, {})
-        context = RenderContext()
+        context = RenderContext(core_package_name="pyopenapi_gen.core")
 
         schema = IRSchema(
             name="JsonValue",
