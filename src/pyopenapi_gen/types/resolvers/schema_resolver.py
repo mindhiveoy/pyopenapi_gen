@@ -60,7 +60,10 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             return self._resolve_null(context, required)
 
         # Handle named schemas with generation_name (fully processed schemas)
-        if schema.name and hasattr(schema, "generation_name") and schema.generation_name:
+        # Skip for boolean enums which should be resolved inline as Literal types
+        schema_type = getattr(schema, "type", None)
+        is_boolean_enum = schema_type == "boolean" and hasattr(schema, "enum") and schema.enum
+        if schema.name and hasattr(schema, "generation_name") and schema.generation_name and not is_boolean_enum:
             # If resolve_underlying is True, skip named schema resolution for type aliases
             # and resolve the underlying primitive type instead
             if not resolve_underlying:
@@ -83,9 +86,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             if target_schema is not schema:
                 return self.resolve_schema(target_schema, context, required, resolve_underlying)
 
-        # Handle by type
-        schema_type = getattr(schema, "type", None)
-
+        # Handle by type (schema_type was already extracted above for boolean enum check)
         # Check if schema.type refers to a named schema (backward compatibility)
         if (
             schema_type
@@ -104,7 +105,7 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         elif schema_type == "number":
             return self._resolve_number(context, required)
         elif schema_type == "boolean":
-            return self._resolve_boolean(context, required)
+            return self._resolve_boolean(schema, context, required)
         elif schema_type == "array":
             return self._resolve_array(schema, context, required, resolve_underlying)
         elif schema_type == "object":
@@ -316,8 +317,31 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         """Resolve number type."""
         return ResolvedType(python_type="float", is_optional=not required)
 
-    def _resolve_boolean(self, context: TypeContext, required: bool) -> ResolvedType:
-        """Resolve boolean type."""
+    def _resolve_boolean(self, schema: IRSchema, context: TypeContext, required: bool) -> ResolvedType:
+        """Resolve boolean type, handling enums with Literal types.
+
+        Boolean enums are resolved to:
+        - Literal[False] for enum: [false]
+        - Literal[True] for enum: [true]
+        - bool for enum: [true, false] (covers all boolean values)
+        """
+        # Check if this is a boolean enum
+        if hasattr(schema, "enum") and schema.enum:
+            enum_values = schema.enum
+            # Filter out None values which might be present for nullable enums
+            bool_values = [v for v in enum_values if v is not None]
+
+            if len(bool_values) == 1:
+                # Single value enum - use Literal
+                value = bool_values[0]
+                context.add_import("typing", "Literal")
+                literal_value = "True" if value else "False"
+                return ResolvedType(python_type=f"Literal[{literal_value}]", is_optional=not required)
+            elif len(bool_values) == 2 and set(bool_values) == {True, False}:
+                # Both True and False - just use bool
+                return ResolvedType(python_type="bool", is_optional=not required)
+            # Otherwise fall through to regular bool
+
         return ResolvedType(python_type="bool", is_optional=not required)
 
     def _resolve_null(self, context: TypeContext, required: bool) -> ResolvedType:

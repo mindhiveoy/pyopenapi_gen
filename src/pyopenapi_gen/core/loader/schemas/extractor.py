@@ -74,13 +74,27 @@ def extract_inline_array_items(schemas: dict[str, IRSchema]) -> dict[str, IRSche
             if prop_schema.type == "array" and prop_schema.items and not prop_schema.items.name:
                 # Only extract complex item schemas (objects and arrays), not simple primitives or references
                 items_schema = prop_schema.items
-                is_complex_item = (
+                # Check if items is a "null" type (malformed schema with no type) - these resolve to Any
+                is_null_type_items = items_schema.type == "null"
+                # Check if items is an empty object (no properties, no composition)
+                is_empty_object = (
                     items_schema.type == "object"
-                    or items_schema.type == "array"
-                    or items_schema.properties
-                    or items_schema.any_of
-                    or items_schema.one_of
-                    or items_schema.all_of
+                    and not items_schema.properties
+                    and not items_schema.any_of
+                    and not items_schema.one_of
+                    and not items_schema.all_of
+                )
+                is_complex_item = (
+                    not is_null_type_items
+                    and not is_empty_object
+                    and (
+                        items_schema.type == "object"
+                        or items_schema.type == "array"
+                        or items_schema.properties
+                        or items_schema.any_of
+                        or items_schema.one_of
+                        or items_schema.all_of
+                    )
                 )
 
                 if is_complex_item:
