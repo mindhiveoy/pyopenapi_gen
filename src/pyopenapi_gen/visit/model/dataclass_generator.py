@@ -198,6 +198,12 @@ def _structure_{class_name.lower()}(data: dict[str, Any], _: type[{class_name}])
 def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
     """Unstructure hook for cattrs to handle {class_name} serialization."""
     return instance._data.copy()
+
+
+# Register hooks with cattrs converter at module import time
+from {context.core_package_name}.cattrs_converter import converter
+converter.register_structure_hook({class_name}, _structure_{class_name.lower()})
+converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower()})
 '''
 
     def _generate_typed_wrapper_class(
@@ -317,6 +323,12 @@ def _unstructure_{class_name.lower()}(instance: {class_name}) -> dict[str, Any]:
         key: converter.unstructure(value)
         for key, value in instance._data.items()
     }}
+
+
+# Register hooks with cattrs converter at module import time
+from {context.core_package_name}.cattrs_converter import converter
+converter.register_structure_hook({class_name}, _structure_{class_name.lower()})
+converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower()})
 '''
 
     def _get_field_default(self, ps: IRSchema, context: RenderContext) -> str | None:
