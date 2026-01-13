@@ -77,7 +77,16 @@ class ModelVisitor(Visitor[IRSchema, str]):
         # --- Model Type Detection Logic ---
         is_enum = bool(schema.name and schema.enum and schema.type in ("string", "integer"))
 
-        is_type_alias = bool(schema.name and not schema.properties and not is_enum and schema.type != "object")
+        # Check for discriminated union types (oneOf, anyOf) which should be Union type aliases
+        # Note: allOf is for schema composition/merging, not discriminated unions
+        is_union_type = bool(schema.name and (schema.one_of or schema.any_of))
+
+        is_type_alias = bool(
+            schema.name
+            and not schema.properties
+            and not is_enum
+            and (schema.type != "object" or is_union_type)  # Allow object types if they're union compositions
+        )
 
         if schema.type == "array" and schema.items and schema.items.type == "object" and schema.items.name is None:
             if is_type_alias:
