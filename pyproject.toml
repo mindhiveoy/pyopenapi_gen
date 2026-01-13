@@ -173,6 +173,17 @@ major_on_zero = false
 # Allow bot actors (dependabot, renovate, etc.) to trigger releases
 allowed_bots = ["dependabot", "renovate"]
 
+# Exclude verbose dependency update commits from release notes
+# These commits still trigger patch releases, but don't clutter changelog
+# This prevents GitHub API 422 errors from oversized release note bodies
+[tool.semantic_release.changelog]
+exclude_commit_patterns = [
+    "^chore\\(deps\\): merge dependabot",
+    "^chore\\(deps-dev\\): merge dependabot",
+    "^deps:",
+    "^deps-dev:",
+]
+
 [tool.coverage.run]
 # Store coverage data files under coverage_reports/ instead of project root
 data_file = "coverage_reports/.coverage"
