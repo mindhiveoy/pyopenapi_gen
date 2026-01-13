@@ -243,14 +243,93 @@ jobs:
 
     - name: Run semantic-release publish (GitHub release only)
       if: steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch'
+      id: semantic_release_publish
+      continue-on-error: true
       env:
         GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
       run: |
         echo "📝 Creating GitHub release with semantic-release..."
         poetry run semantic-release publish
 
+    - name: Fallback - Create GitHub release manually
+      if: |
+        (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch') &&
+        steps.semantic_release_publish.outcome == 'failure'
+      env:
+        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        echo "⚠️ semantic-release publish failed, creating release manually..."
+
+        # Get the version that was just tagged
+        LATEST_TAG=$(git describe --tags --abbrev=0)
+        PREV_TAG=$(git describe --tags --abbrev=0 ${LATEST_TAG}^ 2>/dev/null || echo "")
+
+        echo "Creating release for ${LATEST_TAG} (previous: ${PREV_TAG})"
+
+        # Generate simplified release notes from git log
+        if [ -n "$PREV_TAG" ]; then
+          COMMITS=$(git log ${PREV_TAG}..${LATEST_TAG} --oneline --no-merges)
+        else
+          COMMITS=$(git log ${LATEST_TAG} --oneline --no-merges)
+        fi
+
+        # Extract fix: and feat: commits for release notes
+        FIXES=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ fix" || echo "")
+        FEATURES=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ feat" || echo "")
+        DEPS=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ (chore\(deps|deps)" | head -10 || echo "")
+
+        # Build release body
+        BODY="## What's Changed"$'\n\n'
+
+        if [ -n "$FEATURES" ]; then
+          BODY+="### Features"$'\n'
+          echo "$FEATURES" | while read line; do
+            BODY+="- ${line#* }"$'\n'
+          done
+          BODY+=$'\n'
+        fi
+
+        if [ -n "$FIXES" ]; then
+          BODY+="### Bug Fixes"$'\n'
+          echo "$FIXES" | while read line; do
+            BODY+="- ${line#* }"$'\n'
+          done
+          BODY+=$'\n'
+        fi
+
+        if [ -n "$DEPS" ]; then
+          BODY+="### Dependencies"$'\n'
+          echo "$DEPS" | while read line; do
+            MSG="${line#* }"
+            # Extract package name and version from commit message
+            if [[ "$MSG" =~ bump\ ([^\ ]+)\ from\ ([0-9.]+)\ to\ ([0-9.]+) ]]; then
+              BODY+="- Bump ${BASH_REMATCH[1]} from ${BASH_REMATCH[2]} to ${BASH_REMATCH[3]}"$'\n'
+            else
+              BODY+="- ${MSG}"$'\n'
+            fi
+          done
+          BODY+=$'\n'
+        fi
+
+        if [ -n "$PREV_TAG" ]; then
+          BODY+="**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${PREV_TAG}...${LATEST_TAG}"
+        fi
+
+        # Create release using gh CLI
+        echo "Creating release with gh CLI..."
+        echo "$BODY" | gh release create "${LATEST_TAG}" \
+          --title "${LATEST_TAG}" \
+          --notes-file - \
+          || {
+            echo "❌ Failed to create release with gh CLI"
+            exit 1
+          }
+
+        echo "✅ Manually created GitHub release for ${LATEST_TAG}"
+
     - name: Get release version
-      if: success() && (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch')
+      if: (steps.check_changes.outputs.release_worthy > 0 || github.event_name == 'workflow_dispatch')
       id: get_version
       run: |
         # Get the latest tag as the released version
