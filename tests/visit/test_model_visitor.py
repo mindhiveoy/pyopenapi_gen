@@ -637,3 +637,260 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         self.assertIn("dataclass", context.import_collector.imports.get("dataclasses", set()))
         self.assertIn("dataclasses", context.import_collector.imports)
         self.assertIn("field", context.import_collector.imports["dataclasses"])
+
+
+# --- Pytest-style tests for oneOf/anyOf Union type generation ---
+
+
+def test_model_visitor__one_of_schema__generates_union_type_alias_not_dataclass():
+    """
+    Scenario: Schema with oneOf composition (discriminated union)
+    Expected Outcome: Generate TypeAlias with Union[...], not an empty dataclass
+
+    Bug: Currently generates empty dataclass because oneOf schemas often have type="object"
+    which triggers dataclass generation even though they have no properties.
+    """
+    # Arrange
+    start_node_schema = IRSchema(
+        name="WorkflowStartNode",
+        type="object",
+        generation_name="WorkflowStartNode",
+        final_module_stem="workflow_start_node",
+        properties={"type": IRSchema(type="string"), "id": IRSchema(type="string")},
+    )
+
+    end_node_schema = IRSchema(
+        name="WorkflowEndNode",
+        type="object",
+        generation_name="WorkflowEndNode",
+        final_module_stem="workflow_end_node",
+        properties={"type": IRSchema(type="string"), "result": IRSchema(type="string")},
+    )
+
+    conditional_node_schema = IRSchema(
+        name="WorkflowConditionalNode",
+        type="object",
+        generation_name="WorkflowConditionalNode",
+        final_module_stem="workflow_conditional_node",
+        properties={"type": IRSchema(type="string"), "condition": IRSchema(type="string")},
+    )
+
+    # Schema with oneOf - this should generate a Union type alias
+    workflow_node_schema = IRSchema(
+        name="WorkflowNode",
+        type="object",  # Often set by OpenAPI parser
+        generation_name="WorkflowNode",
+        final_module_stem="workflow_node",
+        one_of=[start_node_schema, end_node_schema, conditional_node_schema],
+    )
+
+    all_schemas = {
+        "WorkflowStartNode": start_node_schema,
+        "WorkflowEndNode": end_node_schema,
+        "WorkflowConditionalNode": conditional_node_schema,
+        "WorkflowNode": workflow_node_schema,
+    }
+
+    context = RenderContext(
+        overall_project_root="/tmp",
+        package_root_for_generated_code="/tmp/pkg",
+        core_package_name="core",
+    )
+    context.set_current_file("/tmp/pkg/models/workflow_node.py")
+
+    visitor = ModelVisitor(schemas=all_schemas)
+
+    # Act
+    generated_code = visitor.visit_IRSchema(workflow_node_schema, context)
+
+    # Assert
+    # Should generate TypeAlias with Union, not a dataclass
+    assert "TypeAlias" in generated_code, f"Expected TypeAlias in generated code, got: {generated_code}"
+    assert "Union[" in generated_code, f"Expected Union[ in generated code, got: {generated_code}"
+    assert "WorkflowStartNode" in generated_code, "Expected WorkflowStartNode in union"
+    assert "WorkflowEndNode" in generated_code, "Expected WorkflowEndNode in union"
+    assert "WorkflowConditionalNode" in generated_code, "Expected WorkflowConditionalNode in union"
+
+    # Should NOT generate a dataclass
+    assert "@dataclass" not in generated_code, f"Should not generate @dataclass for oneOf schema, got: {generated_code}"
+    assert (
+        "class WorkflowNode:" not in generated_code
+    ), f"Should not generate class for oneOf schema, got: {generated_code}"
+
+    # Should have proper imports
+    assert "TypeAlias" in context.import_collector.imports.get("typing", set())
+    assert "Union" in context.import_collector.imports.get("typing", set())
+
+
+def test_model_visitor__any_of_schema__generates_union_type_alias():
+    """
+    Scenario: Schema with anyOf composition
+    Expected Outcome: Generate TypeAlias with Union[...], not an empty dataclass
+    """
+    # Arrange
+    string_schema = IRSchema(
+        name="StringValue",
+        type="string",
+        generation_name="StringValue",
+        final_module_stem="string_value",
+    )
+
+    integer_schema = IRSchema(
+        name="IntegerValue",
+        type="integer",
+        generation_name="IntegerValue",
+        final_module_stem="integer_value",
+    )
+
+    # Schema with anyOf
+    flexible_value_schema = IRSchema(
+        name="FlexibleValue",
+        type="object",  # Often set by OpenAPI parser
+        generation_name="FlexibleValue",
+        final_module_stem="flexible_value",
+        any_of=[string_schema, integer_schema],
+    )
+
+    all_schemas = {
+        "StringValue": string_schema,
+        "IntegerValue": integer_schema,
+        "FlexibleValue": flexible_value_schema,
+    }
+
+    context = RenderContext(
+        overall_project_root="/tmp",
+        package_root_for_generated_code="/tmp/pkg",
+        core_package_name="core",
+    )
+    context.set_current_file("/tmp/pkg/models/flexible_value.py")
+
+    visitor = ModelVisitor(schemas=all_schemas)
+
+    # Act
+    generated_code = visitor.visit_IRSchema(flexible_value_schema, context)
+
+    # Assert
+    assert "TypeAlias" in generated_code, f"Expected TypeAlias in generated code for anyOf, got: {generated_code}"
+    assert "Union[" in generated_code, f"Expected Union[ in generated code for anyOf, got: {generated_code}"
+    assert "@dataclass" not in generated_code, "Should not generate @dataclass for anyOf schema"
+
+
+def test_model_visitor__one_of_with_no_type__generates_union_type_alias():
+    """
+    Scenario: Schema with oneOf but no explicit type field (cleaner OpenAPI spec)
+    Expected Outcome: Generate TypeAlias with Union[...]
+    """
+    # Arrange
+    option_a = IRSchema(
+        name="OptionA",
+        type="object",
+        generation_name="OptionA",
+        final_module_stem="option_a",
+        properties={"value": IRSchema(type="string")},
+    )
+
+    option_b = IRSchema(
+        name="OptionB",
+        type="object",
+        generation_name="OptionB",
+        final_module_stem="option_b",
+        properties={"count": IRSchema(type="integer")},
+    )
+
+    # Schema with oneOf and NO type field
+    choice_schema = IRSchema(
+        name="Choice",
+        # type=None  # Explicitly no type
+        generation_name="Choice",
+        final_module_stem="choice",
+        one_of=[option_a, option_b],
+    )
+
+    all_schemas = {
+        "OptionA": option_a,
+        "OptionB": option_b,
+        "Choice": choice_schema,
+    }
+
+    context = RenderContext(
+        overall_project_root="/tmp",
+        package_root_for_generated_code="/tmp/pkg",
+        core_package_name="core",
+    )
+    context.set_current_file("/tmp/pkg/models/choice.py")
+
+    visitor = ModelVisitor(schemas=all_schemas)
+
+    # Act
+    generated_code = visitor.visit_IRSchema(choice_schema, context)
+
+    # Assert
+    assert "TypeAlias" in generated_code, "Expected TypeAlias even without explicit type field"
+    assert "Union[" in generated_code, "Expected Union for oneOf without type"
+    assert "OptionA" in generated_code
+    assert "OptionB" in generated_code
+    assert "@dataclass" not in generated_code
+
+
+def test_model_visitor__all_of_schema__does_not_generate_union():
+    """
+    Scenario: Schema with allOf composition (schema merging, not discriminated union)
+    Expected Outcome: allOf should NOT generate a Union type alias
+
+    allOf is for schema composition/extension (merging properties), not for discriminated unions.
+    It should generate a dataclass (potentially with merged properties) or remain as-is.
+    This test verifies that allOf does NOT become a Union like oneOf/anyOf do.
+    """
+    # Arrange
+    base_schema = IRSchema(
+        name="BaseModel",
+        type="object",
+        generation_name="BaseModel",
+        final_module_stem="base_model",
+        properties={"id": IRSchema(type="string")},
+    )
+
+    extension_schema = IRSchema(
+        name="ExtensionFields",
+        type="object",
+        generation_name="ExtensionFields",
+        final_module_stem="extension_fields",
+        properties={"extra": IRSchema(type="string")},
+    )
+
+    # Schema with allOf - this represents composition/merging, not a union
+    composed_schema = IRSchema(
+        name="ComposedModel",
+        type="object",
+        generation_name="ComposedModel",
+        final_module_stem="composed_model",
+        all_of=[base_schema, extension_schema],
+    )
+
+    all_schemas = {
+        "BaseModel": base_schema,
+        "ExtensionFields": extension_schema,
+        "ComposedModel": composed_schema,
+    }
+
+    context = RenderContext(
+        overall_project_root="/tmp",
+        package_root_for_generated_code="/tmp/pkg",
+        core_package_name="core",
+    )
+    context.set_current_file("/tmp/pkg/models/composed_model.py")
+
+    visitor = ModelVisitor(schemas=all_schemas)
+
+    # Act
+    generated_code = visitor.visit_IRSchema(composed_schema, context)
+
+    # Assert
+    # allOf should generate a dataclass (for now, even if empty - proper merging is a future enhancement)
+    # The key point is it should NOT generate a Union type
+    assert (
+        "Union[" not in generated_code
+    ), "allOf should not generate Union - it's for composition, not discriminated unions"
+    # It's acceptable for allOf to generate either a dataclass or a type alias to the composed type
+    # For now, with no direct properties, it generates a dataclass (even if empty)
+    assert "@dataclass" in generated_code or "TypeAlias" in generated_code
