@@ -894,3 +894,147 @@ def test_model_visitor__all_of_schema__does_not_generate_union():
     # It's acceptable for allOf to generate either a dataclass or a type alias to the composed type
     # For now, with no direct properties, it generates a dataclass (even if empty)
     assert "@dataclass" in generated_code or "TypeAlias" in generated_code
+
+
+def test_model_visitor__one_of_with_type_object_discriminator__generates_union_type_alias() -> None:
+    """
+    Test that discriminated unions with oneOf + type: object + discriminator
+    generate Union TypeAlias, not empty dataclasses.
+
+    This is a regression test for the issue where schemas with oneOf + discriminator
+    but also explicit type: "object" were incorrectly generated as empty dataclasses.
+    """
+    # Arrange - Create discriminated union schema with explicit type: object
+    start_node = IRSchema(
+        name="StartNode",
+        type="object",
+        generation_name="StartNode",
+        final_module_stem="start_node",
+        properties={
+            "type": IRSchema(name="type", type="string", enum=["start"]),
+            "id": IRSchema(name="id", type="string"),
+            "label": IRSchema(name="label", type="string"),
+        },
+        required=["type", "id"],
+    )
+
+    end_node = IRSchema(
+        name="EndNode",
+        type="object",
+        generation_name="EndNode",
+        final_module_stem="end_node",
+        properties={
+            "type": IRSchema(name="type", type="string", enum=["end"]),
+            "id": IRSchema(name="id", type="string"),
+        },
+        required=["type", "id"],
+    )
+
+    # The discriminated union with explicit type: object
+    node_schema = IRSchema(
+        name="Node",
+        type="object",  # Explicit type: object - this was causing the bug
+        generation_name="Node",
+        final_module_stem="node",
+        one_of=[start_node, end_node],
+        properties={},  # No direct properties, only oneOf variants
+    )
+
+    all_schemas = {
+        "StartNode": start_node,
+        "EndNode": end_node,
+        "Node": node_schema,
+    }
+
+    context = RenderContext(
+        overall_project_root="/tmp",
+        package_root_for_generated_code="/tmp/pkg",
+        core_package_name="core",
+    )
+    context.set_current_file("/tmp/pkg/models/node.py")
+
+    visitor = ModelVisitor(schemas=all_schemas)
+
+    # Act
+    generated_code = visitor.visit_IRSchema(node_schema, context)
+
+    # Assert
+    assert "Union[" in generated_code, (
+        "Discriminated union with oneOf + type: object should generate Union TypeAlias, "
+        f"not empty dataclass. Generated code:\n{generated_code}"
+    )
+    assert (
+        "TypeAlias" in generated_code
+    ), f"Should use TypeAlias for discriminated unions. Generated code:\n{generated_code}"
+    assert (
+        "@dataclass" not in generated_code
+    ), f"Should NOT generate dataclass for discriminated union. Generated code:\n{generated_code}"
+    assert (
+        "StartNode" in generated_code and "EndNode" in generated_code
+    ), f"Union should contain variant types. Generated code:\n{generated_code}"
+
+
+def test_model_visitor__one_of_without_type_discriminator__generates_union_type_alias() -> None:
+    """
+    Test that discriminated unions with oneOf + discriminator (without explicit type)
+    generate Union TypeAlias.
+
+    This tests the case where type: object is omitted.
+    """
+    # Arrange
+    start_node = IRSchema(
+        name="StartNode",
+        type="object",
+        properties={
+            "type": IRSchema(name="type", type="string", enum=["start"]),
+            "id": IRSchema(name="id", type="string"),
+        },
+        required=["type", "id"],
+    )
+
+    end_node = IRSchema(
+        name="EndNode",
+        type="object",
+        properties={
+            "type": IRSchema(name="type", type="string", enum=["end"]),
+            "id": IRSchema(name="id", type="string"),
+        },
+        required=["type", "id"],
+    )
+
+    # Discriminated union without explicit type field
+    node_schema = IRSchema(
+        name="Node",
+        type=None,  # No explicit type - relies on oneOf
+        one_of=[start_node, end_node],
+        properties={},
+    )
+
+    all_schemas = {
+        "StartNode": start_node,
+        "EndNode": end_node,
+        "Node": node_schema,
+    }
+
+    context = RenderContext(
+        overall_project_root="/tmp",
+        package_root_for_generated_code="/tmp/pkg",
+        core_package_name="core",
+    )
+    context.set_current_file("/tmp/pkg/models/node.py")
+
+    visitor = ModelVisitor(schemas=all_schemas)
+
+    # Act
+    generated_code = visitor.visit_IRSchema(node_schema, context)
+
+    # Assert
+    assert (
+        "Union[" in generated_code
+    ), f"Discriminated union with oneOf should generate Union TypeAlias. Generated code:\n{generated_code}"
+    assert (
+        "TypeAlias" in generated_code
+    ), f"Should use TypeAlias for discriminated unions. Generated code:\n{generated_code}"
+    assert (
+        "@dataclass" not in generated_code
+    ), f"Should NOT generate dataclass for discriminated union. Generated code:\n{generated_code}"
