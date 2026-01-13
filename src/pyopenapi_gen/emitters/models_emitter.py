@@ -278,9 +278,44 @@ class ModelsEmitter:
         # Update the main reference to use filtered schemas
         all_schemas_for_generation = filtered_schemas_for_generation
 
+        # Collect all nested schemas from oneOf/anyOf/allOf that need naming
+        def collect_nested_schemas(schema: IRSchema, collected: dict[int, IRSchema], visited_ids: Set[int]) -> None:
+            """Recursively collect all nested schemas that need generation_name."""
+            schema_id = id(schema)
+            if schema_id in visited_ids:
+                return  # Avoid infinite loops
+
+            visited_ids.add(schema_id)
+            if schema.name:  # Only collect schemas with names
+                collected[schema_id] = schema
+
+            # Process oneOf variants
+            if schema.one_of:
+                for variant in schema.one_of:
+                    if variant.name and id(variant) not in visited_ids:
+                        collect_nested_schemas(variant, collected, visited_ids)
+
+            # Process anyOf variants
+            if schema.any_of:
+                for variant in schema.any_of:
+                    if variant.name and id(variant) not in visited_ids:
+                        collect_nested_schemas(variant, collected, visited_ids)
+
+            # Process allOf components (though they typically merge, not union)
+            if schema.all_of:
+                for component in schema.all_of:
+                    if component.name and id(component) not in visited_ids:
+                        collect_nested_schemas(component, collected, visited_ids)
+
+        # Collect all schemas including nested ones
+        all_schemas_including_nested: dict[int, IRSchema] = {}
+        visited_schema_ids: Set[int] = set()
+        for schema in all_schemas_for_generation.values():
+            collect_nested_schemas(schema, all_schemas_including_nested, visited_schema_ids)
+
         schemas_to_name_decollision = sorted(
-            [s for s in all_schemas_for_generation.values()],
-            key=lambda s: s.name,  # type: ignore
+            list(all_schemas_including_nested.values()),
+            key=lambda s: s.name if s.name else "",
         )
 
         # logger.debug(
