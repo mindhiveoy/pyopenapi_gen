@@ -10,6 +10,7 @@ from typing import Any, Callable, List, Mapping, Set, Tuple
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.core.utils import NameSanitizer
+from pyopenapi_gen.ir import IRDiscriminator
 
 from .context import ParsingContext
 from .keywords.all_of_parser import _process_all_of
@@ -86,8 +87,16 @@ def _parse_composition_keywords(
     context: ParsingContext,
     max_depth: int,
     parse_fn: Callable[[str | None, Mapping[str, Any] | None, ParsingContext, int | None], IRSchema],
-) -> Tuple[List[IRSchema] | None, List[IRSchema] | None, List[IRSchema] | None, dict[str, IRSchema], Set[str], bool]:
-    """Parse composition keywords (anyOf, oneOf, allOf) from a schema node.
+) -> Tuple[
+    List[IRSchema] | None,
+    List[IRSchema] | None,
+    List[IRSchema] | None,
+    dict[str, IRSchema],
+    Set[str],
+    bool,
+    IRDiscriminator | None,
+]:
+    """Parse composition keywords (anyOf, oneOf, allOf) and discriminator from a schema node.
 
     Contracts:
         Pre-conditions:
@@ -97,7 +106,7 @@ def _parse_composition_keywords(
             - parse_fn is a callable for parsing schemas
         Post-conditions:
             - Returns a tuple of (any_of_schemas, one_of_schemas, all_of_components,
-              properties, required_fields, is_nullable)
+              properties, required_fields, is_nullable, discriminator)
     """
     any_of_schemas: List[IRSchema] | None = None
     one_of_schemas: List[IRSchema] | None = None
@@ -105,6 +114,7 @@ def _parse_composition_keywords(
     merged_properties: dict[str, IRSchema] = {}
     merged_required_set: Set[str] = set()
     is_nullable: bool = False
+    discriminator: IRDiscriminator | None = None
 
     if "anyOf" in node:
         parsed_sub_schemas, nullable_from_sub, _ = _parse_any_of_schemas(node["anyOf"], context, max_depth, parse_fn)
@@ -116,6 +126,18 @@ def _parse_composition_keywords(
         one_of_schemas = parsed_sub_schemas
         is_nullable = is_nullable or nullable_from_sub
 
+    # Extract discriminator if present (applies to oneOf or anyOf)
+    if "discriminator" in node and isinstance(node["discriminator"], Mapping):
+        disc_node = node["discriminator"]
+        property_name = disc_node.get("propertyName")
+        if property_name:
+            # Extract mapping if present
+            mapping = None
+            if "mapping" in disc_node and isinstance(disc_node["mapping"], Mapping):
+                mapping = dict(disc_node["mapping"])
+
+            discriminator = IRDiscriminator(property_name=property_name, mapping=mapping)
+
     if "allOf" in node:
         merged_properties, merged_required_set, parsed_all_of_components = _process_all_of(
             node, name, context, parse_fn, max_depth=max_depth
@@ -123,7 +145,15 @@ def _parse_composition_keywords(
     else:
         merged_required_set = set(node.get("required", []))
 
-    return any_of_schemas, one_of_schemas, parsed_all_of_components, merged_properties, merged_required_set, is_nullable
+    return (
+        any_of_schemas,
+        one_of_schemas,
+        parsed_all_of_components,
+        merged_properties,
+        merged_required_set,
+        is_nullable,
+        discriminator,
+    )
 
 
 def _parse_properties(
@@ -190,7 +220,21 @@ def _parse_properties(
                     and not promoted_ir_schema._max_depth_exceeded_marker
                     and not promoted_ir_schema._is_circular_ref
                 ):
-                    context.parsed_schemas[promoted_schema_name] = promoted_ir_schema
+                    # CRITICAL: Register using the schema's sanitized name to prevent duplicate keys
+                    registration_key = promoted_ir_schema.name if promoted_ir_schema.name else promoted_schema_name
+
+                    # Check for collision
+                    if registration_key in context.parsed_schemas:
+                        existing_schema = context.parsed_schemas[registration_key]
+                        if existing_schema is not promoted_ir_schema:
+                            # Collision - use original name
+                            registration_key = promoted_schema_name
+                            logger.debug(
+                                f"Promoted schema collision: {promoted_ir_schema.name!r} already registered. "
+                                f"Using original name {promoted_schema_name!r}."
+                            )
+
+                    context.parsed_schemas[registration_key] = promoted_ir_schema
             else:
                 # Directly parse other inline types (string, number, array of simple types, etc.)
                 # or objects that are not being promoted (e.g. if parent_schema_name is None)
@@ -248,8 +292,18 @@ def _parse_properties(
                     )
                 )
 
-                # Use a sanitized version of prop_name as context name for this sub-parse
-                prop_context_name = NameSanitizer.sanitize_class_name(prop_name)
+                # Use a sanitized version of prop_name combined with parent schema name for unique context
+                # This ensures properties with the same name in different schemas get unique enum names
+                if parent_schema_name:
+                    sanitized_prop_name = NameSanitizer.sanitize_class_name(prop_name)
+                    # Avoid redundant prefixing if the property name already starts with the parent schema name
+                    # e.g., Entry + entry_specific_role -> EntrySpecificRole (not EntryEntrySpecificRole)
+                    if sanitized_prop_name.lower().startswith(parent_schema_name.lower()):
+                        prop_context_name = sanitized_prop_name
+                    else:
+                        prop_context_name = f"{parent_schema_name}{sanitized_prop_name}"
+                else:
+                    prop_context_name = NameSanitizer.sanitize_class_name(prop_name)
 
                 # For simple primitives and simple arrays, avoid creating separate schemas
                 if (is_simple_primitive or is_simple_array) and prop_context_name in context.parsed_schemas:
@@ -301,7 +355,7 @@ def _parse_properties(
                         prop_is_nullable = True
 
                     property_holder_ir = IRSchema(
-                        name=prop_name,  # The actual property name
+                        name=None,  # Property name is the dict key, not stored in the schema object
                         # Type is the name of the (potentially registered) anonymous schema
                         type=parsed_prop_schema_ir.name,
                         description=prop_schema_node.get("description", parsed_prop_schema_ir.description),
@@ -317,27 +371,63 @@ def _parse_properties(
                 else:
                     # Simpler type, or error placeholder. Assign directly but ensure original prop_name is used.
                     # Also, try to respect original node's description, default, example, nullable if available.
-                    final_prop_ir = parsed_prop_schema_ir
-                    # Always assign the property name - this is the property's name in the parent object
-                    final_prop_ir.name = prop_name
-                    if isinstance(prop_schema_node, Mapping):
-                        final_prop_ir.description = prop_schema_node.get(
-                            "description", parsed_prop_schema_ir.description
-                        )
-                        final_prop_ir.default = prop_schema_node.get("default", parsed_prop_schema_ir.default)
-                        final_prop_ir.example = prop_schema_node.get("example", parsed_prop_schema_ir.example)
-                        current_prop_node_nullable = prop_schema_node.get("nullable", False)
-                        type_list_nullable = (
-                            isinstance(prop_schema_node.get("type"), list) and "null" in prop_schema_node["type"]
-                        )
-                        final_prop_ir.is_nullable = (
-                            final_prop_ir.is_nullable or current_prop_node_nullable or type_list_nullable
-                        )
-                        # If the sub-parse didn't pick up an enum (e.g. for simple types), take it from prop_schema_node
-                        if not final_prop_ir.enum and "enum" in prop_schema_node:
-                            final_prop_ir.enum = prop_schema_node["enum"]
 
-                    parsed_props[prop_name] = final_prop_ir
+                    # CRITICAL: If the schema was registered as a standalone schema (e.g., inline enum with parent context name),
+                    # we must NOT modify its name attribute. Instead, create a reference holder.
+                    schema_was_registered_standalone = (
+                        schema_name_for_parsing is not None
+                        and parsed_prop_schema_ir.name == schema_name_for_parsing
+                        and context.is_schema_parsed(schema_name_for_parsing)
+                    )
+
+                    if schema_was_registered_standalone:
+                        # Schema is registered - create a reference holder instead of modifying the schema
+                        # CRITICAL: Do NOT set 'name' field for property holders - the property name is the dict key.
+                        # Setting 'name' would cause __post_init__ to sanitize it, changing 'sender_role' to 'SenderRole'.
+                        prop_is_nullable = False
+                        if isinstance(prop_schema_node, Mapping):
+                            if "nullable" in prop_schema_node:
+                                prop_is_nullable = prop_schema_node["nullable"]
+                            elif isinstance(prop_schema_node.get("type"), list) and "null" in prop_schema_node["type"]:
+                                prop_is_nullable = True
+                        elif parsed_prop_schema_ir.is_nullable:
+                            prop_is_nullable = True
+
+                        property_holder_ir = IRSchema(
+                            name=None,  # Property name is the dict key, not stored in the schema object
+                            type=parsed_prop_schema_ir.name,  # Reference to the registered schema
+                            description=prop_schema_node.get("description", parsed_prop_schema_ir.description),
+                            is_nullable=prop_is_nullable,
+                            default=prop_schema_node.get("default"),
+                            example=prop_schema_node.get("example"),
+                            enum=prop_schema_node.get("enum") if not parsed_prop_schema_ir.enum else None,
+                            format=parsed_prop_schema_ir.format,
+                            _refers_to_schema=parsed_prop_schema_ir,
+                        )
+                        parsed_props[prop_name] = property_holder_ir
+                    else:
+                        # Schema was not registered - safe to modify its name
+                        final_prop_ir = parsed_prop_schema_ir
+                        # Always assign the property name - this is the property's name in the parent object
+                        final_prop_ir.name = prop_name
+                        if isinstance(prop_schema_node, Mapping):
+                            final_prop_ir.description = prop_schema_node.get(
+                                "description", parsed_prop_schema_ir.description
+                            )
+                            final_prop_ir.default = prop_schema_node.get("default", parsed_prop_schema_ir.default)
+                            final_prop_ir.example = prop_schema_node.get("example", parsed_prop_schema_ir.example)
+                            current_prop_node_nullable = prop_schema_node.get("nullable", False)
+                            type_list_nullable = (
+                                isinstance(prop_schema_node.get("type"), list) and "null" in prop_schema_node["type"]
+                            )
+                            final_prop_ir.is_nullable = (
+                                final_prop_ir.is_nullable or current_prop_node_nullable or type_list_nullable
+                            )
+                            # If the sub-parse didn't pick up an enum (e.g. for simple types), take it from prop_schema_node
+                            if not final_prop_ir.enum and "enum" in prop_schema_node:
+                                final_prop_ir.enum = prop_schema_node["enum"]
+
+                        parsed_props[prop_name] = final_prop_ir
     return parsed_props
 
 
@@ -400,11 +490,15 @@ def _parse_schema(
 
     # If we reach here, detection_result.action == CycleAction.CONTINUE_PARSING
 
+    # Sanitize schema name early for consistent use throughout parsing
+    # This ensures property enums get named correctly with the sanitized parent name
+    sanitized_schema_name = NameSanitizer.sanitize_class_name(schema_name) if schema_name else None
+
     try:  # Ensure exit_schema is called
         if schema_node is None:
             # Create empty schema for null schema nodes
             # Do NOT set generation_name - null schemas should resolve to Any inline, not generate separate files
-            return IRSchema(name=NameSanitizer.sanitize_class_name(schema_name) if schema_name else None)
+            return IRSchema(name=sanitized_schema_name)
 
         if not isinstance(schema_node, Mapping):
             raise TypeError(
@@ -473,14 +567,20 @@ def _parse_schema(
             elif is_nullable_from_type_field:
                 extracted_type = "null"
 
-        any_of_irs, one_of_irs, all_of_components_irs, props_from_comp, req_from_comp, nullable_from_comp = (
-            _parse_composition_keywords(
-                schema_node,
-                schema_name,
-                context,
-                ENV_MAX_DEPTH,
-                lambda n, sn, c, md: _parse_schema(n, sn, c, md, allow_self_reference),
-            )
+        (
+            any_of_irs,
+            one_of_irs,
+            all_of_components_irs,
+            props_from_comp,
+            req_from_comp,
+            nullable_from_comp,
+            discriminator_ir,
+        ) = _parse_composition_keywords(
+            schema_node,
+            schema_name,
+            context,
+            ENV_MAX_DEPTH,
+            lambda n, sn, c, md: _parse_schema(n, sn, c, md, allow_self_reference),
         )
 
         # Check for direct nullable field (OpenAPI 3.0 Swagger extension)
@@ -526,7 +626,7 @@ def _parse_schema(
             if "properties" in schema_node:
                 final_properties_for_ir = _parse_properties(
                     schema_node["properties"],
-                    schema_name,
+                    sanitized_schema_name,  # Use sanitized name for consistent enum naming
                     props_from_comp,  # these are from allOf merge
                     context,
                     max_depth_override,
@@ -641,7 +741,8 @@ def _parse_schema(
                 )
                 items_ir = IRSchema(type="object")
 
-        schema_ir_name_attr = NameSanitizer.sanitize_class_name(schema_name) if schema_name else None
+        # Use the already-sanitized schema name
+        schema_ir_name_attr = sanitized_schema_name
 
         # Parse additionalProperties field
         additional_properties_value: bool | IRSchema | None = None
@@ -666,6 +767,7 @@ def _parse_schema(
             any_of=any_of_irs,
             one_of=one_of_irs,
             all_of=all_of_components_irs,
+            discriminator=discriminator_ir,
             required=sorted(list(final_required_fields_set)),
             description=schema_node.get("description"),
             format=schema_node.get("format") if isinstance(schema_node.get("format"), str) else None,
@@ -762,7 +864,27 @@ def _parse_schema(
             and not is_synthetic_primitive
         )
         if should_register and schema_name:
-            context.parsed_schemas[schema_name] = schema_ir
+            # CRITICAL: Register using the schema's sanitized name (schema_ir.name) to prevent duplicate keys.
+            # The schema object's name attribute is already sanitized, so we use that as the key.
+            # This prevents the post-processor from registering the same schema again under a different key.
+            # However, if multiple raw schemas sanitize to the same name (e.g., "Foo-Bar" and "FooBar" both -> "FooBar"),
+            # we need to detect collisions and use the original raw schema name as a fallback.
+            registration_key = schema_ir.name if schema_ir.name else schema_name
+
+            # Check if this is a collision between different raw schemas
+            if registration_key in context.parsed_schemas:
+                existing_schema = context.parsed_schemas[registration_key]
+                # If it's the same schema object (e.g., from cycle detection returning existing), don't re-register
+                if existing_schema is not schema_ir:
+                    # Collision detected - use the original raw schema name as key to keep both schemas
+                    # This preserves backward compatibility with the collision handling in ModelsEmitter
+                    registration_key = schema_name
+                    logger.debug(
+                        f"Schema name collision detected: {schema_ir.name!r} already registered. "
+                        f"Using original raw name {schema_name!r} as key."
+                    )
+
+            context.parsed_schemas[registration_key] = schema_ir
 
         # Set generation_name and final_module_stem for schemas that will be generated as separate files
         # Skip for synthetic primitives (inline types) - they should remain without these attributes
