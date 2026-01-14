@@ -307,17 +307,34 @@ converter.register_unstructure_hook(date, unstructure_date)
 
 def _is_union_type(t: Any) -> bool:
     """
-    Check if a type is a Union type.
+    Check if a type is a Union type (including Annotated[Union, ...]).
 
     Scenario:
-        Detect Union types including both typing.Union and Python 3.10+ X | Y syntax.
+        Detect Union types including both typing.Union and Python 3.10+ X | Y syntax,
+        as well as Annotated[Union, ...] for discriminated unions.
 
     Expected Outcome:
         Returns True for Union types, False otherwise.
     """
     origin = get_origin(t)
     # Handle both typing.Union and types.UnionType (Python 3.10+ X | Y syntax)
-    return origin is Union or (hasattr(types, "UnionType") and isinstance(t, types.UnionType))
+    if origin is Union or (hasattr(types, "UnionType") and isinstance(t, types.UnionType)):
+        return True
+
+    # Also handle Annotated[Union, ...] for discriminated unions
+    # Import Annotated here to avoid module-level import
+    try:
+        from typing import Annotated
+
+        if origin is Annotated:
+            # Check if the first arg is a Union
+            args = get_args(t)
+            if args and _is_union_type(args[0]):
+                return True
+    except ImportError:
+        pass
+
+    return False
 
 
 def _truncate_data_repr(data: Any, max_length: int = 200) -> str:
@@ -353,10 +370,11 @@ def _structure_union(data: Any, union_type: type) -> Any:
 
     Strategy:
         1. If data is None and NoneType is in the union, return None
-        2. If data is a dict, try each dataclass variant
-        3. Try structuring with other variants (generic types, registered hooks)
-        4. Fall back to dict[str, Any] if present
-        5. Raise error if no variant matches
+        2. Check for discriminator metadata for O(1) variant lookup
+        3. If data is a dict, try each dataclass variant
+        4. Try structuring with other variants (generic types, registered hooks)
+        5. Fall back to dict[str, Any] if present
+        6. Raise error if no variant matches
 
     Args:
         data: The raw data to structure
@@ -369,13 +387,73 @@ def _structure_union(data: Any, union_type: type) -> Any:
         TypeError: If data is None but NoneType not in union
         ValueError: If no Union variant matches the data
     """
-    args = get_args(union_type)
+    # If this is Annotated[Union[...], metadata], extract the Union and metadata
+    origin = get_origin(union_type)
+    try:
+        from typing import Annotated
+
+        if origin is Annotated:
+            # Extract Union type and metadata from Annotated
+            annotated_args = get_args(union_type)
+            if annotated_args:
+                # First arg is the actual Union, rest are metadata
+                actual_union = annotated_args[0]
+                args = get_args(actual_union)
+            else:
+                args = get_args(union_type)
+        else:
+            args = get_args(union_type)
+    except ImportError:
+        args = get_args(union_type)
 
     # Handle None explicitly
     if data is None:
         if type(None) in args:
             return None
         raise TypeError(f"None is not valid for {union_type}")
+
+    # Check for discriminator metadata (from Annotated[Union[...], discriminator])
+    # This enables O(1) lookup instead of O(n) sequential tries
+    if hasattr(union_type, "__metadata__"):
+        for metadata in union_type.__metadata__:
+            # Check if this is discriminator metadata (has property_name and get_mapping method)
+            if hasattr(metadata, "property_name") and hasattr(metadata, "get_mapping"):
+                if isinstance(data, dict) and metadata.property_name in data:
+                    discriminator_value = data[metadata.property_name]
+
+                    # Get the mapping using the get_mapping method
+                    mapping = metadata.get_mapping()
+
+                    if mapping and discriminator_value in mapping:
+                        variant = mapping[discriminator_value]
+
+                        # Handle forward reference strings
+                        if isinstance(variant, str):
+                            # Try to find the actual type from union args
+                            for arg in args:
+                                if hasattr(arg, "__name__") and arg.__name__ == variant:
+                                    variant = arg
+                                    break
+
+                        # Attempt to structure with the discriminated variant
+                        try:
+                            _register_structure_hooks_recursively(variant)
+                            return converter.structure(data, variant)
+                        except Exception as e:
+                            # Provide clear error message for discriminated variant failure
+                            raise ValueError(
+                                f"Failed to deserialize as {variant.__name__} "
+                                f"(discriminator {metadata.property_name}={discriminator_value!r}): {e}"
+                            ) from e
+                    elif mapping:
+                        # Unknown discriminator value
+                        valid_values = list(mapping.keys())
+                        raise ValueError(
+                            f"Unknown discriminator value {discriminator_value!r} "
+                            f"for field {metadata.property_name!r}. "
+                            f"Expected one of: {valid_values}"
+                        )
+                # If discriminator property not in data, fall through to sequential try
 
     # Separate variants by type category
     dataclass_variants: list[type[Any]] = []

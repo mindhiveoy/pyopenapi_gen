@@ -31,12 +31,24 @@ class PythonConstructRenderer:
     - Generic classes (with bases, docstrings, and body)
     """
 
+    @staticmethod
+    def _to_module_name(class_name: str) -> str:
+        """Convert PascalCase class name to snake_case module name."""
+        import re
+
+        # Insert underscore before uppercase letters (except first)
+        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", class_name)
+        # Insert underscore before uppercase letters followed by lowercase
+        s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+        return s2.lower()
+
     def render_alias(
         self,
         alias_name: str,
         target_type: str,
         description: str | None,
         context: RenderContext,
+        discriminator: "IRDiscriminator | None" = None,  # type: ignore[name-defined]
     ) -> str:
         """
         Render a type alias assignment as Python code.
@@ -46,6 +58,7 @@ class PythonConstructRenderer:
             target_type: The target type expression
             description: Optional description for the docstring
             context: The rendering context for import registration
+            discriminator: Optional discriminator metadata for Union types
 
         Returns:
             Formatted Python code for the type alias
@@ -64,10 +77,70 @@ class PythonConstructRenderer:
         context.add_typing_imports_for_type(target_type)
 
         # Add __all__ export
-        writer.write_line(f'__all__ = ["{alias_name}"]')
+        exports = [alias_name]
+        if discriminator:
+            # Also export the discriminator metadata class
+            exports.append(f"{alias_name}Discriminator")
+        writer.write_line(f'__all__ = {exports!r}')
         writer.write_line("")  # Add a blank line for separation
 
-        writer.write_line(f"{alias_name}: TypeAlias = {target_type}")
+        # If there's a discriminator, generate the metadata class and use Annotated
+        if discriminator and target_type.startswith("Union["):
+            # Extract the union variants
+            context.add_import("typing", "Annotated")
+            context.add_import("dataclasses", "dataclass")
+            context.add_import("dataclasses", "field")
+
+            # Generate discriminator metadata class (frozen for hashability in Annotated)
+            writer.write_line("@dataclass(frozen=True)")
+            writer.write_line(f"class {alias_name}Discriminator:")
+            writer.write_line(f'    """Discriminator metadata for {alias_name} union."""')
+            writer.write_line("")
+            writer.write_line(f'    property_name: str = "{discriminator.property_name}"')
+            writer.write_line(f'    """The discriminator property name"""')
+            writer.write_line("")
+
+            # Store mapping as immutable tuple for frozen dataclass, convert to dict at runtime
+            if discriminator.mapping:
+                # Store discriminator mapping as tuple of tuples (immutable for frozen dataclass)
+                writer.write_line("    # Mapping stored as tuple for frozen dataclass compatibility")
+                writer.write_line("    _mapping_data: tuple[tuple[str, str], ...] = (")
+                for disc_value, schema_ref in discriminator.mapping.items():
+                    schema_name = schema_ref.split("/")[-1]
+                    writer.write_line(f'        ("{disc_value}", "{schema_name}"),')
+                writer.write_line("    )")
+                writer.write_line("")
+                writer.write_line("    def get_mapping(self) -> dict[str, type]:")
+                writer.write_line('        """Get discriminator mapping with actual type references."""')
+                # Import types locally
+                for disc_value, schema_ref in discriminator.mapping.items():
+                    schema_name = schema_ref.split("/")[-1]
+                    module_name = self._to_module_name(schema_name)
+                    writer.write_line(f"        from .{module_name} import {schema_name}")
+                writer.write_line("        return {")
+                for disc_value, schema_ref in discriminator.mapping.items():
+                    schema_name = schema_ref.split("/")[-1]
+                    writer.write_line(f'            "{disc_value}": {schema_name},')
+                writer.write_line("        }")
+            else:
+                writer.write_line("    _mapping_data: tuple[tuple[str, str], ...] | None = None")
+                writer.write_line("")
+                writer.write_line("    def get_mapping(self) -> dict[str, type] | None:")
+                writer.write_line('        """Get discriminator mapping."""')
+                writer.write_line("        return None")
+
+            writer.write_line("")
+            writer.write_line("")
+
+            # Use Annotated to attach discriminator metadata
+            writer.write_line(f"{alias_name}: TypeAlias = Annotated[")
+            writer.write_line(f"    {target_type},")
+            writer.write_line(f"    {alias_name}Discriminator()")
+            writer.write_line("]")
+        else:
+            # No discriminator, use plain type alias
+            writer.write_line(f"{alias_name}: TypeAlias = {target_type}")
+
         if description:
             # Sanitize description for use within a triple-double-quoted string for the actual docstring
             safe_desc_content = description.replace("\\", "\\\\")  # Escape backslashes first

@@ -308,9 +308,11 @@ class ModelsEmitter:
                         collect_nested_schemas(component, collected, visited_ids)
 
         # Collect all schemas including nested ones
+        # Deduplicate schemas by ID first - same schema object may appear under multiple keys
+        unique_schemas_by_id = {id(s): s for s in all_schemas_for_generation.values()}
         all_schemas_including_nested: dict[int, IRSchema] = {}
         visited_schema_ids: Set[int] = set()
-        for schema in all_schemas_for_generation.values():
+        for schema in unique_schemas_by_id.values():
             collect_nested_schemas(schema, all_schemas_including_nested, visited_schema_ids)
 
         schemas_to_name_decollision = sorted(
@@ -318,10 +320,10 @@ class ModelsEmitter:
             key=lambda s: s.name if s.name else "",
         )
 
-        # logger.debug(
-        #     f"ModelsEmitter: Schemas to actually de-collide (post-filter by s.name): "
-        #     f"{[s.name for s in schemas_to_name_decollision]}"
-        # )
+        logger.debug(
+            f"ModelsEmitter: Schemas to actually de-collide (post-filter by s.name): "
+            f"{[(s.name, id(s)) for s in schemas_to_name_decollision]}"
+        )
 
         for schema_for_naming in schemas_to_name_decollision:  # Use the comprehensive list
             original_schema_name = schema_for_naming.name

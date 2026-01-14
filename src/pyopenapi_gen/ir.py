@@ -15,6 +15,27 @@ from .http_types import HTTPMethod
 
 
 @dataclass
+class IRDiscriminator:
+    """
+    Discriminator metadata for oneOf/anyOf unions.
+
+    OpenAPI discriminator enables efficient runtime type resolution by specifying
+    which property identifies the variant and the mapping from property values to schema types.
+    """
+
+    property_name: str
+    """The name of the property used to discriminate between variants (e.g., 'type')"""
+
+    mapping: dict[str, str] | None = None
+    """Optional mapping from discriminator values to schema references.
+
+    Example: {'agent': '#/components/schemas/WorkflowAgentNode', 'end': '#/components/schemas/WorkflowEndNode'}
+
+    If None, the discriminator property value directly identifies the schema name.
+    """
+
+
+@dataclass
 class IRSchema:
     name: str | None = None
     type: str | None = None  # E.g., "object", "array", "string", or a reference to another schema name
@@ -31,6 +52,7 @@ class IRSchema:
     any_of: List[IRSchema] | None = None
     one_of: List[IRSchema] | None = None
     all_of: List[IRSchema] | None = None  # Store the list of IRSchema objects from allOf
+    discriminator: IRDiscriminator | None = None  # Discriminator for oneOf/anyOf unions
     title: str | None = None  # Added title
     is_data_wrapper: bool = False  # True if schema is a simple {{ "data": OtherSchema }} wrapper
 
@@ -93,6 +115,10 @@ class IRSchema:
 
         if isinstance(self.additional_properties, dict):
             self.additional_properties = IRSchema(**self.additional_properties)
+
+        # Ensure discriminator is an IRDiscriminator instance
+        if isinstance(self.discriminator, dict):
+            self.discriminator = IRDiscriminator(**self.discriminator)
 
         for comp_list_attr in ["any_of", "one_of", "all_of"]:
             comp_list = getattr(self, comp_list_attr)
