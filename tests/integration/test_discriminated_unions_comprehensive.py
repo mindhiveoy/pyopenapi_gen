@@ -89,17 +89,19 @@ def test_discriminated_union__with_explicit_type_object__generates_union_alias(t
     assert "EndNode" in node_content, "Should reference EndNode by name"
     assert "dict[str, Any]" not in node_content, "Should NOT fall back to dict[str, Any]"
 
-    # Verify it does NOT generate empty dataclass
-    assert "@dataclass" not in node_content, "Should NOT generate dataclass for discriminated union"
-    assert "class Node:" not in node_content, "Should NOT generate class for discriminated union"
+    # Verify discriminator metadata class is generated
+    assert "@dataclass(frozen=True)" in node_content, "Should generate frozen dataclass for discriminator metadata"
+    assert "class NodeDiscriminator:" in node_content, "Should generate discriminator metadata class"
+    assert 'property_name: str = "type"' in node_content, "Should include discriminator property name"
+    assert "def get_mapping(self)" in node_content, "Should include get_mapping method"
 
-    # Verify the expected format (order may vary)
-    assert (
-        ("Node: TypeAlias = Union[StartNode, EndNode]" in node_content)
-        or ("Node: TypeAlias = Union[EndNode, StartNode]" in node_content)
-        or ("Node: TypeAlias = Union[\n    StartNode,\n    EndNode,\n]" in node_content)
-        or ("Node: TypeAlias = Union[\n    EndNode,\n    StartNode,\n]" in node_content)
-    ), f"Expected Union with StartNode and EndNode, got:\n{node_content}"
+    # Verify it does NOT generate empty dataclass for Node itself
+    assert "class Node:" not in node_content, "Should NOT generate Node class (should be TypeAlias)"
+
+    # Verify discriminated union with Annotated metadata
+    assert "Node: TypeAlias = Annotated[" in node_content, "Should use Annotated with discriminator metadata"
+    assert "Union[" in node_content, "Should contain Union type"
+    assert "NodeDiscriminator()" in node_content, "Should attach discriminator metadata instance"
 
 
 def test_discriminated_union__without_explicit_type__generates_union_alias(tmp_path: Path) -> None:
@@ -167,7 +169,9 @@ def test_discriminated_union__without_explicit_type__generates_union_alias(tmp_p
     assert "SuccessResponse" in response_content
     assert "ErrorResponse" in response_content
     assert "dict[str, Any]" not in response_content
-    assert "@dataclass" not in response_content
+    # Discriminator metadata class is generated for discriminated unions
+    assert "@dataclass(frozen=True)" in response_content
+    assert "class ResponseDiscriminator:" in response_content
 
 
 def test_discriminated_union__nested_oneof__generates_all_variants(tmp_path: Path) -> None:

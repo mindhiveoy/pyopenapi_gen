@@ -37,12 +37,16 @@ def build_schemas(raw_schemas: dict[str, Mapping[str, Any]], raw_components: Map
 
     # Build initial IR for all schemas found in components
     for n, nd in raw_schemas.items():
-        if n not in context.parsed_schemas:
+        # Check if schema is already registered (either by original name or sanitized name)
+        sanitized_n = NameSanitizer.sanitize_class_name(n)
+        if n not in context.parsed_schemas and sanitized_n not in context.parsed_schemas:
             _parse_schema(n, nd, context, allow_self_reference=True)
 
-    # Post-condition check
-    if not all(n in context.parsed_schemas for n in raw_schemas):
-        raise RuntimeError("Not all schemas were parsed")
+    # Post-condition check: each raw schema must be registered under either its original or sanitized name
+    for n in raw_schemas:
+        sanitized_n = NameSanitizer.sanitize_class_name(n)
+        if n not in context.parsed_schemas and sanitized_n not in context.parsed_schemas:
+            raise RuntimeError(f"Schema '{n}' (sanitized: '{sanitized_n}') was not parsed")
 
     return context
 
@@ -192,6 +196,13 @@ def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
 
         # Extract inline enums from properties
         for prop_name, prop_schema in list(schema.properties.items()):
+            # Debug: log property state
+            logger.debug(
+                f"Processing {schema_name}.{prop_name}: "
+                f"type={prop_schema.type}, enum={prop_schema.enum}, "
+                f"name={prop_schema.name}, generation_name={prop_schema.generation_name}"
+            )
+
             # Check if this property has an inline enum that needs extraction
             # An inline enum needs extraction if:
             # 1. It has enum values defined
@@ -204,6 +215,7 @@ def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
             # Check if the enum was already extracted or is a named reference
             # Case 1: generation_name exists in schemas dict (already extracted)
             # Case 2: property name itself is a schema reference (e.g., ExistingStatusEnum)
+            # Case 3: property.type is already an enum name (created during parsing)
             enum_already_extracted = (
                 (
                     prop_schema.generation_name
@@ -224,9 +236,28 @@ def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
                     and "_" not in prop_schema.name
                     and prop_schema.name != prop_name  # Name differs from property key
                 )
+                or (
+                    # Property.type is already an enum schema name (created during parsing)
+                    prop_schema.type
+                    and prop_schema.type in schemas
+                    and schemas[prop_schema.type].enum
+                )
             )
 
             if has_inline_enum and not enum_already_extracted:
+                # Check if this enum was already created during parsing
+                # If prop_schema.type is already an enum name (not a primitive type), reuse it
+                if prop_schema.type and prop_schema.type in schemas and schemas[prop_schema.type].enum:
+                    # Enum already exists - just ensure property references it correctly
+                    enum_name = prop_schema.type
+                    logger.debug(f"Reusing existing enum {enum_name} for {schema_name}.{prop_name}")
+                    # Don't create a new enum, just update property references
+                    prop_schema.name = enum_name
+                    prop_schema.generation_name = schemas[enum_name].generation_name or enum_name
+                    prop_schema.final_module_stem = schemas[enum_name].final_module_stem
+                    prop_schema.enum = None  # Clear inline enum
+                    continue  # Skip creating new enum
+
                 # Use property's existing generation_name if set, otherwise create a new name
                 # This keeps naming consistent with what the type resolver already assigned
                 if prop_schema.generation_name:

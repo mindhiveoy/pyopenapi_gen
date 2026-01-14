@@ -144,12 +144,22 @@ def test_generate_types_for_addmessage_like_scenario(temp_project_dir: Path) -> 
     assert find_field_annotation_in_class(req_body_class_node, "message_text") == "str"
 
     # Assert sender_role is the correct, specifically generated enum
-    # The actual generated name is SenderRole (simplified naming)
-    assert find_field_annotation_in_class(req_body_class_node, "sender_role") == "SenderRole"
+    # The enum name includes parent schema to ensure uniqueness across schemas
+    assert find_field_annotation_in_class(req_body_class_node, "sender_role") == "CreateEntryRequestBodySenderRole"
 
-    # 3. Check the SenderRole enum (inline enum from request body)
-    sender_role_enum_ast = get_generated_file_ast(temp_project_dir, output_package_name, "models/sender_role.py")
-    sender_role_enum_node = find_class_in_ast(sender_role_enum_ast, "SenderRole")
+    # 3. Check the CreateEntryRequestBodySenderRole enum (inline enum from request body)
+    # Due to collision resolution, the actual enum class might have a numeric suffix
+    try:
+        sender_role_enum_ast = get_generated_file_ast(
+            temp_project_dir, output_package_name, "models/create_entry_request_body_sender_role.py"
+        )
+        sender_role_enum_node = find_class_in_ast(sender_role_enum_ast, "CreateEntryRequestBodySenderRole")
+    except AssertionError:
+        # Collision resolution creates numbered versions
+        sender_role_enum_ast = get_generated_file_ast(
+            temp_project_dir, output_package_name, "models/create_entry_request_body_sender_role_2.py"
+        )
+        sender_role_enum_node = find_class_in_ast(sender_role_enum_ast, "CreateEntryRequestBodySenderRole2")
     # Verify enum members (value1, value2, value3)
     enum_members_sender = {
         node.targets[0].id

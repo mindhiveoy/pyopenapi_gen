@@ -9,6 +9,7 @@ The IR consists of dataclasses representing normalized OpenAPI components:
 - **IRSpec**: Top-level specification container
 - **IROperation**: API operations with parameters, request/response
 - **IRSchema**: Type definitions (models, enums, primitives)
+- **IRDiscriminator**: Discriminator metadata for polymorphic unions (oneOf/anyOf)
 - **IRParameter**: Operation parameters (query, path, header, cookie)
 - **IRRequestBody**: Request body specifications
 - **IRResponse**: Response definitions with content types
@@ -32,6 +33,7 @@ classDiagram
     IRParameter "1" *-- "1" IRSchema : Parameter Schema
     IRSchema "1" *-- "*" IRSchema : Properties
     IRSchema "1" *-- "1" IRSchema : Items (for arrays)
+    IRSchema "1" o-- "0..1" IRDiscriminator : Discriminator for oneOf/anyOf
 
     class IRSpec{
         +str title
@@ -80,11 +82,18 @@ classDiagram
         +Optional[IRSchema] items
         +Optional[List[Any]] enum
         +Optional[str] description
+        +Optional[IRDiscriminator] discriminator
+    }
+    class IRDiscriminator{
+        +str property_name
+        +Optional[Dict[str, str]] mapping
     }
 ```
-*Diagram: Relationship between core IR dataclasses.* 
+*Diagram: Relationship between core IR dataclasses.*
 
 Key aspects related to schema references:
-*   `IRSchema` holds the parsed details of a schema, including type, format, properties, items (for arrays), enums, etc.
+
+*   `IRSchema` holds the parsed details of a schema, including type, format, properties, items (for arrays), enums, discriminators, etc.
+*   `IRDiscriminator` provides metadata for efficient polymorphic union deserialization (oneOf/anyOf) with O(1) variant lookup instead of O(n) sequential attempts.
 *   Relationships between schemas (e.g., nested objects, arrays of objects) are represented through nested `IRSchema` instances within `properties` or `items`.
 *   The loader populates these structures after resolving `$ref`s. 

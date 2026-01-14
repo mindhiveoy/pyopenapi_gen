@@ -71,11 +71,15 @@ class AliasGenerator:
 
         # logger.debug(f"AliasGenerator: Rendering alias '{alias_name}' for target type '{target_type}'.")
 
+        # Pass discriminator metadata if this is a union type
+        discriminator = schema.discriminator if hasattr(schema, "discriminator") else None
+
         rendered_code = self.renderer.render_alias(
             alias_name=alias_name,
             target_type=target_type,
             description=schema.description,
             context=context,
+            discriminator=discriminator,
         )
 
         # Post-condition
