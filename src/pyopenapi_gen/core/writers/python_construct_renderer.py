@@ -81,7 +81,7 @@ class PythonConstructRenderer:
         if discriminator:
             # Also export the discriminator metadata class
             exports.append(f"{alias_name}Discriminator")
-        writer.write_line(f'__all__ = {exports!r}')
+        writer.write_line(f"__all__ = {exports!r}")
         writer.write_line("")  # Add a blank line for separation
 
         # If there's a discriminator, generate the metadata class and use Annotated
