@@ -482,14 +482,14 @@ markers = {main = "platform_system == \"Windows\" or sys_platform == \"win32\""}
 
 [[package]]
 name = "commitizen"
-version = "4.11.3"
+version = "4.12.0"
 description = "Python commitizen client tool"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["dev"]
 files = [
-    {file = "commitizen-4.11.3-py3-none-any.whl", hash = "sha256:226dc931ce4af29c3320f878f6e28e647aefabeb45709c710f1aa205ed54b098"},
-    {file = "commitizen-4.11.3.tar.gz", hash = "sha256:b96a4ab7d9ddbd13135004ca63d37e77cce4ad645b7f661a40522edf9caac641"},
+    {file = "commitizen-4.12.0-py3-none-any.whl", hash = "sha256:9cb4413b32ff95cf1e9e029499574ef543e9fd3e50e6dcc70cf9807dc4c3fb4f"},
+    {file = "commitizen-4.12.0.tar.gz", hash = "sha256:c273aa679690b6887db7724a11f7adc8f18414740c6a350d00367d17290d8048"},
 ]
 
 [package.dependencies]
@@ -3149,4 +3149,4 @@ dev = ["bandit", "black", "dataclass-wizard", "httpx", "mypy", "pytest", "pytest
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0.0"
-content-hash = "ec03df54362361e350ee0d68a07e48331f99b6ae38b356f16ed8ca5cbd40dda9"
+content-hash = "9597b2473cb416d757cf00631d1f246e06c21e6b167455b60cbb8fafaad22899"
