@@ -50,7 +50,7 @@ __all__ = [
 ]
 
 # Semantic version of the generator core – automatically managed by semantic-release.
-__version__: str = "2.7.5"
+__version__: str = "3.0.0"
 
 # ---------------------------------------------------------------------------
 # Lazy-loading and autocompletion support (This part remains)
