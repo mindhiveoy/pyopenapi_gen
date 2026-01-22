@@ -680,3 +680,125 @@ class TestDataclassSerializationBinaryTypes:
         expected = base64.b64encode(empty_bytes).decode("ascii")
         assert result == expected
         assert result == ""
+
+
+class TestDataclassSerializerCattrsIntegration:
+    """Test that DataclassSerializer respects cattrs unstructure hooks."""
+
+    def test_serialize_with_custom_cattrs_hook__uses_hook__returns_unstructured_data(self) -> None:
+        """
+        Scenario: Serialize a dataclass that has a custom cattrs unstructure hook registered
+        Expected Outcome: Uses the cattrs hook instead of manual field iteration,
+                         avoiding exposure of internal fields like _data
+        """
+        from pyopenapi_gen.core.cattrs_converter import converter
+        from pyopenapi_gen.core.utils import DataclassSerializer
+
+        # Arrange - simulate generated type with _data field and custom hooks
+        @dataclasses.dataclass
+        class FieldDescriptor:
+            type: str
+            description: str | None = None
+
+        @dataclasses.dataclass
+        class PropertiesWithInternalData:
+            """Simulates WorkflowAgentOutputSchemaProperties pattern."""
+
+            _data: dict[str, FieldDescriptor] = dataclasses.field(default_factory=dict)
+
+        # Register custom cattrs hooks (simulating generated code)
+        def unstructure_hook(instance: PropertiesWithInternalData) -> dict[str, Any]:
+            """Should return flat dict without _data wrapper."""
+            return {key: converter.unstructure(value) for key, value in instance._data.items()}
+
+        def structure_hook(data: dict[str, Any], _: type) -> PropertiesWithInternalData:
+            """Should accept flat dict and create _data internally."""
+            structured = {key: converter.structure(value, FieldDescriptor) for key, value in data.items()}
+            return PropertiesWithInternalData(_data=structured)
+
+        converter.register_unstructure_hook(PropertiesWithInternalData, unstructure_hook)
+        converter.register_structure_hook(PropertiesWithInternalData, structure_hook)
+
+        # Create instance with _data
+        props = PropertiesWithInternalData(
+            _data={
+                "userId": FieldDescriptor(type="string", description="User ID"),
+                "count": FieldDescriptor(type="number", description="Count"),
+            }
+        )
+
+        # Act
+        result = DataclassSerializer.serialize(props)
+
+        # Assert - should NOT expose _data field, should use cattrs hook
+        expected = {
+            "userId": {"type": "string", "description": "User ID"},
+            "count": {"type": "number", "description": "Count"},
+        }
+        assert result == expected
+        assert "_data" not in result, "Internal _data field should not be exposed when cattrs hook exists"
+
+        # Verify round-trip works
+        from pyopenapi_gen.core.cattrs_converter import structure_from_dict
+
+        restored = structure_from_dict(result, PropertiesWithInternalData)
+        assert "userId" in restored._data
+        assert "count" in restored._data
+
+    def test_serialize_without_custom_hook__uses_manual_iteration__exposes_all_fields(self) -> None:
+        """
+        Scenario: Serialize a dataclass WITHOUT custom cattrs hooks
+        Expected Outcome: Falls back to manual field iteration as before
+        """
+        from pyopenapi_gen.core.utils import DataclassSerializer
+
+        # Arrange - regular dataclass without custom hooks
+        @dataclasses.dataclass
+        class RegularDataclass:
+            name: str
+            _internal: str = "private"
+
+        instance = RegularDataclass(name="test", _internal="value")
+
+        # Act
+        result = DataclassSerializer.serialize(instance)
+
+        # Assert - should expose all fields including _internal
+        expected = {"name": "test", "_internal": "value"}
+        assert result == expected
+
+    def test_serialize_nested_with_cattrs_hooks__recursively_applies_hooks__returns_correct_structure(self) -> None:
+        """
+        Scenario: Serialize nested dataclasses where some have custom cattrs hooks
+        Expected Outcome: Correctly applies hooks at each level of nesting
+        """
+        from pyopenapi_gen.core.cattrs_converter import converter
+        from pyopenapi_gen.core.utils import DataclassSerializer
+
+        # Arrange
+        @dataclasses.dataclass
+        class Inner:
+            _data: dict[str, str] = dataclasses.field(default_factory=dict)
+
+        @dataclasses.dataclass
+        class Outer:
+            name: str
+            properties: Inner
+
+        # Register hook for Inner only
+        def unstructure_inner(instance: Inner) -> dict[str, str]:
+            return dict(instance._data)
+
+        converter.register_unstructure_hook(Inner, unstructure_inner)
+
+        # Create nested structure
+        inner = Inner(_data={"key1": "value1", "key2": "value2"})
+        outer = Outer(name="test", properties=inner)
+
+        # Act
+        result = DataclassSerializer.serialize(outer)
+
+        # Assert
+        expected = {"name": "test", "properties": {"key1": "value1", "key2": "value2"}}
+        assert result == expected
+        assert "_data" not in result["properties"]
