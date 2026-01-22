@@ -802,3 +802,33 @@ class TestDataclassSerializerCattrsIntegration:
         expected = {"name": "test", "properties": {"key1": "value1", "key2": "value2"}}
         assert result == expected
         assert "_data" not in result["properties"]
+
+    def test_serialize_uses_relative_import__works_in_generated_code__no_import_error(self) -> None:
+        """
+        Scenario: Verify DataclassSerializer uses relative import to cattrs_converter
+        Expected Outcome: Import works regardless of package name (regression test for hardcoded import bug)
+
+        This is a regression test for the bug where line 398 had:
+            from pyopenapi_gen.core.cattrs_converter import converter
+        which failed in generated code (e.g., pyapis package).
+
+        The fix uses relative import:
+            from .cattrs_converter import unstructure_to_dict
+        """
+        from pyopenapi_gen.core.utils import DataclassSerializer
+
+        # Arrange - simple dataclass
+        @dataclasses.dataclass
+        class TestData:
+            field: str
+
+        obj = TestData(field="value")
+
+        # Act - this should work without ImportError
+        try:
+            result = DataclassSerializer.serialize(obj)
+            # Assert
+            assert result == {"field": "value"}
+            # Test passed - relative import works
+        except ImportError as e:
+            pytest.fail(f"DataclassSerializer should use relative import, got ImportError: {e}")
