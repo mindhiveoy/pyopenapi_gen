@@ -63,7 +63,8 @@ class CompositionTypeResolver:
                 member_type = self.main_resolver.resolve(sub_schema, required=True)
                 member_types.append(member_type)
 
-            unique_types = sorted(list(set(member_types)))
+            # Deduplicate whilst preserving OpenAPI schema order
+            unique_types = list(dict.fromkeys(member_types))
 
             if not unique_types:
                 self.context.add_import("typing", "Any")

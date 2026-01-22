@@ -437,8 +437,8 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         if len(resolved_types) == 1:
             return ResolvedType(python_type=resolved_types[0], is_optional=not required)
 
-        # Sort types for consistent ordering
-        resolved_types.sort()
+        # Deduplicate whilst preserving OpenAPI schema order
+        resolved_types = list(dict.fromkeys(resolved_types))
         context.add_import("typing", "Union")
         union_type = f"Union[{', '.join(resolved_types)}]"
 
@@ -490,8 +490,8 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         if len(resolved_types) == 1:
             return ResolvedType(python_type=resolved_types[0], is_optional=not required)
 
-        # Sort types for consistent ordering
-        resolved_types.sort()
+        # Deduplicate whilst preserving OpenAPI schema order
+        resolved_types = list(dict.fromkeys(resolved_types))
         context.add_import("typing", "Union")
         union_type = f"Union[{', '.join(resolved_types)}]"
 

@@ -322,7 +322,7 @@ class TestOpenAPISchemaResolver:
         result = resolver.resolve_schema(schema, mock_context)
 
         # Assert
-        assert result.python_type == "Union[int, str]"  # Sorted order
+        assert result.python_type == "Union[str, int]"  # OpenAPI order preserved
         mock_context.add_import.assert_called_with("typing", "Union")
 
     def test_resolve_schema__any_of_single_schema__returns_single_type(self, resolver, mock_context) -> None:
@@ -372,8 +372,147 @@ class TestOpenAPISchemaResolver:
         result = resolver.resolve_schema(schema, mock_context)
 
         # Assert
-        assert result.python_type == "Union[bool, str]"  # Sorted order
+        assert result.python_type == "Union[str, bool]"  # OpenAPI order preserved
         mock_context.add_import.assert_called_with("typing", "Union")
+
+    def test_resolve_schema__any_of_string_number_boolean__preserves_openapi_order(
+        self, resolver, mock_context
+    ) -> None:
+        """
+        Scenario: Resolving anyOf with string, number, boolean in OpenAPI order
+        Expected: Returns Union[str, float, bool] preserving order to avoid
+                  bool coercion issues with cattrs structuring
+
+        Regression test for union ordering bug where alphabetical sorting caused
+        bool to appear first, breaking cattrs structuring of string/numeric data.
+        """
+        # Arrange - mimics OpenAPI anyOf: ["string", "number", "boolean"]
+        schema1 = IRSchema(type="string")
+        schema2 = IRSchema(type="number")
+        schema3 = IRSchema(type="boolean")
+        schema = IRSchema(any_of=[schema1, schema2, schema3])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert - order must match OpenAPI declaration
+        assert result.python_type == "Union[str, float, bool]"
+        mock_context.add_import.assert_called_with("typing", "Union")
+
+    def test_resolve_schema__any_of_with_duplicates__deduplicates_preserving_first(
+        self, resolver, mock_context
+    ) -> None:
+        """
+        Scenario: Resolving anyOf with duplicate types
+        Expected: Duplicates removed, first occurrence preserved
+        """
+        # Arrange
+        schema1 = IRSchema(type="string")
+        schema2 = IRSchema(type="integer")
+        schema3 = IRSchema(type="string")  # Duplicate
+        schema = IRSchema(any_of=[schema1, schema2, schema3])
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert - str appears once, in first position
+        assert result.python_type == "Union[str, int]"
+
+    def test_resolve_schema__any_of_bool_str__preserves_order(self, resolver, mock_context) -> None:
+        """
+        Scenario: anyOf with bool and str (bool coercion would affect str)
+        Expected: Union[bool, str] preserves declaration order
+        """
+        schema1 = IRSchema(type="boolean")
+        schema2 = IRSchema(type="string")
+        schema = IRSchema(any_of=[schema1, schema2])
+
+        result = resolver.resolve_schema(schema, mock_context)
+
+        assert result.python_type == "Union[bool, str]"
+
+    def test_resolve_schema__any_of_str_bool__preserves_order(self, resolver, mock_context) -> None:
+        """
+        Scenario: anyOf with str before bool (correct order for cattrs)
+        Expected: Union[str, bool] allows str to be tried first
+        """
+        schema1 = IRSchema(type="string")
+        schema2 = IRSchema(type="boolean")
+        schema = IRSchema(any_of=[schema1, schema2])
+
+        result = resolver.resolve_schema(schema, mock_context)
+
+        assert result.python_type == "Union[str, bool]"
+
+    def test_resolve_schema__any_of_number_bool__preserves_order(self, resolver, mock_context) -> None:
+        """
+        Scenario: anyOf with number before bool (correct order for cattrs)
+        Expected: Union[float, bool] allows float to be tried first
+        """
+        schema1 = IRSchema(type="number")
+        schema2 = IRSchema(type="boolean")
+        schema = IRSchema(any_of=[schema1, schema2])
+
+        result = resolver.resolve_schema(schema, mock_context)
+
+        assert result.python_type == "Union[float, bool]"
+
+    def test_resolve_schema__any_of_bool_number__preserves_order(self, resolver, mock_context) -> None:
+        """
+        Scenario: anyOf with bool before number (would cause coercion)
+        Expected: Union[bool, float] preserves declaration order
+        """
+        schema1 = IRSchema(type="boolean")
+        schema2 = IRSchema(type="number")
+        schema = IRSchema(any_of=[schema1, schema2])
+
+        result = resolver.resolve_schema(schema, mock_context)
+
+        assert result.python_type == "Union[bool, float]"
+
+    def test_resolve_schema__any_of_int_bool__preserves_order(self, resolver, mock_context) -> None:
+        """
+        Scenario: anyOf with int before bool (correct order for cattrs)
+        Expected: Union[int, bool] allows int to be tried first
+        """
+        schema1 = IRSchema(type="integer")
+        schema2 = IRSchema(type="boolean")
+        schema = IRSchema(any_of=[schema1, schema2])
+
+        result = resolver.resolve_schema(schema, mock_context)
+
+        assert result.python_type == "Union[int, bool]"
+
+    def test_resolve_schema__one_of_number_bool_str__preserves_order(self, resolver, mock_context) -> None:
+        """
+        Scenario: oneOf with number, bool, str (different from anyOf string,number,boolean)
+        Expected: Union[float, bool, str] preserves declaration order
+        """
+        schema1 = IRSchema(type="number")
+        schema2 = IRSchema(type="boolean")
+        schema3 = IRSchema(type="string")
+        schema = IRSchema(one_of=[schema1, schema2, schema3])
+
+        result = resolver.resolve_schema(schema, mock_context)
+
+        assert result.python_type == "Union[float, bool, str]"
+
+    def test_resolve_schema__one_of_bool_first__preserves_problematic_order(self, resolver, mock_context) -> None:
+        """
+        Scenario: oneOf with bool as first type (would cause maximum damage)
+        Expected: Union[bool, str, float] preserves declaration order even if problematic
+
+        Note: This is intentionally "wrong" order but we preserve it. API designers
+        should place bool last, but if they don't, we honour their choice.
+        """
+        schema1 = IRSchema(type="boolean")
+        schema2 = IRSchema(type="string")
+        schema3 = IRSchema(type="number")
+        schema = IRSchema(one_of=[schema1, schema2, schema3])
+
+        result = resolver.resolve_schema(schema, mock_context)
+
+        assert result.python_type == "Union[bool, str, float]"
 
     def test_resolve_schema__one_of_single_schema__returns_single_type(self, resolver, mock_context) -> None:
         """
