@@ -747,7 +747,7 @@ class TestCompositionTypeResolver:  # Renamed class
         "composition_type, sub_schemas_dicts, expected_py_type, expected_typing_imports",
         [
             # anyOf scenarios
-            ("any_of", [{"type": "string"}, {"type": "integer"}], "Union[int, str]", ["Union"]),
+            ("any_of", [{"type": "string"}, {"type": "integer"}], "Union[str, int]", ["Union"]),
             (
                 "any_of",
                 [{"$ref": "#/components/schemas/SchemaA"}, {"$ref": "#/components/schemas/SchemaB"}],
@@ -757,12 +757,12 @@ class TestCompositionTypeResolver:  # Renamed class
             (
                 "any_of",
                 [{"type": "string"}, {"type": "null"}],
-                "Union[Any, str]",
+                "Union[str, Any]",
                 ["Union", "Any"],
-            ),  # null type resolves to Any, so intermediate is Union[Any, str]
+            ),  # null type resolves to Any, OpenAPI order preserved
             ("any_of", [], "Any", ["Any"]),  # Empty anyOf
             # oneOf scenarios (currently treated like anyOf by TypeFinalizer for Union)
-            ("one_of", [{"type": "string"}, {"type": "integer"}], "Union[int, str]", ["Union"]),
+            ("one_of", [{"type": "string"}, {"type": "integer"}], "Union[str, int]", ["Union"]),
             (
                 "one_of",
                 [{"$ref": "#/components/schemas/SchemaA"}, {"$ref": "#/components/schemas/SchemaB"}],
@@ -1342,7 +1342,7 @@ class TestTypeHelperGetPythonTypeForSchemaFallthroughs:
         result = TypeHelper.get_python_type_for_schema(
             schema, empty_schemas, context, required=True, resolve_alias_target=False
         )
-        assert result == "Union[int, str]"
+        assert result == "Union[str, int]"
         assert context.import_collector.has_import("typing", "Union")
 
     def test_get_python_type_for_schema__fallthrough_to_array(
