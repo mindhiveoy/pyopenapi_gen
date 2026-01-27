@@ -185,6 +185,7 @@ class IRSpec:
     schemas: dict[str, IRSchema] = field(default_factory=dict)
     operations: List[IROperation] = field(default_factory=list)
     servers: List[str] = field(default_factory=list)
+    discriminator_skip_list: set[str] = field(default_factory=set)  # Enum names to skip generation
 
     #     self._raw_schema_node = None
 

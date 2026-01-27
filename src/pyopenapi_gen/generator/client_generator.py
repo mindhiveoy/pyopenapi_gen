@@ -239,7 +239,11 @@ class ClientGenerator:
                     parsed_schemas=ir.schemas,
                     output_package_name=output_package,
                 )
-                models_emitter = ModelsEmitter(context=tmp_render_context_for_diff, parsed_schemas=ir.schemas)
+                models_emitter = ModelsEmitter(
+                    context=tmp_render_context_for_diff,
+                    parsed_schemas=ir.schemas,
+                    discriminator_skip_list=ir.discriminator_skip_list,
+                )
                 model_files_dict = models_emitter.emit(
                     ir, str(tmp_out_dir_for_diff)
                 )  # ModelsEmitter.emit now takes IRSpec
@@ -407,8 +411,12 @@ class ClientGenerator:
 
             # 4. ModelsEmitter
             self._log_progress("Generating model files", "EMIT_MODELS")
-            models_emitter = ModelsEmitter(context=main_render_context, parsed_schemas=ir.schemas)
-            model_files_dict = models_emitter.emit(ir, str(out_dir))  # ModelsEmitter.emit now takes IRSpec
+            models_emitter = ModelsEmitter(
+                context=main_render_context,
+                parsed_schemas=ir.schemas,
+                discriminator_skip_list=ir.discriminator_skip_list,
+            )
+            model_files_dict = models_emitter.emit(ir, str(out_dir))
             generated_files += [
                 Path(p) for p_list in model_files_dict.values() for p in p_list
             ]  # Flatten list of lists
