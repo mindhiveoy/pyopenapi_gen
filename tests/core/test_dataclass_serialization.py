@@ -493,8 +493,9 @@ class TestDataclassSerializationErrorHandling:
     def test_serialize_circular_reference__handles_gracefully__avoids_infinite_recursion(self) -> None:
         """
         Scenario: Attempt to serialize dataclass with circular references
-        Expected Outcome: Handles gracefully without infinite recursion
+        Expected Outcome: Handles gracefully without infinite recursion and produces JSON-safe output
         """
+        import json
 
         @dataclasses.dataclass
         class Node:
@@ -511,10 +512,152 @@ class TestDataclassSerializationErrorHandling:
 
         try:
             result = DataclassSerializer.serialize(parent)
-            # Should handle this gracefully, exact behavior to be determined
+            # Should handle this gracefully
             assert isinstance(result, dict)
+            assert result["name"] == "parent"
+
+            # CRITICAL: Must be JSON serializable (no dataclass instances in output)
+            json_str = json.dumps(result)
+            assert json_str is not None
+
+            # Verify circular ref was handled (should be None or dict, not dataclass)
+            if "parent" in result:
+                nested = result["parent"]
+                assert isinstance(nested, (dict, type(None))), f"Nested value must be dict or None, got {type(nested)}"
+                # Ensure it's not a dataclass instance
+                assert not dataclasses.is_dataclass(nested), "Must not be dataclass instance"
         except RecursionError:
             pytest.fail("DataclassSerializer should handle circular references gracefully")
+
+    def test_serialize_deep_circular__multiple_paths__json_safe(self) -> None:
+        """
+        Scenario: Complex circular structures with multiple reference paths
+        Expected Outcome: All paths handled correctly and result is JSON-safe
+        """
+        import json
+
+        from pyopenapi_gen.core.utils import DataclassSerializer
+
+        @dataclasses.dataclass
+        class Person:
+            name: str
+            friend: Optional["Person"] = None
+            spouse: Optional["Person"] = None
+
+        # Arrange - create complex circular structure
+        alice = Person(name="Alice")
+        bob = Person(name="Bob")
+        charlie = Person(name="Charlie")
+
+        alice.friend = bob
+        bob.friend = charlie
+        charlie.friend = alice  # Circular path via friend
+        alice.spouse = bob
+        bob.spouse = alice  # Another circular path via spouse
+
+        # Act
+        result = DataclassSerializer.serialize(alice)
+
+        # Assert - must be JSON serializable
+        json_str = json.dumps(result)
+        assert json_str is not None
+        assert result["name"] == "Alice"
+
+        # Verify nested structures are dicts or None, not dataclass instances
+        if "friend" in result and result["friend"] is not None:
+            assert isinstance(result["friend"], dict)
+            assert not dataclasses.is_dataclass(result["friend"])
+        if "spouse" in result and result["spouse"] is not None:
+            assert isinstance(result["spouse"], dict)
+            assert not dataclasses.is_dataclass(result["spouse"])
+
+    def test_serialize_self_reference__handles_gracefully(self) -> None:
+        """
+        Scenario: Dataclass with self-reference
+        Expected Outcome: Handles gracefully and produces JSON-safe output
+        """
+        import json
+
+        from pyopenapi_gen.core.utils import DataclassSerializer
+
+        @dataclasses.dataclass
+        class SelfRef:
+            value: int
+            me: Optional["SelfRef"] = None
+
+        # Arrange - create self-reference
+        obj = SelfRef(value=42)
+        obj.me = obj  # Self-reference
+
+        # Act
+        result = DataclassSerializer.serialize(obj)
+
+        # Assert - must be JSON serializable
+        json_str = json.dumps(result)
+        assert json_str is not None
+        assert result["value"] == 42
+
+        # Self-reference should be None (circular)
+        if "me" in result:
+            assert result["me"] is None
+
+    def test_serialize_with_custom_cattrs_hook__circular_refs__respects_hook_and_json_safe(self) -> None:
+        """
+        Scenario: Dataclass with custom cattrs hook and circular references
+        Expected Outcome: Custom hook is respected AND result is JSON-safe
+
+        Note: Custom hooks should handle their own structure flattening but let
+        DataclassSerializer handle nested dataclasses to avoid infinite recursion.
+        """
+        import json
+        from typing import Any
+
+        from pyopenapi_gen.core.cattrs_converter import converter
+        from pyopenapi_gen.core.utils import DataclassSerializer
+
+        @dataclasses.dataclass
+        class PropertiesWithData:
+            _data: dict[str, str] = dataclasses.field(default_factory=dict)
+            parent: Optional["PropertiesWithData"] = None
+
+        # Register custom hook (simulates generated code for additionalProperties)
+        # Hook should flatten _data but leave nested dataclasses for our wrapper to handle
+        def unstructure_hook(instance: PropertiesWithData) -> dict[str, Any]:
+            result = dict(instance._data)  # Flatten _data
+            # Leave parent as-is for DataclassSerializer to handle
+            if instance.parent is not None:
+                result["parent"] = instance.parent  # Don't recurse, let wrapper handle it
+            return result
+
+        converter.register_unstructure_hook(PropertiesWithData, unstructure_hook)
+
+        try:
+            # Arrange - create circular structure
+            parent = PropertiesWithData(_data={"key": "parent"})
+            child = PropertiesWithData(_data={"key": "child"}, parent=parent)
+            parent.parent = child  # Circular
+
+            # Act
+            result = DataclassSerializer.serialize(parent)
+
+            # Assert - hook was used (no _data in output)
+            assert "_data" not in result, "Custom hook should flatten _data"
+            assert "key" in result
+            assert result["key"] == "parent"
+
+            # CRITICAL: Must be JSON serializable even with custom hook
+            json_str = json.dumps(result)
+            assert json_str is not None
+
+            # Verify nested structures don't contain _data field or dataclass instances
+            if "parent" in result and result["parent"] is not None:
+                assert isinstance(result["parent"], dict)
+                assert "_data" not in result["parent"], "Nested hook should also flatten _data"
+                assert not dataclasses.is_dataclass(result["parent"])
+        finally:
+            # Clean up hook to avoid affecting other tests
+            if hasattr(converter, "_unstructure_func"):
+                converter._unstructure_func.clear_cache()
 
     def test_serialize_with_custom_types__handles_unknown_types__falls_back_gracefully(self) -> None:
         """
