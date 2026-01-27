@@ -35,15 +35,19 @@ class ModelVisitor(Visitor[IRSchema, str]):
             - All necessary imports for the generated model are registered in the context.
     """
 
-    def __init__(self, schemas: dict[str, IRSchema] | None = None) -> None:
+    def __init__(
+        self, schemas: dict[str, IRSchema] | None = None, discriminator_skip_list: set[str] | None = None
+    ) -> None:
         """
         Initialize a new ModelVisitor.
 
         Args:
             schemas: Dictionary of all schemas for reference resolution.
+            discriminator_skip_list: Set of enum names to skip (discriminator variant enums).
         """
         self.formatter = Formatter()
         self.all_schemas = schemas or {}
+        self.discriminator_skip_list: set[str] = discriminator_skip_list or set()
 
         # Initialize PythonConstructRenderer once; it's passed to generators.
         self.renderer = PythonConstructRenderer()
@@ -76,6 +80,11 @@ class ModelVisitor(Visitor[IRSchema, str]):
         """
         # --- Model Type Detection Logic ---
         is_enum = bool(schema.name and schema.enum and schema.type in ("string", "integer"))
+
+        # Skip if this is a variant discriminator enum (unified enum generated instead)
+        if is_enum and schema.name in self.discriminator_skip_list:
+            logger.debug(f"ModelVisitor: Skipping variant discriminator enum '{schema.name}' (unified enum exists)")
+            return ""
 
         # Check for discriminated union types (oneOf, anyOf) which should be Union type aliases
         # Note: allOf is for schema composition/merging, not discriminated unions

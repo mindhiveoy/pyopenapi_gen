@@ -22,11 +22,17 @@ class ModelsEmitter:
     Handles creation of __init__.py and py.typed files.
     """
 
-    def __init__(self, context: RenderContext, parsed_schemas: dict[str, IRSchema]):
+    def __init__(
+        self,
+        context: RenderContext,
+        parsed_schemas: dict[str, IRSchema],
+        discriminator_skip_list: set[str] | None = None,
+    ):
         self.context: RenderContext = context
         # Store a reference to the schemas that were passed in.
         # These schemas will have their .generation_name and .final_module_stem updated.
         self.parsed_schemas: dict[str, IRSchema] = parsed_schemas
+        self.discriminator_skip_list: set[str] = discriminator_skip_list or set()
         self.import_collector = self.context.import_collector
         self.writer = CodeWriter()
 
@@ -83,7 +89,9 @@ class ModelsEmitter:
         # A temporary workaround could be:
         # original_ir_name = schema_ir.name
         # schema_ir.name = schema_ir.generation_name # Temporarily set for visitor
-        visitor = ModelVisitor(schemas=self.parsed_schemas)  # Pass all schemas for reference
+        visitor = ModelVisitor(
+            schemas=self.parsed_schemas, discriminator_skip_list=self.discriminator_skip_list
+        )  # Pass all schemas for reference
         rendered_model_str = visitor.visit(schema_ir, self.context)
         # schema_ir.name = original_ir_name # Restore if changed
 

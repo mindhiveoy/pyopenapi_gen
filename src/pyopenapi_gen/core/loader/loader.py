@@ -21,9 +21,13 @@ except ImportError:
     except ImportError:  # pragma: no cover – optional in early bootstrapping
         validate_spec = None  # type: ignore[assignment]
 
-from pyopenapi_gen import IRSpec
+from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.core.loader.operations import parse_operations
 from pyopenapi_gen.core.loader.schemas import build_schemas, extract_inline_enums
+from pyopenapi_gen.core.parsing.transformers.discriminator_enum_collector import (
+    DiscriminatorEnumCollector,
+    UnifiedDiscriminatorEnum,
+)
 
 __all__ = ["SpecLoader", "load_ir_from_spec"]
 
@@ -106,6 +110,46 @@ class SpecLoader:
 
         return warnings_list
 
+    def _create_unified_enum_schema(self, enum_metadata: UnifiedDiscriminatorEnum) -> IRSchema:
+        """
+        Create IRSchema for unified discriminator enum.
+
+        Args:
+            enum_metadata: UnifiedDiscriminatorEnum metadata
+
+        Returns:
+            IRSchema for the unified enum
+
+        Contracts:
+            Preconditions:
+                - enum_metadata has name, values, and description
+            Postconditions:
+                - Returns valid IRSchema with enum values
+                - generation_name and final_module_stem are set correctly
+        """
+        from pyopenapi_gen.core.utils import NameSanitizer
+
+        # Extract enum values from metadata
+        enum_values = [value for _, value in enum_metadata.values]
+
+        # Infer type from first value
+        first_value = enum_values[0] if enum_values else None
+        enum_type = "integer" if isinstance(first_value, int) else "string"
+
+        # Create the schema with generation metadata set
+        schema = IRSchema(
+            name=enum_metadata.name,
+            type=enum_type,
+            enum=enum_values,
+            description=enum_metadata.description,
+        )
+
+        # Set generation_name and module_stem to prevent name collisions
+        schema.generation_name = enum_metadata.name
+        schema.final_module_stem = NameSanitizer.sanitize_module_name(enum_metadata.name)
+
+        return schema
+
     def load_ir(self) -> IRSpec:
         """Transform the spec into an IRSpec object.
 
@@ -130,8 +174,24 @@ class SpecLoader:
             context,
         )
 
+        # Identify discriminator properties BEFORE inline enum extraction
+        # This ensures we don't extract enums for properties that will be part of unified enums
+        pre_collector = DiscriminatorEnumCollector(context.parsed_schemas)
+        discriminator_properties = pre_collector.identify_discriminator_properties()
+
         # Extract inline enums and add them to the schemas map
-        schemas_dict = extract_inline_enums(context.parsed_schemas)
+        # Skip discriminator properties - they will be part of unified enums
+        schemas_dict = extract_inline_enums(context.parsed_schemas, discriminator_properties)
+
+        # Collect unified discriminator enums from discriminated unions
+        discriminator_collector = DiscriminatorEnumCollector(schemas_dict)
+        unified_enums = discriminator_collector.collect_unified_enums()
+
+        # Add unified enums to schemas dict
+        for enum_name, enum_metadata in unified_enums.items():
+            unified_enum_schema = self._create_unified_enum_schema(enum_metadata)
+            schemas_dict[enum_name] = unified_enum_schema
+            logger.debug(f"Added unified discriminator enum '{enum_name}' to schemas")
 
         # Emit collected warnings after all parsing is done
         for warning_msg in context.collected_warnings:
@@ -145,6 +205,7 @@ class SpecLoader:
             schemas=schemas_dict,
             operations=operations,
             servers=self.servers,
+            discriminator_skip_list=discriminator_collector.variant_enum_skip_list,
         )
 
         # Post-condition check
