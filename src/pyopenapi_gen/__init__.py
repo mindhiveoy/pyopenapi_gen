@@ -23,6 +23,7 @@ from .http_types import HTTPMethod
 
 # Import IR classes from their canonical location
 from .ir import (
+    IRDiscriminator,
     IROperation,
     IRParameter,
     IRRequestBody,
@@ -38,6 +39,7 @@ __all__ = [
     "GenerationError",
     # IR classes
     "HTTPMethod",
+    "IRDiscriminator",
     "IRParameter",
     "IRResponse",
     "IROperation",

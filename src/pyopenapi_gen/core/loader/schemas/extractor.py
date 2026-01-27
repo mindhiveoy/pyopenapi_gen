@@ -150,10 +150,18 @@ def extract_inline_array_items(schemas: dict[str, IRSchema]) -> dict[str, IRSche
     return schemas
 
 
-def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
+def extract_inline_enums(
+    schemas: dict[str, IRSchema], discriminator_properties: set[tuple[str, str]] | None = None
+) -> dict[str, IRSchema]:
     """Extract inline property enums as unique schemas and update property references.
 
     Also ensures top-level enum schemas are properly marked for generation.
+
+    Args:
+        schemas: Dictionary of IRSchema objects
+        discriminator_properties: Set of (schema_name, property_name) tuples for properties
+            that are discriminators in discriminated unions. These will be skipped during
+            inline enum extraction as they will be part of unified enums.
 
     Contracts:
         Preconditions:
@@ -164,11 +172,14 @@ def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
             - All array item schemas have proper names
             - No duplicate schema names are created
             - Top-level enum schemas have generation_name set
+            - Discriminator properties are not extracted as separate enums
     """
     if not isinstance(schemas, dict):
         raise TypeError("schemas must be a dict")
     if not all(isinstance(s, IRSchema) for s in schemas.values()):
         raise TypeError("all values must be IRSchema objects")
+
+    discriminator_properties = discriminator_properties or set()
 
     # Store original schema count for post-condition validation
     original_schema_count = len(schemas)
@@ -196,6 +207,13 @@ def extract_inline_enums(schemas: dict[str, IRSchema]) -> dict[str, IRSchema]:
 
         # Extract inline enums from properties
         for prop_name, prop_schema in list(schema.properties.items()):
+            # Skip discriminator properties - they will be part of unified enums
+            if (schema_name, prop_name) in discriminator_properties:
+                logger.debug(
+                    f"Skipping discriminator property {schema_name}.{prop_name} " f"(will be part of unified enum)"
+                )
+                continue
+
             # Debug: log property state
             logger.debug(
                 f"Processing {schema_name}.{prop_name}: "
