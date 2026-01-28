@@ -229,6 +229,14 @@ class DiscriminatorEnumCollector:
             logger.debug(f"DiscriminatorEnumCollector: Union '{union_schema.name}' has no variants. Skipping.")
             return
 
+        # Build reverse mapping from variant schema names to discriminator values
+        # This helps when property enums have been unified and we can't get the value from the property
+        discriminator_value_by_variant: dict[str, str] = {}
+        if discriminator.mapping:
+            for disc_value, variant_ref in discriminator.mapping.items():
+                variant_name = variant_ref.split("/")[-1]  # Extract schema name from $ref
+                discriminator_value_by_variant[variant_name] = disc_value
+
         # Collect values
         enum_values: list[tuple[str, Any]] = []
         variant_enum_names: set[str] = set()
@@ -250,22 +258,63 @@ class DiscriminatorEnumCollector:
                 )
                 continue
 
-            # Check if property has enum values
-            if not hasattr(disc_property, "enum") or not disc_property.enum:
+            # Resolve enum values - either inline or via reference
+            resolved_enum_values: list[Any] | None = None
+            resolved_enum_name: str | None = None
+
+            # Check for inline enum values first
+            if hasattr(disc_property, "enum") and disc_property.enum:
+                resolved_enum_values = disc_property.enum
+                if hasattr(disc_property, "name") and disc_property.name:
+                    resolved_enum_name = disc_property.name
+            # If no inline enum, check if property references an enum schema
+            elif hasattr(disc_property, "_refers_to_schema") and disc_property._refers_to_schema is not None:
+                referred_schema = disc_property._refers_to_schema
+                if hasattr(referred_schema, "enum") and referred_schema.enum:
+                    resolved_enum_values = referred_schema.enum
+                    if hasattr(referred_schema, "name") and referred_schema.name:
+                        resolved_enum_name = referred_schema.name
+                    logger.debug(
+                        f"DiscriminatorEnumCollector: Resolved enum values for discriminator property '{property_name}' "
+                        f"in variant '{variant_schema.name}' via _refers_to_schema to '{referred_schema.name}'."
+                    )
+            # If still no resolved enum, try looking up by property name in schemas dict
+            elif hasattr(disc_property, "name") and disc_property.name and disc_property.name in self.schemas:
+                referred_schema = self.schemas[disc_property.name]
+                if hasattr(referred_schema, "enum") and referred_schema.enum:
+                    resolved_enum_values = referred_schema.enum
+                    resolved_enum_name = referred_schema.name
+                    logger.debug(
+                        f"DiscriminatorEnumCollector: Resolved enum values for discriminator property '{property_name}' "
+                        f"in variant '{variant_schema.name}' by looking up property name '{disc_property.name}' in schemas."
+                    )
+
+            # If still no resolved enum, use the discriminator mapping as fallback
+            # This handles cases where the property enum was already unified by another discriminated union
+            if not resolved_enum_values and variant_schema.name in discriminator_value_by_variant:
+                disc_value = discriminator_value_by_variant[variant_schema.name]
+                resolved_enum_values = [disc_value]
+                logger.debug(
+                    f"DiscriminatorEnumCollector: Resolved enum value for discriminator property '{property_name}' "
+                    f"in variant '{variant_schema.name}' from discriminator mapping: '{disc_value}'."
+                )
+
+            # If still no enum values found, skip variant
+            if not resolved_enum_values:
                 logger.debug(
                     f"DiscriminatorEnumCollector: Discriminator property '{property_name}' "
-                    f"in variant '{variant_schema.name}' has no enum values. Skipping variant."
+                    f"in variant '{variant_schema.name}' has no enum values (inline or referenced). Skipping variant."
                 )
                 continue
 
             # Collect enum values
-            for value in disc_property.enum:
+            for value in resolved_enum_values:
                 member_name = self._generate_member_name(value)
                 enum_values.append((member_name, value))
 
             # Track variant enum name for skipping
-            if hasattr(disc_property, "name") and disc_property.name:
-                variant_enum_names.add(disc_property.name)
+            if resolved_enum_name:
+                variant_enum_names.add(resolved_enum_name)
 
         if not enum_values:
             logger.debug(

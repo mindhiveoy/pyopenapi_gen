@@ -1147,3 +1147,171 @@ class TestGenerateMemberName:
 
         # Assert
         assert result == "42"
+
+    def test_collect_unified_enums__property_references_enum_schema__resolves_enum_values(self) -> None:
+        """
+        Scenario:
+            Discriminator property is a reference to an enum schema via _refers_to_schema
+            instead of having inline enum values. This simulates the real-world case where
+            a discriminator property uses $ref to reference a separate enum schema like:
+                WorkflowConnectorNode.type -> $ref: '#/components/schemas/ConnectorToolConfigTypeEnum'
+
+        Expected Outcome:
+            The collector should follow the _refers_to_schema link and collect enum values
+            from the referenced schema, including them in the unified enum.
+        """
+        # Arrange: Create separate enum schemas
+        connector_enum = IRSchema(name="ConnectorToolConfigTypeEnum", type="string", enum=["connector"])
+        agent_enum = IRSchema(name="AgentToolConfigTypeEnum", type="string", enum=["agent"])
+
+        # Create variant nodes with properties that reference the enum schemas
+        # (not inline enums, but references via _refers_to_schema)
+        connector_node = IRSchema(
+            name="WorkflowConnectorNode",
+            type="object",
+            properties={
+                "type": IRSchema(
+                    name="ConnectorToolConfigTypeEnum",
+                    type="string",
+                    # Note: enum is None because this is a reference
+                    enum=None,
+                    # _refers_to_schema points to the actual enum
+                    _refers_to_schema=connector_enum,
+                )
+            },
+        )
+        agent_node = IRSchema(
+            name="WorkflowAgentNode",
+            type="object",
+            properties={
+                "type": IRSchema(
+                    name="AgentToolConfigTypeEnum",
+                    type="string",
+                    enum=None,
+                    _refers_to_schema=agent_enum,
+                )
+            },
+        )
+
+        # Create discriminated union
+        workflow_node_union = IRSchema(
+            name="WorkflowNode",
+            type="object",
+            one_of=[connector_node, agent_node],
+            discriminator=IRDiscriminator(property_name="type"),
+        )
+
+        schemas = {
+            "ConnectorToolConfigTypeEnum": connector_enum,
+            "AgentToolConfigTypeEnum": agent_enum,
+            "WorkflowConnectorNode": connector_node,
+            "WorkflowAgentNode": agent_node,
+            "WorkflowNode": workflow_node_union,
+        }
+        collector = DiscriminatorEnumCollector(schemas)
+
+        # Act
+        unified_enums = collector.collect_unified_enums()
+
+        # Assert
+        assert len(unified_enums) == 1
+        assert "WorkflowNodeTypeEnum" in unified_enums
+
+        unified_enum = unified_enums["WorkflowNodeTypeEnum"]
+        assert unified_enum.union_schema_name == "WorkflowNode"
+        assert unified_enum.property_name == "type"
+
+        # Verify all discriminator values are collected (from referenced enums)
+        assert len(unified_enum.values) == 2
+        value_dict = dict(unified_enum.values)
+        assert "CONNECTOR" in value_dict
+        assert value_dict["CONNECTOR"] == "connector"
+        assert "AGENT" in value_dict
+        assert value_dict["AGENT"] == "agent"
+
+        # Verify variant enum names are tracked for skipping
+        assert "ConnectorToolConfigTypeEnum" in unified_enum.variant_enum_names
+        assert "AgentToolConfigTypeEnum" in unified_enum.variant_enum_names
+
+    def test_collect_unified_enums__uses_discriminator_mapping_fallback__when_property_enum_unified(self) -> None:
+        """
+        Scenario:
+            Multiple discriminated unions share the same discriminator value (e.g., "connector").
+            When the first union's discriminator properties get unified, the second union's
+            variants lose access to the original enum values. The collector should use the
+            discriminator mapping as a fallback to get the discriminator value.
+
+            Real-world example:
+            - ToolConfig union has ConnectorToolConfig.type = "connector"
+            - WorkflowNode union has WorkflowConnectorNode.type = "connector"
+            - After ToolConfig is processed, ConnectorToolConfig.type references ToolConfigTypeEnum
+            - When processing WorkflowNode, WorkflowConnectorNode.type has no enum values
+            - The collector should use the discriminator mapping to get "connector"
+
+        Expected Outcome:
+            The collector uses the discriminator mapping to resolve the discriminator value
+            when the property's enum has been unified by another union.
+        """
+        # Arrange: Simulate the state after ToolConfig union has been processed
+        # WorkflowConnectorNode.type now references a unified enum that doesn't exist yet
+        connector_node = IRSchema(
+            name="WorkflowConnectorNode",
+            type="object",
+            properties={
+                "type": IRSchema(
+                    name="ToolConfigTypeEnum",  # This was updated by ToolConfig union processing
+                    type="string",
+                    enum=None,  # Enum values were cleared
+                    _refers_to_schema=None,  # No reference available
+                )
+            },
+        )
+        start_node = IRSchema(
+            name="WorkflowStartNode",
+            type="object",
+            properties={
+                "type": IRSchema(
+                    name="WorkflowStartNodeTypeEnum",
+                    type="string",
+                    enum=["start"],
+                )
+            },
+        )
+
+        # Create discriminated union with mapping
+        workflow_node_union = IRSchema(
+            name="WorkflowNode",
+            type="object",
+            one_of=[connector_node, start_node],
+            discriminator=IRDiscriminator(
+                property_name="type",
+                mapping={
+                    "connector": "#/components/schemas/WorkflowConnectorNode",
+                    "start": "#/components/schemas/WorkflowStartNode",
+                },
+            ),
+        )
+
+        schemas = {
+            "WorkflowConnectorNode": connector_node,
+            "WorkflowStartNode": start_node,
+            "WorkflowNode": workflow_node_union,
+        }
+        collector = DiscriminatorEnumCollector(schemas)
+
+        # Act
+        unified_enums = collector.collect_unified_enums()
+
+        # Assert
+        assert len(unified_enums) == 1
+        assert "WorkflowNodeTypeEnum" in unified_enums
+
+        unified_enum = unified_enums["WorkflowNodeTypeEnum"]
+        assert len(unified_enum.values) == 2
+
+        # Verify "connector" was resolved from the discriminator mapping
+        value_dict = dict(unified_enum.values)
+        assert "CONNECTOR" in value_dict
+        assert value_dict["CONNECTOR"] == "connector"
+        assert "START" in value_dict
+        assert value_dict["START"] == "start"
