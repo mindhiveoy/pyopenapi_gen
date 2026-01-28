@@ -311,6 +311,10 @@ class DiscriminatorEnumCollector:
                 disc_property.name = unified_name
                 # Also update generation_name to match
                 disc_property.generation_name = unified_name
+                # Also update final_module_stem to match the unified enum's module
+                # This ensures imports use the correct module path (e.g., tool_config_type_enum
+                # instead of canvas_document_tool_config_type_enum)
+                disc_property.final_module_stem = NameSanitizer.sanitize_module_name(unified_name)
                 # Clear the enum values since they're now in the unified enum
                 if hasattr(disc_property, "enum"):
                     disc_property.enum = None
