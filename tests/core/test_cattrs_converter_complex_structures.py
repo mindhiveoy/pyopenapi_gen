@@ -70,6 +70,49 @@ def test_structure_from_dict__array_at_root__structures_correctly():
     assert result[2].user_id == 3
 
 
+def test_structure_from_dict__list_type_with_key_transforms__structures_correctly():
+    """
+    Test structuring list[Dataclass] directly with key transforms.
+
+    Scenario:
+        API endpoints that return arrays use TypeAlias patterns like
+        list[TenantCredentialResponse]. structure_from_dict must register
+        key transform hooks for element types within generic containers.
+
+    Expected Outcome:
+        Key transforms are applied to each list element.
+    """
+    json_response = [
+        {"userId": 1, "userName": "Alice", "isActive": True},
+        {"userId": 2, "userName": "Bob", "isActive": False},
+    ]
+
+    result = structure_from_dict(json_response, list[UserSimple])
+
+    assert len(result) == 2
+    assert all(isinstance(user, UserSimple) for user in result)
+    assert result[0].user_id == 1
+    assert result[0].user_name == "Alice"
+    assert result[0].is_active is True
+    assert result[1].user_id == 2
+    assert result[1].user_name == "Bob"
+
+
+def test_structure_from_dict__list_type_empty__returns_empty_list():
+    """
+    Test structuring an empty list with a generic list type.
+
+    Scenario:
+        API returns an empty array for a list endpoint.
+
+    Expected Outcome:
+        Returns an empty list without errors.
+    """
+    result = structure_from_dict([], list[UserSimple])
+
+    assert result == []
+
+
 # ===== Test 2: Deeply Nested Objects (3+ levels) =====
 
 
