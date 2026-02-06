@@ -741,21 +741,22 @@ def _extract_errors(e: BaseException | Exception, path: str = "") -> list[str]:
     return messages
 
 
-def structure_from_dict(data: dict[str, Any], cls: type[T]) -> T:
+def structure_from_dict(data: Any, cls: type[T]) -> T:
     """
-    Structure dict data into dataclass instance with automatic field name transformation.
+    Structure data into a typed instance with automatic field name transformation.
 
     Scenario:
         Convert JSON response (with camelCase keys) into Python dataclass instance
         (with snake_case fields). Works recursively for nested dataclasses.
+        Supports both single objects and generic types like list[T].
 
     Expected Outcome:
-        Properly structured dataclass instance with all field names transformed
+        Properly structured instance with all field names transformed
         automatically, including nested objects and lists.
 
     Args:
-        data: Dictionary data (from JSON)
-        cls: Target dataclass type
+        data: Data from JSON (dict, list, or primitive)
+        cls: Target type (dataclass, list[dataclass], etc.)
 
     Returns:
         Instance of cls
@@ -763,6 +764,10 @@ def structure_from_dict(data: dict[str, Any], cls: type[T]) -> T:
     # Register structure hooks for this dataclass and all nested dataclasses
     if dataclasses.is_dataclass(cls):
         _register_structure_hooks_recursively(cls)
+    else:
+        # Handle generic types like list[T], dict[str, T] — register hooks
+        # for any dataclass types found in the type arguments
+        _register_hooks_for_nested_types(cls, set(), _register_structure_hooks_recursively)
 
     try:
         return converter.structure(data, cls)
@@ -770,10 +775,12 @@ def structure_from_dict(data: dict[str, Any], cls: type[T]) -> T:
         # Extract readable error messages
         error_msgs = _extract_errors(e)
         error_text = "\n".join(f"- {msg}" for msg in error_msgs)
-        raise ValueError(f"Failed to convert data to {cls.__name__}:\n{error_text}") from e
+        type_name = getattr(cls, "__name__", str(cls))
+        raise ValueError(f"Failed to convert data to {type_name}:\n{error_text}") from e
     except Exception as e:
         # Fallback for other errors
-        raise ValueError(f"Failed to convert data to {cls.__name__}: {e}") from e
+        type_name = getattr(cls, "__name__", str(cls))
+        raise ValueError(f"Failed to convert data to {type_name}: {e}") from e
 
 
 def _register_unstructure_hooks_recursively(cls: type[Any], visited: set[type[Any]] | None = None) -> None:
