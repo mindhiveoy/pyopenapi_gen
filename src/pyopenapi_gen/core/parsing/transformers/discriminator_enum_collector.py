@@ -336,7 +336,9 @@ class DiscriminatorEnumCollector:
 
         self.unified_enums[unified_name] = unified_enum
 
-        # Update variant schemas to reference the unified enum
+        # Replace variant discriminator properties with new references to the unified enum.
+        # IMPORTANT: We must NOT mutate the original disc_property object because $ref
+        # resolution shares IRSchema instances — mutating one would corrupt all references.
         for variant in variants:
             variant_schema = self._resolve_variant_schema(variant)
             if not variant_schema or not hasattr(variant_schema, "properties"):
@@ -344,11 +346,8 @@ class DiscriminatorEnumCollector:
 
             disc_property = variant_schema.properties.get(property_name)
             if disc_property:
-                # Track old generation_name so we can remove the schema
                 old_generation_name = disc_property.generation_name
                 if old_generation_name and old_generation_name in self.schemas:
-                    # Remove the property schema from schemas dict
-                    # It was registered during parsing but isn't needed
                     del self.schemas[old_generation_name]
                     variant_enum_names.add(old_generation_name)
                     logger.debug(
@@ -356,17 +355,15 @@ class DiscriminatorEnumCollector:
                         f"from variant '{variant_schema.name}' (will use unified enum '{unified_name}')"
                     )
 
-                # Update the property to reference the unified enum
-                disc_property.name = unified_name
-                # Also update generation_name to match
-                disc_property.generation_name = unified_name
-                # Also update final_module_stem to match the unified enum's module
-                # This ensures imports use the correct module path (e.g., tool_config_type_enum
-                # instead of canvas_document_tool_config_type_enum)
-                disc_property.final_module_stem = NameSanitizer.sanitize_module_name(unified_name)
-                # Clear the enum values since they're now in the unified enum
-                if hasattr(disc_property, "enum"):
-                    disc_property.enum = None
+                new_disc_property = IRSchema(
+                    name=unified_name,
+                    type=disc_property.type,
+                    description=disc_property.description,
+                    is_nullable=disc_property.is_nullable,
+                )
+                new_disc_property.generation_name = unified_name
+                new_disc_property.final_module_stem = NameSanitizer.sanitize_module_name(unified_name)
+                variant_schema.properties[property_name] = new_disc_property
 
         # Update the skip list one more time after removing schemas
         self.variant_enum_skip_list.update(variant_enum_names)

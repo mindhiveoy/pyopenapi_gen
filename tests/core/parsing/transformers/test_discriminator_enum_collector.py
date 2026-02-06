@@ -1315,3 +1315,97 @@ class TestGenerateMemberName:
         assert value_dict["CONNECTOR"] == "connector"
         assert "START" in value_dict
         assert value_dict["START"] == "start"
+
+    def test_collect_unified_enums__shared_ref_enum__does_not_corrupt_unrelated_references(self) -> None:
+        """
+        Regression test for shared IRSchema reference corruption.
+
+        Scenario:
+            An enum IRSchema object is referenced by both a discriminator variant's
+            property AND an unrelated schema's property (simulating $ref resolution
+            returning the same Python object). When the collector creates a unified
+            enum, it must NOT corrupt the unrelated reference.
+
+        Expected Outcome:
+            The unrelated schema's property still points to the original enum,
+            whilst the variant's property is replaced with a new reference to
+            the unified enum.
+        """
+        # Arrange: Create a SHARED enum IRSchema (same object, simulating $ref reuse)
+        shared_enum = IRSchema(
+            name="GoogleAuthVariantMethodEnum",
+            type="string",
+            enum=["google"],
+            generation_name="GoogleAuthVariantMethodEnum",
+            final_module_stem="google_auth_variant_method_enum",
+        )
+
+        # Both variant and unrelated schema reference the SAME object
+        auth_variant = IRSchema(
+            name="GoogleAuthVariant",
+            type="object",
+            properties={
+                "method": shared_enum,  # Same object
+            },
+        )
+        unrelated_schema = IRSchema(
+            name="GoogleTenantCredentialMetadata",
+            type="object",
+            properties={
+                "provider": shared_enum,  # Same object — would be corrupted before fix
+            },
+        )
+
+        # Another variant for the union
+        mobile_enum = IRSchema(
+            name="MobileAuthRequestMethodEnum",
+            type="string",
+            enum=["mobile"],
+            generation_name="MobileAuthRequestMethodEnum",
+            final_module_stem="mobile_auth_request_method_enum",
+        )
+        mobile_auth = IRSchema(
+            name="MobileAuthRequest",
+            type="object",
+            properties={
+                "method": mobile_enum,
+            },
+        )
+
+        # Discriminated union
+        auth_union = IRSchema(
+            name="AuthMethod",
+            type="object",
+            one_of=[auth_variant, mobile_auth],
+            discriminator=IRDiscriminator(property_name="method"),
+        )
+
+        schemas = {
+            "GoogleAuthVariantMethodEnum": shared_enum,
+            "MobileAuthRequestMethodEnum": mobile_enum,
+            "GoogleAuthVariant": auth_variant,
+            "MobileAuthRequest": mobile_auth,
+            "AuthMethod": auth_union,
+            "GoogleTenantCredentialMetadata": unrelated_schema,
+        }
+        collector = DiscriminatorEnumCollector(schemas)
+
+        # Act
+        unified_enums = collector.collect_unified_enums()
+
+        # Assert: Unified enum was created
+        assert len(unified_enums) == 1
+        assert "AuthMethodMethodEnum" in unified_enums
+
+        # Assert: Variant property was REPLACED with new reference to unified enum
+        variant_prop = auth_variant.properties["method"]
+        assert variant_prop.generation_name == "AuthMethodMethodEnum"
+        assert variant_prop is not shared_enum  # Must be a NEW object
+
+        # Assert: Unrelated schema's property is UNCHANGED (the critical check)
+        unrelated_prop = unrelated_schema.properties["provider"]
+        assert unrelated_prop is shared_enum  # Must still be the SAME original object
+        assert unrelated_prop.name == "GoogleAuthVariantMethodEnum"
+        assert unrelated_prop.generation_name == "GoogleAuthVariantMethodEnum"
+        assert unrelated_prop.final_module_stem == "google_auth_variant_method_enum"
+        assert unrelated_prop.enum == ["google"]
