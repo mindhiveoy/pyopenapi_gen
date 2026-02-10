@@ -120,17 +120,18 @@ print(f"Generated {len(files)} files")
 #### Advanced Usage with All Options
 
 ```python
-from pyopenapi_gen import generate_client, GenerationError
+from pyopenapi_gen import generate_client, GenerationError, NamingStrategy
 
 try:
     files = generate_client(
         spec_path="input/openapi.yaml",
         project_root=".",
         output_package="pyapis.my_client",
-        core_package="pyapis.core",  # Optional shared core
-        force=True,                   # Overwrite without diff check
-        no_postprocess=False,         # Run Black + mypy
-        verbose=True                  # Show progress
+        core_package="pyapis.core",              # Optional shared core
+        force=True,                               # Overwrite without diff check
+        no_postprocess=False,                     # Run Black + mypy
+        verbose=True,                             # Show progress
+        naming_strategy=NamingStrategy.CLEAN,     # Strip FastAPI suffixes
     )
 
     # Process generated files
@@ -185,6 +186,7 @@ def generate_client(
     force: bool = False,
     no_postprocess: bool = False,
     verbose: bool = False,
+    naming_strategy: NamingStrategy = NamingStrategy.OPERATION_ID,
 ) -> List[Path]
 ```
 
@@ -197,6 +199,7 @@ def generate_client(
 - `force`: Skip diff check and overwrite existing output
 - `no_postprocess`: Skip Black formatting and mypy type checking
 - `verbose`: Print detailed progress information
+- `naming_strategy`: Strategy for deriving method names (`operationId`, `clean`, or `path`)
 
 **Returns**: List of `Path` objects for all generated files
 
@@ -207,7 +210,7 @@ def generate_client(
 For advanced use cases requiring more control:
 
 ```python
-from pyopenapi_gen import ClientGenerator, GenerationError
+from pyopenapi_gen import ClientGenerator, GenerationError, NamingStrategy
 from pathlib import Path
 
 # Create generator with custom settings
@@ -221,7 +224,8 @@ try:
         output_package="pyapis.my_client",
         core_package="pyapis.core",
         force=False,
-        no_postprocess=False
+        no_postprocess=False,
+        naming_strategy=NamingStrategy.CLEAN,
     )
 except GenerationError as e:
     print(f"Generation failed: {e}")
@@ -272,6 +276,26 @@ pyopenapi-gen openapi.yaml \
 ```
 
 Multiple clients share a single core implementation.
+
+### Naming Strategies
+
+Control how Python method names are derived from OpenAPI operations:
+
+```bash
+# Default: use operationId from the spec as-is
+pyopenapi-gen openapi.yaml --project-root . --output-package myapp \
+  --naming-strategy operationId
+
+# Clean: strip auto-generated suffixes from frameworks like FastAPI
+# e.g. "create_details_details_post" → "create_details"
+pyopenapi-gen openapi.yaml --project-root . --output-package myapp \
+  --naming-strategy clean
+
+# Path: ignore operationId, derive names from HTTP method + path
+# e.g. POST /users → "post_users"
+pyopenapi-gen openapi.yaml --project-root . --output-package myapp \
+  --naming-strategy path
+```
 
 ### Additional Options
 

@@ -44,6 +44,7 @@ make test-fast      # Stop on first failure
 ```bash
 pyopenapi-gen input/openapi.yaml --project-root . --output-package pyapis.my_client
 pyopenapi-gen api.yaml --project-root . --output-package pyapis.client --core-package pyapis.core
+pyopenapi-gen api.yaml --project-root . --output-package pyapis.client --naming-strategy clean
 ```
 
 ## References

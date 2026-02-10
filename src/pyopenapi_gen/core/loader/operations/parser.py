@@ -16,6 +16,7 @@ from pyopenapi_gen.core.loader.parameters import parse_parameter, resolve_parame
 from pyopenapi_gen.core.loader.responses import parse_response
 from pyopenapi_gen.core.parsing.context import ParsingContext
 from pyopenapi_gen.core.utils import NameSanitizer
+from pyopenapi_gen.ir import NamingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ def parse_operations(
     raw_responses: Mapping[str, Any],
     raw_request_bodies: Mapping[str, Any],
     context: ParsingContext,
+    naming_strategy: NamingStrategy = NamingStrategy.OPERATION_ID,
 ) -> List[IROperation]:
     """Iterate paths to build IROperation list.
 
@@ -33,10 +35,12 @@ def parse_operations(
         Preconditions:
             - paths is a valid paths object from OpenAPI spec
             - raw_parameters, raw_responses, raw_request_bodies are component mappings
-            - context is properly initialized with schemas
+            - context is properly initialised with schemas
+            - naming_strategy is a valid NamingStrategy enum value
         Postconditions:
             - Returns a list of IROperation objects
             - All operations have correct path, method, parameters, responses, etc.
+            - Operation IDs follow the specified naming strategy
             - All referenced schemas are properly stored in context
     """
     if not isinstance(paths, Mapping):
@@ -75,9 +79,14 @@ def parse_operations(
 
                 node_op = cast(Mapping[str, Any], on)
 
-                # Get operation_id for this specific operation
-                if "operationId" in node_op:
-                    operation_id = node_op["operationId"]
+                # Derive operation_id according to the selected naming strategy
+                if naming_strategy == NamingStrategy.PATH:
+                    operation_id = NameSanitizer.sanitize_method_name(f"{mu}_{path}".strip("/"))
+                elif "operationId" in node_op:
+                    if naming_strategy == NamingStrategy.CLEAN:
+                        operation_id = NameSanitizer.clean_auto_generated_operation_id(node_op["operationId"], mu, path)
+                    else:
+                        operation_id = node_op["operationId"]
                 else:
                     operation_id = NameSanitizer.sanitize_method_name(f"{mu}_{path}".strip("/"))
 
