@@ -24,6 +24,7 @@ The main entry point for spec transformation:
 
 ```python
 from pyopenapi_gen.core.loader.loader import SpecLoader
+from pyopenapi_gen.ir import NamingStrategy
 
 # Initialise with a validated spec dictionary
 loader = SpecLoader(spec)
@@ -31,8 +32,8 @@ loader = SpecLoader(spec)
 # Validate (optional, returns warnings)
 warnings = loader.validate()
 
-# Transform to IR
-ir_spec: IRSpec = loader.load_ir()
+# Transform to IR (optionally pass a naming strategy)
+ir_spec: IRSpec = loader.load_ir(naming_strategy=NamingStrategy.OPERATION_ID)
 ```
 
 **Initialisation** extracts and stores:
@@ -53,9 +54,13 @@ ir_spec: IRSpec = loader.load_ir()
 
 ```python
 from pyopenapi_gen.core.loader.loader import load_ir_from_spec
+from pyopenapi_gen.ir import NamingStrategy
 
 # Quick transformation without manual SpecLoader setup
 ir_spec = load_ir_from_spec(spec_dict)
+
+# With a naming strategy to control method name derivation
+ir_spec = load_ir_from_spec(spec_dict, naming_strategy=NamingStrategy.CLEAN)
 ```
 
 ### Sub-modules

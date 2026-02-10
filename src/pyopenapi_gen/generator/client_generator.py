@@ -23,6 +23,7 @@ from pyopenapi_gen.emitters.exceptions_emitter import ExceptionsEmitter
 from pyopenapi_gen.emitters.mocks_emitter import MocksEmitter
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 from pyopenapi_gen.generator.exceptions import GenerationError
+from pyopenapi_gen.ir import NamingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -90,21 +91,18 @@ class ClientGenerator:
         force: bool = False,
         no_postprocess: bool = False,
         core_package: str | None = None,
+        naming_strategy: NamingStrategy = NamingStrategy.OPERATION_ID,
     ) -> List[Path]:
-        """
-        Generate the client code from the OpenAPI spec.
+        """Generate the client code from the OpenAPI spec.
 
         Args:
-            spec_path (str): Path or URL to the OpenAPI spec file.
-            project_root (Path): Path to the root of the Python project (absolute or relative).
-            output_package (str): Python package path for the generated client (e.g., 'pyapis.my_api_client').
-            force (bool): Overwrite output without diff check.
-            name (str | None): Custom client package name (not used).
-            docs (bool): Kept for interface compatibility.
-            telemetry (bool): Kept for interface compatibility.
-            auth (str | None): Kept for interface compatibility.
-            no_postprocess (bool): Skip post-processing (type checking, etc.).
-            core_package (str): Python package path for the core package.
+            spec_path: Path or URL to the OpenAPI spec file.
+            project_root: Root of the Python project (absolute or relative).
+            output_package: Python package path for the generated client.
+            force: Overwrite output without diff check.
+            no_postprocess: Skip post-processing (type checking, etc.).
+            core_package: Python package path for the core package.
+            naming_strategy: Strategy for deriving method names from operations.
 
         Raises:
             GenerationError: If generation fails or diffs are found (when not forcing overwrite).
@@ -119,7 +117,7 @@ class ClientGenerator:
 
         # Stage 2: Parse to IR
         self._log_progress(f"Parsing specification into intermediate representation", "PARSE_IR")
-        ir = load_ir_from_spec(spec_dict)
+        ir = load_ir_from_spec(spec_dict, naming_strategy=naming_strategy)
 
         # Log stats about the IR
         schema_count = len(ir.schemas) if ir.schemas else 0

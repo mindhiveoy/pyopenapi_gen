@@ -252,6 +252,129 @@ def test_sanitize_method_name__various_cases__returns_valid_python_identifier() 
     assert NameSanitizer.sanitize_method_name("users/{userId}/profile") == "users_user_id_profile"
 
 
+# --- clean_auto_generated_operation_id tests ---
+
+
+def test_clean_auto_generated_operation_id__fastapi_simple_path__strips_suffix() -> None:
+    """FastAPI-style operationId with a simple path is cleaned to just the function name."""
+    assert NameSanitizer.clean_auto_generated_operation_id("create_details_details_post", "POST", "/details") == (
+        "create_details"
+    )
+
+
+def test_clean_auto_generated_operation_id__fastapi_nested_path__strips_suffix() -> None:
+    """FastAPI-style operationId with nested path parameters is cleaned correctly."""
+    assert (
+        NameSanitizer.clean_auto_generated_operation_id(
+            "get_user_profile_users_user_id_profile_get", "GET", "/users/{user_id}/profile"
+        )
+        == "get_user_profile"
+    )
+
+
+def test_clean_auto_generated_operation_id__fastapi_versioned_path__strips_suffix() -> None:
+    """FastAPI-style operationId with versioned API path is cleaned correctly."""
+    assert (
+        NameSanitizer.clean_auto_generated_operation_id("list_items_api_v1_items_get", "GET", "/api/v1/items")
+        == "list_items"
+    )
+
+
+def test_clean_auto_generated_operation_id__fastapi_delete__strips_suffix() -> None:
+    """FastAPI-style DELETE operationId is cleaned correctly."""
+    assert (
+        NameSanitizer.clean_auto_generated_operation_id("delete_details_details_delete", "DELETE", "/details")
+        == "delete_details"
+    )
+
+
+def test_clean_auto_generated_operation_id__fastapi_put_nested__strips_suffix() -> None:
+    """FastAPI-style PUT with nested path parameters is cleaned correctly."""
+    assert (
+        NameSanitizer.clean_auto_generated_operation_id(
+            "update_settings_tenants_tenant_id_settings_put", "PUT", "/tenants/{tenant_id}/settings"
+        )
+        == "update_settings"
+    )
+
+
+def test_clean_auto_generated_operation_id__clean_no_suffix__returns_unchanged() -> None:
+    """An operationId without the method suffix is returned unchanged."""
+    assert NameSanitizer.clean_auto_generated_operation_id("createUser", "POST", "/users") == "createUser"
+
+
+def test_clean_auto_generated_operation_id__camel_case_no_suffix__returns_unchanged() -> None:
+    """A camelCase operationId without method suffix is returned unchanged."""
+    assert NameSanitizer.clean_auto_generated_operation_id("listPets", "GET", "/pets") == "listPets"
+
+
+def test_clean_auto_generated_operation_id__path_mismatch__returns_unchanged() -> None:
+    """An operationId with method suffix but non-matching path is returned unchanged."""
+    assert NameSanitizer.clean_auto_generated_operation_id("create_blog_post", "POST", "/articles") == (
+        "create_blog_post"
+    )
+
+
+def test_clean_auto_generated_operation_id__root_path__returns_unchanged() -> None:
+    """Root path '/' produces empty normalised path, so operationId is returned unchanged."""
+    assert NameSanitizer.clean_auto_generated_operation_id("root_get", "GET", "/") == "root_get"
+
+
+def test_clean_auto_generated_operation_id__just_method_name__returns_unchanged() -> None:
+    """An operationId that is just the method name (no suffix pattern) is returned unchanged."""
+    assert NameSanitizer.clean_auto_generated_operation_id("get", "GET", "/") == "get"
+
+
+def test_clean_auto_generated_operation_id__path_only_parameter__strips_suffix() -> None:
+    """Path with only a parameter segment is handled correctly."""
+    assert NameSanitizer.clean_auto_generated_operation_id("get_item_item_id_get", "GET", "/{item_id}") == "get_item"
+
+
+def test_clean_auto_generated_operation_id__case_insensitive_method_lower__strips_suffix() -> None:
+    """Method matching is case-insensitive (lowercase input)."""
+    assert NameSanitizer.clean_auto_generated_operation_id("create_details_details_post", "post", "/details") == (
+        "create_details"
+    )
+
+
+def test_clean_auto_generated_operation_id__case_insensitive_method_mixed__strips_suffix() -> None:
+    """Method matching is case-insensitive (mixed case input)."""
+    assert NameSanitizer.clean_auto_generated_operation_id("create_details_details_post", "Post", "/details") == (
+        "create_details"
+    )
+
+
+def test_clean_auto_generated_operation_id__path_with_hyphens__strips_suffix() -> None:
+    """Hyphens in path segments are normalised to underscores (matching FastAPI behaviour)."""
+    assert (
+        NameSanitizer.clean_auto_generated_operation_id("list_users_api_v2_users_get", "GET", "/api-v2/users")
+        == "list_users"
+    )
+
+
+def test_clean_auto_generated_operation_id__path_with_dots__strips_suffix() -> None:
+    """Dots in path segments are normalised to underscores (matching FastAPI behaviour)."""
+    assert (
+        NameSanitizer.clean_auto_generated_operation_id("get_config_api_v1_0_config_get", "GET", "/api/v1.0/config")
+        == "get_config"
+    )
+
+
+def test_clean_auto_generated_operation_id__multiple_path_parameters__strips_suffix() -> None:
+    """Multiple path parameters are handled correctly."""
+    assert (
+        NameSanitizer.clean_auto_generated_operation_id(
+            "get_user_role_org_id_users_user_id_get", "GET", "/{org_id}/users/{user_id}"
+        )
+        == "get_user_role"
+    )
+
+
+def test_clean_auto_generated_operation_id__empty_prefix__returns_unchanged() -> None:
+    """When stripping both suffixes would yield an empty method name, returns original."""
+    assert NameSanitizer.clean_auto_generated_operation_id("details_post", "POST", "/details") == "details_post"
+
+
 def test_sanitize_tag_class_name__various_inputs__pascal_case_client_result() -> None:
     """
     Scenario:

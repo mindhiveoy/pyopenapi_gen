@@ -30,6 +30,7 @@ from .ir import (
     IRResponse,
     IRSchema,
     IRSpec,
+    NamingStrategy,
 )
 
 __all__ = [
@@ -46,6 +47,7 @@ __all__ = [
     "IRSchema",
     "IRSpec",
     "IRRequestBody",
+    "NamingStrategy",
     # Utilities
     "load_ir_from_spec",
     "WarningCollector",
@@ -106,6 +108,7 @@ def generate_client(
     force: bool = False,
     no_postprocess: bool = False,
     verbose: bool = False,
+    naming_strategy: NamingStrategy = NamingStrategy.OPERATION_ID,
 ) -> List[Path]:
     """Generate a Python client from an OpenAPI specification.
 
@@ -141,6 +144,12 @@ def generate_client(
                        development.
 
         verbose: If True, prints detailed progress information during generation.
+
+        naming_strategy: Strategy for deriving Python method names from OpenAPI
+                        operations. 'operationId' (default) uses the spec's
+                        operationId field. 'clean' strips auto-generated suffixes
+                        from frameworks like FastAPI. 'path' ignores operationId
+                        and derives names from the HTTP method and path.
 
     Returns:
         List of Path objects for all generated files.
@@ -223,4 +232,5 @@ def generate_client(
         core_package=core_package,
         force=force,
         no_postprocess=no_postprocess,
+        naming_strategy=naming_strategy,
     )

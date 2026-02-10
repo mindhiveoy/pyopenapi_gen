@@ -28,6 +28,7 @@ from pyopenapi_gen.core.parsing.transformers.discriminator_enum_collector import
     DiscriminatorEnumCollector,
     UnifiedDiscriminatorEnum,
 )
+from pyopenapi_gen.ir import NamingStrategy
 
 __all__ = ["SpecLoader", "load_ir_from_spec"]
 
@@ -150,7 +151,7 @@ class SpecLoader:
 
         return schema
 
-    def load_ir(self) -> IRSpec:
+    def load_ir(self, naming_strategy: NamingStrategy = NamingStrategy.OPERATION_ID) -> IRSpec:
         """Transform the spec into an IRSpec object.
 
         Contracts:
@@ -158,6 +159,7 @@ class SpecLoader:
                 - Returns a fully populated IRSpec object
                 - All schemas are properly processed and named
                 - All operations are properly parsed and linked to schemas
+                - Operation IDs follow the specified naming strategy
         """
         # First validate the spec
         self.validate()
@@ -172,6 +174,7 @@ class SpecLoader:
             self.raw_responses,
             self.raw_request_bodies,
             context,
+            naming_strategy=naming_strategy,
         )
 
         # Identify discriminator properties BEFORE inline enum extraction
@@ -217,7 +220,10 @@ class SpecLoader:
         return ir_spec
 
 
-def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
+def load_ir_from_spec(
+    spec: Mapping[str, Any],
+    naming_strategy: NamingStrategy = NamingStrategy.OPERATION_ID,
+) -> IRSpec:
     """Orchestrate the transformation of a spec dict into IRSpec.
 
     This is a convenience function that creates a SpecLoader and calls load_ir().
@@ -232,4 +238,4 @@ def load_ir_from_spec(spec: Mapping[str, Any]) -> IRSpec:
         raise ValueError("spec must be a Mapping")
 
     loader = SpecLoader(spec)
-    return loader.load_ir()
+    return loader.load_ir(naming_strategy=naming_strategy)
