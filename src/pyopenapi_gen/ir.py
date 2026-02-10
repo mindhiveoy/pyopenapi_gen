@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum, unique
 from typing import Any, List, Union
 
 # Import NameSanitizer at the top for type hints and __post_init__ usage
@@ -12,6 +13,15 @@ from .http_types import HTTPMethod
 # Forward declaration for IRSchema itself if needed for self-references in type hints
 # class IRSchema:
 #     pass
+
+
+@unique
+class NamingStrategy(str, Enum):
+    """Strategy for deriving Python method names from OpenAPI operations."""
+
+    OPERATION_ID = "operationId"
+    CLEAN = "clean"
+    PATH = "path"
 
 
 @dataclass

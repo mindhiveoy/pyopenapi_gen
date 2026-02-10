@@ -215,6 +215,48 @@ class NameSanitizer:
         return name
 
     @staticmethod
+    def clean_auto_generated_operation_id(operation_id: str, http_method: str, path: str) -> str:
+        """Strip FastAPI auto-generated suffixes from an operationId.
+
+        FastAPI generates operationIds like ``create_details_details_post``
+        from handler ``create_details`` at ``POST /details``. This method
+        detects that pattern and returns just ``create_details``.
+
+        If the pattern is not detected the original *operation_id* is
+        returned unchanged.
+        """
+        method_lower = http_method.lower()
+        method_suffix = f"_{method_lower}"
+
+        # 1. operationId must end with _{method}
+        if not operation_id.lower().endswith(method_suffix):
+            return operation_id
+
+        # 2. Strip the method suffix (preserve original casing of the prefix)
+        without_method = operation_id[: -len(method_suffix)]
+
+        # 3. Normalise path to the FastAPI segment format.
+        #    FastAPI replaces all non-word characters (\W) with underscores,
+        #    so we must do the same to match paths with hyphens, dots, etc.
+        normalized_path = path.strip("/")
+        normalized_path = re.sub(r"[{}]", "", normalized_path)
+        normalized_path = re.sub(r"[^0-9a-zA-Z_]", "_", normalized_path)
+        normalized_path = re.sub(r"_+", "_", normalized_path).strip("_").lower()
+
+        # 4. Check for _{normalized_path} suffix
+        if not normalized_path:
+            return operation_id
+
+        path_suffix = f"_{normalized_path}"
+        if without_method.lower().endswith(path_suffix):
+            prefix = without_method[: -len(path_suffix)]
+            # 5. Guard against empty result
+            if prefix:
+                return prefix
+
+        return operation_id
+
+    @staticmethod
     def is_valid_python_identifier(name: str) -> bool:
         """Check if a string is a valid Python identifier."""
         if not isinstance(name, str) or not name:

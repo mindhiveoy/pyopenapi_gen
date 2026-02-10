@@ -4,6 +4,7 @@ import typer
 
 from .core.spec_fetcher import is_url
 from .generator.client_generator import ClientGenerator, GenerationError
+from .ir import NamingStrategy
 
 
 def main(
@@ -29,6 +30,16 @@ def main(
             "If not set, defaults to <output-package>.core."
         ),
     ),
+    naming_strategy: NamingStrategy = typer.Option(
+        NamingStrategy.OPERATION_ID,
+        "--naming-strategy",
+        help=(
+            "Strategy for deriving method names from operations. "
+            "'operationId' (default) uses the spec's operationId field. "
+            "'clean' strips auto-generated suffixes from frameworks like FastAPI. "
+            "'path' ignores operationId and derives names from the HTTP method and path."
+        ),
+    ),
 ) -> None:
     """
     Generate a Python OpenAPI client from a spec file or URL.
@@ -47,6 +58,7 @@ def main(
             force=force,
             no_postprocess=no_postprocess,
             core_package=core_package,
+            naming_strategy=naming_strategy,
         )
         typer.echo("Client generation complete.")
     except GenerationError as e:
