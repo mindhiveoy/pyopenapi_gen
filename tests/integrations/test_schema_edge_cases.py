@@ -9,7 +9,9 @@ Issues covered:
 - Bug #2: Array items with only nullable: true and no type
 """
 
+import ast
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -448,3 +450,173 @@ class TestBooleanEnumHandling:
         )
 
         assert mypy_result.returncode == 0, f"mypy errors:\n{mypy_result.stdout}\n{mypy_result.stderr}"
+
+
+class TestInlineSingleValueStringEnum:
+    """
+    Regression tests for inline single-value string enums.
+
+    When an OpenAPI schema has an inline property with { type: "string", enum: ["object"] },
+    pyopenapi-gen must either:
+    A) Treat it as plain `str` and NOT create a separate file, or
+    B) Create a proper enum/TypeAlias file with valid content.
+
+    The bug: empty model files are generated (only whitespace) and consuming models
+    import from these empty files, causing ImportError at runtime.
+    """
+
+    @pytest.fixture
+    def spec_with_inline_single_value_enums(self) -> dict:
+        """Create a spec with inline single-value string enums in multiple schemas."""
+        return {
+            "openapi": "3.1.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "components": {
+                "schemas": {
+                    "ToolParameters": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["object"],
+                                "description": 'Must be "object" for function parameters',
+                            },
+                            "properties": {"type": "object"},
+                        },
+                        "required": ["type", "properties"],
+                    },
+                    "FunctionDefinition": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["function"],
+                                "description": 'Must be "function"',
+                            },
+                            "name": {"type": "string"},
+                        },
+                        "required": ["type", "name"],
+                    },
+                    "GoogleCredential": {
+                        "type": "object",
+                        "properties": {
+                            "provider": {
+                                "type": "string",
+                                "enum": ["google"],
+                                "description": "Discriminator literal",
+                            },
+                            "token": {"type": "string"},
+                        },
+                        "required": ["provider", "token"],
+                    },
+                }
+            },
+        }
+
+    @pytest.fixture
+    def generated_models_dir(self, tmp_path: Path, spec_with_inline_single_value_enums: dict) -> Path:
+        """Run the full generation pipeline and return the models directory."""
+        spec_file = tmp_path / "spec.yaml"
+        spec_file.write_text(yaml.safe_dump(spec_with_inline_single_value_enums))
+
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+        core_dir = out_dir / "core"
+        core_dir.mkdir()
+
+        spec_dict = yaml.safe_load(spec_file.read_text())
+        ir = load_ir_from_spec(spec_dict)
+
+        render_context = RenderContext(
+            core_package_name="out.core",
+            package_root_for_generated_code=str(out_dir),
+            overall_project_root=str(tmp_path),
+            parsed_schemas=ir.schemas,
+        )
+
+        exceptions_emitter = ExceptionsEmitter(core_package_name="out.core", overall_project_root=str(tmp_path))
+        _, exception_alias_names = exceptions_emitter.emit(ir, str(core_dir))
+
+        core_emitter = CoreEmitter(core_package="out.core", exception_alias_names=exception_alias_names)
+        core_emitter.emit(str(out_dir))
+
+        models_emitter = ModelsEmitter(context=render_context, parsed_schemas=ir.schemas)
+        models_emitter.emit(ir, str(out_dir))
+
+        models_dir = out_dir / "models"
+        assert models_dir.exists(), "models directory not generated"
+        return models_dir
+
+    def test_inline_single_value_enum__no_empty_model_files(self, generated_models_dir: Path) -> None:
+        """
+        Scenario:
+            - Multiple schemas have inline single-value string enums
+        Expected Outcome:
+            - No generated model file is empty (< 3 bytes)
+            - Every generated .py file in models/ contains valid Python with at least
+              one class, TypeAlias, or import statement
+        """
+        empty_files = []
+        for py_file in generated_models_dir.glob("*.py"):
+            if py_file.name.startswith("__"):
+                continue
+            content = py_file.read_text().strip()
+            if len(content) < 3:
+                empty_files.append(py_file.name)
+
+        assert not empty_files, f"Empty model files generated (the inline single-value enum bug): {empty_files}"
+
+    def test_inline_single_value_enum__all_imports_resolve(self, generated_models_dir: Path) -> None:
+        """
+        Scenario:
+            - Multiple schemas have inline single-value string enums
+        Expected Outcome:
+            - Every `from .module import ClassName` in any model file references
+              a module that actually defines that ClassName
+        """
+        # Collect all defined names per module
+        defined_names: dict[str, set[str]] = {}
+        for py_file in generated_models_dir.glob("*.py"):
+            if py_file.name.startswith("__"):
+                continue
+            content = py_file.read_text()
+            module_stem = py_file.stem
+            names: set[str] = set()
+
+            try:
+                tree = ast.parse(content)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ClassDef):
+                        names.add(node.name)
+                    elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                        names.add(node.target.id)
+                    elif isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name):
+                                names.add(target.id)
+            except SyntaxError:
+                pass
+
+            defined_names[module_stem] = names
+
+        # Check all relative imports resolve
+        broken_imports = []
+        for py_file in generated_models_dir.glob("*.py"):
+            content = py_file.read_text()
+            for match in re.finditer(r"from \.(\w+) import (\w+)", content):
+                module_name, class_name = match.groups()
+                if module_name not in defined_names:
+                    broken_imports.append(
+                        f"{py_file.name}: imports '{class_name}' from '.{module_name}' "
+                        f"but module '{module_name}.py' does not exist or is empty"
+                    )
+                elif class_name not in defined_names[module_name]:
+                    broken_imports.append(
+                        f"{py_file.name}: imports '{class_name}' from '.{module_name}' "
+                        f"but '{class_name}' is not defined in '{module_name}.py'"
+                    )
+
+        assert not broken_imports, f"Broken imports found (the inline single-value enum bug):\n" + "\n".join(
+            f"  - {b}" for b in broken_imports
+        )
