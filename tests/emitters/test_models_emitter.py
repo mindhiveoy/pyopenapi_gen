@@ -709,5 +709,49 @@ def test_models_emitter_optional_union_anyof_nullable(tmp_path: Path) -> None:
     assert "payload: MyOptionalUnion | None = None" in container_content
 
 
+def test_models_emitter__discriminator_skip_enum__generates_type_alias_fallback(tmp_path: Path) -> None:
+    """
+    Scenario:
+        A string enum schema is in the discriminator_skip_list. The ModelVisitor
+        returns empty string for such schemas. The emitter must NOT write an
+        empty file — it must generate a str TypeAlias fallback so that consuming
+        modules importing from this file do not get ImportError.
+
+    Expected Outcome:
+        - The generated file contains a TypeAlias = str definition.
+        - The file is not empty.
+    """
+    schema = IRSchema(
+        name="VariantType",
+        type="string",
+        enum=["typeA", "typeB"],
+        description="Discriminator enum to be skipped",
+    )
+    schemas_dict = {"VariantType": schema}
+    spec = IRSpec(title="T", version="0.1", schemas=schemas_dict, operations=[], servers=[])
+
+    out_dir: Path = tmp_path / "out"
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(out_dir),
+        core_package_name="test_client.core",
+    )
+    emitter = ModelsEmitter(
+        context=render_context,
+        parsed_schemas=schemas_dict,
+        discriminator_skip_list={"VariantType"},
+    )
+    emitter.emit(spec, str(out_dir))
+
+    model_file: Path = out_dir / "models" / "variant_type.py"
+    assert model_file.exists(), "Model file for discriminator-skipped enum not generated"
+
+    content = model_file.read_text()
+    assert content.strip(), "Model file is empty — the TypeAlias fallback guard did not trigger"
+    assert "TypeAlias" in content, "Expected TypeAlias fallback in the generated file"
+    assert "VariantType: TypeAlias = str" in content
+    assert '__all__ = ["VariantType"]' in content
+
+
 if __name__ == "__main__":
     unittest.main()
