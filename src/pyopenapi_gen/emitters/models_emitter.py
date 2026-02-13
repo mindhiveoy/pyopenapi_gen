@@ -92,11 +92,24 @@ class ModelsEmitter:
         visitor = ModelVisitor(
             schemas=self.parsed_schemas, discriminator_skip_list=self.discriminator_skip_list
         )  # Pass all schemas for reference
-        rendered_model_str = visitor.visit(schema_ir, self.context)
-        # schema_ir.name = original_ir_name # Restore if changed
 
+        rendered_model_str = visitor.visit(schema_ir, self.context)
         imports_str = self.context.render_imports()
-        file_content = f"{imports_str}\n\n{rendered_model_str}"
+
+        # Guard: if rendered content is empty, generate a str TypeAlias fallback
+        # so consuming modules that import from this file don't get ImportError.
+        if not rendered_model_str.strip():
+            class_name = schema_ir.generation_name or schema_ir.name or "Unknown"
+            logger.warning(
+                f"Empty model content for schema '{schema_ir.name}' "
+                f"(generation_name='{class_name}'). "
+                f"Generating str TypeAlias to prevent broken imports."
+            )
+            file_content = (
+                f"from typing import TypeAlias\n\n" f'__all__ = ["{class_name}"]\n\n' f"{class_name}: TypeAlias = str\n"
+            )
+        else:
+            file_content = f"{imports_str}\n\n{rendered_model_str}"
 
         try:
             # Ensure parent directory exists with more defensive handling
