@@ -33,59 +33,42 @@ class TestAgentIncludeParameterTyping(unittest.TestCase):
             shutil.rmtree(self.temp_dir)
 
     def test_get_agent_include_parameter_typing(self) -> None:
-        """Test that get_agent method has correct typing for include parameter."""
-        # Generate the client
+        """Test that get_agent method has correct typing for include parameter.
+
+        The get_agent endpoint defines include inline as {"type": "string"}.
+        It must NOT be overridden by the unrelated agentInclude component parameter
+        which shares the same name and location but carries a different enum-array schema.
+        """
         generator = ClientGenerator(verbose=False)
         generator.generate(
             spec_path=str(self.test_spec_path),
             project_root=self.temp_dir,
             output_package="test_client",
             force=True,
-            no_postprocess=True,  # Skip to avoid external dependencies
+            no_postprocess=True,
         )
 
-        # Read the generated agents client file
         agents_module_path = self.temp_dir / "test_client" / "endpoints" / "agents.py"
         self.assertTrue(agents_module_path.exists(), "Agents module should be generated")
 
         with open(agents_module_path, "r") as f:
             agents_code = f.read()
 
-        # Check that get_agent method exists
         self.assertIn("async def get_agent(", agents_code, "get_agent method should be generated")
 
-        # Check that the include parameter has correct typing
-        # The generator correctly creates enum types for inline enums in array parameters
-        # The enum type name is generated based on the parameter name and context
-
-        # Check that include parameter is typed with a List of some enum type
-        # Note: The exact enum name may vary based on the generation strategy
-        import re
-
-        # Pattern to match include parameter with any enum type (using union syntax)
-        include_pattern = r"include: List\[([A-Za-z0-9_]+)\] \| None"
-        match = re.search(include_pattern, agents_code)
-
-        self.assertIsNotNone(
-            match, "include parameter should be typed as List[SomeEnumType] | None but pattern not found"
-        )
-
-        enum_type_name = match.group(1)
-
-        # Check that it's not the incorrect AnonymousArrayItem
-        self.assertNotEqual(
-            enum_type_name, "AnonymousArrayItem", f"include parameter incorrectly typed as List[AnonymousArrayItem]"
-        )
-
-        # Verify that the enum type is properly imported
-        # Convert enum type name to snake_case for import check
-        import re
-
-        snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", enum_type_name).lower()
+        # The inline schema is {"type": "string"}, so include must be plain str | None
         self.assertIn(
-            f"from ..models.{snake_case_name} import",
-            agents_code.lower(),
-            f"Enum type {enum_type_name} should be imported from models.{snake_case_name}",
+            "include: str | None",
+            agents_code,
+            "include param on get_agent should be 'str | None' as defined inline in the spec",
+        )
+
+        # Must NOT be a List of any enum type (that would come from the unrelated agentInclude component)
+        import re
+
+        self.assertIsNone(
+            re.search(r"include: List\[", agents_code),
+            "include param on get_agent must not be a List type; the inline spec says string",
         )
 
     def test_agent_include_parameter_values_from_spec(self) -> None:
