@@ -201,6 +201,94 @@ def test_business_swagger_inline_enum_parameters():
             sys.path.remove(str(temp_path))
 
 
+def test_inline_string_param_not_overridden_by_unrelated_component_param():
+    """
+    Scenario:
+        A spec has two endpoints:
+        - /connectors/{id}: inline `include` as plain `{"type": "string"}`
+        - components/parameters: `tenantInclude` with `name=include, in=query` and an enum array
+
+    Expected Outcome:
+        The connector `include` parameter keeps `type: string` and is NOT turned into
+        an enum array sourced from the unrelated tenantInclude component.
+    """
+    spec = {
+        "openapi": "3.0.0",
+        "info": {"title": "Test API", "version": "1.0.0"},
+        "components": {
+            "parameters": {
+                "tenantInclude": {
+                    "name": "include",
+                    "in": "query",
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["users", "agents", "dataSources"],
+                        },
+                    },
+                }
+            }
+        },
+        "paths": {
+            "/connectors/{connectorId}": {
+                "get": {
+                    "operationId": "getConnector",
+                    "parameters": [
+                        {"name": "connectorId", "in": "path", "required": True, "schema": {"type": "string"}},
+                        {
+                            "name": "include",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "string"}}}
+                                }
+                            },
+                        }
+                    },
+                }
+            }
+        },
+    }
+
+    import json
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        temp_path = Path(tmpdir)
+        spec_file = temp_path / "spec.json"
+        spec_file.write_text(json.dumps(spec))
+
+        generator = ClientGenerator(verbose=False)
+        generator.generate(
+            spec_path=str(spec_file),
+            project_root=temp_path,
+            output_package="test_client",
+            force=True,
+            no_postprocess=True,
+        )
+
+        endpoint_file = temp_path / "test_client" / "endpoints" / "default.py"
+        assert endpoint_file.exists(), "Endpoint file should be generated"
+        endpoint_content = endpoint_file.read_text()
+
+        assert "include: str | None" in endpoint_content, (
+            f"include param should be 'str | None', not an enum. " f"Found in endpoint:\n{endpoint_content}"
+        )
+
+        models_dir = temp_path / "test_client" / "models"
+        connector_include_enum = models_dir / "get_connector_param_include_item.py"
+        assert (
+            not connector_include_enum.exists()
+        ), "No enum model file should be generated for a plain-string inline parameter"
+
+
 if __name__ == "__main__":
     test_inline_enum_array_parameter_generation()
     test_business_swagger_inline_enum_parameters()
