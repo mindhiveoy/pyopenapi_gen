@@ -126,7 +126,7 @@ def test_shared_core__init_structure__matches_expected_format() -> None:
         content = init_file.read_text()
 
         # Verify structure
-        lines = content.split("\\n")
+        lines = content.split("\n")
 
         # Find imports section
         import_lines = [line for line in lines if line.startswith("from myapi.core")]
@@ -134,7 +134,7 @@ def test_shared_core__init_structure__matches_expected_format() -> None:
         assert not any("schemas" in line for line in import_lines), "Should NOT have schemas import"
 
         # Find __all__ section
-        all_section = "\\n".join(lines[lines.index("__all__ = [") :])
+        all_section = "\n".join(lines[lines.index("__all__ = [") :])
         assert "structure_from_dict" in all_section, "__all__ should contain structure_from_dict"
         assert "unstructure_to_dict" in all_section, "__all__ should contain unstructure_to_dict"
         assert "converter" in all_section, "__all__ should contain converter"

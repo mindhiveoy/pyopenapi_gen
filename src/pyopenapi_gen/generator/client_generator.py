@@ -502,7 +502,7 @@ class ClientGenerator:
                 # For simplicity here, just write directly.
                 try:
                     with open(client_init_py_path, "w") as f:
-                        f.write("\\n".join(init_content_lines))
+                        f.write("\n".join(init_content_lines))
                     generated_files.append(client_init_py_path)  # Track this generated file
                     self._log_progress(f"Successfully wrote rich __init__.py to {client_init_py_path}", "CLIENT_INIT")
                 except IOError as e:
