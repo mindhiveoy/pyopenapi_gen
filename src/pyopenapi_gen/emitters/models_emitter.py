@@ -106,10 +106,13 @@ class ModelsEmitter:
                 f"Generating str TypeAlias to prevent broken imports."
             )
             file_content = (
-                f"from typing import TypeAlias\n\n" f'__all__ = ["{class_name}"]\n\n' f"{class_name}: TypeAlias = str\n"
+                f"from __future__ import annotations\n\n"
+                f"from typing import TypeAlias\n\n"
+                f'__all__ = ["{class_name}"]\n\n'
+                f"{class_name}: TypeAlias = str\n"
             )
         else:
-            file_content = f"{imports_str}\n\n{rendered_model_str}"
+            file_content = f"from __future__ import annotations\n\n{imports_str}\n\n{rendered_model_str}"
 
         try:
             # Ensure parent directory exists with more defensive handling
