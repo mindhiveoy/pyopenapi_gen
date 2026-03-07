@@ -10,6 +10,7 @@ for these constructs.
 from typing import List, Tuple
 
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
 
 from .code_writer import CodeWriter
 from .documentation_writer import DocumentationBlock, DocumentationWriter
@@ -106,7 +107,7 @@ class PythonConstructRenderer:
                 writer.write_line("    # Mapping stored as tuple for frozen dataclass compatibility")
                 writer.write_line("    _mapping_data: tuple[tuple[str, str], ...] = (")
                 for disc_value, schema_ref in discriminator.mapping.items():
-                    schema_name = schema_ref.split("/")[-1]
+                    schema_name = NameSanitizer.sanitize_class_name(schema_ref.split("/")[-1])
                     writer.write_line(f'        ("{disc_value}", "{schema_name}"),')
                 writer.write_line("    )")
                 writer.write_line("")
@@ -114,12 +115,12 @@ class PythonConstructRenderer:
                 writer.write_line('        """Get discriminator mapping with actual type references."""')
                 # Import types locally
                 for disc_value, schema_ref in discriminator.mapping.items():
-                    schema_name = schema_ref.split("/")[-1]
+                    schema_name = NameSanitizer.sanitize_class_name(schema_ref.split("/")[-1])
                     module_name = self._to_module_name(schema_name)
                     writer.write_line(f"        from .{module_name} import {schema_name}")
                 writer.write_line("        return {")
                 for disc_value, schema_ref in discriminator.mapping.items():
-                    schema_name = schema_ref.split("/")[-1]
+                    schema_name = NameSanitizer.sanitize_class_name(schema_ref.split("/")[-1])
                     writer.write_line(f'            "{disc_value}": {schema_name},')
                 writer.write_line("        }")
             else:
