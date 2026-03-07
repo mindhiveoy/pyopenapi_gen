@@ -10,6 +10,7 @@ for field mapping configuration when needed.
 
 from pyopenapi_gen.context.render_context import RenderContext
 from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstructRenderer
+from pyopenapi_gen.ir import IRDiscriminator
 
 
 class TestPythonConstructRendererBaseSchema:
@@ -203,3 +204,90 @@ class TestPythonConstructRendererBaseSchema:
         assert "class User:" in result
         assert "class Meta:" in result
         assert '"userId": "user_id",' in result
+
+
+class TestPythonConstructRendererDiscriminator:
+    """Test PythonConstructRenderer discriminator rendering uses sanitized class names."""
+
+    def test_render_alias__discriminator_with_acronym_schema_name__uses_sanitized_class_name(self) -> None:
+        """
+        Scenario: Render a union alias with a discriminator whose mapping references a schema
+        name containing an uppercase acronym (e.g. WorkflowPromptAINode).
+
+        Expected Outcome: The generated discriminator metadata and get_mapping() import both
+        use the sanitized Python class name WorkflowPromptAiNode, never the raw OpenAPI name.
+        """
+        # Arrange
+        renderer = PythonConstructRenderer()
+        context = RenderContext()
+        discriminator = IRDiscriminator(
+            property_name="type",
+            mapping={"promptAI": "#/components/schemas/WorkflowPromptAINode"},
+        )
+
+        # Act
+        result = renderer.render_alias(
+            alias_name="WorkflowNode",
+            target_type="Union[WorkflowPromptAiNode]",
+            description=None,
+            context=context,
+            discriminator=discriminator,
+        )
+
+        # Assert - sanitized name must be used everywhere, raw name must not appear
+        assert "WorkflowPromptAiNode" in result
+        assert "WorkflowPromptAINode" not in result
+
+    def test_render_alias__discriminator_mapping_data__uses_sanitized_class_name(self) -> None:
+        """
+        Scenario: The _mapping_data tuple in the generated discriminator class should
+        store the sanitized Python class name, not the raw OpenAPI schema name.
+
+        Expected Outcome: _mapping_data contains WorkflowPromptAiNode, not WorkflowPromptAINode.
+        """
+        # Arrange
+        renderer = PythonConstructRenderer()
+        context = RenderContext()
+        discriminator = IRDiscriminator(
+            property_name="type",
+            mapping={"promptAI": "#/components/schemas/WorkflowPromptAINode"},
+        )
+
+        # Act
+        result = renderer.render_alias(
+            alias_name="WorkflowNode",
+            target_type="Union[WorkflowPromptAiNode]",
+            description=None,
+            context=context,
+            discriminator=discriminator,
+        )
+
+        # Assert
+        assert '("promptAI", "WorkflowPromptAiNode")' in result
+
+    def test_render_alias__discriminator_get_mapping_import__uses_sanitized_class_name(self) -> None:
+        """
+        Scenario: The get_mapping() method should import the sanitized class name so
+        the import resolves against the actual generated module.
+
+        Expected Outcome: import statement uses WorkflowPromptAiNode.
+        """
+        # Arrange
+        renderer = PythonConstructRenderer()
+        context = RenderContext()
+        discriminator = IRDiscriminator(
+            property_name="type",
+            mapping={"promptAI": "#/components/schemas/WorkflowPromptAINode"},
+        )
+
+        # Act
+        result = renderer.render_alias(
+            alias_name="WorkflowNode",
+            target_type="Union[WorkflowPromptAiNode]",
+            description=None,
+            context=context,
+            discriminator=discriminator,
+        )
+
+        # Assert
+        assert "from .workflow_prompt_ai_node import WorkflowPromptAiNode" in result
