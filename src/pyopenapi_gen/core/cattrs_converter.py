@@ -23,7 +23,7 @@ from typing import Any, Callable, TypeVar, Union, get_args, get_origin, get_type
 
 import cattrs
 from cattrs.errors import BaseValidationError, ClassValidationError, IterableValidationError
-from cattrs.gen import make_dict_unstructure_fn, override
+from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
 T = TypeVar("T")
 
@@ -112,91 +112,38 @@ def _make_dataclass_structure_fn(cls: type[T]) -> Any:
 
     Scenario:
         Generate a structure function that automatically converts JSON keys
-        (camelCase) to Python dataclass field names (snake_case), while
-        preserving Annotated[...] metadata on nested field types so that
-        discriminated union hooks remain active.
+        (camelCase) to Python dataclass field names (snake_case).
 
     Expected Outcome:
-        A function that structures JSON into the dataclass with correct field
-        name transformation, and that passes the fully-preserved Annotated type
-        (including discriminator metadata) to converter.structure for every field.
-
-    Why not make_dict_structure_fn:
-        cattrs' make_dict_structure_fn internally calls adapted_fields() which
-        uses get_type_hints() without include_extras=True. Generated model files
-        use `from __future__ import annotations`, making all annotations lazy
-        strings. When adapted_fields resolves those strings it strips Annotated
-        extras, losing discriminator metadata before structuring begins.
-        This custom implementation owns the full pipeline and preserves extras.
+        A function that cattrs can use to structure JSON into the dataclass,
+        with automatic field name transformation.
     """
-    # Resolve field types preserving Annotated extras (discriminator metadata).
-    # include_extras=True is required: without it, Annotated[Union[...], Disc()]
-    # is reduced to Union[...], dropping the discriminator.
-    try:
-        type_hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
-    except Exception:
-        type_hints = {}
-
-    # Build python_name → json_key lookup from Meta.key_transform_with_load.
-    # Meta.key_transform_with_load format: {"json_key": "python_field_name"}
-    python_to_json: dict[str, str] = {}
-    if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_load"):  # type: ignore[attr-defined]
-        for json_key, python_name in cls.Meta.key_transform_with_load.items():  # type: ignore[attr-defined]
-            python_to_json[python_name] = json_key
-
-    fields = dataclasses.fields(cls)  # type: ignore[arg-type]
-
-    def structure_fn(data: dict[str, Any] | None, _type: type) -> Any:
-        if data is None:
-            raise TypeError(
-                f"Cannot structure None into {cls.__name__}: "
-                f"Received null value for non-optional field. "
-                f"This is likely a schema mismatch - either the API is returning null "
-                f"for a required field, or the OpenAPI schema is missing 'nullable: true'. "
-                f"To fix: make the field optional in the OpenAPI spec by adding 'nullable: true' "
-                f"or removing it from the 'required' array."
-            )
-
-        if not isinstance(data, dict):
-            raise TypeError(
-                f"Cannot structure {type(data).__name__} into {cls.__name__}: "
-                f"Expected a dict, got {type(data).__name__}"
-            )
-
-        kwargs: dict[str, Any] = {}
-        field_errors: list[Exception] = []
-
-        for field in fields:
+    # Get field renaming map (JSON key → Python field name)
+    field_overrides: dict[str, Any] = {}
+    if dataclasses.is_dataclass(cls):
+        for field in dataclasses.fields(cls):
             python_name = field.name
-            json_key = python_to_json.get(python_name, python_name)
-            # Use the Annotated-preserving type hint; fall back to the raw field
-            # type only when hints could not be resolved at all.
-            field_type = type_hints.get(python_name, field.type)
+            json_key = python_name  # Default: no transformation
 
-            if json_key in data:
-                try:
-                    kwargs[python_name] = converter.structure(data[json_key], field_type)
-                except Exception as exc:
-                    # Attach cattrs-compatible note so _extract_errors can
-                    # reconstruct the field path (e.g. "items[].id").
-                    note = f"Structuring class {cls.__name__} @ attribute {python_name}"
-                    if not hasattr(exc, "__notes__") or exc.__notes__ is None:
-                        exc.__notes__ = []
-                    exc.__notes__.append(note)
-                    field_errors.append(exc)
-            elif field.default is not dataclasses.MISSING:
-                kwargs[python_name] = field.default
-            elif field.default_factory is not dataclasses.MISSING:
-                kwargs[python_name] = field.default_factory()
-            # Required field absent from data: omit from kwargs so that the
-            # dataclass constructor raises a descriptive TypeError.
+            # Check if class has Meta with explicit mappings
+            if hasattr(cls, "Meta") and hasattr(cls.Meta, "key_transform_with_load"):  # type: ignore[attr-defined]
+                mappings: dict[str, str] = cls.Meta.key_transform_with_load  # type: ignore[attr-defined]
+                # Meta.key_transform_with_load is: {"json_key": "python_field"}
+                # Find the JSON key that maps to this Python field
+                for jk, pf in mappings.items():
+                    if pf == python_name:
+                        json_key = jk
+                        break
+                # If not in explicit mappings, use Python name as-is
+                # This preserves the original field name for user-defined dataclasses
+            # No Meta mappings - use Python name as-is (no camelCase assumption)
 
-        if field_errors:
-            raise ClassValidationError(f"While structuring {cls.__name__}", field_errors, cls)
+            # Only add override if JSON key differs from Python field name
+            if json_key != python_name:
+                field_overrides[python_name] = override(rename=json_key)
 
-        return cls(**kwargs)
-
-    return structure_fn
+    # print(f"DEBUG: {cls.__name__} overrides: {field_overrides}")
+    return make_dict_structure_fn(cls, converter, **field_overrides)
 
 
 def _make_dataclass_unstructure_fn(cls: type[T]) -> Any:
@@ -658,23 +605,46 @@ def _register_structure_hooks_recursively(cls: type[Any], visited: set[type[Any]
     if not dataclasses.is_dataclass(cls):
         return
 
-    # Register structure hook for this dataclass.
-    # Build the structure function once at registration time (not on every call).
-    # _make_dataclass_structure_fn already handles None input with a clear error.
+    # Register structure hook for this dataclass
     try:
-        structure_fn = _make_dataclass_structure_fn(cls)
+        # Use closure to capture cls value
+        def make_hook(captured_cls: type[Any]) -> Any:
+            def hook(d: dict[str, Any] | None, t: type[Any]) -> Any:
+                # Handle None input - cattrs passes None when JSON has null values
+                # for non-optional dataclass fields. This prevents TypeError when
+                # the generated structure function tries to check field presence
+                # using 'field_name' in d (which fails when d is None).
+                if d is None:
+                    # None received for a non-optional field is a schema violation.
+                    # This typically happens when:
+                    # 1. OpenAPI schema marks field as required but API returns null
+                    # 2. OpenAPI schema is missing 'nullable: true' for the field
+                    raise TypeError(
+                        f"Cannot structure None into {captured_cls.__name__}: "
+                        f"Received null value for non-optional field. "
+                        f"This is likely a schema mismatch - either the API is returning null "
+                        f"for a required field, or the OpenAPI schema is missing 'nullable: true'. "
+                        f"To fix: make the field optional in the OpenAPI spec by adding 'nullable: true' "
+                        f"or removing it from the 'required' array."
+                    )
+                return _make_dataclass_structure_fn(captured_cls)(d, t)
+
+            return hook
 
         def predicate(t: type[Any], captured_cls: type[Any] = cls) -> bool:
             return t is captured_cls
 
-        converter.register_structure_hook_func(predicate, structure_fn)
+        converter.register_structure_hook_func(
+            predicate,
+            make_hook(cls),
+        )
     except Exception:  # nosec B110
         # Hook might already be registered - this is expected and safe to ignore
         pass
 
     # Recursively register hooks for nested dataclass fields
     try:
-        type_hints = get_type_hints(cls, include_extras=True)
+        type_hints = get_type_hints(cls)
     except Exception:
         # If type hints cannot be resolved (e.g. missing imports), fall back to field.type
         type_hints = {}
@@ -864,7 +834,7 @@ def _register_unstructure_hooks_recursively(cls: type[Any], visited: set[type[An
     # Recursively register hooks for nested dataclass fields
 
     try:
-        type_hints = get_type_hints(cls, include_extras=True)
+        type_hints = get_type_hints(cls)
     except Exception:
         # If type hints cannot be resolved (e.g. missing imports), fall back to field.type
         type_hints = {}
