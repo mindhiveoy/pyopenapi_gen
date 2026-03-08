@@ -19,13 +19,40 @@ import dataclasses
 import re
 import types
 from datetime import date, datetime
-from typing import Any, Callable, TypeVar, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Callable, TypeVar, Union, get_args, get_origin, get_type_hints
 
 import cattrs
 from cattrs.errors import BaseValidationError, ClassValidationError, IterableValidationError
 from cattrs.gen import make_dict_unstructure_fn, override
 
 T = TypeVar("T")
+
+# Module-level caches: each class is processed at most once per process.
+# get_type_hints() is expensive for modules using `from __future__ import annotations`
+# (PEP 563) — string annotations are re-evaluated on every call. Without caching,
+# every structure_from_dict call triggers a full type-graph traversal with a fresh
+# get_type_hints() call per class, producing O(N × calls) evaluations.
+_type_hints_cache: dict[type, dict[str, Any]] = {}
+_structure_hooks_registered: set[type] = set()
+_unstructure_hooks_registered: set[type] = set()
+# Lazily populated on first unstructure call per class; see _register_unstructure_hooks_recursively.
+_unstructure_fn_cache: dict[type, Any] = {}
+
+
+def _get_type_hints_with_extras(cls: type) -> dict[str, Any]:
+    """Return get_type_hints(cls, include_extras=True), cached globally.
+
+    include_extras=True preserves Annotated[...] discriminator metadata.
+    The result is cached so string annotations in PEP 563 modules are
+    evaluated only once rather than on every structure_from_dict call.
+    """
+    if cls not in _type_hints_cache:
+        try:
+            _type_hints_cache[cls] = get_type_hints(cls, include_extras=True)
+        except Exception:
+            _type_hints_cache[cls] = {}
+    return _type_hints_cache[cls]
+
 
 # Python keywords that get '_' suffix in generated code
 PYTHON_KEYWORDS = {
@@ -132,10 +159,8 @@ def _make_dataclass_structure_fn(cls: type[T]) -> Any:
     # Resolve field types preserving Annotated extras (discriminator metadata).
     # include_extras=True is required: without it, Annotated[Union[...], Disc()]
     # is reduced to Union[...], dropping the discriminator.
-    try:
-        type_hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
-    except Exception:
-        type_hints = {}
+    # Result is globally cached; see _get_type_hints_with_extras.
+    type_hints: dict[str, Any] = _get_type_hints_with_extras(cls)
 
     # Build python_name → json_key lookup from Meta.key_transform_with_load.
     # Meta.key_transform_with_load format: {"json_key": "python_field_name"}
@@ -144,12 +169,26 @@ def _make_dataclass_structure_fn(cls: type[T]) -> Any:
         for json_key, python_name in cls.Meta.key_transform_with_load.items():  # type: ignore[attr-defined]
             python_to_json[python_name] = json_key
 
-    fields = dataclasses.fields(cls)  # type: ignore[arg-type]
+    # Pre-compute per-field data at registration time to eliminate dict lookups
+    # inside structure_fn on every call. Tuple layout:
+    #   (python_name, json_key, field_type, default, default_factory)
+    field_specs: list[tuple[str, str, Any, Any, Any]] = [
+        (
+            f.name,
+            python_to_json.get(f.name, f.name),
+            type_hints.get(f.name, f.type),
+            f.default,
+            f.default_factory,
+        )
+        for f in dataclasses.fields(cls)  # type: ignore[arg-type]
+    ]
+
+    cls_name = cls.__name__  # avoid attribute lookup on every error path
 
     def structure_fn(data: dict[str, Any] | None, _type: type) -> Any:
         if data is None:
             raise TypeError(
-                f"Cannot structure None into {cls.__name__}: "
+                f"Cannot structure None into {cls_name}: "
                 f"Received null value for non-optional field. "
                 f"This is likely a schema mismatch - either the API is returning null "
                 f"for a required field, or the OpenAPI schema is missing 'nullable: true'. "
@@ -159,40 +198,34 @@ def _make_dataclass_structure_fn(cls: type[T]) -> Any:
 
         if not isinstance(data, dict):
             raise TypeError(
-                f"Cannot structure {type(data).__name__} into {cls.__name__}: "
+                f"Cannot structure {type(data).__name__} into {cls_name}: "
                 f"Expected a dict, got {type(data).__name__}"
             )
 
         kwargs: dict[str, Any] = {}
         field_errors: list[Exception] = []
 
-        for field in fields:
-            python_name = field.name
-            json_key = python_to_json.get(python_name, python_name)
-            # Use the Annotated-preserving type hint; fall back to the raw field
-            # type only when hints could not be resolved at all.
-            field_type = type_hints.get(python_name, field.type)
-
+        for python_name, json_key, field_type, default, default_factory in field_specs:
             if json_key in data:
                 try:
                     kwargs[python_name] = converter.structure(data[json_key], field_type)
                 except Exception as exc:
                     # Attach cattrs-compatible note so _extract_errors can
                     # reconstruct the field path (e.g. "items[].id").
-                    note = f"Structuring class {cls.__name__} @ attribute {python_name}"
+                    note = f"Structuring class {cls_name} @ attribute {python_name}"
                     if not hasattr(exc, "__notes__") or exc.__notes__ is None:
                         exc.__notes__ = []
                     exc.__notes__.append(note)
                     field_errors.append(exc)
-            elif field.default is not dataclasses.MISSING:
-                kwargs[python_name] = field.default
-            elif field.default_factory is not dataclasses.MISSING:
-                kwargs[python_name] = field.default_factory()
+            elif default is not dataclasses.MISSING:
+                kwargs[python_name] = default
+            elif default_factory is not dataclasses.MISSING:
+                kwargs[python_name] = default_factory()
             # Required field absent from data: omit from kwargs so that the
             # dataclass constructor raises a descriptive TypeError.
 
         if field_errors:
-            raise ClassValidationError(f"While structuring {cls.__name__}", field_errors, cls)
+            raise ClassValidationError(f"While structuring {cls_name}", field_errors, cls)
 
         return cls(**kwargs)
 
@@ -375,17 +408,10 @@ def _is_union_type(t: Any) -> bool:
         return True
 
     # Also handle Annotated[Union, ...] for discriminated unions
-    # Import Annotated here to avoid module-level import
-    try:
-        from typing import Annotated
-
-        if origin is Annotated:
-            # Check if the first arg is a Union
-            args = get_args(t)
-            if args and _is_union_type(args[0]):
-                return True
-    except ImportError:
-        pass
+    if origin is Annotated:
+        args = get_args(t)
+        if args and _is_union_type(args[0]):
+            return True
 
     return False
 
@@ -442,21 +468,14 @@ def _structure_union(data: Any, union_type: type) -> Any:
     """
     # If this is Annotated[Union[...], metadata], extract the Union and metadata
     origin = get_origin(union_type)
-    try:
-        from typing import Annotated
-
-        if origin is Annotated:
-            # Extract Union type and metadata from Annotated
-            annotated_args = get_args(union_type)
-            if annotated_args:
-                # First arg is the actual Union, rest are metadata
-                actual_union = annotated_args[0]
-                args = get_args(actual_union)
-            else:
-                args = get_args(union_type)
+    if origin is Annotated:
+        annotated_args = get_args(union_type)
+        if annotated_args:
+            actual_union = annotated_args[0]
+            args = get_args(actual_union)
         else:
             args = get_args(union_type)
-    except ImportError:
+    else:
         args = get_args(union_type)
 
     # Handle None explicitly
@@ -648,7 +667,13 @@ def _register_structure_hooks_recursively(cls: type[Any], visited: set[type[Any]
     if visited is None:
         visited = set()
 
-    # Skip if already visited (avoid infinite recursion)
+    # Global persistent guard: each class is registered at most once per process.
+    # Without this, structure_from_dict traverses and calls get_type_hints for the
+    # entire type graph on every invocation — O(N × calls) instead of O(N) total.
+    if cls in _structure_hooks_registered:
+        return
+
+    # Local within-call guard: prevents infinite recursion during the traversal.
     if cls in visited:
         return
 
@@ -658,26 +683,24 @@ def _register_structure_hooks_recursively(cls: type[Any], visited: set[type[Any]
     if not dataclasses.is_dataclass(cls):
         return
 
-    # Register structure hook for this dataclass.
-    # Build the structure function once at registration time (not on every call).
-    # _make_dataclass_structure_fn already handles None input with a clear error.
+    # Mark as processing before recursing to prevent cycles.
+    _structure_hooks_registered.add(cls)
+
     try:
         structure_fn = _make_dataclass_structure_fn(cls)
 
         def predicate(t: type[Any], captured_cls: type[Any] = cls) -> bool:
             return t is captured_cls
 
+        # Predicate-based registration intentionally used instead of register_structure_hook.
+        # Predicate hooks have lower priority than exact hooks, so user-registered hooks
+        # (e.g. converter.register_structure_hook(MyClass, custom_fn)) are not overwritten.
         converter.register_structure_hook_func(predicate, structure_fn)
     except Exception:  # nosec B110
-        # Hook might already be registered - this is expected and safe to ignore
         pass
 
-    # Recursively register hooks for nested dataclass fields
-    try:
-        type_hints = get_type_hints(cls, include_extras=True)
-    except Exception:
-        # If type hints cannot be resolved (e.g. missing imports), fall back to field.type
-        type_hints = {}
+    # Traverse nested dataclass fields using the cached type hints.
+    type_hints = _get_type_hints_with_extras(cls)
 
     for field in dataclasses.fields(cls):
         # Use resolved type hint if available, otherwise raw field type
@@ -699,8 +722,6 @@ def _register_hooks_for_nested_types(
     Recursively inspect a type hint to find and register hooks for nested dataclasses.
     Handles Unions, Lists, Optionals, and other generic types.
     """
-    from typing import get_args, get_origin
-
     # If it's a direct dataclass, register it
     if isinstance(type_hint, type) and dataclasses.is_dataclass(type_hint):
         registrar(type_hint, visited)
@@ -831,7 +852,11 @@ def _register_unstructure_hooks_recursively(cls: type[Any], visited: set[type[An
     if visited is None:
         visited = set()
 
-    # Skip if already visited (avoid infinite recursion)
+    # Global persistent guard: each class is registered at most once per process.
+    if cls in _unstructure_hooks_registered:
+        return
+
+    # Local within-call guard: prevents infinite recursion during the traversal.
     if cls in visited:
         return
 
@@ -841,44 +866,44 @@ def _register_unstructure_hooks_recursively(cls: type[Any], visited: set[type[An
     if not dataclasses.is_dataclass(cls):
         return
 
-    # Register unstructure hook for this dataclass
-    try:
-        # Use closure to capture cls value
-        def make_hook(captured_cls: type[Any]) -> Any:
-            def hook(obj: Any) -> Any:
-                return _make_dataclass_unstructure_fn(captured_cls)(obj)
+    # Mark as processing before recursing to prevent cycles.
+    _unstructure_hooks_registered.add(cls)
 
-            return hook
+    # Build the unstructure function lazily on first call, then cache it.
+    # make_dict_unstructure_fn uses static dispatch (captures the converter's hook
+    # map at generation time). Deferring to first call ensures all nested class hooks
+    # are already registered, so field-level dispatch is correct. After the first
+    # call the result is cached in _unstructure_fn_cache — O(1) on every subsequent call.
+    try:
+        captured_cls = cls
+
+        def hook(obj: Any, _captured: type[Any] = captured_cls) -> Any:
+            # Build lazily on first call so make_dict_unstructure_fn runs after all
+            # nested hooks are registered (it uses static dispatch at generation time).
+            if _captured not in _unstructure_fn_cache:
+                _unstructure_fn_cache[_captured] = _make_dataclass_unstructure_fn(_captured)
+            return _unstructure_fn_cache[_captured](obj)
 
         def predicate(t: type[Any], captured_cls: type[Any] = cls) -> bool:
             return t is captured_cls
 
-        converter.register_unstructure_hook_func(
-            predicate,
-            make_hook(cls),
-        )
+        # Predicate-based registration intentionally used instead of register_unstructure_hook.
+        # Predicate hooks have lower priority than exact hooks, so user-registered hooks
+        # are not overwritten.
+        converter.register_unstructure_hook_func(predicate, hook)
     except Exception:  # nosec B110
-        # Hook might already be registered - this is expected and safe to ignore
         pass
 
-    # Recursively register hooks for nested dataclass fields
-
-    try:
-        type_hints = get_type_hints(cls, include_extras=True)
-    except Exception:
-        # If type hints cannot be resolved (e.g. missing imports), fall back to field.type
-        type_hints = {}
+    # Traverse nested dataclass fields using the cached type hints.
+    type_hints = _get_type_hints_with_extras(cls)
 
     for field in dataclasses.fields(cls):
-        # Use resolved type hint if available, otherwise raw field type
         field_type = type_hints.get(field.name, field.type)
 
-        # Handle direct dataclass types
         if isinstance(field_type, type) and dataclasses.is_dataclass(field_type):
             _register_unstructure_hooks_recursively(field_type, visited)
             continue
 
-        # Handle generic types (List[T], Optional[T], etc.) and Unions
         _register_hooks_for_nested_types(field_type, visited, _register_unstructure_hooks_recursively)
 
 
