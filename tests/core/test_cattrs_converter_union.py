@@ -1030,8 +1030,7 @@ def _build_lazy_annotation_types() -> tuple[type, type, type, type]:
     import textwrap
     import types
 
-    module_src = textwrap.dedent(
-        """
+    module_src = textwrap.dedent("""
         from __future__ import annotations
         from dataclasses import dataclass
         from typing import Annotated, Union
@@ -1066,8 +1065,7 @@ def _build_lazy_annotation_types() -> tuple[type, type, type, type]:
             class Meta:
                 key_transform_with_load = {"items": "items"}
                 key_transform_with_dump = {"items": "items"}
-    """
-    )
+    """)
 
     mod = types.ModuleType("_test_lazy_annotations")
     # Register BEFORE exec so Python's dataclass machinery can find the module
