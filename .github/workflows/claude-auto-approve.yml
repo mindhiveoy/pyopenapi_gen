@@ -31,7 +31,7 @@ jobs:
       
       - name: Get PR number
         id: pr_number
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             let prNumber = null;
@@ -58,7 +58,7 @@ jobs:
       - name: Wait for Poetry lock fix workflow
         id: wait_poetry_fix
         if: steps.pr_number.outputs.pr_number != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const prNumber = '${{ steps.pr_number.outputs.pr_number }}';
