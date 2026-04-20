@@ -134,7 +134,7 @@ commitizen = "^4.13.8"
 python-semantic-release = "^10.5.3"
 pytest-xdist = "^3.8.0"
 pytest-cov = "^7.1.0"
-build = "^1.4.2"
+build = "^1.4.3"
 twine = "^6.0.1"
 pytest = "^9.0.2"
 
