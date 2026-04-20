@@ -495,14 +495,14 @@ markers = {main = "platform_system == \"Windows\" or sys_platform == \"win32\""}
 
 [[package]]
 name = "commitizen"
-version = "4.13.9"
+version = "4.13.10"
 description = "Python commitizen client tool"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["dev"]
 files = [
-    {file = "commitizen-4.13.9-py3-none-any.whl", hash = "sha256:d2af3d6a83cacec9d5200e17768942c5de6266f93d932c955986c60c4285f2db"},
-    {file = "commitizen-4.13.9.tar.gz", hash = "sha256:2b4567ed50555e10920e5bd804a6a4e2c42ec70bb74f14a83f2680fe9eaf9727"},
+    {file = "commitizen-4.13.10-py3-none-any.whl", hash = "sha256:95a281317990ac613501fdfe65745cec1fa4042bc5d003a72d332a74926e3039"},
+    {file = "commitizen-4.13.10.tar.gz", hash = "sha256:402b5bcd466be69ba79a3f380be6ba5b55ac658c7d2a93e82fc99668a6eb2673"},
 ]
 
 [package.dependencies]
@@ -512,7 +512,7 @@ colorama = ">=0.4.1,<1.0"
 decli = ">=0.6.0,<1.0"
 deprecated = ">=1.2.13,<2"
 jinja2 = ">=2.10.3"
-packaging = ">=19"
+packaging = ">=26"
 prompt-toolkit = "!=3.0.52"
 pyyaml = ">=3.8"
 questionary = ">=2.0,<3.0"
@@ -3186,4 +3186,4 @@ dev = ["bandit", "black", "dataclass-wizard", "httpx", "mypy", "pytest", "pytest
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0.0"
-content-hash = "64ba03d7e733bf5bde4549a41ca2bf21b11f4099ee657e1c4f3d1456076e0021"
+content-hash = "ef9b81cea7768c8846d167929a11582a6f83def11a80ec3ea7ab907b74b85812"
