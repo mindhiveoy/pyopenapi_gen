@@ -3006,15 +3006,15 @@ files = [
 
 [[package]]
 name = "types-toml"
-version = "0.10.8.20240310"
+version = "0.10.8.20260408"
 description = "Typing stubs for toml"
 optional = true
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"dev\""
 files = [
-    {file = "types-toml-0.10.8.20240310.tar.gz", hash = "sha256:3d41501302972436a6b8b239c850b26689657e25281b48ff0ec06345b8830331"},
-    {file = "types_toml-0.10.8.20240310-py3-none-any.whl", hash = "sha256:627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"},
+    {file = "types_toml-0.10.8.20260408-py3-none-any.whl", hash = "sha256:e958d4c660385e548705a298f17dc162baf44c8b6d6aff79aeefe75f4f77ac87"},
+    {file = "types_toml-0.10.8.20260408.tar.gz", hash = "sha256:6b30b031235565a12febb1388900b129f1adeabfcfa594da46d0372b2ac107ad"},
 ]
 
 [[package]]
@@ -3186,4 +3186,4 @@ dev = ["bandit", "black", "dataclass-wizard", "httpx", "mypy", "pytest", "pytest
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0.0"
-content-hash = "64ba03d7e733bf5bde4549a41ca2bf21b11f4099ee657e1c4f3d1456076e0021"
+content-hash = "97b67612cb1bba87d9a2270d916190995874be4abcd216ae17a9587bf2fa4693"
