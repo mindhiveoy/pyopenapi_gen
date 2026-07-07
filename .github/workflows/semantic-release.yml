@@ -337,65 +337,60 @@ jobs:
         echo "released_version=$LATEST_TAG" >> $GITHUB_OUTPUT
         echo "Released version: $LATEST_TAG"
 
-    - name: Sync version to staging branch
+    # Back-merge the release commits (version bump + CHANGELOG) from main into the
+    # long-lived branches. develop/staging are protected, so we CANNOT push to them
+    # directly (GH006: protected branch update failed) — instead we open a PR and let
+    # it be reviewed/merged. The release commits are chore(release):, which do not
+    # trigger a new release, so the back-merge PR is safe.
+    - name: Back-merge release into develop and staging
       if: success() && steps.get_version.outputs.released_version != ''
       env:
         GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        RELEASED_VERSION: ${{ steps.get_version.outputs.released_version }}
       run: |
-        echo "🔄 Syncing main to staging branch..."
-        
-        # Fetch all branches
-        git fetch origin staging:staging || echo "Staging branch doesn't exist, skipping"
-        
-        if git show-ref --verify --quiet refs/heads/staging; then
-          # Switch to staging and merge main
-          git checkout staging
-          git merge main --no-edit || {
-            echo "⚠️ Merge conflict detected, creating PR instead"
-            git merge --abort
-            gh pr create \
-              --title "chore: sync version ${{ steps.get_version.outputs.released_version }} from main to staging" \
-              --body "Automated sync of semantic release version ${{ steps.get_version.outputs.released_version }} from main branch" \
-              --base staging \
-              --head main \
-              --label "automated,version-sync" || echo "PR may already exist"
-          } && {
-            echo "✅ Successfully merged main into staging"
-            git push origin staging || echo "Failed to push to staging"
-          }
-        else
-          echo "ℹ️ Staging branch doesn't exist, skipping sync"
-        fi
+        set -euo pipefail
+        git fetch origin main --quiet
 
-    - name: Sync version to develop branch  
-      if: success() && steps.get_version.outputs.released_version != ''
-      env:
-        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-      run: |
-        echo "🔄 Syncing main to develop branch..."
-        
-        # Fetch all branches
-        git fetch origin develop:develop || echo "Develop branch doesn't exist, skipping"
-        
-        if git show-ref --verify --quiet refs/heads/develop; then
-          # Switch to develop and merge main
-          git checkout develop
-          git merge main --no-edit || {
-            echo "⚠️ Merge conflict detected, creating PR instead"
-            git merge --abort
-            gh pr create \
-              --title "chore: sync version ${{ steps.get_version.outputs.released_version }} from main to develop" \
-              --body "Automated sync of semantic release version ${{ steps.get_version.outputs.released_version }} from main branch" \
-              --base develop \
-              --head main \
-              --label "automated,version-sync" || echo "PR may already exist"
-          } && {
-            echo "✅ Successfully merged main into develop"
-            git push origin develop || echo "Failed to push to develop"
-          }
-        else
-          echo "ℹ️ Develop branch doesn't exist, skipping sync"
-        fi
+        open_backmerge_pr() {
+          local target="$1"
+
+          if ! git ls-remote --exit-code --heads origin "$target" >/dev/null 2>&1; then
+            echo "ℹ️ '$target' branch doesn't exist, skipping"
+            return 0
+          fi
+
+          git fetch origin "$target" --quiet
+
+          # Nothing to do if the target already contains main's HEAD.
+          if git merge-base --is-ancestor origin/main "origin/$target"; then
+            echo "✅ '$target' already contains main, nothing to back-merge"
+            return 0
+          fi
+
+          # Reuse an existing open back-merge PR instead of opening a duplicate.
+          local existing
+          existing=$(gh pr list --base "$target" --head main --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$existing" ]; then
+            echo "ℹ️ Back-merge PR into '$target' already open: #$existing"
+            return 0
+          fi
+
+          local url
+          url=$(gh pr create \
+            --base "$target" \
+            --head main \
+            --title "chore: back-merge release ${RELEASED_VERSION} into ${target}" \
+            --body "Automated back-merge of release **${RELEASED_VERSION}** from \`main\` into \`${target}\` (version bump + CHANGELOG). Contains only \`chore(release)\` commits, so it will not trigger a new release.")
+          echo "✅ Opened back-merge PR into '$target': $url"
+          # Labels are best-effort (they may not exist in the repo).
+          gh pr edit "$url" --add-label "automated" --add-label "version-sync" 2>/dev/null \
+            || echo "(labels not applied — 'automated'/'version-sync' may not exist)"
+        }
+
+        echo "🔄 Opening back-merge PR: main → develop..."
+        open_backmerge_pr develop
+        echo "🔄 Opening back-merge PR: main → staging..."
+        open_backmerge_pr staging
 
     - name: Create release summary
       if: success()
@@ -406,7 +401,7 @@ jobs:
         echo "- **GitHub Release**: [Release Notes](https://github.com/mindhiveoy/pyopenapi_gen/releases/tag/${{ steps.get_version.outputs.released_version }})" >> $GITHUB_STEP_SUMMARY
         
         if [ -n "${{ steps.get_version.outputs.released_version }}" ]; then
-          echo "- **Branch Sync**: Version synced to staging and develop branches" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch Sync**: Back-merge PR(s) opened into develop/staging (review & merge to sync the version + CHANGELOG)" >> $GITHUB_STEP_SUMMARY
         fi
 
   notify-completion:
