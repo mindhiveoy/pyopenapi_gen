@@ -76,6 +76,57 @@ async def test_no_auth_no_header() -> None:
     await client.close()
 
 
+@pytest.mark.asyncio
+async def test_request__non_2xx_response__returns_response_without_raising() -> None:
+    """
+    Scenario: Server responds with a non-2xx status code (e.g. 404).
+    Expected Outcome: The transport returns the response unchanged instead of raising
+        HTTPError, so endpoint methods can inspect the status code and raise the
+        appropriate exception alias (see issue #344).
+    """
+
+    # Arrange
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"message": "not found"})
+
+    transport = httpx.MockTransport(handler)
+    client = HttpxTransport(base_url="https://api.example.com")
+    client._client._transport = transport
+
+    # Act
+    response = await client.request("GET", "/users/missing")
+
+    # Assert
+    assert response.status_code == 404
+    assert response.json() == {"message": "not found"}
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_request__server_error_response__returns_response_without_raising() -> None:
+    """
+    Scenario: Server responds with a 5xx status code.
+    Expected Outcome: The transport returns the response unchanged; error handling is
+        delegated to the generated endpoint methods.
+    """
+
+    # Arrange
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="unavailable")
+
+    transport = httpx.MockTransport(handler)
+    client = HttpxTransport(base_url="https://api.example.com")
+    client._client._transport = transport
+
+    # Act
+    response = await client.request("GET", "/health")
+
+    # Assert
+    assert response.status_code == 503
+    assert response.text == "unavailable"
+    await client.close()
+
+
 def test_verify_ssl__default__ssl_verification_enabled() -> None:
     """
     Scenario: HttpxTransport created without verify_ssl parameter.
