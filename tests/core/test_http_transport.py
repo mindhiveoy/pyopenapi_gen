@@ -103,6 +103,31 @@ async def test_request__non_2xx_response__returns_response_without_raising() -> 
 
 
 @pytest.mark.asyncio
+async def test_request__redirect_response__returns_response_without_raising() -> None:
+    """
+    Scenario: Server responds with a 3xx status code (redirects are not followed by default).
+    Expected Outcome: The transport returns the redirect response unchanged rather than raising,
+        consistent with the contract that every response is returned to the caller.
+    """
+
+    # Arrange
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(301, headers={"Location": "https://api.example.com/new"})
+
+    transport = httpx.MockTransport(handler)
+    client = HttpxTransport(base_url="https://api.example.com")
+    client._client._transport = transport
+
+    # Act
+    response = await client.request("GET", "/old")
+
+    # Assert
+    assert response.status_code == 301
+    assert response.headers.get("Location") == "https://api.example.com/new"
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_request__server_error_response__returns_response_without_raising() -> None:
     """
     Scenario: Server responds with a 5xx status code.
