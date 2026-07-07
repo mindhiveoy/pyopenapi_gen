@@ -91,9 +91,9 @@ jobs:
       run: |
         poetry install --extras dev
 
-    - name: Run safety check for known vulnerabilities
+    - name: Run pip-audit for known vulnerabilities
       run: |
-        poetry run safety check --json || echo "Safety check completed with warnings"
+        poetry run pip-audit || echo "pip-audit completed with warnings"
 
     - name: Run bandit security linter
       run: |

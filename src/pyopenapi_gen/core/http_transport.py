@@ -3,7 +3,6 @@ from typing import Any, Protocol
 import httpx
 
 from .auth.base import BaseAuth
-from .exceptions import HTTPError
 
 
 class HttpTransport(Protocol):
@@ -16,13 +15,13 @@ class HttpTransport(Protocol):
 
     All implementations must:
     - Provide a fully type-annotated async `request` method.
-    - Return an `httpx.Response` object for all requests.
+    - Return an `httpx.Response` object for all requests, regardless of status code.
     - Be safe for use in async contexts.
-    - STRICT REQUIREMENT: Raise `HTTPError` for all HTTP responses with status codes < 200 or >= 300.
-      This ensures that only successful (2xx) responses are returned to the caller, and all error
-      or informational responses are handled via exceptions. Implementors must not return non-2xx
-      responses directly; instead, they must raise `HTTPError` with the status code and response body.
-      This contract guarantees consistent error handling for all generated clients.
+    - STRICT REQUIREMENT: Return the `httpx.Response` unchanged for every HTTP response, including
+      non-2xx responses. Implementations must NOT raise on error status codes. Status-code handling
+      is the responsibility of the generated endpoint methods, which inspect `response.status_code`
+      and raise the appropriate exception alias (e.g. `NotFoundError` for 404) or the base `HTTPError`
+      for unhandled status codes. This contract ensures exception aliases work as intended.
     """
 
     async def request(
@@ -40,18 +39,17 @@ class HttpTransport(Protocol):
             **kwargs: Additional keyword arguments for the HTTP client (e.g., headers, params, json, data).
 
         Returns:
-            httpx.Response: The HTTP response object.
+            httpx.Response: The HTTP response object, regardless of status code.
 
         Raises:
-            HTTPError: For all HTTP responses with status codes < 200 or >= 300. Implementors MUST raise
-                this exception for any non-2xx response, passing the status code and response body.
             Exception: Implementations may raise exceptions for network errors or invalid responses.
 
         Protocol Contract:
-            - Only successful (2xx) responses are returned to the caller.
-            - All other responses (including redirects, client errors, and server errors) must result in
-              an HTTPError being raised. This ensures that error handling is consistent and explicit
-              across all generated clients and transport implementations.
+            - Every response is returned to the caller unchanged, including non-2xx responses.
+            - Implementations must NOT raise on error status codes. Status-code handling (including
+              raising exception aliases such as NotFoundError) is performed by the generated endpoint
+              methods. This ensures error handling is consistent and explicit across all generated
+              clients and transport implementations.
         """
         raise NotImplementedError()
 
@@ -76,10 +74,10 @@ class HttpxTransport:
     Optionally supports authentication via any BaseAuth-compatible plugin, including CompositeAuth.
 
     CONTRACT:
-        - This implementation strictly raises `HTTPError` for all HTTP responses with status codes < 200 or >= 300.
-          Only successful (2xx) responses are returned to the caller. This ensures that all error, informational,
-          and redirect responses are handled via exceptions, providing a consistent error handling model for the
-          generated client code.
+        - This implementation returns the `httpx.Response` unchanged for every response, including non-2xx
+          responses. It does NOT raise on error status codes. Status-code handling (including raising exception
+          aliases such as `NotFoundError`) is delegated to the generated endpoint methods, which inspect
+          `response.status_code`. This ensures the generated exception aliases are actually raised.
 
     Attributes:
         _client (httpx.AsyncClient): Configured HTTPX async client for all requests.
@@ -176,11 +174,11 @@ class HttpxTransport:
             params, json, data).
 
         Returns:
-            httpx.Response: The HTTP response object from the server.
+            httpx.Response: The HTTP response object from the server, regardless of status code.
 
         Raises:
-            httpx.HTTPError: For network errors or invalid responses.
-            HTTPError: For non-2xx HTTP responses.
+            httpx.HTTPError: For network errors or invalid responses. Non-2xx HTTP responses are
+                returned unchanged; status-code handling is performed by the generated endpoint methods.
         """
         # Prepare request arguments, excluding headers initially
         request_args: dict[str, Any] = {k: v for k, v in kwargs.items() if k != "headers"}
@@ -190,8 +188,6 @@ class HttpxTransport:
         request_args["headers"] = prepared_headers
 
         response = await self._client.request(method, url, **request_args)
-        if response.status_code < 200 or response.status_code >= 300:
-            raise HTTPError(status_code=response.status_code, message=response.text, response=response)
         return response
 
     async def close(self) -> None:
