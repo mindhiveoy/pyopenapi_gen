@@ -493,9 +493,16 @@ class EndpointResponseHandlerGenerator:
         # Handle default case
         default_response = next((r for r in op.responses if r.status_code == "default"), None)
         if default_response:
+            # Distinguish two roles a 'default' response can play:
+            #  - It is the operation's success-carrying response (no explicit 2xx exists), in which case
+            #    the endpoint's return type IS the default's type and returning the parsed body is correct.
+            #  - It is an error fallback alongside explicit 2xx response(s). In that case the endpoint's
+            #    return type is the success type, so returning the (error) body would both mask the error
+            #    and mistype the payload; the default must raise instead (see issue #344 review).
+            has_explicit_success = any(r.status_code.isdigit() and r.status_code.startswith("2") for r in op.responses)
             writer.write_line("case _:  # Default response")
             writer.indent()
-            if default_response.content and strategy.return_type != "None":
+            if default_response.content and strategy.return_type != "None" and not has_explicit_success:
                 self._write_strategy_based_return(writer, strategy, context)
             else:
                 context.add_import(f"{context.core_package_name}.exceptions", "HTTPError")

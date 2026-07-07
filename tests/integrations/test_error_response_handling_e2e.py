@@ -162,3 +162,93 @@ def test_generated_client__status_codes__raise_correct_exception_per_code(tmp_pa
         for name in list(sys.modules):
             if name == pkg or name.startswith(pkg + "."):
                 del sys.modules[name]
+
+
+# Spec with an explicit 200 success AND a 'default' response carrying an error body. The endpoint's
+# return type is the success type, so an unhandled error code must raise rather than return the error
+# body as a (mistyped) success object.
+SPEC_WITH_DEFAULT: dict[str, Any] = {
+    "openapi": "3.0.3",
+    "info": {"title": "Default API", "version": "1.0.0"},
+    "paths": {
+        "/things": {
+            "get": {
+                "operationId": "list_things",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {"schema": {"type": "object", "properties": {"id": {"type": "string"}}}}
+                        },
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"message": {"type": "string"}}}
+                            }
+                        },
+                    },
+                },
+            }
+        }
+    },
+}
+
+
+@pytest.mark.timeout(TEST_TIMEOUT_SEC)
+def test_generated_client__default_response_with_content__error_code_raises_not_returns(tmp_path: Path) -> None:
+    """
+    Scenario: A spec declares an explicit 200 plus a 'default' response with an error body. An
+        unhandled error code (500) is returned by the server.
+    Expected Outcome: The endpoint raises HTTPError carrying the real status code, rather than
+        returning the error body as a mistyped success object. A 200 still returns the parsed model.
+    """
+    # Arrange
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(yaml.safe_dump(SPEC_WITH_DEFAULT))
+
+    pkg = "default_e2e_client"
+    ClientGenerator().generate(
+        spec_path=str(spec_path),
+        project_root=tmp_path,
+        output_package=pkg,
+        force=True,
+        no_postprocess=True,
+    )
+
+    sys.path.insert(0, str(tmp_path))
+    try:
+        endpoints_mod = importlib.import_module(f"{pkg}.endpoints.default")
+        core_exc = importlib.import_module(f"{pkg}.core.exceptions")
+        transport_mod = importlib.import_module(f"{pkg}.core.http_transport")
+
+        DefaultClient = endpoints_mod.DefaultClient
+        HttpxTransport = transport_mod.HttpxTransport
+        HTTPError = core_exc.HTTPError
+
+        def make_client(status_code: int, body: dict[str, Any]) -> tuple[Any, Any]:
+            def handler(request: httpx.Request) -> httpx.Response:
+                return httpx.Response(status_code, json=body)
+
+            transport = HttpxTransport(base_url="https://api.example.com")
+            transport._client._transport = httpx.MockTransport(handler)
+            return DefaultClient(transport, base_url="https://api.example.com"), transport
+
+        # Act & Assert: unhandled 500 -> raises HTTPError (does NOT return a mistyped success object)
+        client, transport = make_client(500, {"message": "internal boom"})
+        with pytest.raises(HTTPError) as exc_info:
+            asyncio.run(client.list_things())
+        assert exc_info.value.status_code == 500
+        asyncio.run(transport.close())
+
+        # Act & Assert: 200 still returns the parsed success model
+        client, transport = make_client(200, {"id": "abc"})
+        result = asyncio.run(client.list_things())
+        assert result.id_ == "abc"
+        asyncio.run(transport.close())
+    finally:
+        sys.path.remove(str(tmp_path))
+        for name in list(sys.modules):
+            if name == pkg or name.startswith(pkg + "."):
+                del sys.modules[name]
