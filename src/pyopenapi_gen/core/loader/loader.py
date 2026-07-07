@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import warnings
-from typing import Any, List, Mapping, cast
+from typing import Any, List, Mapping
 
 try:
     # Use the newer validate() API if available to avoid deprecation warnings
@@ -87,9 +87,7 @@ class SpecLoader:
 
         if validate_spec is not None:
             try:
-                from typing import Hashable
-
-                validate_spec(cast(Mapping[Hashable, Any], self.spec))
+                validate_spec(self.spec)
             except Exception as e:
                 warning_msg = f"OpenAPI spec validation error: {e}"
                 # Always collect the message
