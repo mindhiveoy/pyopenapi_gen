@@ -54,7 +54,10 @@ __all__ = [
 ]
 
 # Semantic version of the generator core – automatically managed by semantic-release.
-__version__: str = "5.1.8"
+# Keep this as a bare assignment: semantic-release's `version_variables` pattern only
+# accepts a single separator after the name, so a `: str` annotation makes it silently
+# fail to rewrite this line (mypy still infers str here).
+__version__ = "5.1.8"
 
 # ---------------------------------------------------------------------------
 # Lazy-loading and autocompletion support (This part remains)
