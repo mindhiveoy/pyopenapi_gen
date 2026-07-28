@@ -155,34 +155,45 @@ changelog_format = "## [$version] - $date\\n\\n$changes"
 commit_parser = "^(?P<change_type>feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\\((?P<scope>[^)]+)\\))?!?:\\s(?P<message>.+)$"
 bump_message = "bump: version $current_version → $new_version"
 
+# Config schema is python-semantic-release v8+. Do NOT reintroduce the v7-era keys
+# (branch, hvcs, tag_commit, upload_to_pypi, upload_to_repository, changelog_file,
+# changelog_format, allowed_bots) — v10 silently IGNORES unknown keys, which is how
+# changelog generation stayed broken from v0.23.1 through v5.1.8 without any error.
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version", "pyproject.toml:tool.commitizen.version"]
 version_variables = [
     "src/pyopenapi_gen/__init__.py:__version__"
 ]
-branch = "main"
-upload_to_pypi = false
-upload_to_repository = false
 commit_message = "chore(release): {version}"
-tag_commit = true
-changelog_file = "CHANGELOG.md"
-changelog_format = "# Changelog\\n\\n{changelog}"
-hvcs = "github"
 commit_parser = "conventional"
+tag_format = "v{version}"
 major_on_zero = false
-# Allow bot actors (dependabot, renovate, etc.) to trigger releases
-allowed_bots = ["dependabot", "renovate"]
 
-# Exclude verbose dependency update commits from release notes
-# These commits still trigger patch releases, but don't clutter changelog
-# This prevents GitHub API 422 errors from oversized release note bodies
+# Releases are cut from main only. Replaces the v7-era `branch = "main"`.
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.remote]
+type = "github"
+
+# mode = "update" inserts each new release above `insertion_flag`. If that marker is
+# missing from CHANGELOG.md, python-semantic-release writes NOTHING and exits 0 — the
+# exact silent failure that froze this changelog for five major versions. Keep the
+# marker in CHANGELOG.md.
 [tool.semantic_release.changelog]
+mode = "update"
+insertion_flag = "<!-- version list -->"
+# `^deps:` / `^deps-dev:` were dropped: dependabot now emits conventional `fix(deps)`
+# commits (see .github/dependabot.yml), and those are the changes a release documents,
+# so they belong in the notes rather than being filtered out of them.
 exclude_commit_patterns = [
     "^chore\\(deps\\): merge dependabot",
     "^chore\\(deps-dev\\): merge dependabot",
-    "^deps:",
-    "^deps-dev:",
 ]
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+output_format = "md"
 
 [tool.coverage.run]
 # Store coverage data files under coverage_reports/ instead of project root

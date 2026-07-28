@@ -337,32 +337,55 @@ jobs:
         echo "released_version=$LATEST_TAG" >> $GITHUB_OUTPUT
         echo "Released version: $LATEST_TAG"
 
+    # Mint a short-lived GitHub App installation token for the back-merge.
+    #
+    # This is the ONLY identity that makes the back-merge work. A PR opened with the
+    # default GITHUB_TOKEN does not emit a `pull_request` event (GitHub's recursion
+    # guard), so develop's required checks (test / security-scan / quality-checks)
+    # never run and the PR can never merge past enforce_admins + required checks.
+    #
+    # App tokens are minted per run and expire in ~1h, so unlike a PAT there is no
+    # expiry date to silently break the pipeline months later.
+    #
+    # Setup (one time): create a GitHub App in the org with repository permissions
+    # Contents: read & write + Pull requests: read & write, install it on this repo,
+    # then add secrets RELEASE_APP_ID and RELEASE_APP_PRIVATE_KEY.
+    - name: Mint GitHub App token for back-merge
+      id: app_token
+      if: ${{ success() && steps.get_version.outputs.released_version != '' && secrets.RELEASE_APP_ID != '' }}
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ secrets.RELEASE_APP_ID }}
+        private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
     # Back-merge the release commits (version bump + CHANGELOG) from main into the
     # long-lived branches. develop/staging are protected, so we CANNOT push to them
     # directly (GH006: protected branch update failed) — instead we open a PR and let
-    # it be reviewed/merged. The release commits are chore(release):, which do not
-    # trigger a new release, so the back-merge PR is safe.
-    #
-    # IMPORTANT: the PR MUST be opened by a non-Actions identity. A PR opened with the
-    # default GITHUB_TOKEN does not emit a `pull_request` event (GitHub's recursion
-    # guard), so the required checks (test / security-scan / quality-checks) never run
-    # and the PR is stuck forever against branches with enforce_admins + required
-    # checks. SEMANTIC_RELEASE_TOKEN must therefore be a fine-grained PAT (Contents:write
-    # + Pull requests:write) or a GitHub App token — never the fallback GITHUB_TOKEN.
+    # it be auto-merged once checks pass. The release commits are chore(release):,
+    # which do not trigger a new release, so the back-merge PR is safe.
     - name: Back-merge release into develop and staging
       if: success() && steps.get_version.outputs.released_version != ''
       env:
-        SEMANTIC_RELEASE_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
-        GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        # App token preferred; SEMANTIC_RELEASE_TOKEN (fine-grained PAT) still works as
+        # a fallback so an existing PAT setup keeps functioning. GITHUB_TOKEN is never
+        # acceptable here — see the guard below.
+        BACKMERGE_TOKEN: ${{ steps.app_token.outputs.token || secrets.SEMANTIC_RELEASE_TOKEN }}
+        GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.SEMANTIC_RELEASE_TOKEN }}
         RELEASED_VERSION: ${{ steps.get_version.outputs.released_version }}
       run: |
         set -euo pipefail
 
         # Fail loudly instead of silently opening a PR that can never pass its checks.
-        if [ -z "${SEMANTIC_RELEASE_TOKEN}" ]; then
-          echo "::error title=Missing SEMANTIC_RELEASE_TOKEN::Back-merge aborted. A PR opened with the default GITHUB_TOKEN does not trigger the required pull_request checks, so it can never merge into the protected develop/staging branches. Configure a SEMANTIC_RELEASE_TOKEN secret (fine-grained PAT with Contents:write + Pull requests:write, or a GitHub App token)."
+        if [ -z "${BACKMERGE_TOKEN}" ]; then
+          echo "::error title=No elevated token for back-merge::Back-merge aborted. A PR opened with the default GITHUB_TOKEN does not trigger the required pull_request checks, so it can never merge into the protected develop/staging branches. Configure a GitHub App (secrets RELEASE_APP_ID + RELEASE_APP_PRIVATE_KEY, with Contents:write + Pull requests:write) — or, as a fallback, a SEMANTIC_RELEASE_TOKEN fine-grained PAT."
           exit 1
         fi
+
+        # Push the back-merge branch as the elevated identity too. actions/checkout
+        # persisted the *release* credentials (GITHUB_TOKEN when no PAT is set), and a
+        # branch pushed under that identity is a dead end for auto-merge.
+        git remote set-url origin \
+          "https://x-access-token:${BACKMERGE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
         git fetch origin main --quiet
         git config user.name "github-actions[bot]"

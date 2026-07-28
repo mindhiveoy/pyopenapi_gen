@@ -12,9 +12,20 @@ updates:
       - "pyopenapi-team"
     assignees:
       - "pyopenapi-team"
+    # Prefixes MUST be conventional-commit types that python-semantic-release
+    # recognises, otherwise dependency merges never produce a release. The old
+    # "deps"/"deps-dev" prefixes are not conventional types at all, so the parser
+    # ignored them entirely — which is why dependency-only merges silently never
+    # released and needed a hand-written trigger commit. Dependabot appends the
+    # scope, producing "fix(deps): ..." and "fix(deps-dev): ...", both of which
+    # map to a patch bump.
+    #
+    # To stop dev-only bumps (ruff, mypy, pytest — nothing that reaches the
+    # published package) from cutting releases, change prefix-development to
+    # "chore".
     commit-message:
-      prefix: "deps"
-      prefix-development: "deps-dev"
+      prefix: "fix"
+      prefix-development: "fix"
     labels:
       - "dependencies"
       - "automated"
