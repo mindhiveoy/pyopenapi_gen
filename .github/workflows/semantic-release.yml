@@ -350,9 +350,13 @@ jobs:
     # Setup (one time): create a GitHub App in the org with repository permissions
     # Contents: read & write + Pull requests: read & write, install it on this repo,
     # then add secrets RELEASE_APP_ID and RELEASE_APP_PRIVATE_KEY.
+    # continue-on-error so that a missing/invalid App config does not abort here with an
+    # opaque action failure. The token comes out empty, and the guard in the next step
+    # reports what to configure. Also keeps a PAT-only setup working untouched.
     - name: Mint GitHub App token for back-merge
       id: app_token
-      if: ${{ success() && steps.get_version.outputs.released_version != '' && secrets.RELEASE_APP_ID != '' }}
+      if: success() && steps.get_version.outputs.released_version != ''
+      continue-on-error: true
       uses: actions/create-github-app-token@v2
       with:
         app-id: ${{ secrets.RELEASE_APP_ID }}
