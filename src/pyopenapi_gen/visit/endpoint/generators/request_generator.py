@@ -51,12 +51,9 @@ class EndpointRequestGenerator:
                 args_list.append("json=json_body")  # Assumes json_body is defined
                 # args_list.append("data=None") # Not strictly needed if json is present, httpx handles it
             elif primary_content_type and "multipart/form-data" in primary_content_type:
-                # For multipart, httpx uses 'files' or 'data' depending on content.
-                # UrlArgsGenerator created 'files_data'. Httpx typically uses 'files=' for file uploads.
-                # Let's assume 'files_data' is a dict suitable for 'files=' or 'data='
-                # If 'files_data' is specifically for file-like objects, 'files=files_data' is better.
-                # If it can also contain plain data, 'data=files_data' might be used by httpx.
-                # For simplicity and common use with files:
+                # UrlArgsGenerator bound the caller's multipart dict to 'files_data' unchanged.
+                # HttpxTransport.request() normalises it by value shape (file parts kept as-is, plain
+                # fields as filename-less parts, objects as JSON parts) so the body is always multipart.
                 args_list.append("files=files_data")  # Assumes files_data is defined
             elif primary_content_type == "application/x-www-form-urlencoded":
                 args_list.append("data=form_data_body")  # Assumes form_data_body is defined

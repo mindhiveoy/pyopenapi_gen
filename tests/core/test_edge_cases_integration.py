@@ -503,7 +503,8 @@ class TestErrorHandlingIntegration:
         }
 
         # Should handle missing references gracefully
-        result = load_ir_from_spec(error_prone_spec)
+        with pytest.warns(UserWarning, match="InvalidRef1"):
+            result = load_ir_from_spec(error_prone_spec)
         assert result is not None
         # Should have at least the valid schema
         assert "ValidSchema" in result.schemas
@@ -528,7 +529,8 @@ class TestErrorHandlingIntegration:
             },
         }
 
-        result = load_ir_from_spec(mixed_spec)
+        with pytest.warns(UserWarning, match="DoesNotExist"):
+            result = load_ir_from_spec(mixed_spec)
         assert result is not None
 
         with tempfile.TemporaryDirectory() as temp_dir:

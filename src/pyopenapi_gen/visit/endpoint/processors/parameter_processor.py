@@ -68,9 +68,10 @@ class EndpointParameterProcessor:
             if "multipart/form-data" in content_types:
                 primary_content_type = "multipart/form-data"
                 body_param_name = "files"
+                # Multipart bodies mix file tuples / bytes / file-like objects with plain form fields,
+                # so the value type is deliberately open. The transport encodes each value by shape.
                 context.add_import("typing", "Dict")
-                context.add_import("typing", "IO")
-                resolved_body_type = "dict[str, IO[Any]]"
+                resolved_body_type = "dict[str, Any]"
                 body_specific_param_info = {
                     "name": body_param_name,
                     "type": resolved_body_type,

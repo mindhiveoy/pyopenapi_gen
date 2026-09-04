@@ -42,13 +42,10 @@ class EndpointImportAnalyzer:
             content_types = op.request_body.content.keys()
             body_param_type: str | None = None
             if "multipart/form-data" in content_types:
-                # Type for multipart is dict[str, IO[Any]] which requires IO and Any
+                # Multipart values may be file tuples, bytes, file-like objects or plain fields: dict[str, Any]
                 context.add_import("typing", "Dict")
-                context.add_import("typing", "IO")
                 context.add_import("typing", "Any")
-                # The actual type string "dict[str, IO[Any]]" will be handled by add_typing_imports_for_type if passed
-                # but ensuring components are imported is key.
-                body_param_type = "dict[str, IO[Any]]"
+                body_param_type = "dict[str, Any]"
             elif "application/json" in content_types:
                 body_param_type = get_request_body_type(op.request_body, context, self.schemas)
             elif "application/x-www-form-urlencoded" in content_types:

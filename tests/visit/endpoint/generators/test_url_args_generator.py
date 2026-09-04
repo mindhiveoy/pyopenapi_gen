@@ -431,7 +431,7 @@ class TestEndpointUrlArgsGenerator:
             "param_in": "formData",  # Not strictly checked by this part of generator, but typical
             "required": True,
             "original_name": "files",
-            "type": "dict[str, IO[Any]]",  # Example type string
+            "type": "dict[str, Any]",  # Example type string
         }
         operation = IROperation(
             operation_id="upload_files_multipart",
@@ -456,10 +456,10 @@ class TestEndpointUrlArgsGenerator:
             None,  # resolved_body_type not directly used for multipart in this path
         )
 
-        code_writer_mock.write_line.assert_any_call(
-            f"files_data: {files_param_info['type']} = DataclassSerializer.serialize(files)"
-        )
-        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
+        code_writer_mock.write_line.assert_any_call(f"files_data: {files_param_info['type']} = files")
+        # Multipart bodies bypass the JSON serializer, so its import must not be emitted
+        import_calls = [call[0] for call in render_context_mock.add_import.call_args_list]
+        assert ("test_core.utils", "DataclassSerializer") not in import_calls
         render_context_mock.add_typing_imports_for_type.assert_called_with(files_param_info["type"])
 
     def test_generate_url_and_args_multipart_no_files_param_fallback(
@@ -494,13 +494,12 @@ class TestEndpointUrlArgsGenerator:
         mock_logger.warning.assert_called_once()
         assert "Could not find 'files' parameter details" in mock_logger.warning.call_args[0][0]
 
-        code_writer_mock.write_line.assert_any_call(
-            "files_data: dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # type failed"
-        )
-        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
+        code_writer_mock.write_line.assert_any_call("files_data: dict[str, Any] = files  # type failed")
+        import_calls = [call[0] for call in render_context_mock.add_import.call_args_list]
+        assert ("test_core.utils", "DataclassSerializer") not in import_calls
         render_context_mock.add_import.assert_any_call("typing", "Dict")
-        render_context_mock.add_import.assert_any_call("typing", "IO")
         render_context_mock.add_import.assert_any_call("typing", "Any")
+        assert ("typing", "IO") not in import_calls  # multipart values are not limited to IO objects
 
     def test_generate_url_and_args_form_urlencoded_with_resolved_type(
         self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock

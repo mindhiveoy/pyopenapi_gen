@@ -151,8 +151,8 @@ class TestEndpointParameterProcessor:
             - IROperation with a multipart/form-data request body.
         Expected Outcome:
             - primary_content_type is "multipart/form-data".
-            - resolved_body_type is "dict[str, IO[Any]]".
-            - A parameter named "files" with type "dict[str, IO[Any]]" is generated.
+            - resolved_body_type is "dict[str, Any]".
+            - A parameter named "files" with type "dict[str, Any]" is generated.
             - Imports for "typing.Dict" and "typing.IO" are added.
         """
         op_multipart = IROperation(
@@ -175,16 +175,17 @@ class TestEndpointParameterProcessor:
         )
 
         assert primary_content_type == "multipart/form-data"
-        assert resolved_body_type == "dict[str, IO[Any]]"
+        assert resolved_body_type == "dict[str, Any]"
 
         files_param_info = next((p for p in ordered_params if p["name"] == "files"), None)
         assert files_param_info is not None
-        assert files_param_info["type"] == "dict[str, IO[Any]]"
+        assert files_param_info["type"] == "dict[str, Any]"
         assert files_param_info["param_in"] == "body"
         assert files_param_info["required"] is True  # from op.request_body.required
 
         render_context_mock_for_params.add_import.assert_any_call("typing", "Dict")
-        render_context_mock_for_params.add_import.assert_any_call("typing", "IO")
+        import_calls = [call[0] for call in render_context_mock_for_params.add_import.call_args_list]
+        assert ("typing", "IO") not in import_calls  # multipart values are not limited to IO objects
         # Check Any was also likely called for the default body type before specific one found
         render_context_mock_for_params.add_import.assert_any_call("typing", "Any")
 

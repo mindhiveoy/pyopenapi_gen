@@ -583,6 +583,10 @@ def _structure_union(data: Any, union_type: type) -> Any:
     other_errors: list[tuple[str, str]] = []
     for variant in other_variants:
         try:
+            # Generic variants such as list[Model] or dict[str, Model] carry dataclasses whose
+            # field-mapping hooks must exist before cattrs structures them. Without this the
+            # variant fails and the data can fall through to a later `str` variant silently.
+            _register_nested_dataclass_hooks(variant)
             return converter.structure(data, variant)
         except Exception as e:  # nosec B112 - intentional: trying variants until one succeeds
             variant_name = getattr(variant, "__name__", str(variant))
@@ -647,6 +651,20 @@ def _register_union_structure_hook() -> None:
 
 # Register the Union hook at module load time
 _register_union_structure_hook()
+
+
+def _register_nested_dataclass_hooks(tp: Any) -> None:
+    """
+    Register structure hooks for every dataclass reachable through a (possibly generic) type.
+
+    Walks type arguments recursively, so ``list[Model]``, ``dict[str, list[Model]]`` and
+    ``Model | None`` all get ``Model`` registered. Non-dataclass leaves are ignored.
+    """
+    if isinstance(tp, type) and dataclasses.is_dataclass(tp):
+        _register_structure_hooks_recursively(tp)
+        return
+    for arg in get_args(tp):
+        _register_nested_dataclass_hooks(arg)
 
 
 def _register_structure_hooks_recursively(cls: type[Any], visited: set[type[Any]] | None = None) -> None:

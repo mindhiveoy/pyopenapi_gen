@@ -64,7 +64,6 @@ class OverloadMethodGenerator:
         # Ensure typing.overload is imported
         context.add_import("typing", "overload")
         context.add_import("typing", "Literal")
-        context.add_import("typing", "IO")
         context.add_import("typing", "Any")
 
         overload_signatures = []
@@ -173,7 +172,7 @@ class OverloadMethodGenerator:
 
         elif content_type == "multipart/form-data":
             # For multipart, always use files dict
-            return {"name": "files", "type": "dict[str, IO[Any]]"}
+            return {"name": "files", "type": "dict[str, Any]"}
 
         elif content_type == "application/x-www-form-urlencoded":
             # For form data, use dict
