@@ -1134,3 +1134,36 @@ def test_structure_annotated_union__string_annotations_module__discriminator_pre
     # Clean up
     if "_test_lazy_annotations" in sys.modules:
         del sys.modules["_test_lazy_annotations"]
+
+
+def test_structure_union__list_of_dataclass_variant_never_seen_before__structures_list_not_str() -> None:
+    """
+    Scenario:
+        A Union whose only dataclass appears *inside* a generic variant (list[Model]) is structured in a
+        process where no hook for that dataclass has been registered yet. The dataclasses are defined
+        locally so no other test can have registered them first.
+
+    Expected Outcome:
+        The list variant is structured into dataclasses with field-name mapping applied. It must not
+        fall through to the `str` variant (cattrs structures anything into str via str()).
+    """
+    # Arrange
+    from dataclasses import dataclass
+
+    @dataclass
+    class FreshItem:
+        type_: str
+        value_a: str
+
+        class Meta:
+            key_transform_with_load = {"type": "type_", "valueA": "value_a"}
+
+    union_type = Union[list[FreshItem], str, None]
+    data = [{"type": "item", "valueA": "v"}]
+
+    # Act
+    result = converter.structure(data, union_type)
+
+    # Assert
+    assert isinstance(result, list)
+    assert result == [FreshItem(type_="item", value_a="v")]

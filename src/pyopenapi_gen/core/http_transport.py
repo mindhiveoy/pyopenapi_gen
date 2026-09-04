@@ -1,8 +1,96 @@
+import dataclasses
+import json
+from collections.abc import Mapping
 from typing import Any, Protocol
 
 import httpx
 
 from .auth.base import BaseAuth
+from .utils import DataclassSerializer
+
+MultipartPart = tuple[str, Any]
+"""One ``(field_name, value)`` pair in the list form httpx accepts for ``files=``."""
+
+
+def _is_file_like(value: Any) -> bool:
+    """Return True if a multipart value is already in a shape httpx sends as a file part."""
+    return isinstance(value, (bytes, bytearray, tuple)) or hasattr(value, "read")
+
+
+def _is_json_object(value: Any) -> bool:
+    """Return True for values that must be sent as an ``application/json`` part (objects)."""
+    return isinstance(value, Mapping) or (dataclasses.is_dataclass(value) and not isinstance(value, type))
+
+
+def _primitive_to_bytes(value: str | int | float | bool) -> bytes:
+    """Encode a plain form-field value the way httpx encodes ``data=`` fields (bools as true/false)."""
+    if value is True:
+        return b"true"
+    if value is False:
+        return b"false"
+    return str(value).encode("utf-8")
+
+
+def _json_part(value: Any) -> tuple[None, bytes, str]:
+    """Build a filename-less ``application/json`` part for an object or array-of-objects value."""
+    payload = json.dumps(DataclassSerializer.serialize(value))
+    return (None, payload.encode("utf-8"), "application/json")
+
+
+def _prepare_multipart_parts(files: Any) -> Any:
+    """
+    Normalise a generated endpoint's multipart body into the list-of-pairs form httpx accepts for ``files=``.
+
+    Generated multipart endpoints hand the *whole* body over as one ``files`` dict, mixing real uploads
+    with plain form fields. httpx, however, sends every ``files=`` entry as a file part with a synthetic
+    ``filename="upload"``, and only falls back to ``application/x-www-form-urlencoded`` when ``files`` is
+    empty. This helper keeps the body multipart in every case and encodes each value by shape:
+
+    - ``None``: omitted (an unset optional property).
+    - ``(filename, content[, content_type[, headers]])`` tuple, ``bytes``/``bytearray``, or any object
+      with ``.read()``: kept untouched as a file part (content is never re-encoded).
+    - ``str``/``int``/``float``/``bool``: a filename-less part, rendered by httpx exactly like a plain form
+      field (booleans as ``true``/``false``).
+    - list of primitives: one part per item under the same name.
+    - ``Mapping`` or dataclass, or a list containing any: one ``application/json`` part
+      (the OpenAPI default encoding for complex multipart properties).
+
+    A non-mapping ``files`` value (httpx's own list-of-pairs form) is returned unchanged.
+
+    Raises:
+        TypeError: for a value of a type that cannot be represented as a multipart part.
+    """
+    if not isinstance(files, Mapping):
+        return files
+
+    parts: list[MultipartPart] = []
+    for name, value in files.items():
+        if value is None:
+            continue
+        if _is_file_like(value):
+            parts.append((name, value))
+        elif _is_json_object(value):
+            parts.append((name, _json_part(value)))
+        elif isinstance(value, (str, int, float)):  # bool is an int subclass
+            parts.append((name, (None, _primitive_to_bytes(value))))
+        elif isinstance(value, list):
+            if any(_is_json_object(item) for item in value):
+                parts.append((name, _json_part(value)))
+            else:
+                for item in value:
+                    if item is None:
+                        continue
+                    if not isinstance(item, (str, int, float)):
+                        raise TypeError(
+                            f"Multipart field {name!r} contains an unsupported item type {type(item).__name__}"
+                        )
+                    parts.append((name, (None, _primitive_to_bytes(item))))
+        else:
+            raise TypeError(
+                f"Multipart field {name!r} has unsupported type {type(value).__name__}; expected a file tuple, "
+                "bytes, a file-like object, a primitive, a list, a mapping or a dataclass"
+            )
+    return parts
 
 
 class HttpTransport(Protocol):
@@ -183,8 +271,23 @@ class HttpxTransport:
         # Prepare request arguments, excluding headers initially
         request_args: dict[str, Any] = {k: v for k, v in kwargs.items() if k != "headers"}
 
+        # Multipart bodies: generated endpoints hand the whole body over as `files=`. Normalise it so
+        # plain fields are sent as form fields (not synthetic file parts) and the body stays multipart.
+        is_multipart_request = bool(request_args.get("files"))
+        if is_multipart_request:
+            request_args["files"] = _prepare_multipart_parts(request_args["files"])
+
         # This method handles default headers, request-specific headers, and authentication
         prepared_headers = await self._prepare_headers(kwargs)
+
+        # httpx derives the Content-Type itself for multipart (`files=`) and form-encoded (`data=<mapping>`)
+        # bodies. A caller-configured Content-Type (e.g. a default `application/json`) would override that
+        # derived header and corrupt the request, so drop it for those body shapes. Raw `content=` bodies
+        # keep the configured header because httpx cannot know their media type.
+        body_derives_content_type = is_multipart_request or isinstance(request_args.get("data"), Mapping)
+        if body_derives_content_type:
+            prepared_headers = {k: v for k, v in prepared_headers.items() if k.lower() != "content-type"}
+
         request_args["headers"] = prepared_headers
 
         response = await self._client.request(method, url, **request_args)

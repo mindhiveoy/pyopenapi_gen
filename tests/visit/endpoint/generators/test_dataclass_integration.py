@@ -190,12 +190,13 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         serializer_write_calls = [call for call in write_calls if "DataclassSerializer" in str(call[0][0])]
         assert len(serializer_write_calls) == 0, "DataclassSerializer should not be called for bodyless requests"
 
-    def test_generate_url_and_args_multipart_files__includes_serializer_for_metadata__handles_mixed_content(
+    def test_generate_url_and_args_multipart_files__passes_files_dict_through__no_json_serialization(
         self, url_args_generator: EndpointUrlArgsGenerator, code_writer_mock: MagicMock, render_context_mock: MagicMock
     ) -> None:
         """
-        Scenario: Generate endpoint method with multipart/form-data including metadata
-        Expected Outcome: DataclassSerializer is used for non-file parts of multipart data
+        Scenario: Generate endpoint method with multipart/form-data including plain metadata fields
+        Expected Outcome: The caller's files dict is passed through untouched. Running it through the
+            JSON DataclassSerializer would turn httpx file tuples into lists and bytes into base64 strings.
         """
         # Arrange
         files_param_info: dict[str, Any] = {
@@ -236,11 +237,14 @@ class TestDataclassIntegrationInUrlArgsGenerator:
         )
 
         # Assert
-        # Should import DataclassSerializer for potential dataclass serialization in multipart data
-        render_context_mock.add_import.assert_any_call("test_core.utils", "DataclassSerializer")
+        # The multipart body must not go through the JSON serializer, so the import is not needed
+        import_calls = [call[0] for call in render_context_mock.add_import.call_args_list]
+        assert ("test_core.utils", "DataclassSerializer") not in import_calls
 
-        # Should generate files_data with potential serialization
-        code_writer_mock.write_line.assert_any_call("files_data: dict[str, Any] = DataclassSerializer.serialize(files)")
+        # files_data is the caller-supplied dict, unchanged
+        code_writer_mock.write_line.assert_any_call("files_data: dict[str, Any] = files")
+        serializer_calls = [c for c in code_writer_mock.write_line.call_args_list if "serialize(files)" in str(c[0][0])]
+        assert serializer_calls == []
 
 
 class TestEndpointMethodGeneratorDataclassIntegration:

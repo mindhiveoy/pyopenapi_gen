@@ -67,7 +67,7 @@ class EndpointDocstringGenerator:
             body_desc = op.request_body.description or "Request body."
             # Standardized body parameter names based on content type
             if primary_content_type == "multipart/form-data":
-                args.append(("files", "dict[str, IO[Any]]", body_desc + " (multipart/form-data)"))
+                args.append(("files", "dict[str, Any]", body_desc + " (multipart/form-data)"))
             elif primary_content_type == "application/x-www-form-urlencoded":
                 # The type here could be more specific if schema is available, but dict[str, Any] is a safe default.
                 args.append(("form_data", "dict[str, Any]", body_desc + " (x-www-form-urlencoded)"))
