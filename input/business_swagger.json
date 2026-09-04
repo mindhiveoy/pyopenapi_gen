@@ -16547,6 +16547,16 @@
             }
           }
         }
+      },
+      "FeedbackListResponse": {
+        "description": "Response containing a paginated list of feedback",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FeedbackListResponse"
+            }
+          }
+        }
       }
     },
     "parameters": {

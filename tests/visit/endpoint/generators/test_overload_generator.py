@@ -197,7 +197,7 @@ class TestGenerateOverloadSignatures:
         # Arrange
         mock_generate_single.side_effect = [
             '@overload\nasync def upload_file(\n    self,\n    *,\n    body: UploadRequest,\n    content_type: Literal["application/json"] = "application/json"\n) -> UploadResponse: ...',
-            '@overload\nasync def upload_file(\n    self,\n    *,\n    files: dict[str, IO[Any]],\n    content_type: Literal["multipart/form-data"] = "multipart/form-data"\n) -> UploadResponse: ...',
+            '@overload\nasync def upload_file(\n    self,\n    *,\n    files: dict[str, Any],\n    content_type: Literal["multipart/form-data"] = "multipart/form-data"\n) -> UploadResponse: ...',
         ]
 
         generator = OverloadMethodGenerator(schemas)
@@ -245,8 +245,9 @@ class TestGenerateOverloadSignatures:
         # Assert
         mock_render_context.add_import.assert_any_call("typing", "overload")
         mock_render_context.add_import.assert_any_call("typing", "Literal")
-        mock_render_context.add_import.assert_any_call("typing", "IO")
         mock_render_context.add_import.assert_any_call("typing", "Any")
+        import_calls = [call[0] for call in mock_render_context.add_import.call_args_list]
+        assert ("typing", "IO") not in import_calls  # multipart values are not limited to IO objects
 
     def test_generate_overload_signatures__no_request_body__returns_empty_list(
         self,
@@ -297,7 +298,7 @@ class TestGetContentTypeParamInfo:
     ) -> None:
         """
         Scenario: Content type is multipart/form-data.
-        Expected Outcome: Returns parameter info with name='files' and type='dict[str, IO[Any]]'.
+        Expected Outcome: Returns parameter info with name='files' and type='dict[str, Any]'.
         """
         # Arrange
         generator = OverloadMethodGenerator(schemas)
@@ -308,7 +309,7 @@ class TestGetContentTypeParamInfo:
 
         # Assert
         assert result["name"] == "files"
-        assert result["type"] == "dict[str, IO[Any]]"
+        assert result["type"] == "dict[str, Any]"
 
     def test_get_content_type_param_info__form_urlencoded__returns_data_param(
         self, mock_render_context: RenderContext, schemas: dict[str, IRSchema]
@@ -383,7 +384,7 @@ class TestGenerateImplementationSignature:
         assert "-> UploadResponse:" in result
         # Verify optional parameters (both body and files should have "| None = None")
         assert "body: UploadRequest | None = None" in result
-        assert "files: dict[str, IO[Any]] | None = None" in result
+        assert "files: dict[str, Any] | None = None" in result
         # Verify content_type parameter (no Literal, just str)
         assert 'content_type: str = "application/json"' in result
 
@@ -509,7 +510,7 @@ class TestGenerateSingleOverload:
         # Assert
         assert "@overload" in result
         assert "async def upload_file(" in result
-        assert "files: dict[str, IO[Any]]" in result
+        assert "files: dict[str, Any]" in result
         assert 'content_type: Literal["multipart/form-data"] = "multipart/form-data"' in result
         assert "-> UploadResponse: ..." in result
 

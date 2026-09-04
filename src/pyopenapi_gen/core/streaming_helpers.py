@@ -72,13 +72,30 @@ def _parse_sse_event(lines: List[str]) -> SSEEvent:
     return SSEEvent(data="\n".join(data), event=event, id=id, retry=retry)
 
 
-async def iter_sse_events_text(response: httpx.Response) -> AsyncIterator[str]:
+DEFAULT_SSE_DONE_SENTINEL = "[DONE]"
+
+
+async def iter_sse_events_text(
+    response: httpx.Response,
+    *,
+    done_sentinel: str | None = DEFAULT_SSE_DONE_SENTINEL,
+) -> AsyncIterator[str]:
     """
     Parses a Server-Sent Events (SSE) stream and yields the `data` field content
     as a string for each event.
     This is specifically for cases where the event data is expected to be a
     single text payload (e.g., a JSON string) per event.
+
+    Args:
+        response: The streaming HTTP response to read SSE lines from.
+        done_sentinel: A `data` payload that marks the end of the stream. When an event's
+            data equals it, iteration stops and the sentinel is not yielded. Defaults to
+            ``"[DONE]"``, the de-facto convention for JSON-over-SSE streams. Pass ``None``
+            to treat every payload, including ``"[DONE]"``, as regular data.
     """
     async for sse_event in iter_sse(response):
-        if sse_event.data:  # Ensure data is not empty
-            yield sse_event.data
+        if not sse_event.data:  # Ignore keep-alives / comment-only events
+            continue
+        if done_sentinel is not None and sse_event.data.strip() == done_sentinel:
+            return  # Stream-termination sentinel; not a payload for the caller
+        yield sse_event.data

@@ -362,6 +362,68 @@ class TestEndpointResponseHandlerGenerator:
             f"{render_context_mock.core_package_name}.exceptions", "HTTPError"
         )
 
+    def test_generate_response_handling_default_with_content_as_fallback_error__raises_not_returns(
+        self, generator, code_writer_mock, render_context_mock
+    ) -> None:
+        """
+        Scenario:
+            Operation has an explicit 200 OK response AND a 'default' response that HAS content
+            (a common shape where 'default' describes an error body). The endpoint's return type
+            is the 200 success type.
+        Expected Outcome:
+            The 'default' case must RAISE HTTPError for unhandled (e.g. error) status codes rather
+            than returning the error body typed as the success model. Returning it would both mask
+            server errors and mistype the payload (see issue #344 review).
+        """
+        success_schema = IRSchema(type="object", name="SuccessData")
+        error_schema = IRSchema(type="object", name="ErrorData")
+        operation = IROperation(
+            operation_id="op_default_content_fallback",
+            method=HTTPMethod.GET,
+            path="/default_content_error",
+            responses=[
+                IRResponse(
+                    status_code="200",
+                    description="OK",
+                    content={"application/json": success_schema},
+                ),
+                IRResponse(
+                    status_code="default",
+                    description="A generic error occurred.",
+                    content={"application/json": error_schema},
+                ),
+            ],
+            summary="default content fallback",
+            description="default content fallback",
+        )
+        render_context_mock.core_package_name = "test_client.core"
+
+        strategy = ResponseStrategy(
+            return_type="SuccessData",
+            response_schema=success_schema,
+            is_streaming=False,
+            response_ir=operation.responses[0],  # 200 response
+        )
+
+        generator.generate_response_handling(code_writer_mock, operation, render_context_mock, strategy)
+
+        written_lines = [c[0][0].strip() for c in code_writer_mock.write_line.call_args_list]
+        written_code = "\n".join(written_lines)
+
+        assert "case 200:" in written_code
+        # The default fallback must raise, not return the error body as SuccessData
+        assert any(
+            'raise HTTPError(response=response, message="Default error"' in line for line in written_lines
+        ), f"Expected default fallback to raise HTTPError, got:\n{written_code}"
+        assert not any(
+            line == "return structure_from_dict(response.json(), ErrorData)" for line in written_lines
+        ), "Default error body must not be returned"
+        assert not any(
+            line == "return structure_from_dict(response.json(), SuccessData)"
+            and idx > written_lines.index("case _:  # Default response")
+            for idx, line in enumerate(written_lines)
+        ), "Default case must not return the success type for unhandled codes"
+
     def test_generate_response_handling_default_as_primary_success_heuristic(
         self, generator, code_writer_mock, render_context_mock
     ) -> None:

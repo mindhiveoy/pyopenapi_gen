@@ -109,6 +109,50 @@ def test_load_ir_from_spec__minimal_openapi_spec__creates_ir_with_basic_componen
     assert op.responses[0].status_code == "200"
 
 
+def test_load_ir_from_spec__optional_security_requirement__keeps_operation() -> None:
+    """
+    Scenario:
+        load_ir_from_spec processes an operation where an empty security
+        requirement makes an API-key protected operation optional.
+
+    Expected Outcome:
+        The loader should keep parsing the operation and response data even
+        though security requirements are not part of the current IR model.
+    """
+    spec = {
+        "openapi": "3.1.0",
+        "info": {"title": "Optional Security", "version": "1.0.0"},
+        "paths": {
+            "/items": {
+                "get": {
+                    "operationId": "listItems",
+                    "security": [{}, {"apiKeyAuth": []}],
+                    "responses": {"204": {"description": "No content"}},
+                }
+            }
+        },
+        "components": {
+            "securitySchemes": {
+                "apiKeyAuth": {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "X-API-Key",
+                }
+            }
+        },
+    }
+
+    ir = load_ir_from_spec(spec)
+
+    assert len(ir.operations) == 1
+    op = ir.operations[0]
+    assert op.operation_id == "listItems"
+    assert op.method == HTTPMethod.GET
+    assert op.path == "/items"
+    assert len(op.responses) == 1
+    assert op.responses[0].status_code == "204"
+
+
 def test_load_ir_from_spec__operation_with_query_parameters__parses_params_with_types() -> None:
     """
     Scenario:

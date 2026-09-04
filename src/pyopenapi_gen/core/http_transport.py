@@ -1,9 +1,96 @@
+import dataclasses
+import json
+from collections.abc import Mapping
 from typing import Any, Protocol
 
 import httpx
 
 from .auth.base import BaseAuth
-from .exceptions import HTTPError
+from .utils import DataclassSerializer
+
+MultipartPart = tuple[str, Any]
+"""One ``(field_name, value)`` pair in the list form httpx accepts for ``files=``."""
+
+
+def _is_file_like(value: Any) -> bool:
+    """Return True if a multipart value is already in a shape httpx sends as a file part."""
+    return isinstance(value, (bytes, bytearray, tuple)) or hasattr(value, "read")
+
+
+def _is_json_object(value: Any) -> bool:
+    """Return True for values that must be sent as an ``application/json`` part (objects)."""
+    return isinstance(value, Mapping) or (dataclasses.is_dataclass(value) and not isinstance(value, type))
+
+
+def _primitive_to_bytes(value: str | int | float | bool) -> bytes:
+    """Encode a plain form-field value the way httpx encodes ``data=`` fields (bools as true/false)."""
+    if value is True:
+        return b"true"
+    if value is False:
+        return b"false"
+    return str(value).encode("utf-8")
+
+
+def _json_part(value: Any) -> tuple[None, bytes, str]:
+    """Build a filename-less ``application/json`` part for an object or array-of-objects value."""
+    payload = json.dumps(DataclassSerializer.serialize(value))
+    return (None, payload.encode("utf-8"), "application/json")
+
+
+def _prepare_multipart_parts(files: Any) -> Any:
+    """
+    Normalise a generated endpoint's multipart body into the list-of-pairs form httpx accepts for ``files=``.
+
+    Generated multipart endpoints hand the *whole* body over as one ``files`` dict, mixing real uploads
+    with plain form fields. httpx, however, sends every ``files=`` entry as a file part with a synthetic
+    ``filename="upload"``, and only falls back to ``application/x-www-form-urlencoded`` when ``files`` is
+    empty. This helper keeps the body multipart in every case and encodes each value by shape:
+
+    - ``None``: omitted (an unset optional property).
+    - ``(filename, content[, content_type[, headers]])`` tuple, ``bytes``/``bytearray``, or any object
+      with ``.read()``: kept untouched as a file part (content is never re-encoded).
+    - ``str``/``int``/``float``/``bool``: a filename-less part, rendered by httpx exactly like a plain form
+      field (booleans as ``true``/``false``).
+    - list of primitives: one part per item under the same name.
+    - ``Mapping`` or dataclass, or a list containing any: one ``application/json`` part
+      (the OpenAPI default encoding for complex multipart properties).
+
+    A non-mapping ``files`` value (httpx's own list-of-pairs form) is returned unchanged.
+
+    Raises:
+        TypeError: for a value of a type that cannot be represented as a multipart part.
+    """
+    if not isinstance(files, Mapping):
+        return files
+
+    parts: list[MultipartPart] = []
+    for name, value in files.items():
+        if value is None:
+            continue
+        if _is_file_like(value):
+            parts.append((name, value))
+        elif _is_json_object(value):
+            parts.append((name, _json_part(value)))
+        elif isinstance(value, (str, int, float)):  # bool is an int subclass
+            parts.append((name, (None, _primitive_to_bytes(value))))
+        elif isinstance(value, list):
+            if any(_is_json_object(item) for item in value):
+                parts.append((name, _json_part(value)))
+            else:
+                for item in value:
+                    if item is None:
+                        continue
+                    if not isinstance(item, (str, int, float)):
+                        raise TypeError(
+                            f"Multipart field {name!r} contains an unsupported item type {type(item).__name__}"
+                        )
+                    parts.append((name, (None, _primitive_to_bytes(item))))
+        else:
+            raise TypeError(
+                f"Multipart field {name!r} has unsupported type {type(value).__name__}; expected a file tuple, "
+                "bytes, a file-like object, a primitive, a list, a mapping or a dataclass"
+            )
+    return parts
 
 
 class HttpTransport(Protocol):
@@ -16,13 +103,13 @@ class HttpTransport(Protocol):
 
     All implementations must:
     - Provide a fully type-annotated async `request` method.
-    - Return an `httpx.Response` object for all requests.
+    - Return an `httpx.Response` object for all requests, regardless of status code.
     - Be safe for use in async contexts.
-    - STRICT REQUIREMENT: Raise `HTTPError` for all HTTP responses with status codes < 200 or >= 300.
-      This ensures that only successful (2xx) responses are returned to the caller, and all error
-      or informational responses are handled via exceptions. Implementors must not return non-2xx
-      responses directly; instead, they must raise `HTTPError` with the status code and response body.
-      This contract guarantees consistent error handling for all generated clients.
+    - STRICT REQUIREMENT: Return the `httpx.Response` unchanged for every HTTP response, including
+      non-2xx responses. Implementations must NOT raise on error status codes. Status-code handling
+      is the responsibility of the generated endpoint methods, which inspect `response.status_code`
+      and raise the appropriate exception alias (e.g. `NotFoundError` for 404) or the base `HTTPError`
+      for unhandled status codes. This contract ensures exception aliases work as intended.
     """
 
     async def request(
@@ -40,18 +127,17 @@ class HttpTransport(Protocol):
             **kwargs: Additional keyword arguments for the HTTP client (e.g., headers, params, json, data).
 
         Returns:
-            httpx.Response: The HTTP response object.
+            httpx.Response: The HTTP response object, regardless of status code.
 
         Raises:
-            HTTPError: For all HTTP responses with status codes < 200 or >= 300. Implementors MUST raise
-                this exception for any non-2xx response, passing the status code and response body.
             Exception: Implementations may raise exceptions for network errors or invalid responses.
 
         Protocol Contract:
-            - Only successful (2xx) responses are returned to the caller.
-            - All other responses (including redirects, client errors, and server errors) must result in
-              an HTTPError being raised. This ensures that error handling is consistent and explicit
-              across all generated clients and transport implementations.
+            - Every response is returned to the caller unchanged, including non-2xx responses.
+            - Implementations must NOT raise on error status codes. Status-code handling (including
+              raising exception aliases such as NotFoundError) is performed by the generated endpoint
+              methods. This ensures error handling is consistent and explicit across all generated
+              clients and transport implementations.
         """
         raise NotImplementedError()
 
@@ -76,10 +162,10 @@ class HttpxTransport:
     Optionally supports authentication via any BaseAuth-compatible plugin, including CompositeAuth.
 
     CONTRACT:
-        - This implementation strictly raises `HTTPError` for all HTTP responses with status codes < 200 or >= 300.
-          Only successful (2xx) responses are returned to the caller. This ensures that all error, informational,
-          and redirect responses are handled via exceptions, providing a consistent error handling model for the
-          generated client code.
+        - This implementation returns the `httpx.Response` unchanged for every response, including non-2xx
+          responses. It does NOT raise on error status codes. Status-code handling (including raising exception
+          aliases such as `NotFoundError`) is delegated to the generated endpoint methods, which inspect
+          `response.status_code`. This ensures the generated exception aliases are actually raised.
 
     Attributes:
         _client (httpx.AsyncClient): Configured HTTPX async client for all requests.
@@ -176,22 +262,35 @@ class HttpxTransport:
             params, json, data).
 
         Returns:
-            httpx.Response: The HTTP response object from the server.
+            httpx.Response: The HTTP response object from the server, regardless of status code.
 
         Raises:
-            httpx.HTTPError: For network errors or invalid responses.
-            HTTPError: For non-2xx HTTP responses.
+            httpx.HTTPError: For network errors or invalid responses. Non-2xx HTTP responses are
+                returned unchanged; status-code handling is performed by the generated endpoint methods.
         """
         # Prepare request arguments, excluding headers initially
         request_args: dict[str, Any] = {k: v for k, v in kwargs.items() if k != "headers"}
 
+        # Multipart bodies: generated endpoints hand the whole body over as `files=`. Normalise it so
+        # plain fields are sent as form fields (not synthetic file parts) and the body stays multipart.
+        is_multipart_request = bool(request_args.get("files"))
+        if is_multipart_request:
+            request_args["files"] = _prepare_multipart_parts(request_args["files"])
+
         # This method handles default headers, request-specific headers, and authentication
         prepared_headers = await self._prepare_headers(kwargs)
+
+        # httpx derives the Content-Type itself for multipart (`files=`) and form-encoded (`data=<mapping>`)
+        # bodies. A caller-configured Content-Type (e.g. a default `application/json`) would override that
+        # derived header and corrupt the request, so drop it for those body shapes. Raw `content=` bodies
+        # keep the configured header because httpx cannot know their media type.
+        body_derives_content_type = is_multipart_request or isinstance(request_args.get("data"), Mapping)
+        if body_derives_content_type:
+            prepared_headers = {k: v for k, v in prepared_headers.items() if k.lower() != "content-type"}
+
         request_args["headers"] = prepared_headers
 
         response = await self._client.request(method, url, **request_args)
-        if response.status_code < 200 or response.status_code >= 300:
-            raise HTTPError(status_code=response.status_code, message=response.text, response=response)
         return response
 
     async def close(self) -> None:

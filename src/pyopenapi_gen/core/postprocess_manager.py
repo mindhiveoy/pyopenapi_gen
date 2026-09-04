@@ -1,5 +1,6 @@
 import subprocess  # nosec B404 - Required for running code formatters (Black, Ruff) and mypy
 import sys
+import tempfile
 from pathlib import Path
 from typing import List, Union
 
@@ -71,7 +72,7 @@ class PostprocessManager:
         """Remove unused imports from multiple targets using Ruff (bulk operation)."""
         if not targets:
             return
-        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
+        result = self._run_ruff_with_response_file(
             [
                 sys.executable,
                 "-m",
@@ -79,11 +80,8 @@ class PostprocessManager:
                 "check",
                 "--select=F401",
                 "--fix",
-            ]
-            + [str(t) for t in targets],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+            ],
+            targets,
         )
         if result.returncode != 0 or result.stderr:
             if result.stdout:
@@ -95,7 +93,7 @@ class PostprocessManager:
         """Sort imports in multiple targets using Ruff (bulk operation)."""
         if not targets:
             return
-        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
+        result = self._run_ruff_with_response_file(
             [
                 sys.executable,
                 "-m",
@@ -103,11 +101,8 @@ class PostprocessManager:
                 "check",
                 "--select=I",
                 "--fix",
-            ]
-            + [str(t) for t in targets],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+            ],
+            targets,
         )
         if result.returncode != 0 or result.stderr:
             if result.stdout:
@@ -119,23 +114,40 @@ class PostprocessManager:
         """Format code in multiple targets using Ruff (bulk operation)."""
         if not targets:
             return
-        result = subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
+        result = self._run_ruff_with_response_file(
             [
                 sys.executable,
                 "-m",
                 "ruff",
                 "format",
-            ]
-            + [str(t) for t in targets],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+            ],
+            targets,
         )
         if result.returncode != 0 or result.stderr:
             if result.stdout:
                 _print_filtered_stdout(result.stdout)
             if result.stderr:
                 print(result.stderr, file=sys.stderr)
+
+    def _run_ruff_with_response_file(self, command: List[str], targets: List[Path]) -> subprocess.CompletedProcess[str]:
+        """Run Ruff with target paths loaded from a response file.
+
+        Passing generated files directly on the command line can exceed Windows'
+        command-line length limit for large OpenAPI specs.
+        """
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".rsp", delete=False, encoding="utf-8") as response_file:
+            response_path = Path(response_file.name)
+            response_file.write("\n".join(str(target.resolve()) for target in targets))
+
+        try:
+            return subprocess.run(  # nosec B603 - Controlled subprocess with hardcoded command
+                [*command, f"@{response_path}"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        finally:
+            response_path.unlink(missing_ok=True)
 
     def remove_unused_imports(self, target: Union[str, Path]) -> None:
         """Remove unused imports from the target using Ruff."""
