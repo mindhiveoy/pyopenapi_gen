@@ -42,6 +42,9 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The action's built-in default model has been retired (404 not_found_error on
+          # claude-sonnet-4-20250514), which failed every review run. Pin a current model.
+          model: claude-sonnet-5
           direct_prompt: |
             Review this PR for code quality, security, and compatibility:
 
