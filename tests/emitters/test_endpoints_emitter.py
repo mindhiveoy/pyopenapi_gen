@@ -205,10 +205,12 @@ def test_endpoints_emitter__multipart_form_data__generates_files_parameter_and_a
     file_module: Path = out_dir / "endpoints" / "files.py"
     assert file_module.exists()
     content = file_module.read_text()
-    # The method signature should include 'files: dict[str, IO[Any]]'
-    assert "files: dict[str, IO[Any]]" in content
+    # The method signature should include 'files: dict[str, Any]'
+    assert "files: dict[str, Any]" in content
+    assert "IO[Any]" not in content  # tuples, bytes and plain fields must all be accepted
     # And the request should pass files via kwargs
-    assert "files_data: dict[str, IO[Any]] = DataclassSerializer.serialize(files)" in content
+    assert "files_data: dict[str, Any] = files" in content
+    assert "DataclassSerializer.serialize(files)" not in content
 
 
 def test_endpoints_emitter__streaming_binary_response__generates_async_iterator_with_bytes_yield(
@@ -330,7 +332,7 @@ def test_endpoints_emitter__complex_operation_with_mixed_params__includes_requir
     assert "AsyncIterator" in content
     # Accept both Dict (old style) and dict (modern Python 3.10+)
     assert "dict[" in content or "Dict[" in content
-    assert "IO" in content
+    assert "IO[Any]" not in content  # multipart files are typed dict[str, Any], not dict[str, IO[Any]]
     # Note: With T | None syntax, Optional should not be imported
     assert "Optional" not in content or "| None" in content  # Either no Optional or uses union syntax
 

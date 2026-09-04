@@ -132,10 +132,11 @@ class TestEndpointImportAnalyzer:
             # Assert
             # Imports for multipart body
             render_context_mock.add_import.assert_any_call("typing", "Dict")
-            render_context_mock.add_import.assert_any_call("typing", "IO")
             render_context_mock.add_import.assert_any_call("typing", "Any")
+            import_calls = [call[0] for call in render_context_mock.add_import.call_args_list]
+            assert ("typing", "IO") not in import_calls  # multipart values are not limited to IO objects
             # Type registration for the body type string
-            render_context_mock.add_typing_imports_for_type.assert_any_call("dict[str, IO[Any]]")
+            render_context_mock.add_typing_imports_for_type.assert_any_call("dict[str, Any]")
 
             # Return type import using ResponseStrategy
             render_context_mock.add_typing_imports_for_type.assert_any_call("None")
@@ -341,9 +342,9 @@ class TestEndpointImportAnalyzer:
             # Expected calls are only for parameters (if any) and return type.
             # In this test, no params, return type is "None".
             assert "None" in all_add_typing_calls
-            # Ensure no body-specific types like 'bytes' or 'dict[str, IO[Any]]' or 'dict[str, Any]' were added from body path
+            # Ensure no body-specific types like 'bytes' or 'dict[str, Any]' or 'dict[str, Any]' were added from body path
             assert "bytes" not in all_add_typing_calls
-            assert "dict[str, IO[Any]]" not in all_add_typing_calls
+            assert "dict[str, Any]" not in all_add_typing_calls
             assert "dict[str, Any]" not in all_add_typing_calls
 
             mock_get_request_body_type.assert_not_called()

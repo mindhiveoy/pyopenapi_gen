@@ -151,8 +151,11 @@ class EndpointUrlArgsGenerator:
         # Request Body related local variables (json_body, files_data, etc.)
         # This part was in _write_url_and_args in the original, it sets up variables used by _write_request
         if op.request_body:
-            # Import DataclassSerializer for automatic conversion
-            context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
+            if primary_content_type in ("application/json", "application/x-www-form-urlencoded"):
+                # Import DataclassSerializer for automatic conversion of JSON / form bodies.
+                # Multipart bodies are deliberately excluded: they may carry httpx file tuples
+                # and raw bytes, which the JSON serializer would corrupt (tuple -> list, bytes -> base64).
+                context.add_import(f"{context.core_package_name}.utils", "DataclassSerializer")
 
             if primary_content_type == "application/json":
                 body_param_detail = next((p for p in ordered_params if p["name"] == "body"), None)
@@ -174,18 +177,17 @@ class EndpointUrlArgsGenerator:
                 if files_param_details:
                     actual_files_param_type = files_param_details["type"]
                     context.add_typing_imports_for_type(actual_files_param_type)
-                    writer.write_line(f"files_data: {actual_files_param_type} = DataclassSerializer.serialize(files)")
+                    # Pass the caller's dict straight through. The transport encodes each value by shape
+                    # (file parts, plain fields, JSON objects) when it builds the multipart body.
+                    writer.write_line(f"files_data: {actual_files_param_type} = files")
                 else:
                     logger.warning(
                         f"Operation {op.operation_id}: Could not find 'files' parameter details "
                         f"for multipart/form-data. Defaulting type."
                     )
                     context.add_import("typing", "Dict")
-                    context.add_import("typing", "IO")  # For IO[Any]
                     context.add_import("typing", "Any")
-                    writer.write_line(
-                        "files_data: dict[str, IO[Any]] = DataclassSerializer.serialize(files)  # type failed"
-                    )
+                    writer.write_line("files_data: dict[str, Any] = files  # type failed")
             elif primary_content_type == "application/x-www-form-urlencoded":
                 # form_data is the expected parameter name from EndpointParameterProcessor
                 # resolved_body_type should be dict[str, Any]
