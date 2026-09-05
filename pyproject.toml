@@ -14,8 +14,8 @@ dependencies = [
   "openapi-spec-validator>=0.7",
   "openapi-core>=0.19",
   "PyYAML>=6.0",
-  "typer>=0.27.0",
-  "click>=8.0.0",
+  "typer>=0.27.2",
+  "click>=8.5.0",
   "httpx>=0.24.0",
   "dataclass-wizard (>=1.0.0,<2.0.0)",
   "cattrs>=25.3.0",
@@ -68,8 +68,8 @@ Changelog = "https://github.com/your-org/pyopenapi-gen/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 dev = [
   "black>=23.0",
-  "ruff>=0.16.0",
-  "mypy>=2.3.0",
+  "ruff>=0.16.5",
+  "mypy>=2.3.1",
   "pytest>=9.1.1",
   "pytest-cov>=4.0",
   "pytest-timeout>=2.1.0",
@@ -78,7 +78,7 @@ dev = [
   "pytest-asyncio>=0.20.0",
   "pip-audit>=2.7.0",
   "bandit[toml]>=1.7.0",
-  "types-pyyaml>=6.0.12.20260724",
+  "types-pyyaml>=6.0.12.20260815",
   "httpx>=0.24.0",
   "dataclass-wizard>=1.0.0",
 ]
@@ -123,18 +123,18 @@ markers = [
 
 
 [tool.poetry.group.dev.dependencies]
-types-pyyaml = "^6.0.12.20260724"
+types-pyyaml = "^6.0.12.20260815"
 bandit = {extras = ["toml"], version = "^1.9.4"}
 pytest-timeout = "^2.4.0"
 pytest-asyncio = "^1.4.0"
 black = "^26.5.1"
-ruff = "^0.16.0"
-mypy = "^2.3.0"
-commitizen = "^4.16.5"
+ruff = "^0.16.5"
+mypy = "^2.3.1"
+commitizen = "^4.18.0"
 python-semantic-release = "^10.6.1"
 pytest-xdist = "^3.8.0"
 pytest-cov = "^7.1.0"
-build = "^1.5.0"
+build = "^1.6.0"
 twine = "^7.0.0"
 pytest = "^9.1.1"
 
