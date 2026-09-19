@@ -130,6 +130,34 @@ class TestOpenAPISchemaResolver:
         assert result.python_type == "List[str]"
         mock_context.add_import.assert_called_with("typing", "List")
 
+    def test_resolve_schema__array_with_nullable_items__returns_list_of_optional(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving an array whose item schema is itself nullable
+        Expected Outcome: The element type carries the `| None`, not just the list
+        """
+        # Arrange
+        schema = IRSchema(type="array", items=IRSchema(type="string", is_nullable=True))
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "List[str | None]"
+
+    def test_resolve_schema__array_with_nullable_any_items__stays_list_any(self, resolver, mock_context) -> None:
+        """
+        Scenario: Resolving an array whose items are typeless and nullable
+        Expected Outcome: Stays List[Any] - `Any` already admits None, so `Any | None` is noise
+        """
+        # Arrange
+        schema = IRSchema(type="array", items=IRSchema(type="null", is_nullable=True))
+
+        # Act
+        result = resolver.resolve_schema(schema, mock_context)
+
+        # Assert
+        assert result.python_type == "List[Any]"
+
     def test_resolve_schema__array_no_items__returns_list_any(self, resolver, mock_context) -> None:
         """
         Scenario: Resolving array schema without items
