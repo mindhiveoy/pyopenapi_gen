@@ -25,7 +25,7 @@ from typing import Any, List, Mapping, Tuple
 # Keywords that give a node content of its own. A wrapper may carry none of these
 # beyond the single composition keyword it is built from; anything else means the
 # node genuinely composes or constrains, and must be parsed as a schema.
-STRUCTURAL_KEYWORDS = frozenset(
+_STRUCTURAL_KEYWORDS = frozenset(
     {
         "type",
         "properties",
@@ -55,7 +55,7 @@ _COMPOSITION_KEYWORDS = ("allOf", "anyOf", "oneOf")
 # `deprecated`, `readOnly` and `writeOnly` are deliberately absent: the IR has
 # nowhere to put them, so honouring them would only change the shape of the IR
 # without preserving anything.
-ANNOTATION_KEYWORDS = frozenset({"nullable", "description", "title", "default", "example", "examples"})
+_ANNOTATION_KEYWORDS = frozenset({"nullable", "description", "title", "default", "example", "examples"})
 
 
 def _is_null_member(node: Any) -> bool:
@@ -101,7 +101,7 @@ def unwrap_nullable_composition(node: Any) -> Tuple[Mapping[str, Any], bool] | N
     if "$ref" in node:
         if not is_nullable:
             return None
-        extra_structural = STRUCTURAL_KEYWORDS.intersection(node) - {"$ref"}
+        extra_structural = _STRUCTURAL_KEYWORDS.intersection(node) - {"$ref"}
         if extra_structural:
             return None
         return {"$ref": node["$ref"]}, True
@@ -112,7 +112,7 @@ def unwrap_nullable_composition(node: Any) -> Tuple[Mapping[str, Any], bool] | N
 
     # Anything structural beyond the composition keyword itself means the node
     # contributes content and cannot be collapsed to its single member.
-    if STRUCTURAL_KEYWORDS.intersection(node) - {keyword}:
+    if _STRUCTURAL_KEYWORDS.intersection(node) - {keyword}:
         return None
 
     members = node[keyword]
@@ -135,7 +135,7 @@ def unwrap_nullable_composition(node: Any) -> Tuple[Mapping[str, Any], bool] | N
     return non_null_members[0], is_nullable
 
 
-def has_ref_siblings(node: Any) -> bool:
+def _has_ref_siblings(node: Any) -> bool:
     """Does this ``$ref`` carry annotations of its own?
 
     A bare ``$ref`` is interchangeable with its target, so it can resolve straight
@@ -145,7 +145,23 @@ def has_ref_siblings(node: Any) -> bool:
     """
     if not isinstance(node, Mapping) or "$ref" not in node:
         return False
-    return bool(ANNOTATION_KEYWORDS.intersection(node))
+    return bool(_ANNOTATION_KEYWORDS.intersection(node))
+
+
+def is_annotated_ref_node(node: Any) -> bool:
+    """Is this node itself a ``$ref`` that carries annotations of its own?
+
+    Answers one question for callers holding a ``$ref`` node: may it resolve straight
+    to its shared target, or does it need a holder for its own annotations? False for
+    a bare ``$ref``, and false for a ``$ref`` beside structural keywords - an
+    intersection this module does not model, which must fall back to the plain
+    reference path rather than be dropped.
+
+    Wrapper nodes such as ``{"nullable": true, "allOf": [{"$ref": ...}]}`` are not
+    ``$ref`` nodes and are false here; they are handled by
+    :func:`resolve_reference_wrapper`.
+    """
+    return _has_ref_siblings(node) and resolve_reference_wrapper(node) is not None
 
 
 def resolve_reference_wrapper(node: Any) -> Tuple[str, bool] | None:
@@ -168,7 +184,7 @@ def resolve_reference_wrapper(node: Any) -> Tuple[str, bool] | None:
     is_nullable = False
     # Each iteration strips one wrapper layer, so this terminates on the node's depth.
     while isinstance(current, Mapping):
-        if "$ref" in current and not STRUCTURAL_KEYWORDS.intersection(current) - {"$ref"}:
+        if "$ref" in current and not _STRUCTURAL_KEYWORDS.intersection(current) - {"$ref"}:
             ref_path = current["$ref"]
             if not isinstance(ref_path, str):
                 return None
@@ -189,20 +205,6 @@ def is_reference_like_node(node: Any) -> bool:
     emits - a standalone model that merely duplicates the referenced component.
     """
     return resolve_reference_wrapper(node) is not None
-
-
-def normalize_examples(node: Mapping[str, Any]) -> Any:
-    """The single example this node carries, across both OpenAPI spellings.
-
-    3.0 has a scalar ``example``; 3.1 replaced it with an ``examples`` array. The IR
-    holds one example, so the first entry of the array stands in for it.
-    """
-    if "example" in node:
-        return node["example"]
-    examples = node.get("examples")
-    if isinstance(examples, list) and examples:
-        return examples[0]
-    return None
 
 
 def merge_wrapper_annotations(

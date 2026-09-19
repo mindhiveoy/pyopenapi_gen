@@ -359,3 +359,167 @@ def test_parse_schema__ref_with_sibling_examples__carries_the_first_example() ->
     assert prop_ir.type == "Reason"
     assert prop_ir.example == "missingRate"
     assert context.parsed_schemas["Reason"].example is None
+
+
+# --- Shapes the wrapper machinery must not swallow ---------------------------
+
+
+@pytest.mark.parametrize(
+    "prop_node",
+    [
+        # `$ref` beside a structural keyword narrows the reference. The intersection
+        # is not modelled, but the reference must still win - dropping it would be
+        # the very "silently wrong type" this module exists to prevent.
+        pytest.param({"$ref": "#/components/schemas/Thing", "type": "object"}, id="ref-plus-type"),
+        pytest.param(
+            {"$ref": "#/components/schemas/Thing", "type": "object", "description": "d"},
+            id="ref-plus-type-and-annotation",
+        ),
+        pytest.param(
+            {"$ref": "#/components/schemas/Thing", "properties": {"extra": {"type": "string"}}},
+            id="ref-plus-properties",
+        ),
+    ],
+)
+def test_parse_schema__ref_beside_structural_keyword__still_resolves_to_the_reference(
+    prop_node: dict[str, Any],
+) -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe(prop_node, context)
+
+    # Assert
+    assert prop_ir.type in ("Thing", "object")
+    assert prop_ir.properties.keys() <= {"id"}
+    assert "ProbeNullableRef" not in context.parsed_schemas
+
+
+def test_parse_schema__colliding_sanitized_names__keeps_both_schemas() -> None:
+    # Arrange: two component names that sanitize to the same Python name, one of
+    # them a nullable reference.
+    raw = {
+        "Thing": THING,
+        "FooBar": {"type": "object", "properties": {"real": {"type": "string"}}},
+        "Foo-Bar": {"nullable": True, "allOf": [{"$ref": "#/components/schemas/Thing"}]},
+    }
+    context = ParsingContext(raw_spec_schemas=raw, parsed_schemas={}, visited_refs=set())
+
+    # Act
+    _parse_schema("FooBar", raw["FooBar"], context)
+    alias = _parse_schema("Foo-Bar", raw["Foo-Bar"], context)
+
+    # Assert: the alias is registered rather than dropped, so the emitter can see it
+    # and de-collide the names - it must not silently vanish behind the real FooBar.
+    assert alias.type == "Thing"
+    assert alias in context.parsed_schemas.values()
+    assert context.parsed_schemas["FooBar"].properties.keys() == {"real"}
+
+
+# --- Wrappers around inline (non-$ref) subschemas -----------------------------
+
+
+@pytest.mark.parametrize(
+    "prop_node",
+    [
+        pytest.param(
+            {"nullable": True, "allOf": [{"type": "object", "properties": {"x": {"type": "string"}}}]},
+            id="openapi-3.0-allof-inline-object",
+        ),
+        pytest.param(
+            {"anyOf": [{"type": "object", "properties": {"x": {"type": "string"}}}, {"type": "null"}]},
+            id="openapi-3.1-anyof-inline-object",
+        ),
+    ],
+)
+def test_parse_schema__wrapper_around_inline_object__promotes_it_and_keeps_nullability(
+    prop_node: dict[str, Any],
+) -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe(prop_node, context)
+
+    # Assert: an inline object genuinely needs a model, so it is promoted - but the
+    # wrapper's nullability travels with it.
+    assert prop_ir.type == "ProbeNullableRef"
+    assert prop_ir.is_nullable is True
+    assert context.parsed_schemas["ProbeNullableRef"].properties.keys() == {"x"}
+
+
+@pytest.mark.parametrize(
+    "prop_node",
+    [
+        pytest.param({"nullable": True, "allOf": [{"type": "string"}]}, id="openapi-3.0-allof-inline-primitive"),
+        pytest.param({"anyOf": [{"type": "string"}, {"type": "null"}]}, id="openapi-3.1-anyof-inline-primitive"),
+    ],
+)
+def test_parse_schema__wrapper_around_inline_primitive__stays_inline(prop_node: dict[str, Any]) -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe(prop_node, context)
+
+    # Assert
+    assert prop_ir.type == "string"
+    assert prop_ir.is_nullable is True
+    assert "ProbeNullableRef" not in context.parsed_schemas
+
+
+def test_parse_schema__wrapper_around_inline_object__carries_the_wrapper_description() -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe(
+        {
+            "description": "why this field exists",
+            "anyOf": [{"type": "object", "properties": {"x": {"type": "string"}}}, {"type": "null"}],
+        },
+        context,
+    )
+
+    # Assert
+    assert prop_ir.description == "why this field exists"
+    assert prop_ir.is_nullable is True
+
+
+@pytest.mark.parametrize("bad_ref", ["", "#/"])
+def test_parse_schema__wrapper_around_malformed_ref__keeps_nullability(bad_ref: str) -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe({"nullable": True, "allOf": [{"$ref": bad_ref}]}, context)
+
+    # Assert: nothing to point at, so it degrades to an unresolved placeholder -
+    # but the field is still known to be nullable.
+    assert prop_ir.is_nullable is True
+    assert prop_ir._from_unresolved_ref is True
+
+
+def test_parse_schema__wrapper_around_unresolvable_ref__degrades_without_losing_nullability() -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe({"nullable": True, "allOf": [{"$ref": "#/components/schemas/Missing"}]}, context)
+
+    # Assert
+    assert prop_ir.is_nullable is True
+    assert prop_ir.description is not None and "Unresolved $ref" in prop_ir.description
+
+
+def test_parse_schema__ref_with_sibling_example__carries_the_example() -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe({"$ref": "#/components/schemas/Reason", "example": "missingRate"}, context)
+
+    # Assert
+    assert prop_ir.type == "Reason"
+    assert prop_ir.example == "missingRate"

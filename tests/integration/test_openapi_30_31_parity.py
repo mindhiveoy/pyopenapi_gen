@@ -196,3 +196,62 @@ def test_client_generation__ref_with_sibling_description__documents_the_use_site
     # ...and the component keeps its own description, unpolluted by the use site.
     assert "A thing." in thing_source
     assert "Metadata for this page of results." not in thing_source
+
+
+@pytest.mark.parametrize(
+    "openapi_version, maybe_thing",
+    [
+        pytest.param("3.0.3", {"nullable": True, "allOf": [{"$ref": "#/components/schemas/Thing"}]}, id="openapi-3.0"),
+        pytest.param(
+            "3.1.0",
+            {"anyOf": [{"$ref": "#/components/schemas/Thing"}, {"type": "null"}]},
+            id="openapi-3.1",
+        ),
+    ],
+)
+def test_client_generation__named_nullable_ref_component__aliases_the_referenced_model(
+    tmp_path: Path, openapi_version: str, maybe_thing: dict[str, Any]
+) -> None:
+    """A component that is itself a nullable reference aliases its target, not a dict."""
+    # Arrange
+    spec = _spec(openapi_version, {"maybeThing": {"$ref": "#/components/schemas/MaybeThing"}})
+    spec["components"]["schemas"]["MaybeThing"] = maybe_thing
+
+    # Act
+    client_dir = _generate(tmp_path, spec)
+    alias_source = (client_dir / "models" / "maybe_thing.py").read_text()
+
+    # Assert
+    assert "MaybeThing: TypeAlias = Thing | None" in alias_source
+    assert "dict[str, Any]" not in alias_source
+
+
+def test_client_generation__colliding_sanitized_names__each_alias_keeps_its_own_target(tmp_path: Path) -> None:
+    """Two spec names that sanitize alike must not collapse into one another's type."""
+    # Arrange: "Foo-Bar" and "FooBar" both sanitize to FooBar; the first is a
+    # nullable reference to Thing, the second an unrelated object.
+    spec = _spec(
+        "3.0.3",
+        {
+            "real": {"$ref": "#/components/schemas/FooBar"},
+            "aliased": {"$ref": "#/components/schemas/Foo-Bar"},
+        },
+    )
+    spec["components"]["schemas"]["FooBar"] = {"type": "object", "properties": {"real": {"type": "string"}}}
+    spec["components"]["schemas"]["Foo-Bar"] = {
+        "nullable": True,
+        "allOf": [{"$ref": "#/components/schemas/Thing"}],
+    }
+
+    # Act
+    client_dir = _generate(tmp_path, spec)
+    aliases = {
+        path.name: path.read_text() for path in (client_dir / "models").iterdir() if path.name.startswith("foo_bar")
+    }
+
+    # Assert: both survive de-collision, and the alias still points at Thing rather
+    # than silently adopting the other schema's shape.
+    assert len(aliases) == 2, sorted(aliases)
+    alias_source = next(source for source in aliases.values() if "TypeAlias" in source)
+    assert "Thing | None" in alias_source
+    assert "dict[str, Any]" not in alias_source

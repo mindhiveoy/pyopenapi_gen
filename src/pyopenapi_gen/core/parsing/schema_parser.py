@@ -17,10 +17,9 @@ from .context import ParsingContext
 from .keywords.all_of_parser import _process_all_of
 from .keywords.any_of_parser import _parse_any_of_schemas
 from .keywords.nullable_composition import (
-    has_ref_siblings,
+    is_annotated_ref_node,
     is_reference_like_node,
     merge_wrapper_annotations,
-    normalize_examples,
     resolve_reference_wrapper,
     unwrap_nullable_composition,
 )
@@ -165,6 +164,20 @@ def _parse_composition_keywords(
     )
 
 
+def _normalize_examples(node: Mapping[str, Any]) -> Any:
+    """The single example this node carries, across both OpenAPI spellings.
+
+    3.0 has a scalar ``example``; 3.1 replaced it with an ``examples`` array. The IR
+    holds one example, so the first entry of the array stands in for it.
+    """
+    if "example" in node:
+        return node["example"]
+    examples = node.get("examples")
+    if isinstance(examples, list) and examples:
+        return examples[0]
+    return None
+
+
 def _determine_property_nullability(prop_schema_node: Any, parsed_prop_schema_ir: IRSchema) -> bool:
     """Is this property nullable, per the property node or the schema parsed from it?
 
@@ -211,7 +224,7 @@ def _build_reference_holder(
 
     # Annotations written at the use site win; anything it leaves out falls back to
     # the component's own.
-    use_site_example = normalize_examples(wrapper_node)
+    use_site_example = _normalize_examples(wrapper_node)
     holder = IRSchema(
         name=sanitized_schema_name,
         type=target.name,
@@ -226,7 +239,18 @@ def _build_reference_holder(
     if sanitized_schema_name and sanitized_schema_name != target.name:
         holder.generation_name = NameSanitizer.sanitize_class_name(sanitized_schema_name)
         holder.final_module_stem = NameSanitizer.sanitize_module_name(sanitized_schema_name)
-        context.parsed_schemas.setdefault(sanitized_schema_name, holder)
+
+        # Register so the emitter sees this alias and can de-collide its names. When
+        # two raw schema names sanitize to the same Python name, fall back to the raw
+        # name - as the main registration path does - so neither schema is lost.
+        registration_key = sanitized_schema_name
+        if registration_key in context.parsed_schemas:
+            registration_key = schema_name or sanitized_schema_name
+            logger.debug(
+                f"Schema name collision detected: {sanitized_schema_name!r} already registered. "
+                f"Using original raw name {registration_key!r} as key for the reference alias."
+            )
+        context.parsed_schemas[registration_key] = holder
 
     return holder
 
@@ -258,7 +282,7 @@ def _parse_properties(
         if (
             isinstance(prop_schema_node, Mapping)
             and "$ref" in prop_schema_node
-            and not has_ref_siblings(prop_schema_node)
+            and not is_annotated_ref_node(prop_schema_node)
         ):
             parsed_props[prop_name] = _resolve_ref(
                 prop_schema_node["$ref"], parent_schema_name, context, max_depth_override, allow_self_reference
@@ -592,7 +616,7 @@ def _parse_schema(
         # If the current schema_node itself is a $ref, resolve it. Annotation siblings
         # (allowed by OpenAPI 3.1) make it a use site with details of its own, handled
         # by the reference-holder path below.
-        if "$ref" in schema_node and not has_ref_siblings(schema_node):
+        if "$ref" in schema_node and not is_annotated_ref_node(schema_node):
             # schema_name is the original name we are trying to parse (e.g., 'Pet')
             # schema_node is {"$ref": "#/components/schemas/ActualPet"}
             # We want to resolve "ActualPet", but the resulting IRSchema should ideally
@@ -649,7 +673,7 @@ def _parse_schema(
 
         # OpenAPI 3.1 replaced the scalar `example` with an `examples` array.
         if "example" not in schema_node and "examples" in schema_node:
-            example_from_3_1 = normalize_examples(schema_node)
+            example_from_3_1 = _normalize_examples(schema_node)
             if example_from_3_1 is not None:
                 schema_node = {**schema_node, "example": example_from_3_1}
 

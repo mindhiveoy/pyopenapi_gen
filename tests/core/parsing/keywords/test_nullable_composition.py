@@ -10,8 +10,9 @@ from typing import Any, Mapping
 import pytest
 
 from pyopenapi_gen.core.parsing.keywords.nullable_composition import (
-    has_ref_siblings,
+    is_annotated_ref_node,
     is_reference_like_node,
+    resolve_reference_wrapper,
     unwrap_nullable_composition,
 )
 
@@ -125,28 +126,75 @@ def test_unwrap_nullable_composition__non_mapping__returns_none() -> None:
         ({"$ref": REF["$ref"], "example": "x"}, True),
         ({"$ref": REF["$ref"], "examples": ["x"]}, True),
         ({"$ref": REF["$ref"], "nullable": True}, True),
-        # A bare `$ref` carries nothing of its own.
+        # Wrapper nodes are not `$ref` nodes; resolve_reference_wrapper handles them.
+        ({"nullable": True, "allOf": [REF]}, False),
+        ({"anyOf": [REF, NULL_MEMBER], "description": "d"}, False),
+        # A bare `$ref` carries nothing of its own, so it resolves to its target.
         (REF, False),
-        # Not a reference at all.
-        (INLINE_OBJECT, False),
-        ({"allOf": [REF]}, False),
-        ({}, False),
+        # `$ref` beside a structural keyword is an intersection this module does not
+        # model. It must fall back to the plain reference path, never be swallowed.
+        ({"$ref": REF["$ref"], "type": "object"}, False),
+        ({"$ref": REF["$ref"], "type": "object", "description": "d"}, False),
+        ({"$ref": REF["$ref"], "properties": {"x": {"type": "string"}}, "description": "d"}, False),
         # Keys that are neither structural nor IR-representable annotations do not
-        # make a use site - honouring them would change the IR while preserving
-        # nothing.
+        # make a use site - honouring them would change the IR while preserving nothing.
         ({"$ref": REF["$ref"], "$comment": "note"}, False),
         ({"$ref": REF["$ref"], "deprecated": True}, False),
         ({"$ref": REF["$ref"], "readOnly": True}, False),
+        # Not a reference at all.
+        (INLINE_OBJECT, False),
+        ({"allOf": [INLINE_OBJECT]}, False),
+        ({}, False),
     ],
 )
-def test_has_ref_siblings__various__reports_whether_the_ref_carries_annotations(
+def test_is_annotated_ref_node__various__reports_whether_the_ref_needs_its_own_holder(
     node: Mapping[str, Any], expected: bool
 ) -> None:
     # Act / Assert
-    assert has_ref_siblings(node) is expected
+    assert is_annotated_ref_node(node) is expected
 
 
-def test_has_ref_siblings__non_mapping__returns_false() -> None:
+def test_is_annotated_ref_node__non_mapping__returns_false() -> None:
     # Act / Assert
-    assert has_ref_siblings(None) is False
-    assert has_ref_siblings([REF]) is False
+    assert is_annotated_ref_node(None) is False
+    assert is_annotated_ref_node([REF]) is False
+
+
+# --- Malformed input ----------------------------------------------------------
+# Specs reaching the generator are frequently hand-written, so every guard here is
+# reachable in practice and must degrade rather than raise.
+
+
+@pytest.mark.parametrize(
+    "node",
+    [
+        # A `$ref` narrowed by a structural keyword is an intersection, not a wrapper.
+        pytest.param({"$ref": REF["$ref"], "nullable": True, "type": "object"}, id="nullable-ref-plus-type"),
+        # Composition keywords must hold a list of subschemas.
+        pytest.param({"allOf": "not-a-list"}, id="allof-not-a-list"),
+        pytest.param({"anyOf": {"$ref": REF["$ref"]}}, id="anyof-not-a-list"),
+        # ...whose members must be schema objects.
+        pytest.param({"anyOf": [REF, "not-a-mapping"]}, id="member-not-a-mapping"),
+        pytest.param({"allOf": [None]}, id="member-is-none"),
+    ],
+)
+def test_unwrap_nullable_composition__malformed_input__returns_none_without_raising(
+    node: Mapping[str, Any],
+) -> None:
+    # Act / Assert
+    assert unwrap_nullable_composition(node) is None
+
+
+@pytest.mark.parametrize(
+    "node",
+    [
+        pytest.param({"$ref": 123}, id="ref-not-a-string"),
+        pytest.param({"allOf": [{"$ref": None}]}, id="wrapped-ref-not-a-string"),
+        pytest.param(None, id="node-is-none"),
+        pytest.param("not-a-mapping", id="node-is-a-string"),
+    ],
+)
+def test_resolve_reference_wrapper__malformed_input__returns_none_without_raising(node: Any) -> None:
+    # Act / Assert
+    assert resolve_reference_wrapper(node) is None
+    assert is_reference_like_node(node) is False

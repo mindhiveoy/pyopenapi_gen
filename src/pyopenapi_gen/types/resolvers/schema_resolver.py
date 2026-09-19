@@ -79,6 +79,18 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         elif hasattr(schema, "one_of") and schema.one_of is not None:
             return self._resolve_one_of(schema, context, required, resolve_underlying)
 
+        # A reference holder links to its target explicitly. Trust that link over the
+        # name lookup below, which lands on the wrong schema when two spec names
+        # sanitize to the same Python name.
+        referenced_schema = getattr(schema, "_refers_to_schema", None)
+        if referenced_schema is not None and referenced_schema is not schema:
+            return self.resolve_schema(
+                referenced_schema,
+                context,
+                required,
+                self._resolve_underlying_for_target(referenced_schema, resolve_underlying),
+            )
+
         # Handle named schemas without generation_name (fallback for references)
         if schema.name and schema.name in self.ref_resolver.schemas:
             target_schema = self.ref_resolver.schemas[schema.name]
@@ -96,7 +108,12 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         ):
             target_schema = self.ref_resolver.schemas[schema_type]
             if target_schema and hasattr(target_schema, "name") and target_schema.name:  # It's a named schema reference
-                return self.resolve_schema(target_schema, context, required, resolve_underlying)
+                return self.resolve_schema(
+                    target_schema,
+                    context,
+                    required,
+                    self._resolve_underlying_for_target(target_schema, resolve_underlying),
+                )
 
         if schema_type == "string":
             return self._resolve_string(schema, context, required)
@@ -160,6 +177,19 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
                 logger.info(f"  Location: Check your OpenAPI spec for schemas with type='{schema_type}'")
 
             return self._resolve_any(context, required)
+
+    @staticmethod
+    def _resolve_underlying_for_target(target_schema: IRSchema, resolve_underlying: bool) -> bool:
+        """Should `resolve_underlying` carry over to this referenced schema?
+
+        It exists to unwrap primitive type aliases. Propagating it to a model would
+        flatten that model to dict[str, Any], losing the reference.
+        """
+        return bool(
+            resolve_underlying
+            and not getattr(target_schema, "properties", None)
+            and getattr(target_schema, "type", None) in ("string", "integer", "number", "boolean")
+        )
 
     def _resolve_reference(
         self, ref: str, context: TypeContext, required: bool, resolve_underlying: bool = False
