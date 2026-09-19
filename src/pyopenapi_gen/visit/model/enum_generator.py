@@ -5,7 +5,7 @@ Generates Python code for enums from IRSchema objects.
 import keyword
 import logging
 import re
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 from pyopenapi_gen import IRSchema
 from pyopenapi_gen.context.render_context import RenderContext
@@ -23,7 +23,8 @@ class EnumGenerator:
             raise ValueError("PythonConstructRenderer cannot be None")
         self.renderer = renderer
 
-    def _generate_member_name_for_string_enum(self, value: str) -> str:
+    @staticmethod
+    def _generate_member_name_for_string_enum(value: str) -> str:
         """
         Generates a Python-valid member name from a string enum value.
 
@@ -67,7 +68,8 @@ class EnumGenerator:
             )
         return sanitized_member_name
 
-    def _generate_member_name_for_integer_enum(self, value: str | int, int_value_for_fallback: int) -> str:
+    @staticmethod
+    def _generate_member_name_for_integer_enum(value: str | int, int_value_for_fallback: int) -> str:
         """
         Generates a Python-valid member name from an integer enum value (or its string representation).
 
@@ -116,6 +118,47 @@ class EnumGenerator:
                 f"is not a valid Python identifier from value '{value}'."
             )
         return sanitized_member_name
+
+    @staticmethod
+    def member_names_by_value(schema: IRSchema) -> dict[Any, str]:
+        """Map each spec enum value to the Python member name emitted for it.
+
+        Mirrors :meth:`generate` exactly - coercion and duplicate-name disambiguation
+        included - so callers that need to reference a member (rendering a field
+        default, say) cannot drift from the enum that is actually generated.
+
+        Args:
+            schema: An IRSchema carrying ``enum`` values.
+
+        Returns:
+            Spec value -> member name. Empty when the schema declares no enum.
+        """
+        if not schema.enum:
+            return {}
+
+        is_string_enum = schema.type != "integer"
+        names_by_value: dict[Any, str] = {}
+        processed_member_names: set[str] = set()
+
+        for val_from_spec in schema.enum:
+            if is_string_enum:
+                member_name = EnumGenerator._generate_member_name_for_string_enum(str(val_from_spec))
+            else:
+                try:
+                    actual_int_value = int(val_from_spec)
+                except (ValueError, TypeError):
+                    actual_int_value = 0
+                member_name = EnumGenerator._generate_member_name_for_integer_enum(val_from_spec, actual_int_value)
+
+            unique_member_name = member_name
+            counter = 1
+            while unique_member_name in processed_member_names:
+                unique_member_name = f"{member_name}_{counter}"
+                counter += 1
+            processed_member_names.add(unique_member_name)
+            names_by_value[val_from_spec] = unique_member_name
+
+        return names_by_value
 
     def generate(
         self,
@@ -168,7 +211,7 @@ class EnumGenerator:
 
             if base_type == "str":
                 member_value = str(val_from_spec)
-                member_name = self._generate_member_name_for_string_enum(member_value)
+                member_name = EnumGenerator._generate_member_name_for_string_enum(member_value)
             else:  # Integer enum
                 try:
                     actual_int_value = int(val_from_spec)
@@ -180,7 +223,7 @@ class EnumGenerator:
                     actual_int_value = 0  # Fallback value
                 member_value = actual_int_value
                 # Pass original spec value for naming, and the actual int value for fallback naming
-                member_name = self._generate_member_name_for_integer_enum(val_from_spec, actual_int_value)
+                member_name = EnumGenerator._generate_member_name_for_integer_enum(val_from_spec, actual_int_value)
 
             # Handle duplicate member names by appending a counter
             unique_member_name = member_name
