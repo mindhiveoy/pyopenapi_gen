@@ -155,34 +155,46 @@ changelog_format = "## [$version] - $date\\n\\n$changes"
 commit_parser = "^(?P<change_type>feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\\((?P<scope>[^)]+)\\))?!?:\\s(?P<message>.+)$"
 bump_message = "bump: version $current_version → $new_version"
 
+# Settings below use python-semantic-release v8+ option names. The pre-v8 keys this
+# block used to carry (branch, upload_to_pypi, upload_to_repository, tag_commit,
+# changelog_file, changelog_format, hvcs, allowed_bots) are not recognised by v10 and
+# were silently ignored, which is why no changelog was written for 44 releases.
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version", "pyproject.toml:tool.commitizen.version"]
 version_variables = [
     "src/pyopenapi_gen/__init__.py:__version__"
 ]
-branch = "main"
-upload_to_pypi = false
-upload_to_repository = false
 commit_message = "chore(release): {version}"
-tag_commit = true
-changelog_file = "CHANGELOG.md"
-changelog_format = "# Changelog\\n\\n{changelog}"
-hvcs = "github"
 commit_parser = "conventional"
 major_on_zero = false
-# Allow bot actors (dependabot, renovate, etc.) to trigger releases
-allowed_bots = ["dependabot", "renovate"]
 
-# Exclude verbose dependency update commits from release notes
-# These commits still trigger patch releases, but don't clutter changelog
-# This prevents GitHub API 422 errors from oversized release note bodies
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.remote]
+type = "github"
+
+[tool.semantic_release.publish]
+upload_to_vcs_release = true
+
+# `mode = "update"` inserts new entries after `insertion_flag`; CHANGELOG.md must
+# therefore contain that exact marker, or releases silently write nothing.
 [tool.semantic_release.changelog]
+mode = "update"
+insertion_flag = "<!-- version list -->"
+# Exclude verbose dependency update commits from release notes.
+# These commits still trigger patch releases, but don't clutter the changelog.
+# This prevents GitHub API 422 errors from oversized release note bodies.
 exclude_commit_patterns = [
     "^chore\\(deps\\): merge dependabot",
     "^chore\\(deps-dev\\): merge dependabot",
     "^deps:",
     "^deps-dev:",
 ]
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+output_format = "md"
 
 [tool.coverage.run]
 # Store coverage data files under coverage_reports/ instead of project root

@@ -102,8 +102,12 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    needs: [quality-checks]
-    continue-on-error: true
+    # No `needs:` - this job does its own checkout and install, so gating it on
+    # quality-checks only serialised the pipeline and meant it could not even start
+    # until every other required check had passed, guaranteeing a race with
+    # auto-merge. Running it in parallel is both faster and gateable.
+    # No `continue-on-error` - it reported success even when it failed, so it could
+    # never block a merge, however branch protection was configured.
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
