@@ -474,6 +474,9 @@ class TestCycleDetection(unittest.TestCase):
         importlib.reload(schema_parser)
 
     def test_max_recursion_depth_in_allof(self) -> None:
+        # Arrange: a chain of single-member allOf aliases, each referencing the next.
+        # Each alias is one level of named-schema nesting, so with PYOPENAPI_MAX_DEPTH=3
+        # the limit is reached while parsing DeepAllOfSchema_3 (depth 4).
         max_depth = 3
         original_max_depth = os.environ.get("PYOPENAPI_MAX_DEPTH")
         os.environ["PYOPENAPI_MAX_DEPTH"] = str(max_depth)
@@ -482,52 +485,37 @@ class TestCycleDetection(unittest.TestCase):
         schema_name = "DeepAllOfSchema"
         schemas_to_add: dict[str, Any] = {}
         current_level_schema_name = schema_name
-        # Create schemas A -> B -> C -> D ... via allOf
-        # Max depth 3. So, schema_0 allOf schema_1, schema_1 allOf schema_2, schema_2 allOf schema_3.
-        # Parsing schema_3 will be depth 4, exceeding limit 3.
-        for i in range(max_depth + 2):  # 0, 1, 2, 3, 4 for max_depth=3. Limit hit at i=max_depth (schema_3)
+        for i in range(max_depth + 2):
             next_level_schema_name = f"{schema_name}_{i + 1}"
-            if i < max_depth + 1:  # For schema_0, schema_1, schema_2, schema_3
+            if i < max_depth + 1:
                 schema_node = {"allOf": [{"$ref": f"#/components/schemas/{next_level_schema_name}"}]}
-            else:  # For schema_4 (which won't be reached if depth limit works for schema_3's ref)
-                schema_node = {"type": "string"}  # Terminal node if we got this far
+            else:
+                schema_node = {"type": "string"}
             schemas_to_add[current_level_schema_name] = schema_node
-            if i == max_depth:  # schema_3 is the one that will be a placeholder
+            if i == max_depth:
                 schemas_to_add[next_level_schema_name] = {
                     "type": "object",
                     "description": "This is the node that should be a placeholder due to depth limit.",
-                }  # Provide node for schema_3 to be parsed
+                }
             current_level_schema_name = next_level_schema_name
 
-        # Add a terminal node for the deepest reference if not already added (e.g. schema_4 if max_depth=3)
-        # This ensures the ref target for schema_3 exists, even if it's schema_4 that would be depth limited.
-        # The critical point is schema_3 trying to parse its allOf pointing to schema_4.
-        # No, the critical point is when _parse_schema is called *for* schema_3.
-        # The setup ensures schema_name (DeepAllOfSchema_0) has schema_1 in its allOf,
-        # schema_1 has schema_2, schema_2 has schema_3.
-        # Parsing schema_0 (depth 1)
-        #  -> calls _parse_schema for schema_1 (depth 2)
-        #     -> calls _parse_schema for schema_2 (depth 3)
-        #        -> calls _parse_schema for schema_3 (depth 4) -> THIS is where ENV_MAX_DEPTH (3) is exceeded.
-        # So, the IRSchema registered for "DeepAllOfSchema_2" should be the placeholder when ENV_MAX_DEPTH is 3.
-
         context = ParsingContext(raw_spec_schemas=schemas_to_add, raw_spec_components={})
+
+        # Act
         result = _parse_schema(schema_name, schemas_to_add[schema_name], context, allow_self_reference=False)
 
+        # Assert
         self.assertFalse(result._max_depth_exceeded_marker, "Top-level schema itself should not be marked")
 
-        # The schema that should be marked is DeepAllOfSchema_2 (when max_depth is 3)
-        depth_limited_schema_name = f"{schema_name}_{max_depth - 1}"  # e.g. DeepAllOfSchema_2 if max_depth=3
+        depth_limited_schema_name = f"{schema_name}_{max_depth}"
         self.assertIn(
             depth_limited_schema_name,
             context.parsed_schemas,
             f"{depth_limited_schema_name} should be in parsed_schemas as a placeholder",
         )
 
-        _temp_schema_val = context.parsed_schemas[depth_limited_schema_name]
-        self.assertIsNotNone(_temp_schema_val, f"{depth_limited_schema_name} should not be None in parsed_schemas")
-        depth_exceeded_schema_actual_ir = _temp_schema_val
-
+        depth_exceeded_schema_actual_ir = context.parsed_schemas[depth_limited_schema_name]
+        self.assertIsNotNone(depth_exceeded_schema_actual_ir)
         self.assertTrue(
             depth_exceeded_schema_actual_ir._max_depth_exceeded_marker,
             f"{depth_limited_schema_name} ({depth_exceeded_schema_actual_ir.name}) "
@@ -537,29 +525,21 @@ class TestCycleDetection(unittest.TestCase):
         _temp_name_val = depth_exceeded_schema_actual_ir.name
         self.assertIsNotNone(_temp_name_val, f"{depth_limited_schema_name} placeholder should have a name.")
         schema_actual_name = cast(str, _temp_name_val)
-        # The name stored is the sanitized version of the original name used when _handle_max_depth_exceeded was called.
         self.assertEqual(
             schema_actual_name,
             NameSanitizer.sanitize_class_name(depth_limited_schema_name),
             f"Placeholder name {schema_actual_name} should match sanitized {depth_limited_schema_name}",
         )
 
-        # Also, check propagation through the allOf list of the top schema
-        # result (DAS_0) -> allOf[0] (DAS_1_IR) -> allOf[0] (DAS_2_IR - placeholder)
-        self.assertIsNotNone(result.all_of)
-        assert result.all_of is not None
-        self.assertTrue(len(result.all_of) > 0)
-        das1_ir = result.all_of[0]
-        self.assertIsNotNone(
-            das1_ir.all_of, "das1_ir.all_of should not be None after previous checks on result.all_of structure"
-        )
-        assert das1_ir.all_of is not None
-        self.assertTrue(len(das1_ir.all_of) > 0)
-        das2_ir_placeholder = das1_ir.all_of[0]
-        self.assertTrue(
-            das2_ir_placeholder._max_depth_exceeded_marker, "DAS_2 placeholder in allOf chain should be marked."
-        )
-        self.assertEqual(das2_ir_placeholder.name, NameSanitizer.sanitize_class_name(depth_limited_schema_name))
+        # A single-member allOf is an alias, so the chain is expressed as reference
+        # holders pointing at their targets rather than as nested allOf lists.
+        hop = result
+        for _ in range(max_depth):
+            self.assertIsNotNone(hop._refers_to_schema, f"{hop.name} should reference the next alias in the chain")
+            assert hop._refers_to_schema is not None
+            hop = hop._refers_to_schema
+        self.assertTrue(hop._max_depth_exceeded_marker, f"{hop.name} should be the depth-limited placeholder")
+        self.assertEqual(hop.name, NameSanitizer.sanitize_class_name(depth_limited_schema_name))
 
         if original_max_depth is None:
             del os.environ["PYOPENAPI_MAX_DEPTH"]

@@ -4,6 +4,7 @@ Core schema parsing logic, transforming a schema node into an IRSchema object.
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 from typing import Any, Callable, List, Mapping, Set, Tuple
@@ -15,6 +16,13 @@ from pyopenapi_gen.ir import IRDiscriminator
 from .context import ParsingContext
 from .keywords.all_of_parser import _process_all_of
 from .keywords.any_of_parser import _parse_any_of_schemas
+from .keywords.nullable_composition import (
+    is_annotated_ref_node,
+    is_reference_like_node,
+    merge_wrapper_annotations,
+    resolve_reference_wrapper,
+    unwrap_nullable_composition,
+)
 from .keywords.one_of_parser import _parse_one_of_schemas
 from .unified_cycle_detection import CycleAction
 
@@ -156,6 +164,97 @@ def _parse_composition_keywords(
     )
 
 
+def _normalize_examples(node: Mapping[str, Any]) -> Any:
+    """The single example this node carries, across both OpenAPI spellings.
+
+    3.0 has a scalar ``example``; 3.1 replaced it with an ``examples`` array. The IR
+    holds one example, so the first entry of the array stands in for it.
+    """
+    if "example" in node:
+        return node["example"]
+    examples = node.get("examples")
+    if isinstance(examples, list) and examples:
+        return examples[0]
+    return None
+
+
+def _determine_property_nullability(prop_schema_node: Any, parsed_prop_schema_ir: IRSchema) -> bool:
+    """Is this property nullable, per the property node or the schema parsed from it?
+
+    Nullability can be declared on the property node (3.0's ``nullable`` flag, or a
+    ``type`` list containing ``"null"``) or discovered while parsing it (3.1's
+    ``anyOf``/``oneOf`` with a ``{"type": "null"}`` member). Either is sufficient.
+    """
+    if parsed_prop_schema_ir.is_nullable:
+        return True
+    if not isinstance(prop_schema_node, Mapping):
+        return False
+    if prop_schema_node.get("nullable", False):
+        return True
+    return isinstance(prop_schema_node.get("type"), list) and "null" in prop_schema_node["type"]
+
+
+def _build_reference_holder(
+    schema_name: str | None,
+    sanitized_schema_name: str | None,
+    wrapper_node: Mapping[str, Any],
+    ref_path: str,
+    is_nullable: bool,
+    context: ParsingContext,
+    max_depth_override: int | None,
+    allow_self_reference: bool,
+) -> IRSchema:
+    """Build the IR for a node that references a component, optionally nullable.
+
+    The referenced schema is shared across every use site, so nullability and the
+    wrapper's annotations are carried on a separate holder rather than written onto
+    the target. An unnamed holder stays inline (no model file); a named one is
+    registered and renders as ``<Name>: TypeAlias = <Target> | None``.
+    """
+    target = _resolve_ref(ref_path, schema_name, context, max_depth_override, allow_self_reference)
+
+    if not target.name:
+        # Unresolvable or anonymous target: nothing to point at, so keep the
+        # placeholder itself and only make sure nullability is not lost.
+        if is_nullable and not target.is_nullable:
+            degenerate = copy.copy(target)
+            degenerate.is_nullable = True
+            return degenerate
+        return target
+
+    # Annotations written at the use site win; anything it leaves out falls back to
+    # the component's own.
+    use_site_example = _normalize_examples(wrapper_node)
+    holder = IRSchema(
+        name=sanitized_schema_name,
+        type=target.name,
+        description=wrapper_node.get("description") or target.description,
+        title=wrapper_node.get("title") or target.title,
+        default=wrapper_node.get("default", target.default),
+        example=use_site_example if use_site_example is not None else target.example,
+        is_nullable=is_nullable or target.is_nullable,
+        _refers_to_schema=target,
+    )
+
+    if sanitized_schema_name and sanitized_schema_name != target.name:
+        holder.generation_name = NameSanitizer.sanitize_class_name(sanitized_schema_name)
+        holder.final_module_stem = NameSanitizer.sanitize_module_name(sanitized_schema_name)
+
+        # Register so the emitter sees this alias and can de-collide its names. When
+        # two raw schema names sanitize to the same Python name, fall back to the raw
+        # name - as the main registration path does - so neither schema is lost.
+        registration_key = sanitized_schema_name
+        if registration_key in context.parsed_schemas:
+            registration_key = schema_name or sanitized_schema_name
+            logger.debug(
+                f"Schema name collision detected: {sanitized_schema_name!r} already registered. "
+                f"Using original raw name {registration_key!r} as key for the reference alias."
+            )
+        context.parsed_schemas[registration_key] = holder
+
+    return holder
+
+
 def _parse_properties(
     properties_node: Mapping[str, Any],
     parent_schema_name: str | None,
@@ -177,7 +276,14 @@ def _parse_properties(
         if prop_name in parsed_props:  # Already handled by allOf or a previous definition, skip
             continue
 
-        if isinstance(prop_schema_node, Mapping) and "$ref" in prop_schema_node:
+        # A bare `$ref` resolves straight to the shared target. One carrying OpenAPI
+        # 3.1 annotation siblings does not: those describe this property only, so it
+        # goes through the general path and gets its own reference holder.
+        if (
+            isinstance(prop_schema_node, Mapping)
+            and "$ref" in prop_schema_node
+            and not is_annotated_ref_node(prop_schema_node)
+        ):
             parsed_props[prop_name] = _resolve_ref(
                 prop_schema_node["$ref"], parent_schema_name, context, max_depth_override, allow_self_reference
             )
@@ -286,7 +392,7 @@ def _parse_properties(
                     and "oneOf" not in prop_schema_node
                     and isinstance(prop_schema_node.get("items"), Mapping)
                     and (
-                        "$ref" in items_node  # Array of referenced types
+                        is_reference_like_node(items_node)  # Array of referenced types, incl. nullable refs
                         or is_primitive_items  # Array of primitive types
                         or is_typeless_items  # Array with malformed items (no type) - resolves to List[Any]
                     )
@@ -310,10 +416,17 @@ def _parse_properties(
                     # There's a naming conflict - use a unique name to avoid confusion
                     prop_context_name = f"_primitive_{prop_name}_{id(prop_schema_node)}"
 
+                # A property that just points at a component - directly, or through a
+                # nullable wrapper - must not be given a synthetic name either, or the
+                # reference is registered and emitted as a duplicate of its target.
+                is_reference_like = is_reference_like_node(prop_schema_node)
+
                 # For simple primitives and simple arrays, don't assign names to prevent
                 # them from being registered as standalone schemas
                 # Note: Inline enums DO get names so they're registered properly
-                schema_name_for_parsing = None if (is_simple_primitive or is_simple_array) else prop_context_name
+                schema_name_for_parsing = (
+                    None if (is_simple_primitive or is_simple_array or is_reference_like) else prop_context_name
+                )
 
                 parsed_prop_schema_ir = _parse_schema(
                     schema_name_for_parsing,  # Use None for simple types to prevent standalone registration
@@ -345,14 +458,7 @@ def _parse_properties(
                 )
 
                 if should_create_reference:
-                    prop_is_nullable = False
-                    if isinstance(prop_schema_node, Mapping):
-                        if "nullable" in prop_schema_node:
-                            prop_is_nullable = prop_schema_node["nullable"]
-                        elif isinstance(prop_schema_node.get("type"), list) and "null" in prop_schema_node["type"]:
-                            prop_is_nullable = True
-                    elif parsed_prop_schema_ir.is_nullable:
-                        prop_is_nullable = True
+                    prop_is_nullable = _determine_property_nullability(prop_schema_node, parsed_prop_schema_ir)
 
                     property_holder_ir = IRSchema(
                         name=None,  # Property name is the dict key, not stored in the schema object
@@ -384,14 +490,7 @@ def _parse_properties(
                         # Schema is registered - create a reference holder instead of modifying the schema
                         # CRITICAL: Do NOT set 'name' field for property holders - the property name is the dict key.
                         # Setting 'name' would cause __post_init__ to sanitize it, changing 'sender_role' to 'SenderRole'.
-                        prop_is_nullable = False
-                        if isinstance(prop_schema_node, Mapping):
-                            if "nullable" in prop_schema_node:
-                                prop_is_nullable = prop_schema_node["nullable"]
-                            elif isinstance(prop_schema_node.get("type"), list) and "null" in prop_schema_node["type"]:
-                                prop_is_nullable = True
-                        elif parsed_prop_schema_ir.is_nullable:
-                            prop_is_nullable = True
+                        prop_is_nullable = _determine_property_nullability(prop_schema_node, parsed_prop_schema_ir)
 
                         property_holder_ir = IRSchema(
                             name=None,  # Property name is the dict key, not stored in the schema object
@@ -444,6 +543,15 @@ def _parse_schema(
     # Pre-conditions
     if context is None:
         raise ValueError("Context cannot be None for _parse_schema")
+
+    # A node that merely wraps one inline subschema (3.0's `allOf` + `nullable`, or
+    # 3.1's `anyOf` with a `{"type": "null"}` member) describes that subschema, not a
+    # new one. Fold the wrapper into it up front so the rest of parsing - naming and
+    # cycle detection included - sees the schema the spec actually meant.
+    if isinstance(schema_node, Mapping):
+        _inline_wrapper = unwrap_nullable_composition(schema_node)
+        if _inline_wrapper is not None and not is_reference_like_node(_inline_wrapper[0]):
+            schema_node = merge_wrapper_annotations(schema_node, _inline_wrapper[0], _inline_wrapper[1])
 
     # Set allow_self_reference flag on unified context
     context.unified_cycle_context.allow_self_reference = allow_self_reference
@@ -505,8 +613,10 @@ def _parse_schema(
                 f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
             )
 
-        # If the current schema_node itself is a $ref, resolve it.
-        if "$ref" in schema_node:
+        # If the current schema_node itself is a $ref, resolve it. Annotation siblings
+        # (allowed by OpenAPI 3.1) make it a use site with details of its own, handled
+        # by the reference-holder path below.
+        if "$ref" in schema_node and not is_annotated_ref_node(schema_node):
             # schema_name is the original name we are trying to parse (e.g., 'Pet')
             # schema_node is {"$ref": "#/components/schemas/ActualPet"}
             # We want to resolve "ActualPet", but the resulting IRSchema should ideally
@@ -533,6 +643,39 @@ def _parse_schema(
                 context.parsed_schemas[schema_name] = resolved_schema
 
             return resolved_schema
+
+        # A wrapper around a `$ref` (3.0 `{nullable, allOf: [$ref]}`, 3.1
+        # `{anyOf: [$ref, {type: null}]}`, or a single-member alias) denotes the
+        # referenced component with nullability applied - never a new schema.
+        reference_wrapper = resolve_reference_wrapper(schema_node)
+        if reference_wrapper is not None:
+            ref_path, wrapper_is_nullable = reference_wrapper
+            return _build_reference_holder(
+                schema_name,
+                sanitized_schema_name,
+                schema_node,
+                ref_path,
+                wrapper_is_nullable,
+                context,
+                max_depth_override,
+                allow_self_reference,
+            )
+
+        # OpenAPI 3.1 (JSON Schema 2020-12) `const` is by definition a one-value `enum`.
+        # Normalising it here lets the existing enum machinery type and render it.
+        if "const" in schema_node and "enum" not in schema_node:
+            schema_node = {**schema_node, "enum": [schema_node["const"]]}
+
+        # OpenAPI 3.1 replaced `format: binary` with `contentMediaType`. Treat the 3.1
+        # spelling as the same thing so both versions generate `bytes`.
+        if "format" not in schema_node and schema_node.get("contentMediaType") == "application/octet-stream":
+            schema_node = {**schema_node, "format": "binary"}
+
+        # OpenAPI 3.1 replaced the scalar `example` with an `examples` array.
+        if "example" not in schema_node and "examples" in schema_node:
+            example_from_3_1 = _normalize_examples(schema_node)
+            if example_from_3_1 is not None:
+                schema_node = {**schema_node, "example": example_from_3_1}
 
         extracted_type: str | None = None
         is_nullable_from_type_field = False
@@ -648,8 +791,10 @@ def _parse_schema(
             if items_node:
                 # Avoid generating synthetic names for $ref items - let the ref resolve naturally
                 # This prevents false cycle detection when AgentListResponse -> $ref: AgentListResponseItem
-                if isinstance(items_node, Mapping) and "$ref" in items_node:
-                    # For $ref items, pass None as schema_name to let _resolve_ref handle the naming
+                if isinstance(items_node, Mapping) and is_reference_like_node(items_node):
+                    # For $ref items - bare or wrapped in a nullable composition - pass None
+                    # as schema_name so the reference resolves to its target instead of
+                    # minting a synthetic per-array item schema.
                     item_schema_name_for_recursive_parse = None
                 elif isinstance(items_node, Mapping) and items_node.get("type") in [
                     "string",
@@ -790,7 +935,7 @@ def _parse_schema(
             item_schema_context_name_for_reparse: str | None
 
             # Avoid generating synthetic names for $ref items - let the ref resolve naturally
-            if "$ref" in raw_items_node:
+            if is_reference_like_node(raw_items_node):
                 item_schema_context_name_for_reparse = None
             elif raw_items_node.get("type") in ["string", "integer", "number", "boolean"]:
                 # Primitive items should NOT get names - they should remain inline as List[str] etc.
