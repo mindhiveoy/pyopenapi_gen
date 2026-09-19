@@ -376,8 +376,11 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             and not getattr(items_schema, "properties", None)
             and getattr(items_schema, "type", None) in ("string", "integer", "number", "boolean")
         )
+        # A nullable item type (`items` is a nullable $ref, or `type: [X, "null"]`)
+        # must survive into the element type: List[X | None], not List[X].
+        item_required = not getattr(items_schema, "is_nullable", False)
         item_type = self.resolve_schema(
-            items_schema, context, required=True, resolve_underlying=bool(items_resolve_underlying)
+            items_schema, context, required=item_required, resolve_underlying=bool(items_resolve_underlying)
         )
         context.add_import("typing", "List")
 
@@ -385,6 +388,11 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
         item_type_str = item_type.python_type
         if item_type.is_forward_ref and not item_type_str.startswith('"'):
             item_type_str = f'"{item_type_str}"'
+        # Only the outermost type gets `| None` appended by the formatter, so a nullable
+        # element type has to be spelled out here. `Any` already admits None, so
+        # widening it would only add noise.
+        if item_type.is_optional and item_type_str != "Any" and not item_type_str.endswith("| None"):
+            item_type_str = f"{item_type_str} | None"
 
         return ResolvedType(python_type=f"List[{item_type_str}]", is_optional=not required)
 

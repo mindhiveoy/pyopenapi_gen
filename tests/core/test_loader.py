@@ -337,8 +337,9 @@ def test_parse_schema__nullable_anyof_schema__creates_union_with_none() -> None:
         a reference and {type: "null"} for nullable composition.
 
     Expected Outcome:
-        The resulting IRSchema should have is_nullable=True and its
-        any_of list should contain only the IRSchema for the referenced type.
+        A nullable reference denotes the referenced type with nullability applied,
+        not a union. The resulting IRSchema references TypeA and is nullable, so it
+        renders as `TestSchema: TypeAlias = TypeA | None`.
     """
     # Arrange
     spec = {
@@ -364,10 +365,12 @@ def test_parse_schema__nullable_anyof_schema__creates_union_with_none() -> None:
     test_schema = ir.schemas["TestSchema"]
 
     assert test_schema.is_nullable is True
-    assert test_schema.any_of is not None
-    assert len(test_schema.any_of) == 1
-    assert test_schema.any_of[0].name == "TypeA"
-    assert test_schema.type is None  # Primary type shouldn't be set directly
+    assert test_schema.type == "TypeA"
+    assert test_schema._refers_to_schema is not None
+    assert test_schema._refers_to_schema.name == "TypeA"
+    # Not a union: the null member expresses nullability, it is not a variant.
+    assert test_schema.any_of is None
+    assert test_schema.properties == {}
 
 
 def test_parse_schema_anyof_union() -> None:

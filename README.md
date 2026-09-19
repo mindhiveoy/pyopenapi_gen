@@ -19,6 +19,7 @@ Generate async-first Python clients from OpenAPI specs with complete type safety
 
 ### Enterprise-Grade Features
 
+- **OpenAPI 3.0 and 3.1**: Both versions supported, including each one's spelling of a nullable reference (3.0's `nullable` + single-member `allOf`, 3.1's `anyOf` with `{"type": "null"}`)
 - **Complex Schema Handling**: Advanced cycle detection for circular references and deep nesting
 - **Automatic Field Mapping**: Seamless conversion between API naming (snake_case, camelCase) and Python conventions
 - **Pluggable Authentication**: Bearer tokens, API keys, OAuth2, custom auth, or combine multiple strategies
