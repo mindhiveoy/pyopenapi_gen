@@ -1,7 +1,8 @@
-"""IR-level tests for nullable `$ref` properties in OpenAPI 3.0 and 3.1 specs.
+"""IR-level tests for referencing properties in OpenAPI 3.0 and 3.1 specs.
 
-A nullable reference must resolve to the referenced component with nullability
-applied, and must not mint a per-field schema.
+A reference - plain, nullable, or annotated - must resolve to the referenced
+component, must not mint a per-field schema, and must never write use-site
+details onto the shared component.
 """
 
 from typing import Any
@@ -211,3 +212,150 @@ def test_parse_schema__real_all_of_composition__still_merges_properties() -> Non
     # Assert
     assert schema.type == "object"
     assert set(schema.properties) == {"id", "extra"}
+
+
+# --- OpenAPI 3.1 `$ref` with sibling annotations -----------------------------
+# 3.0 forbids any key beside `$ref`; 3.1 allows annotations there, and they
+# describe this use site rather than the component being referenced.
+
+THING_WITH_DESCRIPTION: dict[str, Any] = {**THING, "description": "the component description"}
+
+
+def _context_with_described_thing() -> ParsingContext:
+    return ParsingContext(
+        raw_spec_schemas={"Reason": REASON, "Thing": THING_WITH_DESCRIPTION},
+        parsed_schemas={},
+        visited_refs=set(),
+    )
+
+
+def test_parse_schema__ref_with_sibling_description__uses_the_sibling_description() -> None:
+    # Arrange
+    context = _context_with_described_thing()
+
+    # Act
+    prop_ir = _parse_probe({"$ref": "#/components/schemas/Thing", "description": "why this field exists"}, context)
+
+    # Assert
+    assert prop_ir.type == "Thing"
+    assert prop_ir.description == "why this field exists"
+
+
+def test_parse_schema__ref_with_sibling_annotations__does_not_mutate_the_component() -> None:
+    # Arrange: one plain reference and one annotated reference to the same component.
+    context = _context_with_described_thing()
+
+    # Act
+    probe = _parse_schema(
+        "Probe",
+        {
+            "type": "object",
+            "properties": {
+                "plain": {"$ref": "#/components/schemas/Thing"},
+                "annotated": {
+                    "$ref": "#/components/schemas/Thing",
+                    "description": "why this field exists",
+                    "title": "Annotated thing",
+                },
+            },
+        },
+        context,
+    )
+
+    # Assert: the annotation stays on the use site.
+    assert probe.properties["annotated"].description == "why this field exists"
+    assert probe.properties["annotated"].title == "Annotated thing"
+    # The component, and every plain reference to it, keep their own description.
+    assert context.parsed_schemas["Thing"].description == "the component description"
+    assert context.parsed_schemas["Thing"].title is None
+    assert probe.properties["plain"].description == "the component description"
+
+
+def test_parse_schema__bare_ref__still_resolves_to_the_shared_component() -> None:
+    # Arrange
+    context = _context_with_described_thing()
+
+    # Act
+    prop_ir = _parse_probe({"$ref": "#/components/schemas/Thing"}, context)
+
+    # Assert: no holder is interposed when the reference carries nothing of its own.
+    assert prop_ir is context.parsed_schemas["Thing"]
+
+
+def test_parse_schema__ref_with_sibling_default__carries_the_default_to_the_use_site() -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe({"$ref": "#/components/schemas/Reason", "default": "missingRate"}, context)
+
+    # Assert
+    assert prop_ir.type == "Reason"
+    assert prop_ir.default == "missingRate"
+    assert context.parsed_schemas["Reason"].default is None
+
+
+def test_parse_schema__ref_with_sibling_annotations__registers_no_synthetic_schema() -> None:
+    # Arrange
+    context = _context_with_described_thing()
+
+    # Act
+    _parse_probe({"$ref": "#/components/schemas/Thing", "description": "d"}, context)
+
+    # Assert
+    assert "ProbeNullableRef" not in context.parsed_schemas
+
+
+def test_parse_schema__nullable_ref_with_sibling_description__keeps_both() -> None:
+    # Arrange: 3.1 allows `description` beside the anyOf that spells nullability.
+    context = _context_with_described_thing()
+
+    # Act
+    prop_ir = _parse_probe(
+        {
+            "description": "why this field exists",
+            "anyOf": [{"$ref": "#/components/schemas/Thing"}, {"type": "null"}],
+        },
+        context,
+    )
+
+    # Assert
+    assert prop_ir.type == "Thing"
+    assert prop_ir.is_nullable is True
+    assert prop_ir.description == "why this field exists"
+
+
+@pytest.mark.parametrize(
+    "prop_node, expected_example",
+    [
+        pytest.param({"type": "string", "example": "abc"}, "abc", id="openapi-3.0-example"),
+        pytest.param({"type": "string", "examples": ["abc", "def"]}, "abc", id="openapi-3.1-examples"),
+        # An explicit `example` wins over the array if a spec carries both.
+        pytest.param({"type": "string", "example": "abc", "examples": ["zzz"]}, "abc", id="both-spellings"),
+        pytest.param({"type": "string", "examples": []}, None, id="empty-examples"),
+    ],
+)
+def test_parse_schema__example_spellings__normalize_to_a_single_example(
+    prop_node: dict[str, Any], expected_example: Any
+) -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe(prop_node, context)
+
+    # Assert
+    assert prop_ir.example == expected_example
+
+
+def test_parse_schema__ref_with_sibling_examples__carries_the_first_example() -> None:
+    # Arrange
+    context = _context()
+
+    # Act
+    prop_ir = _parse_probe({"$ref": "#/components/schemas/Reason", "examples": ["missingRate"]}, context)
+
+    # Assert
+    assert prop_ir.type == "Reason"
+    assert prop_ir.example == "missingRate"
+    assert context.parsed_schemas["Reason"].example is None

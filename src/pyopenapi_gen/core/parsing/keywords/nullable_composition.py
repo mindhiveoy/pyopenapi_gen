@@ -49,6 +49,14 @@ STRUCTURAL_KEYWORDS = frozenset(
 
 _COMPOSITION_KEYWORDS = ("allOf", "anyOf", "oneOf")
 
+# Keywords that annotate a schema without changing its shape, and that the IR can
+# carry. OpenAPI 3.0 forbids any sibling beside ``$ref``; 3.1 allows them, and they
+# describe the use site rather than the component being referenced.
+# `deprecated`, `readOnly` and `writeOnly` are deliberately absent: the IR has
+# nowhere to put them, so honouring them would only change the shape of the IR
+# without preserving anything.
+ANNOTATION_KEYWORDS = frozenset({"nullable", "description", "title", "default", "example", "examples"})
+
 
 def _is_null_member(node: Any) -> bool:
     """Is this subschema the JSON Schema null type (the 3.1 nullability marker)?"""
@@ -127,6 +135,19 @@ def unwrap_nullable_composition(node: Any) -> Tuple[Mapping[str, Any], bool] | N
     return non_null_members[0], is_nullable
 
 
+def has_ref_siblings(node: Any) -> bool:
+    """Does this ``$ref`` carry annotations of its own?
+
+    A bare ``$ref`` is interchangeable with its target, so it can resolve straight
+    to the shared schema. One carrying annotations cannot: those belong to this use
+    site alone, and writing them onto the shared target would leak them into every
+    other reference to the same component.
+    """
+    if not isinstance(node, Mapping) or "$ref" not in node:
+        return False
+    return bool(ANNOTATION_KEYWORDS.intersection(node))
+
+
 def resolve_reference_wrapper(node: Any) -> Tuple[str, bool] | None:
     """Follow wrapper layers down to the ``$ref`` they ultimately denote.
 
@@ -168,6 +189,20 @@ def is_reference_like_node(node: Any) -> bool:
     emits - a standalone model that merely duplicates the referenced component.
     """
     return resolve_reference_wrapper(node) is not None
+
+
+def normalize_examples(node: Mapping[str, Any]) -> Any:
+    """The single example this node carries, across both OpenAPI spellings.
+
+    3.0 has a scalar ``example``; 3.1 replaced it with an ``examples`` array. The IR
+    holds one example, so the first entry of the array stands in for it.
+    """
+    if "example" in node:
+        return node["example"]
+    examples = node.get("examples")
+    if isinstance(examples, list) and examples:
+        return examples[0]
+    return None
 
 
 def merge_wrapper_annotations(

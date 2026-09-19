@@ -6,6 +6,7 @@ in an ``anyOf`` next to ``{"type": "null"}``. Both must produce the referenced t
 with ``| None``, and neither may mint a model file for the field.
 """
 
+import ast
 import json
 from pathlib import Path
 from typing import Any
@@ -105,18 +106,17 @@ def _generate(tmp_path: Path, spec: dict[str, Any]) -> Path:
 
 
 def _field_annotations(model_source: str) -> dict[str, str]:
-    """Map field name to annotation for the dataclass fields in a generated module."""
+    """Map field name to annotation for the annotated fields in a generated module.
+
+    Parsed rather than pattern-matched, so formatter line wrapping cannot affect it.
+    """
     annotations: dict[str, str] = {}
-    for line in model_source.splitlines():
-        stripped = line.strip()
-        if not line.startswith("    ") or ":" not in stripped or stripped.startswith(("#", '"', "class")):
+    for node in ast.walk(ast.parse(model_source)):
+        if not isinstance(node, ast.ClassDef):
             continue
-        name, _, rest = stripped.partition(":")
-        if not name.isidentifier():
-            continue
-        annotation = rest.split("#")[0].split("=")[0].strip()
-        if annotation:
-            annotations.setdefault(name, annotation)
+        for statement in node.body:
+            if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+                annotations[statement.target.id] = ast.unparse(statement.annotation)
     return annotations
 
 
@@ -165,3 +165,34 @@ def test_client_generation__equivalent_30_and_31_specs__produce_identical_models
     assert _field_annotations((dir_30 / "models" / "probe.py").read_text()) == _field_annotations(
         (dir_31 / "models" / "probe.py").read_text()
     )
+
+
+def test_client_generation__ref_with_sibling_description__documents_the_use_site(tmp_path: Path) -> None:
+    """OpenAPI 3.1 allows annotations beside `$ref`; they describe the field, not the component."""
+    # Arrange
+    spec = _spec(
+        "3.1.0",
+        {
+            "annotatedRef": {
+                "$ref": "#/components/schemas/Thing",
+                "description": "Metadata for this page of results.",
+            },
+            "plainRef": {"$ref": "#/components/schemas/Thing"},
+        },
+    )
+    spec["components"]["schemas"]["Thing"] = {**THING, "description": "A thing."}
+
+    # Act
+    client_dir = _generate(tmp_path, spec)
+    probe_source = (client_dir / "models" / "probe.py").read_text()
+    thing_source = (client_dir / "models" / "thing.py").read_text()
+
+    # Assert: both fields keep the referenced type...
+    annotations = _field_annotations(probe_source)
+    assert annotations["annotated_ref"] == "Thing"
+    assert annotations["plain_ref"] == "Thing"
+    # ...the sibling description reaches the annotated field only...
+    assert "Metadata for this page of results." in probe_source
+    # ...and the component keeps its own description, unpolluted by the use site.
+    assert "A thing." in thing_source
+    assert "Metadata for this page of results." not in thing_source

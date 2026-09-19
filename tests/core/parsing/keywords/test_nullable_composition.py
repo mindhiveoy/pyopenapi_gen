@@ -10,6 +10,7 @@ from typing import Any, Mapping
 import pytest
 
 from pyopenapi_gen.core.parsing.keywords.nullable_composition import (
+    has_ref_siblings,
     is_reference_like_node,
     unwrap_nullable_composition,
 )
@@ -112,3 +113,40 @@ def test_unwrap_nullable_composition__non_mapping__returns_none() -> None:
     # Act / Assert
     assert unwrap_nullable_composition(None) is None  # type: ignore[arg-type]
     assert unwrap_nullable_composition([REF]) is None  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "node, expected",
+    [
+        # OpenAPI 3.1 allows annotations beside `$ref`; they belong to this use site.
+        ({"$ref": REF["$ref"], "description": "d"}, True),
+        ({"$ref": REF["$ref"], "title": "T"}, True),
+        ({"$ref": REF["$ref"], "default": None}, True),
+        ({"$ref": REF["$ref"], "example": "x"}, True),
+        ({"$ref": REF["$ref"], "examples": ["x"]}, True),
+        ({"$ref": REF["$ref"], "nullable": True}, True),
+        # A bare `$ref` carries nothing of its own.
+        (REF, False),
+        # Not a reference at all.
+        (INLINE_OBJECT, False),
+        ({"allOf": [REF]}, False),
+        ({}, False),
+        # Keys that are neither structural nor IR-representable annotations do not
+        # make a use site - honouring them would change the IR while preserving
+        # nothing.
+        ({"$ref": REF["$ref"], "$comment": "note"}, False),
+        ({"$ref": REF["$ref"], "deprecated": True}, False),
+        ({"$ref": REF["$ref"], "readOnly": True}, False),
+    ],
+)
+def test_has_ref_siblings__various__reports_whether_the_ref_carries_annotations(
+    node: Mapping[str, Any], expected: bool
+) -> None:
+    # Act / Assert
+    assert has_ref_siblings(node) is expected
+
+
+def test_has_ref_siblings__non_mapping__returns_false() -> None:
+    # Act / Assert
+    assert has_ref_siblings(None) is False
+    assert has_ref_siblings([REF]) is False

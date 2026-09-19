@@ -17,8 +17,10 @@ from .context import ParsingContext
 from .keywords.all_of_parser import _process_all_of
 from .keywords.any_of_parser import _parse_any_of_schemas
 from .keywords.nullable_composition import (
+    has_ref_siblings,
     is_reference_like_node,
     merge_wrapper_annotations,
+    normalize_examples,
     resolve_reference_wrapper,
     unwrap_nullable_composition,
 )
@@ -207,12 +209,16 @@ def _build_reference_holder(
             return degenerate
         return target
 
+    # Annotations written at the use site win; anything it leaves out falls back to
+    # the component's own.
+    use_site_example = normalize_examples(wrapper_node)
     holder = IRSchema(
         name=sanitized_schema_name,
         type=target.name,
         description=wrapper_node.get("description") or target.description,
-        default=wrapper_node.get("default"),
-        example=wrapper_node.get("example"),
+        title=wrapper_node.get("title") or target.title,
+        default=wrapper_node.get("default", target.default),
+        example=use_site_example if use_site_example is not None else target.example,
         is_nullable=is_nullable or target.is_nullable,
         _refers_to_schema=target,
     )
@@ -246,13 +252,13 @@ def _parse_properties(
         if prop_name in parsed_props:  # Already handled by allOf or a previous definition, skip
             continue
 
-        # A bare `$ref` resolves straight to the shared target. A `$ref` carrying a
-        # `nullable` sibling does not: nullability belongs to this use site only, so
-        # it goes through the general path and gets its own reference holder.
+        # A bare `$ref` resolves straight to the shared target. One carrying OpenAPI
+        # 3.1 annotation siblings does not: those describe this property only, so it
+        # goes through the general path and gets its own reference holder.
         if (
             isinstance(prop_schema_node, Mapping)
             and "$ref" in prop_schema_node
-            and prop_schema_node.get("nullable") is not True
+            and not has_ref_siblings(prop_schema_node)
         ):
             parsed_props[prop_name] = _resolve_ref(
                 prop_schema_node["$ref"], parent_schema_name, context, max_depth_override, allow_self_reference
@@ -583,9 +589,10 @@ def _parse_schema(
                 f"Schema node for '{schema_name or 'anonymous'}' must be a Mapping (e.g., dict), got {type(schema_node)}"
             )
 
-        # If the current schema_node itself is a $ref, resolve it. A `nullable` sibling
-        # makes it a nullable reference instead, handled by the wrapper path below.
-        if "$ref" in schema_node and schema_node.get("nullable") is not True:
+        # If the current schema_node itself is a $ref, resolve it. Annotation siblings
+        # (allowed by OpenAPI 3.1) make it a use site with details of its own, handled
+        # by the reference-holder path below.
+        if "$ref" in schema_node and not has_ref_siblings(schema_node):
             # schema_name is the original name we are trying to parse (e.g., 'Pet')
             # schema_node is {"$ref": "#/components/schemas/ActualPet"}
             # We want to resolve "ActualPet", but the resulting IRSchema should ideally
@@ -639,6 +646,12 @@ def _parse_schema(
         # spelling as the same thing so both versions generate `bytes`.
         if "format" not in schema_node and schema_node.get("contentMediaType") == "application/octet-stream":
             schema_node = {**schema_node, "format": "binary"}
+
+        # OpenAPI 3.1 replaced the scalar `example` with an `examples` array.
+        if "example" not in schema_node and "examples" in schema_node:
+            example_from_3_1 = normalize_examples(schema_node)
+            if example_from_3_1 is not None:
+                schema_node = {**schema_node, "example": example_from_3_1}
 
         extracted_type: str | None = None
         is_nullable_from_type_field = False

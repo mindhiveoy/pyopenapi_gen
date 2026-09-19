@@ -195,8 +195,13 @@ def test_parse_list_response_schema_to_ir() -> None:
     assert data_property_ir.items.name == "MyItem"
     assert data_property_ir.items.type == "object"
 
-    # Validate 'meta' property in MyItemListResponse
+    # Validate 'meta' property in MyItemListResponse.
+    # The $ref carries a sibling description, so the property is a use-site holder
+    # referencing PaginationMeta rather than the shared component itself - otherwise
+    # the description would be written onto the component for every other reference.
     meta_property_ir = my_item_list_response_ir.properties["meta"]
-    assert meta_property_ir.name == "PaginationMeta"
-    assert meta_property_ir.type == "object"
+    assert meta_property_ir.name == "meta"
+    assert meta_property_ir.type == "PaginationMeta"
     assert meta_property_ir.description == "Metadata for pagination."
+    assert meta_property_ir._refers_to_schema is pagination_meta_ir
+    assert pagination_meta_ir.name == "PaginationMeta"
