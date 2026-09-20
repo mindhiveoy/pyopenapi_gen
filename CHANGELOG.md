@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v5.1.12 (2026-09-20)
+
+### Bug Fixes
+
+- **ci**: Restore changelog generation and make integration-tests gateable
+  ([`57869eb`](https://github.com/mindhiveoy/pyopenapi_gen/commit/57869ebffd7b76de081d420fa32d309fc706b54f))
+
+- **models**: Render enum field defaults as enum members, not raw literals
+  ([`3e55ed8`](https://github.com/mindhiveoy/pyopenapi_gen/commit/3e55ed8c969f4bfc54979e8241b05719178304f6))
+
+### Chores
+
+- **release**: Sync __init__.py version
+  ([`f4b2a41`](https://github.com/mindhiveoy/pyopenapi_gen/commit/f4b2a41aa4c92b7544ca240f8b353b1e70703945))
+
+
 ## v5.1.11 (2026-09-19)
 
 ### Bug Fixes
