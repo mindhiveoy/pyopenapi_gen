@@ -13,6 +13,8 @@ from pyopenapi_gen.core.writers.python_construct_renderer import PythonConstruct
 from pyopenapi_gen.helpers.type_resolution.finalizer import TypeFinalizer
 from pyopenapi_gen.types.services.type_service import UnifiedTypeService
 
+from .enum_generator import EnumGenerator
+
 logger = logging.getLogger(__name__)
 
 
@@ -331,6 +333,55 @@ converter.register_structure_hook({class_name}, _structure_{class_name.lower()})
 converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower()})
 '''
 
+    def _resolve_enum_schema(self, ps: IRSchema) -> IRSchema | None:
+        """Find the enum schema this property is typed as, if any.
+
+        A property can reach an enum three ways: it carries the values itself
+        (inline), it links to the definition via ``_refers_to_schema``, or its
+        ``type`` names a registered schema. ``ps.name`` is the *property* name and
+        never identifies the enum, which is why it is not consulted here.
+        """
+        if ps.enum:
+            return ps
+
+        referenced = ps._refers_to_schema
+        if referenced is not None and referenced.enum:
+            return referenced
+
+        if ps.type and self.all_schemas:
+            by_type = self.all_schemas.get(ps.type)
+            if by_type is not None and by_type.enum:
+                return by_type
+
+        return None
+
+    def _render_enum_default(self, ps: IRSchema) -> str | None:
+        """Render this property's default as an enum member reference.
+
+        Returns None when the property is not enum-typed, when the enum has no
+        usable class name, or when the default is not one of the enum's values - in
+        which case the caller falls back to rendering the literal rather than
+        inventing a member that does not exist.
+        """
+        enum_schema = self._resolve_enum_schema(ps)
+        if enum_schema is None:
+            return None
+
+        class_name = enum_schema.generation_name or enum_schema.name
+        if not class_name:
+            return None
+
+        member_name = EnumGenerator.member_names_by_value(enum_schema).get(ps.default)
+        if member_name is None:
+            logger.warning(
+                f"DataclassGenerator: default {ps.default!r} is not a value of enum "
+                f"'{class_name}' ({enum_schema.enum}). Rendering it as a literal; the "
+                f"OpenAPI spec is likely inconsistent."
+            )
+            return None
+
+        return f"{class_name}.{member_name}"
+
     def _get_field_default(self, ps: IRSchema, context: RenderContext) -> str | None:
         """
         Determines the default value expression string for a dataclass field.
@@ -364,16 +415,9 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
             return "field(default_factory=dict)"
 
         if ps.default is not None:
-            # Check if this is an enum field (has a name that references another schema with enum values)
-            if ps.name and self.all_schemas:
-                enum_schema = self.all_schemas.get(ps.name)
-                if enum_schema and enum_schema.enum:
-                    # This is an enum field - convert default value to enum member access
-                    # e.g., "default" -> JobPriorityEnum.DEFAULT
-                    default_str = str(ps.default)
-                    # Convert the value to the enum member name (e.g., "default" -> "DEFAULT")
-                    enum_member_name = default_str.upper().replace("-", "_").replace(" ", "_")
-                    return f"{ps.name}.{enum_member_name}"
+            enum_default = self._render_enum_default(ps)
+            if enum_default is not None:
+                return enum_default
 
             if isinstance(ps.default, str):
                 escaped_inner_content = json.dumps(ps.default)[1:-1]
