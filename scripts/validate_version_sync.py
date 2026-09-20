@@ -63,8 +63,9 @@ def extract_init_version(init_path: Path) -> str | None:
         print(f"❌ File not found: {init_path}")
         return None
 
-    # Extract __version__ (line 46: __version__: str = "0.14.3")
-    version_match = re.search(r'^__version__\s*:\s*str\s*=\s*"([^"]+)"', content, re.MULTILINE)
+    # Extract __version__, with or without a type annotation. The annotation is
+    # deliberately absent so semantic-release's version_variables pattern matches.
+    version_match = re.search(r'^__version__\s*(?::\s*str\s*)?=\s*"([^"]+)"', content, re.MULTILINE)
     return version_match.group(1) if version_match else None
 
 
