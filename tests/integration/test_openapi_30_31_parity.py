@@ -402,3 +402,98 @@ def test_client_generation__json_value_client__passes_strict_mypy(
 
     # Assert
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _binding_spec() -> dict[str, Any]:
+    """`Binding = oneOf[RegisteredBinding (kind-discriminated oneOf), UnregisteredBinding]`."""
+    ref = {"$ref": "#/components/schemas/Request"}
+    return {
+        "openapi": "3.1.0",
+        "info": {"title": "Binding probe", "version": "1.0.0"},
+        "paths": {
+            "/echo": {
+                "post": {
+                    "operationId": "echo",
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": ref}}},
+                    "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": ref}}}},
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "ConnectorBinding": {
+                    "type": "object",
+                    "required": ["kind", "connectorId"],
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["connector"]},
+                        "connectorId": {"type": "string"},
+                    },
+                },
+                "DataSourceBinding": {
+                    "type": "object",
+                    "required": ["kind", "dataSourceId"],
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["dataSource"]},
+                        "dataSourceId": {"type": "string"},
+                    },
+                },
+                "UnregisteredBinding": {
+                    "type": "object",
+                    "required": ["kind"],
+                    "properties": {"kind": {"type": "string"}},
+                },
+                "RegisteredBinding": {
+                    "oneOf": [
+                        {"$ref": "#/components/schemas/ConnectorBinding"},
+                        {"$ref": "#/components/schemas/DataSourceBinding"},
+                    ],
+                    "discriminator": {
+                        "propertyName": "kind",
+                        "mapping": {
+                            "connector": "#/components/schemas/ConnectorBinding",
+                            "dataSource": "#/components/schemas/DataSourceBinding",
+                        },
+                    },
+                },
+                "Binding": {
+                    "oneOf": [
+                        {"$ref": "#/components/schemas/RegisteredBinding"},
+                        {"$ref": "#/components/schemas/UnregisteredBinding"},
+                    ]
+                },
+                "Request": {
+                    "type": "object",
+                    "required": ["binding"],
+                    "properties": {"binding": {"$ref": "#/components/schemas/Binding"}},
+                },
+            }
+        },
+    }
+
+
+def test_client_generation__nested_discriminated_union_beside_fallback__structures_typed_members(
+    tmp_path: Path,
+) -> None:
+    """The generated converter must pick the typed member for a known kind and the fallback only for an unknown one."""
+    # Arrange
+    _generate(tmp_path, _binding_spec())
+    script = (
+        "import json\n"
+        "from probe_client.core.cattrs_converter import structure_from_dict\n"
+        "from probe_client.models import Request\n"
+        "payloads = [{'kind': 'connector', 'connectorId': 'c1'}, {'kind': 'dataSource', 'dataSourceId': 'd1'}, {'kind': 'other'}]\n"
+        "print(json.dumps([type(structure_from_dict({'binding': p}, Request).binding).__name__ for p in payloads]))\n"
+    )
+
+    # Act
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        cwd=tmp_path,
+    )
+
+    # Assert
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == ["ConnectorBinding", "DataSourceBinding", "UnregisteredBinding"]

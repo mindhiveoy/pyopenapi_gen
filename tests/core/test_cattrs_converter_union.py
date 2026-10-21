@@ -1167,3 +1167,131 @@ def test_structure_union__list_of_dataclass_variant_never_seen_before__structure
     # Assert
     assert isinstance(result, list)
     assert result == [FreshItem(type_="item", value_a="v")]
+
+
+# =============================================================================
+# Nested union beside a permissive fallback
+# =============================================================================
+#
+# Mirrors `Binding = oneOf[RegisteredBinding, UnregisteredBinding]` where
+# RegisteredBinding is itself a kind-discriminated oneOf. The generator emits:
+#   RegisteredBinding: TypeAlias = Annotated[Union[ConnectorBinding, DataSourceBinding], Disc()]
+#   Binding: TypeAlias = Union[RegisteredBinding, UnregisteredBinding]
+
+
+@dataclass
+class ConnectorBinding:
+    kind: str
+    connector_id: str
+
+    class Meta:
+        key_transform_with_load = {"kind": "kind", "connectorId": "connector_id"}
+        key_transform_with_dump = {"kind": "kind", "connector_id": "connectorId"}
+
+
+@dataclass
+class DataSourceBinding:
+    kind: str
+    data_source_id: str
+
+    class Meta:
+        key_transform_with_load = {"kind": "kind", "dataSourceId": "data_source_id"}
+        key_transform_with_dump = {"kind": "kind", "data_source_id": "dataSourceId"}
+
+
+@dataclass
+class UnregisteredBinding:
+    """The fallback: needs only `kind`, so a sequential try accepts any payload."""
+
+    kind: str
+
+    class Meta:
+        key_transform_with_load = {"kind": "kind"}
+        key_transform_with_dump = {"kind": "kind"}
+
+
+@dataclass(frozen=True)
+class BindingKindDiscriminator:
+    property_name: str = "kind"
+
+    def get_mapping(self) -> dict[str, type]:
+        return {"connector": ConnectorBinding, "dataSource": DataSourceBinding}
+
+
+RegisteredBinding = Annotated[Union[ConnectorBinding, DataSourceBinding], BindingKindDiscriminator()]
+Binding = Union[RegisteredBinding, UnregisteredBinding]  # type: ignore[valid-type]
+FlatNestedBinding = Union[Union[ConnectorBinding, DataSourceBinding], UnregisteredBinding]
+
+
+@dataclass
+class BindingRequest:
+    binding: Binding  # type: ignore[valid-type]
+
+    class Meta:
+        key_transform_with_load = {"binding": "binding"}
+        key_transform_with_dump = {"binding": "binding"}
+
+
+@pytest.mark.parametrize(
+    "payload, expected_type, expected_field",
+    [
+        ({"kind": "connector", "connectorId": "c1"}, ConnectorBinding, ("connector_id", "c1")),
+        ({"kind": "dataSource", "dataSourceId": "d1"}, DataSourceBinding, ("data_source_id", "d1")),
+        ({"kind": "other"}, UnregisteredBinding, ("kind", "other")),
+    ],
+)
+def test_structure_union__nested_discriminated_member_beside_fallback__dispatches_on_its_discriminator(
+    payload: dict[str, Any], expected_type: type, expected_field: tuple[str, str]
+) -> None:
+    """A kind the nested discriminator knows goes to its typed member; only an unknown kind falls back.
+
+    Previously the Annotated union member was sorted into `other_variants`, every dataclass
+    member was tried first, and the minimal fallback accepted every payload.
+    """
+    # Act
+    result = structure_from_dict({"binding": payload}, BindingRequest).binding
+
+    # Assert
+    assert isinstance(result, expected_type), f"{payload} structured as {type(result).__name__}"
+    name, value = expected_field
+    assert getattr(result, name) == value
+
+
+def test_structure_union__nested_discriminated_member__mapped_kind_with_malformed_payload__raises() -> None:
+    """A registered kind whose typed payload is broken must fail, not be swallowed by the fallback."""
+    # Act / Assert
+    with pytest.raises(Exception, match="ConnectorBinding"):
+        structure_from_dict({"binding": {"kind": "connector"}}, BindingRequest)
+
+
+def test_structure_union__nested_discriminated_member__discriminator_absent__tries_members_sequentially() -> None:
+    """Without the discriminator key the nested members still take part in the sequential try."""
+    # Arrange
+    union_type = Union[RegisteredBinding, dict[str, Any]]  # type: ignore[valid-type]
+
+    # Act
+    typed = structure_from_dict({"kind": "connector", "connectorId": "c1"}, union_type)  # type: ignore[arg-type]
+    unknown = structure_from_dict({"connectorId": "c1"}, union_type)  # type: ignore[arg-type]
+
+    # Assert
+    assert isinstance(typed, ConnectorBinding)
+    assert unknown == {"connectorId": "c1"}, "no member fits a payload without kind, so the dict fallback applies"
+
+
+@pytest.mark.parametrize(
+    "payload, expected_type",
+    [
+        ({"kind": "connector", "connectorId": "c1"}, ConnectorBinding),
+        ({"kind": "dataSource", "dataSourceId": "d1"}, DataSourceBinding),
+        ({"kind": "other"}, UnregisteredBinding),
+    ],
+)
+def test_structure_union__nested_plain_union__members_tried_in_declaration_order(
+    payload: dict[str, Any], expected_type: type
+) -> None:
+    """A nested union without a discriminator is flattened in place, keeping declaration order."""
+    # Act
+    result = structure_from_dict(payload, FlatNestedBinding)  # type: ignore[arg-type]
+
+    # Assert
+    assert isinstance(result, expected_type), f"{payload} structured as {type(result).__name__}"
