@@ -632,3 +632,105 @@ def test_client_generation__list_members_in_a_union__structure_objects_and_open_
     # Assert
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == {"filter_types": ["Principal"], "user_id": "u", "open": [1, 2, [3]]}
+
+
+def _update_config_spec() -> dict[str, Any]:
+    """Optional array properties: a `$ref` to an array schema, an inline array, and one with `default: []`."""
+    return {
+        "openapi": "3.1.0",
+        "info": {"title": "Update probe", "version": "1.0.0"},
+        "paths": {
+            "/records": {
+                "patch": {
+                    "operationId": "updateRecord",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/UpdateRecordConfig"}}
+                        },
+                    },
+                    "responses": {"204": {"description": "ok"}},
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "RecordWriteAssignees": {"type": "array", "items": {"type": "string"}},
+                "UpdateRecordConfig": {
+                    "type": "object",
+                    "required": ["key", "values"],
+                    "properties": {
+                        "key": {"type": "string"},
+                        "values": {"type": "array", "items": {"type": "string"}},
+                        "assignees": {"$ref": "#/components/schemas/RecordWriteAssignees"},
+                        "labels": {"type": "array", "items": {"type": "string"}},
+                        "watchers": {"type": "array", "items": {"type": "string"}, "default": []},
+                    },
+                },
+            }
+        },
+    }
+
+
+def _field_defaults(model_source: str) -> dict[str, str | None]:
+    """Map field name to its rendered default expression (None when the field has no default)."""
+    defaults: dict[str, str | None] = {}
+    for node in ast.walk(ast.parse(model_source)):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        for statement in node.body:
+            if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+                defaults[statement.target.id] = ast.unparse(statement.value) if statement.value else None
+    return defaults
+
+
+def test_client_generation__optional_arrays_without_default__default_to_none(tmp_path: Path) -> None:
+    """Absent and `[]` must stay distinct: only an explicit `default: []` becomes a list factory."""
+    # Act
+    client_dir = _generate(tmp_path, _update_config_spec())
+
+    # Assert
+    defaults = _field_defaults((client_dir / "models" / "update_record_config.py").read_text())
+    assert defaults == {
+        "key": None,
+        "values": None,
+        "assignees": "None",
+        "labels": "None",
+        "watchers": "field(default_factory=list)",
+    }
+
+
+def test_client_generation__optional_array_left_absent__is_omitted_from_the_request_body(tmp_path: Path) -> None:
+    """An update that leaves `assignees` unset serializes without the key; `[]` serializes as `[]`."""
+    # Arrange
+    _generate(tmp_path, _update_config_spec())
+    script = (
+        "import json\n"
+        "from probe_client.core.utils import DataclassSerializer\n"
+        "from probe_client.core.cattrs_converter import structure_from_dict\n"
+        "from probe_client.models import UpdateRecordConfig\n"
+        "keep = UpdateRecordConfig(key='k', values=['v'])\n"
+        "clear = UpdateRecordConfig(key='k', values=['v'], assignees=[], labels=[])\n"
+        "parsed = structure_from_dict({'key': 'k', 'values': ['v']}, UpdateRecordConfig)\n"
+        "print(json.dumps({'keep': DataclassSerializer.serialize(keep),"
+        " 'clear': DataclassSerializer.serialize(clear),"
+        " 'parsed_assignees': parsed.assignees, 'parsed_watchers': parsed.watchers}))\n"
+    )
+
+    # Act
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        cwd=tmp_path,
+    )
+
+    # Assert
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == {
+        "keep": {"key": "k", "values": ["v"], "watchers": []},
+        "clear": {"key": "k", "values": ["v"], "assignees": [], "labels": [], "watchers": []},
+        "parsed_assignees": None,
+        "parsed_watchers": [],
+    }
