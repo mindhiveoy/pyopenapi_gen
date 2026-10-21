@@ -386,7 +386,7 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
 
         return f"{class_name}.{member_name}"
 
-    def _get_field_default(self, ps: IRSchema, context: RenderContext) -> str | None:
+    def _get_field_default(self, ps: IRSchema, context: RenderContext, py_type: str) -> str | None:
         """
         Determines the default value expression string for a dataclass field.
         This method is called for fields determined to be optional.
@@ -394,6 +394,7 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
         Args:
             ps: The property schema to analyze.
             context: The rendering context.
+            py_type: The resolved Python annotation of the field (e.g. "List[str] | None").
 
         Returns:
             A string representing the Python default value expression or None.
@@ -406,6 +407,8 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
                 - Returns a valid Python default value string
                   (e.g., "None", "field(default_factory=list)", "\"abc\"") or None.
                 - Array and object properties without an explicit empty default render as "None".
+                - A factory is only emitted when ``py_type`` is a plain ``List[...]``/``dict[...]``,
+                  never for a field typed as a generated class or alias.
         """
         if ps is None:
             raise ValueError("Property schema (ps) cannot be None.")
@@ -414,10 +417,13 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
 
         # An optional property with no schema default is None when absent. Only an explicit
         # empty default becomes a factory, so callers can tell "not sent" from "sent as empty".
-        if ps.default is not None and ps.default == [] and ps.type == "array":
+        # The factory must match the annotation: a `$ref` to a schema that carries `default: {}`
+        # is typed as the generated class, and a plain dict there breaks typing and serialization.
+        bare_type = py_type.removesuffix(" | None").strip()
+        if ps.default is not None and ps.default == [] and bare_type.startswith(("List[", "list[")):
             context.add_import("dataclasses", "field")
             return "field(default_factory=list)"
-        if ps.default is not None and ps.default == {} and ps.type == "object":
+        if ps.default is not None and ps.default == {} and bare_type.startswith(("dict[", "Dict[")):
             context.add_import("dataclasses", "field")
             return "field(default_factory=dict)"
 
@@ -508,7 +514,9 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
                 is_nullable=schema.is_nullable,
                 default=schema.default,
             )
-            array_items_field_default_expr = self._get_field_default(synthetic_field_schema_for_default, context)
+            array_items_field_default_expr = self._get_field_default(
+                synthetic_field_schema_for_default, context, final_field_type_str
+            )
 
             field_description = schema.description
             if not field_description and list_item_py_type != "Any":
@@ -561,7 +569,7 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
 
                 default_expr: str | None = None
                 if not is_required:
-                    default_expr = self._get_field_default(prop_schema, context)
+                    default_expr = self._get_field_default(prop_schema, context, py_type)
 
                 # Enhance field documentation for mapped fields when names differ
                 field_doc = prop_schema.description

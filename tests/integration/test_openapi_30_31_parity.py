@@ -656,6 +656,13 @@ def _update_config_spec() -> dict[str, Any]:
         "components": {
             "schemas": {
                 "RecordWriteAssignees": {"type": "array", "items": {"type": "string"}},
+                "AgentMemoryVariable": {"type": "object", "properties": {"kind": {"type": "string"}}},
+                "AgentMemorySchema": {
+                    "default": {},
+                    "type": "object",
+                    "additionalProperties": {"$ref": "#/components/schemas/AgentMemoryVariable"},
+                },
+                "DefaultedTags": {"type": "array", "items": {"type": "string"}, "default": []},
                 "UpdateRecordConfig": {
                     "type": "object",
                     "required": ["key", "values"],
@@ -665,6 +672,8 @@ def _update_config_spec() -> dict[str, Any]:
                         "assignees": {"$ref": "#/components/schemas/RecordWriteAssignees"},
                         "labels": {"type": "array", "items": {"type": "string"}},
                         "watchers": {"type": "array", "items": {"type": "string"}, "default": []},
+                        "memorySchema": {"$ref": "#/components/schemas/AgentMemorySchema"},
+                        "defaultedTags": {"$ref": "#/components/schemas/DefaultedTags"},
                     },
                 },
             }
@@ -691,13 +700,18 @@ def test_client_generation__optional_arrays_without_default__default_to_none(tmp
 
     # Assert
     defaults = _field_defaults((client_dir / "models" / "update_record_config.py").read_text())
+    # A referenced schema's own `default` never becomes a factory on a field typed as the generated class.
     assert defaults == {
         "key": None,
         "values": None,
         "assignees": "None",
         "labels": "None",
         "watchers": "field(default_factory=list)",
+        "memory_schema": "None",
+        "defaulted_tags": "None",
     }
+    annotations = _field_annotations((client_dir / "models" / "update_record_config.py").read_text())
+    assert annotations["memory_schema"] == "AgentMemorySchema | None"
 
 
 def test_client_generation__optional_array_left_absent__is_omitted_from_the_request_body(tmp_path: Path) -> None:
