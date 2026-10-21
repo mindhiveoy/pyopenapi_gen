@@ -8,11 +8,15 @@ with ``| None``, and neither may mint a model file for the field.
 
 import ast
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.generator.client_generator import ClientGenerator
 
 REASON: dict[str, Any] = {"type": "string", "enum": ["unpricedSpend", "missingRate"]}
@@ -255,3 +259,146 @@ def test_client_generation__colliding_sanitized_names__each_alias_keeps_its_own_
     alias_source = next(source for source in aliases.values() if "TypeAlias" in source)
     assert "Thing | None" in alias_source
     assert "dict[str, Any]" not in alias_source
+
+
+def _json_value_spec(component_name: str, null_member: dict[str, Any] | None = None) -> dict[str, Any]:
+    """An API whose payloads carry arbitrary JSON: the recursive anyOf zod-openapi emits for z.json()."""
+    ref = {"$ref": f"#/components/schemas/{component_name}"}
+    members: list[dict[str, Any]] = [{"type": "string"}, {"type": "number"}, {"type": "boolean"}]
+    if null_member is not None:
+        members.append(null_member)
+    members += [{"type": "array", "items": ref}, {"type": "object", "additionalProperties": ref}]
+    run_request_ref = {"$ref": "#/components/schemas/RunRequest"}
+    return {
+        "openapi": "3.1.0",
+        "info": {"title": "JSON value probe", "version": "1.0.0"},
+        "paths": {
+            "/echo": {
+                "post": {
+                    "operationId": "echo",
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": run_request_ref}}},
+                    "responses": {
+                        "200": {"description": "ok", "content": {"application/json": {"schema": run_request_ref}}}
+                    },
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                component_name: {"anyOf": members},
+                "RunRequest": {
+                    "type": "object",
+                    "required": ["inputs", "single"],
+                    "properties": {"inputs": {"type": "object", "additionalProperties": ref}, "single": ref},
+                },
+            }
+        },
+    }
+
+
+def _flatten_union(node: ast.expr) -> list[str]:
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _flatten_union(node.left) + _flatten_union(node.right)
+    if isinstance(node, ast.Subscript) and ast.unparse(node.value) == "Union":
+        elements = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+        return [member for element in elements for member in _flatten_union(element)]
+    return [ast.unparse(node)]
+
+
+def _alias_union_members(module_source: str, alias_name: str) -> list[str]:
+    """The members of ``alias_name: TypeAlias = Union[...]`` (or ``... | None``), as source text, in order."""
+    for node in ast.parse(module_source).body:
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == alias_name
+            and node.value is not None
+        ):
+            return _flatten_union(node.value)
+    raise AssertionError(f"No alias {alias_name!r} in:\n{module_source}")
+
+
+@pytest.mark.parametrize("component_name", ["__schema0", "json_value", "Json-Value", "JsonValue"])
+def test_client_generation__recursive_anyof_component__emits_one_alias_whatever_its_spec_name(
+    tmp_path: Path, component_name: str
+) -> None:
+    """A self-referencing anyOf becomes one recursive alias, however its spec key is spelled.
+
+    A key that is not already a valid class name used to leave the parser's self-reference
+    stub in place: every $ref resolved to an empty dataclass, and the real union was written
+    to a second, colliding module that nothing referenced.
+    """
+    # Arrange
+    class_name = NameSanitizer.sanitize_class_name(component_name)
+    module_stem = NameSanitizer.sanitize_module_name(component_name)
+
+    # Act
+    client_dir = _generate(tmp_path, _json_value_spec(component_name))
+    models = {path.name: path.read_text() for path in (client_dir / "models").iterdir() if path.suffix == ".py"}
+
+    # Assert
+    assert {name for name in models if name.startswith(module_stem)} == {f"{module_stem}.py"}
+    assert not any("Self-referencing schema" in source for source in models.values())
+    assert _alias_union_members(models[f"{module_stem}.py"], class_name) == [
+        "str",
+        "float",
+        "bool",
+        f"List['{class_name}']",
+        "dict[str, Any]",
+    ]
+    assert _field_annotations(models["run_request.py"])["single"] == class_name
+    assert _field_annotations(models["run_request_inputs.py"])["_data"] == f"dict[str, {class_name}]"
+
+
+@pytest.mark.parametrize(
+    "null_member",
+    [
+        pytest.param({"type": "null"}, id="3.1-null-type"),
+        pytest.param({"type": "string", "nullable": True, "enum": [None]}, id="3.0-nullable-enum-null"),
+        pytest.param({"nullable": True}, id="3.0-bare-nullable"),
+    ],
+)
+def test_client_generation__anyof_null_member__keeps_none_in_the_union(
+    tmp_path: Path, null_member: dict[str, Any]
+) -> None:
+    """Every spelling of a null member reaches the generated Union as None."""
+    # Act
+    client_dir = _generate(tmp_path, _json_value_spec("JsonValue", null_member))
+
+    # Assert: None is present, and the null member did not collapse into the plain str member.
+    members = _alias_union_members((client_dir / "models" / "json_value.py").read_text(), "JsonValue")
+    assert members == ["str", "float", "bool", "List['JsonValue']", "dict[str, Any]", "None"]
+
+
+def _mypy_strict(project_root: Path, package: str) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "PYTHONPATH": str(project_root)}
+    return subprocess.run(
+        [sys.executable, "-m", "mypy", "--strict", "-p", package],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=project_root,
+    )
+
+
+@pytest.mark.parametrize(
+    "component_name, null_member",
+    [
+        pytest.param("__schema0", None, id="unsanitised-name"),
+        pytest.param("JsonValue", {"type": "string", "nullable": True, "enum": [None]}, id="nullable-alias"),
+    ],
+)
+def test_client_generation__json_value_client__passes_strict_mypy(
+    tmp_path: Path, component_name: str, null_member: dict[str, Any] | None
+) -> None:
+    """The recursive alias and the typed dict wrapper around it must type-check under mypy --strict.
+
+    The wrapper's structure hook used to hand the Union alias itself to cattrs, whose
+    parameter is ``type[T]``; mypy rejects a Union there.
+    """
+    # Arrange / Act
+    _generate(tmp_path, _json_value_spec(component_name, null_member))
+    result = _mypy_strict(tmp_path, "probe_client")
+
+    # Assert
+    assert result.returncode == 0, result.stdout + result.stderr

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Mapping
 from pyopenapi_gen import IRSchema
 
 from ..context import ParsingContext
+from .nullable_composition import is_null_schema_node, node_admits_null
 
 if TYPE_CHECKING:
     # from ..context import ParsingContext # No longer here
@@ -51,9 +52,14 @@ def _parse_one_of_schemas(
     effective_schema_type: str | None = None
 
     for sub_node in one_of_nodes:
-        if isinstance(sub_node, dict) and sub_node.get("type") == "null":
+        # A null-only member (in any OpenAPI spelling) contributes nullability, not a type.
+        if is_null_schema_node(sub_node):
             is_nullable_from_one_of = True
             continue
+        # A member that merely allows null (3.0 `nullable: true`, 3.1 `type: [..., "null"]`)
+        # is still a member, but the union accepts null through it.
+        if node_admits_null(sub_node):
+            is_nullable_from_one_of = True
         parsed_schemas_list.append(parse_fn(None, sub_node, context, max_depth))
 
     filtered_schemas = [

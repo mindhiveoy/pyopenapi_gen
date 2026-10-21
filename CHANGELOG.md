@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.13 (2026-10-21)
+
+### Bug Fixes
+
+- **parser**: Keep recursive anyOf components and their null members intact
+  ([`9553532`](https://github.com/mindhiveoy/pyopenapi_gen/commit/9553532e82c54f2cc484cf2773f29f03418714fd))
+
+
 ## v5.1.12 (2026-09-20)
 
 ### Bug Fixes
