@@ -540,3 +540,95 @@ def test_client_generation__json_value_client__round_trips_every_json_type_at_ru
         "obj": "dict",
     }
     assert outcome["round_trip"] is True
+
+
+def _filter_value_spec() -> dict[str, Any]:
+    """The sales team's ResourceFilterValue / WorkflowJsonValue shapes, reduced to the minimum."""
+    ref = {"$ref": "#/components/schemas/Request"}
+    return {
+        "openapi": "3.1.0",
+        "info": {"title": "Filter probe", "version": "1.0.0"},
+        "paths": {
+            "/echo": {
+                "post": {
+                    "operationId": "echo",
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": ref}}},
+                    "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": ref}}}},
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "Principal": {
+                    "type": "object",
+                    "required": ["kind"],
+                    "properties": {"kind": {"type": "string"}, "userId": {"type": "string"}},
+                },
+                "ListValue": {"anyOf": [{"type": "string"}, {"type": "number"}]},
+                "FilterValue": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "number"},
+                        {"type": "boolean"},
+                        {"type": "array", "items": {"$ref": "#/components/schemas/ListValue"}},
+                        {"$ref": "#/components/schemas/Principal"},
+                        {"type": "array", "items": {"$ref": "#/components/schemas/Principal"}},
+                    ]
+                },
+                "OpenValue": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "number"},
+                        {"type": "boolean"},
+                        {"type": "array", "items": {}},
+                    ]
+                },
+                "Request": {
+                    "type": "object",
+                    "required": ["filter", "open"],
+                    "properties": {
+                        "filter": {"$ref": "#/components/schemas/FilterValue"},
+                        "open": {"$ref": "#/components/schemas/OpenValue"},
+                    },
+                },
+            }
+        },
+    }
+
+
+def test_client_generation__open_array_items__emit_list_of_any(tmp_path: Path) -> None:
+    """`items: {}` is an open array, so its alias member is `List[Any]`, not `List[dict[str, Any]]`."""
+    # Act
+    client_dir = _generate(tmp_path, _filter_value_spec())
+
+    # Assert
+    members = _alias_union_members((client_dir / "models" / "open_value.py").read_text(), "OpenValue")
+    assert members == ["str", "float", "bool", "List[Any]"]
+
+
+def test_client_generation__list_members_in_a_union__structure_objects_and_open_arrays(tmp_path: Path) -> None:
+    """A list of objects reaches the model-list member; an open array keeps its items as they are."""
+    # Arrange
+    _generate(tmp_path, _filter_value_spec())
+    script = (
+        "import json\n"
+        "from probe_client.core.cattrs_converter import structure_from_dict\n"
+        "from probe_client.models import Request\n"
+        "first = structure_from_dict({'filter': [{'kind': 'user', 'userId': 'u'}], 'open': 'x'}, Request)\n"
+        "second = structure_from_dict({'filter': 'x', 'open': [1, 2, [3]]}, Request)\n"
+        "print(json.dumps({'filter_types': [type(v).__name__ for v in first.filter_],"
+        " 'user_id': first.filter_[0].user_id, 'open': second.open_}))\n"
+    )
+
+    # Act
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        cwd=tmp_path,
+    )
+
+    # Assert
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == {"filter_types": ["Principal"], "user_id": "u", "open": [1, 2, [3]]}
