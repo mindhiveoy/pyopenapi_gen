@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.18 (2026-10-21)
+
+### Bug Fixes
+
+- **models**: Default optional arrays and objects to None unless the spec says `[]`/`{}`
+  ([`785bf1a`](https://github.com/mindhiveoy/pyopenapi_gen/commit/785bf1a08e2ea73c079b048c9b4817509ad1ad90))
+
+
 ## v5.1.17 (2026-10-21)
 
 ### Bug Fixes
