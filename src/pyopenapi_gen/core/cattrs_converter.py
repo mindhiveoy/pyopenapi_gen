@@ -436,6 +436,81 @@ def _truncate_data_repr(data: Any, max_length: int = 200) -> str:
         return f"<{type(data).__name__}: repr failed>"
 
 
+def _discriminator_metadata(union_type: Any) -> Any | None:
+    """Return the discriminator metadata of an ``Annotated[Union[...], Discriminator()]``, or None."""
+    for metadata in getattr(union_type, "__metadata__", ()):
+        if hasattr(metadata, "property_name") and hasattr(metadata, "get_mapping"):
+            return metadata
+    return None
+
+
+def _union_member_args(union_type: Any) -> tuple[Any, ...]:
+    """Return the members of a Union, looking through an ``Annotated`` wrapper."""
+    if get_origin(union_type) is Annotated:
+        return get_args(get_args(union_type)[0])
+    return get_args(union_type)
+
+
+def _nested_discriminated_member_for(data: Any, args: tuple[Any, ...]) -> Any | None:
+    """
+    Find a union member that is itself a discriminated union whose mapping names ``data``'s kind.
+
+    Scenario:
+        ``Binding = Union[RegisteredBinding, UnregisteredBinding]`` where RegisteredBinding is
+        ``Annotated[Union[ConnectorBinding, DataSourceBinding], Discriminator("kind")]``. A payload
+        with ``kind: "connector"`` belongs to the nested union, and its discriminator can place it
+        in O(1), so that member must be consulted before any sequential try could let a permissive
+        fallback dataclass (one that needs only ``kind``) swallow the payload.
+
+    Returns:
+        The nested discriminated union to structure ``data`` with, or None when no member's
+        discriminator mapping claims the payload.
+    """
+    if not isinstance(data, dict):
+        return None
+    for arg in args:
+        if not _is_union_type(arg):
+            continue
+        metadata = _discriminator_metadata(arg)
+        if metadata is None or metadata.property_name not in data:
+            continue
+        mapping = metadata.get_mapping()
+        if mapping and data[metadata.property_name] in mapping:
+            return arg
+    return None
+
+
+def _flatten_union_members(data: Any, args: tuple[Any, ...]) -> list[Any]:
+    """
+    Expand union members that are themselves unions, in declaration order.
+
+    ``typing.Union`` flattens plain nesting on its own, but an ``Annotated[Union, ...]`` member
+    stays opaque, and the sequential try below only knows how to handle dataclasses, generics and
+    plain types. A nested discriminated union whose mapping does not know the payload's kind is
+    dropped: its own mapping says none of its variants apply. One whose discriminator key is absent
+    from the payload is expanded, so its members still take part in the sequential try.
+    """
+    members: list[Any] = []
+    for arg in args:
+        if not _is_union_type(arg):
+            if arg not in members:
+                members.append(arg)
+            continue
+        metadata = _discriminator_metadata(arg)
+        if (
+            metadata is not None
+            and isinstance(data, dict)
+            and metadata.property_name in data
+            and metadata.get_mapping()
+        ):
+            # The dispatch pass already handled a mapped kind; an unmapped one rules this member out.
+            continue
+        for member in _flatten_union_members(data, _union_member_args(arg)):
+            if member not in members:
+                members.append(member)
+    return members
+
+
 def _structure_union(data: Any, union_type: type) -> Any:
     """
     Structure a Union type by trying each variant.
@@ -450,10 +525,12 @@ def _structure_union(data: Any, union_type: type) -> Any:
     Strategy:
         1. If data is None and NoneType is in the union, return None
         2. Check for discriminator metadata for O(1) variant lookup
-        3. If data is a dict, try each dataclass variant
-        4. Try structuring with other variants (generic types, registered hooks)
-        5. Fall back to dict[str, Any] if present
-        6. Raise error if no variant matches
+        3. Hand the data to a nested discriminated union member whose mapping names its kind
+        4. Flatten remaining nested unions into the member list, in declaration order
+        5. If data is a dict, try each dataclass variant
+        6. Try structuring with other variants (generic types, registered hooks)
+        7. Fall back to dict[str, Any] if present
+        8. Raise error if no variant matches
 
     Args:
         data: The raw data to structure
@@ -526,6 +603,16 @@ def _structure_union(data: Any, union_type: type) -> Any:
                             f"Expected one of: {valid_values}"
                         )
                 # If discriminator property not in data, fall through to sequential try
+
+    # A member that is itself a discriminated union places the payload exactly when the payload
+    # carries one of its kinds. It must go before the sequential try, where a permissive
+    # dataclass member would otherwise accept the payload first.
+    nested_discriminated = _nested_discriminated_member_for(data, args)
+    if nested_discriminated is not None:
+        return _structure_union(data, nested_discriminated)
+
+    # Nested unions that could not be dispatched contribute their members in place.
+    args = tuple(_flatten_union_members(data, args))
 
     # Separate variants by type category
     dataclass_variants: list[type[Any]] = []
