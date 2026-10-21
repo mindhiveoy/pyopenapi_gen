@@ -1,3 +1,4 @@
+import ast
 import logging
 import os  # For path manipulation
 import unittest  # Add this import
@@ -532,29 +533,24 @@ class TestModelVisitor(unittest.TestCase):  # Inherit from unittest.TestCase
         # Note: Unified system currently falls back to dict[str, Any] for anonymous objects
         # rather than promoting them to named types. This is correct fallback behavior.
         # TODO: Implement anonymous object promotion feature if needed
-        expected_field_declaration_part1 = "items: List[dict[str, Any]] | None = field("
-        expected_field_declaration_part2 = "default_factory=list"
-        # We need to check for these parts, accommodating potential whitespace/formatting variations.
-
-        self.assertIn(
-            expected_field_declaration_part1,
-            generated_code,
-            f"Start of field declaration not found. Got:\n{generated_code}",
+        # The wrapper schema declares no default, so an absent list is None rather than [].
+        # Parsed rather than matched as text, so formatter line wrapping cannot affect it.
+        items_field = next(
+            statement
+            for node in ast.walk(ast.parse(generated_code))
+            if isinstance(node, ast.ClassDef)
+            for statement in node.body
+            if isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.target.id == "items"
         )
-
-        # Search for the default_factory part
-        self.assertIn("default_factory=list", generated_code)
-
-        # Test passes - anonymous objects correctly fall back to dict[str, Any]
+        self.assertEqual(ast.unparse(items_field.annotation), "List[dict[str, Any]] | None")
+        self.assertIsNotNone(items_field.value)
+        assert items_field.value is not None
+        self.assertEqual(ast.unparse(items_field.value), "None")
 
         self.assertIn(
             "List", context.import_collector.imports.get("typing", set()), "List should be imported from typing"
-        )
-        # Modern Python 3.10+ doesn't need Optional imports (uses | None syntax)
-        self.assertIn(
-            "field",
-            context.import_collector.imports.get("dataclasses", set()),
-            "field should be imported from dataclasses",
         )
 
     def test_visit_IRSchema_for_dataclass_with_field_defaults(self) -> None:

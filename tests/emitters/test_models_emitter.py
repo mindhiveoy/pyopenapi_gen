@@ -6,6 +6,7 @@ import pytest
 
 from pyopenapi_gen import IRSchema, IRSpec
 from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.core.utils import NameSanitizer
 from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
 
 
@@ -569,35 +570,75 @@ def test_models_emitter__inline_response_schema__generates_model(tmp_path: Path)
     assert "id_:" in content  # 'id' is sanitized to 'id_' because it's a Python builtin
 
 
-def test_models_emitter_optional_list_factory(tmp_path: Path) -> None:
-    """Test generation for an optional list with a default factory."""
-    schema = IRSchema(
-        name="Config",
-        type="object",
-        properties={"tags": IRSchema(name="tags", type="array", items=IRSchema(type="string"))},
-        # 'tags' is not in 'required', so it's optional.
-        # ModelVisitor should add default_factory=list if it's a List.
-    )
-    spec = IRSpec(title="T", version="0.1", schemas={"Config": schema}, operations=[], servers=[])
-
+def _emit_single_model(tmp_path: Path, schema: IRSchema) -> str:
+    """Emit one schema and return its generated module source."""
+    assert schema.name is not None
+    spec = IRSpec(title="T", version="0.1", schemas={schema.name: schema}, operations=[], servers=[])
     out_dir: Path = tmp_path / "out"
     render_context = RenderContext(
         overall_project_root=str(tmp_path),
         package_root_for_generated_code=str(out_dir),
         core_package_name="test_client.core",
     )
-    emitter = ModelsEmitter(context=render_context, parsed_schemas=spec.schemas)
-    emitter.emit(spec, str(out_dir))
+    ModelsEmitter(context=render_context, parsed_schemas=spec.schemas).emit(spec, str(out_dir))
+    module = out_dir / "models" / f"{NameSanitizer.sanitize_module_name(schema.name)}.py"
+    assert module.exists()
+    return module.read_text()
 
-    model_file: Path = out_dir / "models" / "config_.py"  # 'config' is sanitized to 'config_' because it's reserved
-    assert model_file.exists()
-    content = model_file.read_text()
+
+def test_models_emitter__optional_array_without_default__defaults_to_none(tmp_path: Path) -> None:
+    """An optional array with no schema default is `None` when absent, so absent and `[]` stay distinct."""
+    # Arrange
+    schema = IRSchema(
+        name="Config",
+        type="object",
+        properties={"tags": IRSchema(name="tags", type="array", items=IRSchema(type="string"))},
+    )
+
+    # Act
+    content = _emit_single_model(tmp_path, schema)
+
+    # Assert
+    assert "class Config_:" in content  # 'config' is a reserved name, so the class is suffixed
+    assert "tags: List[str] | None = None" in content
+    assert "default_factory" not in content
+
+
+def test_models_emitter__optional_array_with_empty_default__uses_list_factory(tmp_path: Path) -> None:
+    """Only an explicit `default: []` in the spec turns into `field(default_factory=list)`."""
+    # Arrange
+    schema = IRSchema(
+        name="Config",
+        type="object",
+        properties={"tags": IRSchema(name="tags", type="array", items=IRSchema(type="string"), default=[])},
+    )
+
+    # Act
+    content = _emit_single_model(tmp_path, schema)
+
+    # Assert
     assert "from dataclasses import dataclass, field" in content
-    assert "from typing import List" in content  # Python 3.10+ doesn't need Optional import for | None syntax
-    assert "@dataclass" in content
-    assert "class Config_:" in content  # 'Config' is sanitized to 'Config_' because 'config' is reserved
-    # Field should be List[str] | None and use field(default_factory=list)
     assert "tags: List[str] | None = field(default_factory=list)" in content
+
+
+def test_models_emitter__optional_anonymous_object_without_default__defaults_to_none(tmp_path: Path) -> None:
+    """An optional inline object with no schema default is `None`, not an empty dict."""
+    # Arrange
+    schema = IRSchema(
+        name="Config",
+        type="object",
+        properties={
+            "meta": IRSchema(type="object", additional_properties=True),
+            "settings": IRSchema(type="object", additional_properties=True, default={}),
+        },
+    )
+
+    # Act
+    content = _emit_single_model(tmp_path, schema)
+
+    # Assert
+    assert "meta: dict[str, Any] | None = None" in content
+    assert "settings: dict[str, Any] | None = field(default_factory=dict)" in content
 
 
 def test_models_emitter_optional_named_object_none_default(tmp_path: Path) -> None:

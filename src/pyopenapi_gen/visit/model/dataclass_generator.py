@@ -405,16 +405,19 @@ converter.register_unstructure_hook({class_name}, _unstructure_{class_name.lower
             Post-conditions:
                 - Returns a valid Python default value string
                   (e.g., "None", "field(default_factory=list)", "\"abc\"") or None.
+                - Array and object properties without an explicit empty default render as "None".
         """
         if ps is None:
             raise ValueError("Property schema (ps) cannot be None.")
         if context is None:
             raise ValueError("RenderContext cannot be None.")
 
-        if ps.type == "array":
+        # An optional property with no schema default is None when absent. Only an explicit
+        # empty default becomes a factory, so callers can tell "not sent" from "sent as empty".
+        if ps.default is not None and ps.default == [] and ps.type == "array":
             context.add_import("dataclasses", "field")
             return "field(default_factory=list)"
-        elif ps.type == "object" and ps.name is None and not ps.any_of and not ps.one_of and not ps.all_of:
+        if ps.default is not None and ps.default == {} and ps.type == "object":
             context.add_import("dataclasses", "field")
             return "field(default_factory=dict)"
 
