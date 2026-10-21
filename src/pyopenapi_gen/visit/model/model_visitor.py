@@ -173,31 +173,6 @@ class ModelVisitor(Visitor[IRSchema, str]):
 
         return self.formatter.format(rendered_code)
 
-    def _get_field_default(self, ps: IRSchema, context: RenderContext) -> str | None:
-        """
-        Determines the default value expression string for a dataclass field.
-        This method is called for fields determined to be optional.
-
-        Args:
-            ps: The property schema to analyze
-            context: The rendering context
-
-        Returns:
-            A string representing the Python default value expression
-        """
-        # Restore logic for default_factory for list and dict
-        if ps.type == "array":
-            context.add_import("dataclasses", "field")
-            return "field(default_factory=list)"
-        elif ps.type == "object" and ps.name is None and not ps.any_of and not ps.one_of and not ps.all_of:
-            # This condition aims for anonymous objects that are not part of a union/composition.
-            # These should get default_factory=dict if they are optional fields.
-            context.add_import("dataclasses", "field")
-            return "field(default_factory=dict)"
-        else:
-            # Primitives, enums, named objects, unions default to None when optional
-            return "None"
-
     def _analyze_and_register_imports(self, schema: IRSchema, context: RenderContext) -> None:
         """
         Analyze a schema and register necessary imports for the generated code.
