@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.16 (2026-10-21)
+
+### Bug Fixes
+
+- **deps**: Bump certifi to 2026.10.19 and Werkzeug to 3.1.9 for open security advisories
+  ([`97a28f0`](https://github.com/mindhiveoy/pyopenapi_gen/commit/97a28f0f69841f813b4415c483b3cb3decc2a59f))
+
+
 ## v5.1.15 (2026-10-21)
 
 ### Bug Fixes
