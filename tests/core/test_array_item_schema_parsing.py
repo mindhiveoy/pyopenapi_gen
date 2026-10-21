@@ -221,3 +221,33 @@ class TestArrayItemSchemaParsing:
 
         assert actual_item_schema.properties is not None
         assert len(actual_item_schema.properties) >= 2
+
+
+def test_array_with_empty_items_schema__items_mean_any_value__not_object() -> None:
+    """`{"type": "array", "items": {}}` is a valid open array: any value may be an item.
+
+    An empty mapping is falsy, so it used to take the "array without items" path and
+    default the item type to object, which refused `[1, 2, [3]]` at runtime.
+    """
+    # Arrange
+    from pyopenapi_gen.core.loader.loader import load_ir_from_spec
+
+    spec_dict = {
+        "openapi": "3.1.0",
+        "info": {"title": "Open array", "version": "1.0.0"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "OpenValue": {"anyOf": [{"type": "string"}, {"type": "array", "items": {}}]},
+            }
+        },
+    }
+
+    # Act
+    ir = load_ir_from_spec(spec_dict)
+    array_member = next(member for member in ir.schemas["OpenValue"].any_of if member.type == "array")
+
+    # Assert: the item schema carries no type, so it resolves to Any rather than dict[str, Any]
+    assert array_member.items is not None
+    assert array_member.items.type != "object"
+    assert not array_member.items.properties

@@ -561,6 +561,10 @@ def _candidate_members_for(data: Any, members: list[Any]) -> list[Any]:
         return [m for m in members if m is str or m in hooked]
     if isinstance(data, list):
         return lists
+    if isinstance(data, dict):
+        # Dataclass members and the dict[str, Any] fallback were handled before this pass; a
+        # mapping never fits a scalar or list member, so only hook-backed members remain.
+        return hooked
     return members
 
 
