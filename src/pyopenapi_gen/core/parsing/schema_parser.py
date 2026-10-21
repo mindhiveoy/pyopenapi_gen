@@ -24,7 +24,7 @@ from .keywords.nullable_composition import (
     unwrap_nullable_composition,
 )
 from .keywords.one_of_parser import _parse_one_of_schemas
-from .unified_cycle_detection import CycleAction
+from .unified_cycle_detection import CycleAction, SchemaState
 
 logger = logging.getLogger(__name__)
 
@@ -573,8 +573,6 @@ def _parse_schema(
                 return existing_schema
             # If schema marked as existing but not found anywhere, it might be a state management issue
             # Reset the state and continue with normal parsing
-            from .unified_cycle_detection import SchemaState
-
             context.unified_cycle_context.schema_states[schema_name] = SchemaState.NOT_STARTED
         # Don't call unified_exit_schema again, continue to normal parsing
 
@@ -1016,8 +1014,22 @@ def _parse_schema(
             # we need to detect collisions and use the original raw schema name as a fallback.
             registration_key = schema_ir.name if schema_ir.name else schema_name
 
+            # While this schema's own members were parsed, a direct self-reference handed out a
+            # stub under the raw spec key. `$ref` resolution looks schemas up by that key, so the
+            # finished schema must take the stub's place. Registering it under the sanitized key
+            # instead would leave every later reference on the empty stub and emit the real schema
+            # as a second, colliding class (the two keys only coincide when the spec name is
+            # already a valid class name).
+            raw_entry = context.parsed_schemas.get(schema_name)
+            if raw_entry is not None and raw_entry is not schema_ir and raw_entry._is_self_referential_stub:
+                registration_key = schema_name
+                context.unified_cycle_context.schema_states[schema_name] = SchemaState.COMPLETED
+                # Members parsed before this point still hold the stub (e.g. the items of a
+                # recursive array). Point it at the finished schema so they resolve to a forward
+                # reference to this class rather than to the stub's own empty object type.
+                raw_entry._refers_to_schema = schema_ir
             # Check if this is a collision between different raw schemas
-            if registration_key in context.parsed_schemas:
+            elif registration_key in context.parsed_schemas:
                 existing_schema = context.parsed_schemas[registration_key]
                 # If it's the same schema object (e.g., from cycle detection returning existing), don't re-register
                 if existing_schema is not schema_ir:

@@ -301,6 +301,52 @@ class TestParseAnyOfSchemas(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "all items in any_of_nodes must be Mappings"):
             _parse_any_of_schemas(any_of_nodes, self.context, 10, self.mock_parse_fn)
 
+    def test_any_of__null_member_in_openapi_30_spelling__sets_nullable_without_parsing_it(self) -> None:
+        """
+        Scenario:
+            - OpenAPI 3.0-style tooling spells the null member of an `anyOf` as
+              {"type": "string", "nullable": true, "enum": [null]} or as a bare {"nullable": true}.
+        Expected Outcome:
+            - Each spelling marks the composition nullable, exactly like {"type": "null"} does.
+            - The null member is not parsed as a schema of its own, so it cannot collapse into a sibling `str`.
+        """
+        for null_member in ({"type": "string", "nullable": True, "enum": [None]}, {"nullable": True}):
+            with self.subTest(null_member=null_member):
+                # Arrange
+                self.mock_parse_fn.reset_mock()
+                any_of_nodes: List[Mapping[str, Any]] = [{"type": "string"}, null_member, {"type": "integer"}]
+
+                # Act
+                parsed_schemas, is_nullable, eff_type = _parse_any_of_schemas(
+                    any_of_nodes, self.context, 10, self.mock_parse_fn
+                )
+
+                # Assert
+                self.assertTrue(is_nullable)
+                self.assertIsNone(eff_type)
+                assert parsed_schemas is not None
+                self.assertEqual([s.type for s in parsed_schemas], ["string", "integer"])
+                self.assertEqual(self.mock_parse_fn.call_count, 2)
+
+    def test_any_of__nullable_member_with_a_real_type__stays_a_member_and_makes_the_union_nullable(self) -> None:
+        """
+        Scenario:
+            - A member carries a real type plus `nullable: true` ({"type": "string", "nullable": true}).
+        Expected Outcome:
+            - It is still a string member of the union (parsed as usual).
+            - Its nullability is lifted onto the composition, since the union accepts null through it.
+        """
+        # Arrange
+        any_of_nodes: List[Mapping[str, Any]] = [{"type": "string", "nullable": True}, {"type": "integer"}]
+
+        # Act
+        parsed_schemas, is_nullable, _ = _parse_any_of_schemas(any_of_nodes, self.context, 10, self.mock_parse_fn)
+
+        # Assert
+        assert parsed_schemas is not None
+        self.assertEqual([s.type for s in parsed_schemas], ["string", "integer"])
+        self.assertTrue(is_nullable)
+
 
 if __name__ == "__main__":
     unittest.main()

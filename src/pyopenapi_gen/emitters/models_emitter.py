@@ -246,6 +246,17 @@ class ModelsEmitter:
         self.parsed_schemas = all_schemas_for_generation
         self.context.parsed_schemas = all_schemas_for_generation  # Correctly update the attribute
 
+        # A self-reference stub is the parser's placeholder while a recursive schema is still
+        # being parsed. One that is still registered here would be rendered as an empty dataclass
+        # standing in for the real schema, so refuse rather than emit a client that type-checks
+        # against nothing.
+        surviving_stubs = sorted(key for key, s in self.parsed_schemas.items() if s._is_self_referential_stub)
+        if surviving_stubs:
+            raise RuntimeError(
+                "Self-reference stubs survived parsing and cannot be emitted as models: "
+                f"{surviving_stubs}. Each would become an empty dataclass standing in for its real schema."
+            )
+
         # --- Name de-collision pre-processing ---
         # This step ensures each schema that will generate a file
         # has a unique class name (generation_name) and a unique module stem (final_module_stem).

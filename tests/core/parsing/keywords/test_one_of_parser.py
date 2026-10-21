@@ -237,6 +237,33 @@ class TestParseOneOfSchemas(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "all items in one_of_nodes must be Mappings"):
             _parse_one_of_schemas(one_of_nodes, self.context, 10, self.mock_parse_fn)
 
+    def test_one_of__null_member_in_openapi_30_spelling__sets_nullable_without_parsing_it(self) -> None:
+        """
+        Scenario:
+            - The null member of a `oneOf` is spelled the OpenAPI 3.0 way:
+              {"type": "string", "nullable": true, "enum": [null]} or a bare {"nullable": true}.
+        Expected Outcome:
+            - Each spelling marks the composition nullable, exactly like {"type": "null"} does.
+            - The null member is not handed to `parse_fn`.
+        """
+        for null_member in ({"type": "string", "nullable": True, "enum": [None]}, {"nullable": True}):
+            with self.subTest(null_member=null_member):
+                # Arrange
+                self.mock_parse_fn.reset_mock()
+                one_of_nodes: List[Mapping[str, Any]] = [{"type": "string"}, null_member]
+
+                # Act
+                parsed_schemas, is_nullable, eff_type = _parse_one_of_schemas(
+                    one_of_nodes, self.context, 10, self.mock_parse_fn
+                )
+
+                # Assert
+                self.assertTrue(is_nullable)
+                self.assertIsNone(eff_type)
+                assert parsed_schemas is not None
+                self.assertEqual([s.type for s in parsed_schemas], ["string"])
+                self.mock_parse_fn.assert_called_once_with(None, one_of_nodes[0], self.context, 10)
+
 
 if __name__ == "__main__":
     unittest.main()

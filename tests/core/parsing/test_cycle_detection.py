@@ -65,6 +65,38 @@ class TestCycleDetection(unittest.TestCase):
         self.assertEqual(result.name, NameSanitizer.sanitize_class_name(schema_name), "Schema name should be sanitized")
         self.assertEqual(result.properties, {}, "Circular placeholder should have no properties")
 
+    def test_self_reference__spec_name_differs_from_class_name__finished_schema_replaces_its_stub(self) -> None:
+        """A recursive component whose key sanitizes to another class name must still register exactly once.
+
+        The self-reference stub is stored under the raw spec key while the component is parsed. The
+        finished schema has to take its place there, or every later $ref resolves to the empty stub
+        and the real schema lingers under the sanitized key as a colliding second class.
+        """
+        for schema_name in ("__schema0", "json_value", "Json-Value", "JsonValue"):
+            with self.subTest(schema_name=schema_name):
+                # Arrange
+                context = ParsingContext()
+                ref = {"$ref": f"#/components/schemas/{schema_name}"}
+                schema_data: dict[str, Any] = {"anyOf": [{"type": "string"}, {"type": "array", "items": ref}]}
+                user_data: dict[str, Any] = {"type": "object", "properties": {"value": ref}}
+                context.raw_spec_schemas = {schema_name: schema_data, "User": user_data}
+
+                # Act
+                result = _parse_schema(schema_name, schema_data, context, allow_self_reference=True)
+                user = _parse_schema("User", user_data, context, allow_self_reference=True)
+
+                # Assert: one real schema, no stub left in the registry, and $refs land on the real one.
+                self.assertFalse(result._is_self_referential_stub)
+                self.assertIsNotNone(result.any_of)
+                self.assertEqual([key for key, s in context.parsed_schemas.items() if s._is_self_referential_stub], [])
+                self.assertIs(context.parsed_schemas[schema_name], result)
+                self.assertEqual(
+                    [key for key, s in context.parsed_schemas.items() if s.name == result.name and s is not result], []
+                )
+                assert user.properties is not None
+                value = user.properties["value"]
+                self.assertIs(value._refers_to_schema or value, result)
+
     def test_mutual_reference_cycle_detection(self) -> None:
         """Test detection of mutual references between schemas."""
         schema_a_name = "SchemaA"
