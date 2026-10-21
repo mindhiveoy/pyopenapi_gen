@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.14 (2026-10-21)
+
+### Bug Fixes
+
+- **core**: Structure nested discriminated unions before a fallback dataclass member
+  ([`ac518d5`](https://github.com/mindhiveoy/pyopenapi_gen/commit/ac518d5cdbb524c825aabe47059f3348637b43ac))
+
+
 ## v5.1.13 (2026-10-21)
 
 ### Bug Fixes
