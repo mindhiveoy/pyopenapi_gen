@@ -446,3 +446,67 @@ class TestRenderContextAddImport:
         assert collector.plain_imports == {"json", "os"}
 
     # TODO: Add tests for conditional imports via add_conditional_import and render_imports
+
+
+class TestRenderContextAddImportRelativeModules:
+    """Regression: a module path that is already relative must not be filed as an external absolute import."""
+
+    @staticmethod
+    def _start_endpoint_file(context: RenderContext, tmp_path: Path) -> None:
+        endpoint_file = tmp_path / "out" / "endpoints" / "pets.py"
+        endpoint_file.parent.mkdir(parents=True, exist_ok=True)
+        context.set_current_file(str(endpoint_file))
+
+    def test_add_import__already_relative_module__recorded_as_relative_import(
+        self, base_render_context: RenderContext, tmp_path: Path
+    ) -> None:
+        """
+        Scenario:
+            The type resolver registers a model with a module path it already made relative ("..models.pet").
+
+        Expected Outcome:
+            The import lands in the relative section and not in the absolute one, where it would be
+            rendered a second time next to the relative copy.
+        """
+        self._start_endpoint_file(base_render_context, tmp_path)
+
+        base_render_context.add_import("..models.pet", "Pet")
+
+        collector = base_render_context.import_collector
+        assert collector.relative_imports == {"..models.pet": {"Pet"}}
+        assert "..models.pet" not in collector.imports
+
+    def test_add_import__same_model_as_relative_and_logical_path__rendered_once(
+        self, base_render_context: RenderContext, tmp_path: Path
+    ) -> None:
+        """
+        Scenario:
+            One resolver registers a model by its relative path, another by its full logical path.
+
+        Expected Outcome:
+            The rendered imports contain exactly one line for the model.
+        """
+        self._start_endpoint_file(base_render_context, tmp_path)
+
+        base_render_context.add_import("..models.pet", "Pet")
+        base_render_context.add_import("out.models.pet", "Pet")
+
+        rendered = base_render_context.render_imports().splitlines()
+        assert [line for line in rendered if line == "from ..models.pet import Pet"] == ["from ..models.pet import Pet"]
+
+    def test_add_import__relative_module_without_name__ignored(
+        self, base_render_context: RenderContext, tmp_path: Path
+    ) -> None:
+        """
+        Scenario:
+            A relative module is added without a name (a plain ``import`` of a relative module is not valid Python).
+
+        Expected Outcome:
+            Nothing is registered.
+        """
+        self._start_endpoint_file(base_render_context, tmp_path)
+
+        base_render_context.add_import("..models.pet")
+
+        collector = base_render_context.import_collector
+        assert not collector.relative_imports and not collector.imports and not collector.plain_imports

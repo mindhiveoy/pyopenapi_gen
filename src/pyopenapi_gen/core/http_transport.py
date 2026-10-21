@@ -6,6 +6,7 @@ from typing import Any, Protocol
 import httpx
 
 from .auth.base import BaseAuth
+from .cattrs_converter import is_pydantic_model
 from .utils import DataclassSerializer
 
 MultipartPart = tuple[str, Any]
@@ -19,7 +20,11 @@ def _is_file_like(value: Any) -> bool:
 
 def _is_json_object(value: Any) -> bool:
     """Return True for values that must be sent as an ``application/json`` part (objects)."""
-    return isinstance(value, Mapping) or (dataclasses.is_dataclass(value) and not isinstance(value, type))
+    return (
+        isinstance(value, Mapping)
+        or (dataclasses.is_dataclass(value) and not isinstance(value, type))
+        or is_pydantic_model(value)
+    )
 
 
 def _primitive_to_bytes(value: str | int | float | bool) -> bytes:

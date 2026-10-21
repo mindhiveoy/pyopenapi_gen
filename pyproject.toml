@@ -20,6 +20,9 @@ dependencies = [
   "dataclass-wizard (>=1.0.0,<2.0.0)",
   "cattrs>=26.2.0",
   "urllib3 (>=2.6.0,<3.0.0)",
+  # Generator-time only (renders models for --model-backend dcg). Generated clients never import it.
+  # Pinned to one minor series because its output and option set change between minors.
+  "datamodel-code-generator>=0.83,<0.84",
 ]
 license = { text = "MIT" }
 keywords = [

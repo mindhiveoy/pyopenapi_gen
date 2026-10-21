@@ -42,6 +42,7 @@ tests/
 │   │   ├── test_cycle_detection.py (Analyzed)
 │   │   ├── test_cycle_helpers.py (Analyzed)
 │   │   ├── test_improved_schema_naming.py (Analyzed)
+│   │   ├── test_inline_composition_member_naming.py (Analyzed)
 │   │   ├── test_inline_enum_extractor.py (Analyzed)
 │   │   ├── test_inline_object_promoter.py (Analyzed)
 │   │   ├── test_logging.py (Analyzed)
@@ -53,6 +54,7 @@ tests/
 │   │   ├── test_code_writer.py (Analyzed)
 │   │   ├── test_documentation_writer.py (Analyzed)
 │   │   └── test_line_writer.py (Analyzed)
+│   ├── test_cattrs_converter_pydantic.py (Analyzed)
 │   ├── test_detect_circular_imports.py (Analyzed)
 │   ├── test_exceptions_module.py (Analyzed)
 │   ├── test_forward_references.py (Analyzed)
@@ -77,6 +79,11 @@ tests/
 ├── emitters/
 │   ├── test_client_emitter.py (Analyzed)
 │   ├── test_docs_emitter.py (Analyzed)
+│   ├── dcg_models/
+│   │   ├── test_dcg_ir_to_openapi.py (Analyzed)
+│   │   ├── test_dcg_literal_enums.py (Analyzed)
+│   │   ├── test_dcg_model_backend.py (Analyzed)
+│   │   └── test_dcg_renderer.py (Analyzed)
 │   ├── test_duplicate_operations.py (Analyzed)
 │   ├── test_endpoints_emitter.py (Analyzed)
 │   ├── test_exceptions_emitter.py (Analyzed)

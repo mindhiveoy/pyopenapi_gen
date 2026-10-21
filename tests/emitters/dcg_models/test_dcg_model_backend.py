@@ -1,0 +1,637 @@
+"""
+Integration tests for ``--model-backend dcg``: ModelsEmitter, ClientGenerator and the CLI flag,
+generating a real client and exercising it through the unchanged cattrs runtime.
+"""
+
+from __future__ import annotations
+
+import ast
+import importlib
+import json
+import sys
+from collections.abc import Iterator
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import pytest
+from typer.testing import CliRunner
+
+from pyopenapi_gen import IRSchema, IRSpec
+from pyopenapi_gen.cli import app
+from pyopenapi_gen.context.render_context import RenderContext
+from pyopenapi_gen.emitters.models_emitter import ModelsEmitter
+from pyopenapi_gen.generator.client_generator import ClientGenerator, GenerationError
+from pyopenapi_gen.ir import ModelBackend, ModelType
+
+PACKAGE = "dcg_backend_client"
+
+SPEC: dict[str, Any] = {
+    "openapi": "3.1.0",
+    "info": {"title": "Pets", "version": "1.0.0"},
+    "paths": {
+        "/pets/{petId}": {
+            "get": {
+                "operationId": "getPet",
+                "tags": ["pets"],
+                "parameters": [{"name": "petId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}},
+                    }
+                },
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Owner": {
+                "type": "object",
+                "required": ["fullName"],
+                "properties": {"fullName": {"type": "string"}},
+            },
+            "PetStatus": {"type": "string", "enum": ["available", "sold-out"]},
+            "Pet": {
+                "type": "object",
+                "required": ["id", "status"],
+                "properties": {
+                    "id": {"type": "integer"},
+                    "status": {"$ref": "#/components/schemas/PetStatus"},
+                    "createdAt": {"type": "string", "format": "date-time"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "owner": {"$ref": "#/components/schemas/Owner"},
+                    "nickname": {"type": "string", "nullable": True},
+                },
+            },
+        }
+    },
+}
+
+
+@pytest.fixture
+def spec_file(tmp_path: Path) -> Path:
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(SPEC))
+    return path
+
+
+@pytest.fixture(params=[ModelType.DATACLASS, ModelType.PYDANTIC], ids=lambda t: t.value)
+def model_type(request: pytest.FixtureRequest) -> ModelType:
+    return request.param  # type: ignore[no-any-return]
+
+
+@pytest.fixture
+def generated_dcg_client(tmp_path: Path, spec_file: Path, model_type: ModelType) -> Iterator[Path]:
+    """Generate the client with the DCG backend and make it importable for the duration of a test."""
+    root = tmp_path / "project"
+    ClientGenerator().generate(
+        spec_path=str(spec_file),
+        project_root=root,
+        output_package=PACKAGE,
+        force=True,
+        no_postprocess=False,
+        model_backend=ModelBackend.DCG,
+        model_type=model_type,
+    )
+    sys.path.insert(0, str(root))
+    importlib.invalidate_caches()
+    try:
+        yield root
+    finally:
+        sys.path.remove(str(root))
+        for name in [m for m in sys.modules if m == PACKAGE or m.startswith(f"{PACKAGE}.")]:
+            del sys.modules[name]
+
+
+def _emit_models(tmp_path: Path, backend: ModelBackend) -> tuple[Path, dict[str, IRSchema]]:
+    pet = IRSchema(
+        name="Pet",
+        type="object",
+        required=["id"],
+        properties={"id": IRSchema(type="integer"), "name": IRSchema(type="string")},
+    )
+    spec = IRSpec(title="T", version="1", schemas={"Pet": pet}, operations=[], servers=[])
+    out_dir = tmp_path / "out"
+    context = RenderContext(
+        overall_project_root=str(tmp_path), package_root_for_generated_code=str(out_dir), core_package_name="c.core"
+    )
+    ModelsEmitter(context=context, parsed_schemas=spec.schemas, model_backend=backend).emit(spec, str(out_dir))
+    return out_dir / "models", spec.schemas
+
+
+def test_models_emitter__dcg_backend__writes_package_and_records_final_module_stem(tmp_path: Path) -> None:
+    """
+    Scenario:
+        ModelsEmitter runs with the DCG backend over a one-schema spec.
+
+    Expected Outcome:
+        The models package exists with py.typed and an __init__ exporting Pet, and the IR schema's
+        final_module_stem points at the file DCG actually wrote (endpoints import from it).
+    """
+    models_dir, schemas = _emit_models(tmp_path, ModelBackend.DCG)
+
+    stem = schemas["Pet"].final_module_stem
+    assert stem is not None
+    assert (models_dir / f"{stem}.py").exists()
+    assert (models_dir / "py.typed").exists()
+    init = (models_dir / "__init__.py").read_text()
+    assert "Pet" in init
+    assert "Generated by pyopenapi-gen using datamodel-code-generator" in (models_dir / f"{stem}.py").read_text()
+
+
+def test_models_emitter__default_backend__does_not_use_dcg(tmp_path: Path) -> None:
+    """
+    Scenario:
+        ModelsEmitter runs without specifying a backend.
+
+    Expected Outcome:
+        Legacy output is produced (no DCG header), so the flag is strictly opt-in.
+    """
+    models_dir, schemas = _emit_models(tmp_path, ModelBackend.LEGACY)
+
+    stem = schemas["Pet"].final_module_stem
+    assert stem is not None
+    assert "datamodel-code-generator" not in (models_dir / f"{stem}.py").read_text()
+
+
+def test_client_generator__dcg_backend__public_model_names_match_legacy(tmp_path: Path, spec_file: Path) -> None:
+    """
+    Scenario:
+        The same spec is generated with both backends.
+
+    Expected Outcome:
+        models/__init__.py exports the same names, so user imports do not change when switching backends.
+    """
+
+    def exported(backend: ModelBackend) -> set[str]:
+        root = tmp_path / backend.value
+        ClientGenerator().generate(
+            spec_path=str(spec_file),
+            project_root=root,
+            output_package="client",
+            force=True,
+            no_postprocess=True,
+            model_backend=backend,
+        )
+        tree = ast.parse((root / "client" / "models" / "__init__.py").read_text())
+        for node in tree.body:
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == "__all__":
+                assert node.value is not None
+                return set(ast.literal_eval(node.value))
+            if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets
+            ):
+                return set(ast.literal_eval(node.value))
+        raise AssertionError("models/__init__.py defines no __all__")
+
+    assert exported(ModelBackend.DCG) == exported(ModelBackend.LEGACY) == {"Owner", "Pet", "PetStatus"}
+
+
+def test_generated_dcg_client__round_trips_payload_through_cattrs_runtime(generated_dcg_client: Path) -> None:
+    """
+    Scenario:
+        A client generated with DCG models is imported and a wire payload (camelCase keys, enum,
+        date-time, nested model, nullable, list) is structured and unstructured with the generated runtime.
+
+    Expected Outcome:
+        Python attributes carry sanitised names, values have the right types, and unstructuring
+        reproduces the original wire payload.
+    """
+    models = importlib.import_module(f"{PACKAGE}.models")
+    converter = importlib.import_module(f"{PACKAGE}.core.cattrs_converter")
+    payload = {
+        "id": 7,
+        "status": "sold-out",
+        "createdAt": "2026-01-02T03:04:05+00:00",
+        "tags": ["a", "b"],
+        "owner": {"fullName": "Ada"},
+        "nickname": None,
+    }
+
+    pet = converter.structure_from_dict(payload, models.Pet)
+
+    assert pet.id_ == 7
+    assert pet.status is models.PetStatus("sold-out")
+    assert pet.created_at.year == 2026
+    assert pet.owner.full_name == "Ada"
+    assert pet.tags == ["a", "b"]
+    wire = converter.unstructure_to_dict(pet)
+    assert datetime.fromisoformat(wire["createdAt"]) == datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    assert wire["owner"] == {"fullName": "Ada"}
+    assert wire["status"] == "sold-out"
+    assert wire["id"] == 7
+
+
+def test_generated_dcg_client__optional_fields_omitted__defaults_applied(generated_dcg_client: Path) -> None:
+    """
+    Scenario:
+        A payload contains only the required properties.
+
+    Expected Outcome:
+        Optional list defaults to [] (not shared between instances) and optional models to None.
+    """
+    models = importlib.import_module(f"{PACKAGE}.models")
+    converter = importlib.import_module(f"{PACKAGE}.core.cattrs_converter")
+
+    first = converter.structure_from_dict({"id": 1, "status": "available"}, models.Pet)
+    second = converter.structure_from_dict({"id": 2, "status": "available"}, models.Pet)
+
+    assert first.tags == [] and first.owner is None
+    assert first.tags is not second.tags
+
+
+def test_generated_dcg_client__endpoint_module__imports_models_from_final_module_stem(
+    generated_dcg_client: Path,
+) -> None:
+    """
+    Scenario:
+        The endpoints package, generated after models, is imported.
+
+    Expected Outcome:
+        It imports successfully, which proves the model import paths that the endpoint generators
+        computed from final_module_stem / generation_name exist in DCG's output.
+    """
+    endpoints = importlib.import_module(f"{PACKAGE}.endpoints.pets")
+
+    assert hasattr(endpoints, "PetsClient")
+
+
+def test_client_generator__dcg_backend_diff_path__detects_changes_without_force(
+    tmp_path: Path, spec_file: Path
+) -> None:
+    """
+    Scenario:
+        Output generated with the DCG backend is modified, then generation re-runs without force.
+
+    Expected Outcome:
+        The diff path (which builds its own ModelsEmitter) also uses the DCG backend: an untouched
+        second run reports no differences, and a hand-edited model file is reported.
+    """
+    root = tmp_path / "project"
+    generator = ClientGenerator()
+    kwargs: dict[str, Any] = {
+        "spec_path": str(spec_file),
+        "project_root": root,
+        "output_package": "client",
+        "no_postprocess": True,
+        "model_backend": ModelBackend.DCG,
+    }
+    generator.generate(force=True, **kwargs)
+
+    generator.generate(force=False, **kwargs)  # identical output: no GenerationError
+
+    pet_file = next((root / "client" / "models").glob("pet.py"))
+    pet_file.write_text(pet_file.read_text() + "\n# edited\n")
+    with pytest.raises(GenerationError, match="Differences found"):
+        generator.generate(force=False, **kwargs)
+
+
+def test_generated_pydantic_client__models_are_pydantic_with_python_names_and_wire_aliases(
+    tmp_path: Path, spec_file: Path
+) -> None:
+    """
+    Scenario:
+        A client is generated with ``model_type=pydantic`` and the models package is inspected.
+
+    Expected Outcome:
+        Object models are pydantic ``BaseModel`` subclasses, not dataclasses; they can be built with the
+        same Python attribute names as the dataclass flavour, and the enum stays a ``str`` enum.
+    """
+    import dataclasses
+
+    from pydantic import BaseModel
+
+    root = tmp_path / "project"
+    ClientGenerator().generate(
+        spec_path=str(spec_file),
+        project_root=root,
+        output_package=PACKAGE,
+        force=True,
+        no_postprocess=True,
+        model_backend=ModelBackend.DCG,
+        model_type=ModelType.PYDANTIC,
+    )
+    sys.path.insert(0, str(root))
+    try:
+        models = importlib.import_module(f"{PACKAGE}.models")
+        pet = models.Pet(id_=1, status=models.PetStatus("available"), owner=models.Owner(full_name="Ada"))
+
+        assert issubclass(models.Pet, BaseModel) and not dataclasses.is_dataclass(models.Pet)
+        assert isinstance(pet.status, str)
+        assert pet.model_dump(by_alias=True, exclude_none=True)["owner"] == {"fullName": "Ada"}
+    finally:
+        sys.path.remove(str(root))
+        for name in [m for m in sys.modules if m == PACKAGE or m.startswith(f"{PACKAGE}.")]:
+            del sys.modules[name]
+
+
+def test_generated_pydantic_client__invalid_response_payload__raises_value_error(
+    generated_dcg_client: Path, model_type: ModelType
+) -> None:
+    """
+    Scenario:
+        A payload that violates the schema (wrong type, missing required field) is structured.
+
+    Expected Outcome:
+        Both model types reject it with a ``ValueError`` naming the target type; pydantic clients
+        validate (so a wrongly typed ``id`` is rejected, not coerced silently).
+    """
+    models = importlib.import_module(f"{PACKAGE}.models")
+    converter = importlib.import_module(f"{PACKAGE}.core.cattrs_converter")
+
+    with pytest.raises(ValueError, match="Failed to convert data to Pet"):
+        converter.structure_from_dict({"id": "not-an-int"}, models.Pet)
+
+
+def test_client_generator__pydantic_without_dcg_backend__raises_generation_error(
+    tmp_path: Path, spec_file: Path
+) -> None:
+    """
+    Scenario:
+        ``model_type=pydantic`` is requested together with the legacy backend.
+
+    Expected Outcome:
+        Generation fails before writing anything: only the DCG backend can render pydantic models.
+    """
+    with pytest.raises(GenerationError, match="requires model_backend 'dcg'"):
+        ClientGenerator().generate(
+            spec_path=str(spec_file),
+            project_root=tmp_path / "project",
+            output_package="client",
+            force=True,
+            no_postprocess=True,
+            model_backend=ModelBackend.LEGACY,
+            model_type=ModelType.PYDANTIC,
+        )
+
+    assert not (tmp_path / "project").exists()
+
+
+def test_models_emitter__pydantic_with_legacy_backend__violates_precondition(tmp_path: Path) -> None:
+    """
+    Scenario:
+        ModelsEmitter is constructed directly with the legacy backend and pydantic models.
+
+    Expected Outcome:
+        The design-by-contract precondition fails instead of silently generating dataclasses.
+    """
+    context = RenderContext(
+        overall_project_root=str(tmp_path), package_root_for_generated_code=str(tmp_path), core_package_name="c.core"
+    )
+
+    with pytest.raises(AssertionError, match="pydantic models require the dcg model backend"):
+        ModelsEmitter(context=context, parsed_schemas={}, model_type=ModelType.PYDANTIC)
+
+
+def test_client_generator__pydantic_diff_path__uses_pydantic_models(tmp_path: Path, spec_file: Path) -> None:
+    """
+    Scenario:
+        Pydantic output is generated, then regenerated without force (the diff path builds its own emitter).
+
+    Expected Outcome:
+        The untouched regeneration reports no differences, which only holds if the diff path also
+        renders pydantic models.
+    """
+    kwargs: dict[str, Any] = {
+        "spec_path": str(spec_file),
+        "project_root": tmp_path / "project",
+        "output_package": "client",
+        "no_postprocess": True,
+        "model_backend": ModelBackend.DCG,
+        "model_type": ModelType.PYDANTIC,
+    }
+    generator = ClientGenerator()
+    generator.generate(force=True, **kwargs)
+
+    generator.generate(force=False, **kwargs)
+
+    assert "BaseModel" in (tmp_path / "project" / "client" / "models" / "pet.py").read_text()
+
+
+class TestCliFlag:
+    def test_cli__model_backend_dcg__generates_dcg_models(self, tmp_path: Path, spec_file: Path) -> None:
+        """
+        Scenario:
+            The CLI is invoked with ``--model-backend dcg``.
+
+        Expected Outcome:
+            Exit code 0 and generated models carry the DCG header.
+        """
+        result = CliRunner().invoke(
+            app,
+            [
+                str(spec_file),
+                "--project-root",
+                str(tmp_path),
+                "--output-package",
+                "client",
+                "--model-backend",
+                "dcg",
+                "--force",
+                "--no-postprocess",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "datamodel-code-generator" in (tmp_path / "client" / "models" / "pet.py").read_text()
+
+    def test_cli__model_backend_omitted__defaults_to_legacy(self, tmp_path: Path, spec_file: Path) -> None:
+        """
+        Scenario:
+            The CLI is invoked without ``--model-backend``.
+
+        Expected Outcome:
+            Exit code 0 and models are generated by the legacy generator.
+        """
+        result = CliRunner().invoke(
+            app,
+            [
+                str(spec_file),
+                "--project-root",
+                str(tmp_path),
+                "--output-package",
+                "client",
+                "--force",
+                "--no-postprocess",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "datamodel-code-generator" not in (tmp_path / "client" / "models" / "pet.py").read_text()
+
+    def test_cli__unknown_model_backend__rejected_with_usage_error(self, tmp_path: Path, spec_file: Path) -> None:
+        """
+        Scenario:
+            The CLI is invoked with an unsupported backend name.
+
+        Expected Outcome:
+            Typer rejects it (exit code 2) before generating anything.
+        """
+        result = CliRunner().invoke(
+            app,
+            [str(spec_file), "--project-root", str(tmp_path), "--output-package", "client", "--model-backend", "nope"],
+        )
+
+        assert result.exit_code == 2
+        assert not (tmp_path / "client").exists()
+
+    def test_cli__model_type_pydantic_with_dcg__generates_pydantic_models(
+        self, tmp_path: Path, spec_file: Path
+    ) -> None:
+        """
+        Scenario:
+            The CLI is invoked with ``--model-backend dcg --model-type pydantic``.
+
+        Expected Outcome:
+            Exit code 0 and generated models derive from pydantic's BaseModel.
+        """
+        result = CliRunner().invoke(
+            app,
+            [
+                str(spec_file),
+                "--project-root",
+                str(tmp_path),
+                "--output-package",
+                "client",
+                "--model-backend",
+                "dcg",
+                "--model-type",
+                "pydantic",
+                "--force",
+                "--no-postprocess",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "class Pet(BaseModel)" in (tmp_path / "client" / "models" / "pet.py").read_text()
+
+    @pytest.mark.parametrize("backend_args", [[], ["--model-backend", "legacy"]])
+    def test_cli__model_type_pydantic_without_dcg__rejected_with_usage_error(
+        self, tmp_path: Path, spec_file: Path, backend_args: list[str]
+    ) -> None:
+        """
+        Scenario:
+            ``--model-type pydantic`` is passed without ``--model-backend dcg`` (omitted or explicitly legacy).
+
+        Expected Outcome:
+            A usage error (exit code 2) naming the requirement, and nothing is generated.
+        """
+        result = CliRunner().invoke(
+            app,
+            [str(spec_file), "--project-root", str(tmp_path), "--output-package", "client", "--model-type", "pydantic"]
+            + backend_args,
+        )
+
+        assert result.exit_code == 2
+        assert "requires" in result.output and "dcg" in result.output
+        assert not (tmp_path / "client").exists()
+
+    def test_cli__model_type_dataclass_with_legacy__is_accepted(self, tmp_path: Path, spec_file: Path) -> None:
+        """
+        Scenario:
+            The default ``--model-type dataclass`` is spelled out explicitly with the legacy backend.
+
+        Expected Outcome:
+            Exit code 0: only non-default model types require the DCG backend.
+        """
+        result = CliRunner().invoke(
+            app,
+            [
+                str(spec_file),
+                "--project-root",
+                str(tmp_path),
+                "--output-package",
+                "client",
+                "--model-type",
+                "dataclass",
+                "--force",
+                "--no-postprocess",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+
+    def test_cli__model_python_preset_with_dcg__generates_models(self, tmp_path: Path, spec_file: Path) -> None:
+        """
+        Scenario:
+            The CLI is invoked with ``--model-backend dcg --preset standard-py310-20260909``.
+
+        Expected Outcome:
+            Exit code 0 and the models package is generated.
+        """
+        result = CliRunner().invoke(
+            app,
+            [
+                str(spec_file),
+                "--project-root",
+                str(tmp_path),
+                "--output-package",
+                "client",
+                "--model-backend",
+                "dcg",
+                "--model-python-preset",
+                "standard-py310-20260909",
+                "--force",
+                "--no-postprocess",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "class Pet" in (tmp_path / "client" / "models" / "pet.py").read_text()
+
+    @pytest.mark.parametrize("backend_args", [[], ["--model-backend", "legacy"]])
+    def test_cli__model_python_preset_without_dcg__rejected_with_usage_error(
+        self, tmp_path: Path, spec_file: Path, backend_args: list[str]
+    ) -> None:
+        """
+        Scenario:
+            ``--model-python-preset`` is passed without ``--model-backend dcg`` (omitted or explicitly legacy).
+
+        Expected Outcome:
+            A usage error (exit code 2) naming the requirement, and nothing is generated.
+        """
+        result = CliRunner().invoke(
+            app,
+            [
+                str(spec_file),
+                "--project-root",
+                str(tmp_path),
+                "--output-package",
+                "client",
+                "--model-python-preset",
+                "standard-py310-20260909",
+            ]
+            + backend_args,
+        )
+
+        assert result.exit_code == 2
+        assert "requires" in result.output and "dcg" in result.output
+        assert not (tmp_path / "client").exists()
+
+    def test_cli__unknown_model_python_preset__rejected_with_usage_error(self, tmp_path: Path, spec_file: Path) -> None:
+        """
+        Scenario:
+            ``--model-python-preset`` names a preset that datamodel-code-generator does not provide.
+
+        Expected Outcome:
+            A usage error (exit code 2) and nothing is generated.
+        """
+        result = CliRunner().invoke(
+            app,
+            [
+                str(spec_file),
+                "--project-root",
+                str(tmp_path),
+                "--output-package",
+                "client",
+                "--model-backend",
+                "dcg",
+                "--model-python-preset",
+                "nope",
+            ],
+        )
+
+        assert result.exit_code == 2
+        assert "nope" in result.output and "Invalid value" in result.output
+        assert not (tmp_path / "client").exists()

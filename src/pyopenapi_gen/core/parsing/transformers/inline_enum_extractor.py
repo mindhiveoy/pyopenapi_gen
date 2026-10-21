@@ -106,6 +106,7 @@ def _extract_enum_from_property_node(
         properties={},  # Enums do not have properties in this context
         required=[],  # Enums do not have required fields
     )
+    new_enum_ir._is_name_derived = True
     context.parsed_schemas[generated_enum_name] = new_enum_ir
     logger.debug(
         f"INLINE_ENUM_EXTRACT: Extracted inline enum for '{prop_schema_context_name}' "

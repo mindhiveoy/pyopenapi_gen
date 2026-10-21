@@ -148,6 +148,14 @@ class RenderContext:
             self.import_collector.add_typing_import(name)
             return
 
+        # 1b. Already relative (e.g. "..models.pet", as computed by the type resolvers)?
+        # It must go to the relative section: treating it as an unknown external library would also file it in
+        # the absolute section, and the same model registered by its logical path would then be rendered twice.
+        if logical_module.startswith("."):
+            if name:
+                self.import_collector.add_relative_import(logical_module, name)
+            return
+
         # 2. Core module import?
         is_target_in_core_pkg_namespace = logical_module == self.core_package_name or logical_module.startswith(
             self.core_package_name + "."

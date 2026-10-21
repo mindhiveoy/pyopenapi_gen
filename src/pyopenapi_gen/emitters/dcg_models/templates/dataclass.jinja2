@@ -1,0 +1,65 @@
+{% for decorator in decorators -%}
+{{ decorator }}
+{% endfor -%}
+{%- set args = [] %}
+{%- for k, v in (dataclass_arguments or {}).items() %}
+    {%- if v is not none and v is not false %}
+        {%- set _ = args.append(k ~ '=' ~ (v|pprint)) %}
+    {%- endif %}
+{%- endfor %}
+{%- if args %}
+@dataclass({{ args | join(', ') }})
+{%- else %}
+@dataclass
+{%- endif %}
+{%- if base_class %}
+class {{ class_name }}({{ base_class }}):
+{%- else %}
+class {{ class_name }}:
+{%- endif %}
+{%- if description %}
+    {{ description }}
+{%- endif %}
+{%- if not fields and not description %}
+    pass
+{%- endif %}
+{%- for field in fields -%}
+    {%- if field.field %}
+    {{ field.name }}: {{ field.type_hint }} = {{ field.field }}
+    {%- else %}
+    {{ field.name }}: {{ field.type_hint }}
+    {%- if not ((field.required and not field.use_default_with_required) or (field.represented_default == 'None' and field.strip_default_none))
+            %} = {{ field.represented_default }}
+    {%- endif -%}
+    {%- endif %}
+    {%- if field.docstring %}
+    {{ field.docstring }}
+{%- if field.use_inline_field_description and not loop.last %}
+
+{% endif %}
+    {%- elif field.inline_field_docstring %}
+    {{ field.inline_field_docstring }}
+{%- if not loop.last %}
+
+{% endif %}
+    {%- endif %}
+{%- endfor -%}
+{#- pyopenapi-gen addition: the cattrs runtime (core/cattrs_converter.py) reads Meta.key_transform_with_load/dump
+    to map JSON keys to Python attribute names. `field_mappings` is supplied per class through extra_template_data
+    and only lists keys whose Python name differs. Everything above this comment is datamodel-code-generator 0.83.0's
+    stock dataclass.jinja2 and must be re-synced whenever the dependency pin moves. -#}
+{%- if field_mappings %}
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+        key_transform_with_load = {
+        {%- for api_name, python_name in field_mappings.items() %}
+            {{ api_name | pprint }}: {{ python_name | pprint }},
+        {%- endfor %}
+        }
+        key_transform_with_dump = {
+        {%- for api_name, python_name in field_mappings.items() %}
+            {{ python_name | pprint }}: {{ api_name | pprint }},
+        {%- endfor %}
+        }
+{%- endif %}

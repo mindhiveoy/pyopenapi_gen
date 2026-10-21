@@ -302,6 +302,7 @@ def extract_inline_enums(
                 )
                 enum_schema.generation_name = enum_name
                 enum_schema.final_module_stem = module_stem
+                enum_schema._is_name_derived = True
                 new_enums[enum_name] = enum_schema
                 logger.debug(f"Extracted inline enum from {schema_name}.{prop_name}: {enum_name}")
 

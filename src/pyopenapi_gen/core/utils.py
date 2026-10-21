@@ -308,7 +308,7 @@ class Formatter:
     Black is unavailable or errors."""
 
     def __init__(self) -> None:
-        from typing import Any, Callable
+        from typing import Callable
 
         self._file_mode: Any | None = None
         self._format_str: Callable[..., str] | None = None

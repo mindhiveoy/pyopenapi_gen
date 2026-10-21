@@ -24,6 +24,28 @@ class NamingStrategy(str, Enum):
     PATH = "path"
 
 
+@unique
+class ModelBackend(str, Enum):
+    """Which implementation renders the ``models/`` package."""
+
+    LEGACY = "legacy"
+    """The built-in ``ModelVisitor`` generators."""
+
+    DCG = "dcg"
+    """datamodel-code-generator, fed a JSON Schema document built from the IR."""
+
+
+@unique
+class ModelType(str, Enum):
+    """The kind of class generated for object schemas (only configurable with the ``dcg`` model backend)."""
+
+    DATACLASS = "dataclass"
+    """Standard-library ``@dataclass`` models, (un)structured by the generated cattrs runtime."""
+
+    PYDANTIC = "pydantic"
+    """Pydantic v2 ``BaseModel`` models; the generated client then requires ``pydantic>=2`` at runtime."""
+
+
 @dataclass
 class IRDiscriminator:
     """
@@ -81,7 +103,7 @@ class IRSchema:
     _is_self_referential_stub: bool = field(default=False, repr=False)  # If this is a placeholder for allowed self-ref
     _is_name_derived: bool = field(
         default=False, repr=False
-    )  # True if the name was derived (e.g. for promoted inline objects)
+    )  # True if the name was derived by the generator (e.g. promoted inline objects and enums), not the spec
     _inline_name_resolution_path: str | None = field(default=None, repr=False)  # Path used for resolving inline names
 
     # Fields for storing final, de-collided names for code generation
