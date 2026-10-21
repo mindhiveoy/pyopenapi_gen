@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.15 (2026-10-21)
+
+### Bug Fixes
+
+- **core**: Select union scalar members by payload type instead of coercing
+  ([`05babc6`](https://github.com/mindhiveoy/pyopenapi_gen/commit/05babc6a48dfb2cda52f09b344e40fb945878978))
+
+
 ## v5.1.14 (2026-10-21)
 
 ### Bug Fixes

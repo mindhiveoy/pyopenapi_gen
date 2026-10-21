@@ -19,7 +19,7 @@ import dataclasses
 import re
 import types
 from datetime import date, datetime
-from typing import Annotated, Any, Callable, TypeVar, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Callable, ForwardRef, TypeVar, Union, get_args, get_origin, get_type_hints
 
 import cattrs
 from cattrs.errors import BaseValidationError, ClassValidationError, IterableValidationError
@@ -511,6 +511,59 @@ def _flatten_union_members(data: Any, args: tuple[Any, ...]) -> list[Any]:
     return members
 
 
+_JSON_SCALAR_TYPES: frozenset[type] = frozenset({str, int, float, bool})
+
+
+def _is_list_member(member: Any) -> bool:
+    return member is list or get_origin(member) is list
+
+
+def _is_self_reference(item_type: Any) -> bool:
+    """Is this the unresolved forward reference a recursive alias holds to itself?
+
+    ``JsonValue: TypeAlias = Union[..., List["JsonValue"], ...]`` keeps ``ForwardRef("JsonValue")``
+    at runtime. Generated models import every other model they name, so a string reference
+    inside an alias can only point back at the alias being structured.
+    """
+    return isinstance(item_type, (ForwardRef, str))
+
+
+def _candidate_members_for(data: Any, members: list[Any]) -> list[Any]:
+    """
+    Order the non-dataclass members worth trying for ``data``, judged by its runtime type.
+
+    Scenario:
+        cattrs structures anything into ``str`` with ``str(value)`` and into ``int`` with
+        ``int(value)``, so trying members by coercion lets the first scalar member swallow
+        payloads of another type: 1.5 became "1.5" through the ``str`` member of a JSON-value
+        union, True became "True", and a list became its repr.
+
+    Expected Outcome:
+        JSON scalars match a member of their own type only (an integral number may still be
+        read as ``int`` or ``float``, and a bool never degrades to ``int`` while ``bool`` is
+        present). Lists match list members only. Members with their own hooks (datetime, bytes,
+        enums) keep taking string payloads in declaration order. Payloads that are not JSON
+        values keep today's declaration-order try.
+    """
+    scalars = [m for m in members if m in _JSON_SCALAR_TYPES]
+    hooked = [m for m in members if m not in _JSON_SCALAR_TYPES and not _is_list_member(m)]
+    lists = [m for m in members if _is_list_member(m)]
+
+    if isinstance(data, bool):
+        exact: list[Any] = [bool] if bool in scalars else [int] if int in scalars else []
+        return exact + hooked
+    if isinstance(data, int):
+        return [m for m in members if m in (int, float) or m in hooked]
+    if isinstance(data, float):
+        exact_number: list[Any] = [float] if float in scalars else [int] if int in scalars and data.is_integer() else []
+        return exact_number + hooked
+    if isinstance(data, str):
+        return [m for m in members if m is str or m in hooked]
+    if isinstance(data, list):
+        return lists
+    return members
+
+
 def _structure_union(data: Any, union_type: type) -> Any:
     """
     Structure a Union type by trying each variant.
@@ -528,7 +581,8 @@ def _structure_union(data: Any, union_type: type) -> Any:
         3. Hand the data to a nested discriminated union member whose mapping names its kind
         4. Flatten remaining nested unions into the member list, in declaration order
         5. If data is a dict, try each dataclass variant
-        6. Try structuring with other variants (generic types, registered hooks)
+        6. Try the other variants the payload's runtime type can match (no coercion
+           between JSON scalars; registered hooks and generics in declaration order)
         7. Fall back to dict[str, Any] if present
         8. Raise error if no variant matches
 
@@ -662,17 +716,28 @@ def _structure_union(data: Any, union_type: type) -> Any:
                 f"Tried variants:\n{error_details}"
             )
 
-    # Try other variants using converter.structure (accumulate errors for debugging)
+    # Try the other variants the payload can match (accumulate errors for debugging).
     # This handles:
-    # - Types with registered hooks (datetime, date, bytes, etc.)
+    # - Plain JSON scalars (str, int, float, bool): matched by the payload's type, never coerced
+    # - Types with registered hooks (datetime, date, bytes, enums): declaration order
     # - Generic types (List[T], Dict[K,V], etc.)
-    # - Plain types (str, int, etc.)
     other_errors: list[tuple[str, str]] = []
-    for variant in other_variants:
+    for variant in _candidate_members_for(data, other_variants):
+        if variant in _JSON_SCALAR_TYPES:
+            # The candidate pass only offers a scalar member the payload's type fits. An int
+            # offered to a float member stays an int: lossless, and valid for the annotation.
+            if type(data) is variant or (variant is float and isinstance(data, int)):
+                return data
+            return variant(data)
+        if _is_list_member(variant) and isinstance(data, list):
+            item_types = get_args(variant)
+            if item_types and _is_self_reference(item_types[0]):
+                # Recursive alias: each item is a value of the union being structured.
+                return [_structure_union(item, union_type) for item in data]
         try:
             # Generic variants such as list[Model] or dict[str, Model] carry dataclasses whose
             # field-mapping hooks must exist before cattrs structures them. Without this the
-            # variant fails and the data can fall through to a later `str` variant silently.
+            # variant fails and the data can fall through to a later variant silently.
             _register_nested_dataclass_hooks(variant)
             return converter.structure(data, variant)
         except Exception as e:  # nosec B112 - intentional: trying variants until one succeeds

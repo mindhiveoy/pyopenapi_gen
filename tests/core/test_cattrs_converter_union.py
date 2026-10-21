@@ -6,7 +6,7 @@ that are commonly generated from OpenAPI oneOf/anyOf schemas.
 """
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Union
+from typing import Annotated, Any, List, Union
 
 import pytest
 
@@ -1295,3 +1295,93 @@ def test_structure_union__nested_plain_union__members_tried_in_declaration_order
 
     # Assert
     assert isinstance(result, expected_type), f"{payload} structured as {type(result).__name__}"
+
+
+# =============================================================================
+# Primitive members are selected by the payload's type, never by coercion
+# =============================================================================
+#
+# Mirrors the recursive JSON-value alias the generator emits for a z.json()-style schema:
+#   JsonValue: TypeAlias = Union[str, float, bool, List["JsonValue"], dict[str, Any]] | None
+# At runtime `List["JsonValue"]` holds an unresolved ForwardRef to the alias itself.
+
+JsonValue = Union[str, float, bool, List["JsonValue"], dict[str, Any]] | None
+
+
+@pytest.mark.parametrize(
+    "payload, expected_type",
+    [
+        pytest.param("text", str, id="str"),
+        pytest.param(1.5, float, id="float"),
+        pytest.param(3, int, id="int-as-number-stays-int"),
+        pytest.param(True, bool, id="bool"),
+        pytest.param(None, type(None), id="null"),
+        pytest.param([1, "two", [3, None]], list, id="nested-list"),
+        pytest.param({"k": {"deep": [True]}}, dict, id="object"),
+    ],
+)
+def test_structure_union__json_value_alias__keeps_each_payload_type(payload: Any, expected_type: type) -> None:
+    """Every JSON scalar and container keeps its type; nothing is stringified by the `str` member.
+
+    cattrs structures anything into `str` via `str(value)`, so trying members by coercion let
+    the first `str` member swallow numbers, booleans and arrays.
+    """
+    # Act
+    result = converter.structure(payload, JsonValue)  # type: ignore[arg-type]
+
+    # Assert
+    assert type(result) is expected_type, f"{payload!r} became {result!r}"
+    assert result == payload
+
+
+def test_structure_union__json_value_alias__recursive_list_items_keep_their_types() -> None:
+    """Items of the self-referencing list member are structured through the alias itself."""
+    # Act
+    result = converter.structure([1, "two", True, None, [3.5, {"a": None}]], JsonValue)  # type: ignore[arg-type]
+
+    # Assert
+    assert [type(item) for item in result] == [int, str, bool, type(None), list]
+    assert result[4] == [3.5, {"a": None}]
+    assert type(result[4][0]) is float
+
+
+@pytest.mark.parametrize(
+    "union_type, payload",
+    [
+        pytest.param(Union[str, int], 1.5, id="float-into-str-or-int"),
+        pytest.param(Union[str, None], 7, id="int-into-optional-str"),
+        pytest.param(Union[str, None], [1, 2], id="list-into-optional-str"),
+        pytest.param(Union[int, None], "42", id="numeric-string-into-int"),
+    ],
+)
+def test_structure_union__payload_type_matches_no_member__raises_instead_of_coercing(
+    union_type: Any, payload: Any
+) -> None:
+    """A payload that fits none of the members is an error, not a silent str()/int() conversion."""
+    # Act / Assert
+    with pytest.raises(TypeError, match="Cannot structure"):
+        converter.structure(payload, union_type)
+
+
+def test_structure_union__string_payload__string_member_wins_over_numeric_members() -> None:
+    """`"42"` stays a string when the union allows strings, whatever the member order."""
+    # Act / Assert
+    assert converter.structure("42", Union[int, str]) == "42"
+    assert converter.structure("42", Union[str, int]) == "42"
+
+
+def test_structure_union__bool_payload__prefers_bool_over_int_whatever_the_order() -> None:
+    """`True` is a bool even when `int` is declared first (bool is an int subclass)."""
+    # Act
+    result = converter.structure(True, Union[int, bool])
+
+    # Assert
+    assert result is True
+
+
+def test_structure_union__integral_float_payload__fits_an_int_only_member() -> None:
+    """JSON `3.0` may be read as the integer member when no float member exists; `3.5` may not."""
+    # Act / Assert
+    assert converter.structure(3.0, Union[int, str]) == 3
+    with pytest.raises(TypeError, match="Cannot structure"):
+        converter.structure(3.5, Union[int, str])

@@ -497,3 +497,46 @@ def test_client_generation__nested_discriminated_union_beside_fallback__structur
     # Assert
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == ["ConnectorBinding", "DataSourceBinding", "UnregisteredBinding"]
+
+
+def test_client_generation__json_value_client__round_trips_every_json_type_at_runtime(tmp_path: Path) -> None:
+    """Structuring `dict[str, JsonValue]` through the generated converter keeps every value's type.
+
+    Would have caught 5.1.14, where the union's `str` member swallowed numbers, booleans
+    and arrays via cattrs' default `str(value)` coercion.
+    """
+    # Arrange
+    _generate(tmp_path, _json_value_spec("JsonValue", {"type": "null"}))
+    script = (
+        "import json\n"
+        "from probe_client.core.cattrs_converter import structure_from_dict, unstructure_to_dict\n"
+        "from probe_client.models import RunRequest\n"
+        "payload = {'inputs': {'s': 'text', 'n': 1.5, 'i': 3, 'b': True, 'z': None,"
+        " 'arr': [1, 'two', [3.5, None]], 'obj': {'k': {'deep': [True]}}}, 'single': [1.5, 'x']}\n"
+        "req = structure_from_dict(payload, RunRequest)\n"
+        "types = {k: type(v).__name__ for k, v in req.inputs.items()}\n"
+        "print(json.dumps({'types': types, 'round_trip': unstructure_to_dict(req) == payload}))\n"
+    )
+
+    # Act
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        cwd=tmp_path,
+    )
+
+    # Assert
+    assert result.returncode == 0, result.stdout + result.stderr
+    outcome = json.loads(result.stdout)
+    assert outcome["types"] == {
+        "s": "str",
+        "n": "float",
+        "i": "int",
+        "b": "bool",
+        "z": "NoneType",
+        "arr": "list",
+        "obj": "dict",
+    }
+    assert outcome["round_trip"] is True
