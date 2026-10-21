@@ -386,6 +386,34 @@ converter.register_structure_hook(date, structure_date)
 converter.register_unstructure_hook(date, unstructure_date)
 
 
+def _identity(value: Any) -> Any:
+    """Return ``value`` unchanged."""
+    return value
+
+
+def _unstructure_unresolved_forward_ref(_: Any) -> Callable[[Any], Any]:
+    """
+    Pass a field typed as an unresolved ``ForwardRef`` through unchanged when unstructuring.
+
+    Scenario:
+        A self-referential dataclass declares a field as ``Optional["Node"]``. On Python 3.14
+        cattrs evaluates such a ``ForwardRef`` with no namespace, so building the unstructure
+        function raises ``NameError`` even though the class exists. Python 3.12 cattrs leaves
+        these fields as-is.
+
+    Expected Outcome:
+        Behaviour is identical on 3.12 and 3.14: the nested value is left for
+        ``DataclassSerializer`` to convert, and its visited-set tracking is what stops
+        circular instance graphs from recursing forever. Dispatching dynamically here
+        (``converter.unstructure``) would bypass that tracking and overflow the stack.
+    """
+    return _identity
+
+
+# Registered after cattrs' own ForwardRef factory so that it takes precedence.
+converter.register_unstructure_hook_factory(lambda t: isinstance(t, ForwardRef), _unstructure_unresolved_forward_ref)
+
+
 # =============================================================================
 # Union Type Structure Hook
 # =============================================================================
