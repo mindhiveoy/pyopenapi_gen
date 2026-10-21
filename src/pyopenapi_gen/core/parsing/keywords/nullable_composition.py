@@ -58,14 +58,33 @@ _COMPOSITION_KEYWORDS = ("allOf", "anyOf", "oneOf")
 _ANNOTATION_KEYWORDS = frozenset({"nullable", "description", "title", "default", "example", "examples"})
 
 
-def _is_null_member(node: Any) -> bool:
-    """Is this subschema the JSON Schema null type (the 3.1 nullability marker)?"""
+def is_null_schema_node(node: Any) -> bool:
+    """Does this subschema admit ``null`` and nothing else?
+
+    Covers the 3.1 spellings, ``{"type": "null"}`` and ``{"type": ["null"]}``, and the
+    ones 3.0-era tooling emits inside a 3.1 composition: ``nullable: true`` beside
+    ``enum: [null]``, or ``nullable: true`` with nothing but annotations next to it.
+    """
     if not isinstance(node, Mapping):
         return False
     node_type = node.get("type")
-    if node_type == "null":
+    if node_type == "null" or (isinstance(node_type, list) and set(node_type) == {"null"}):
         return True
-    return isinstance(node_type, list) and set(node_type) == {"null"}
+    if node.get("nullable") is not True:
+        return False
+    if "enum" in node:
+        return bool(node["enum"] == [None])
+    return not (set(node) - _ANNOTATION_KEYWORDS)
+
+
+def node_admits_null(node: Any) -> bool:
+    """Does this subschema accept ``null`` (alone or alongside other values)?"""
+    if is_null_schema_node(node):
+        return True
+    if not isinstance(node, Mapping):
+        return False
+    node_type = node.get("type")
+    return node.get("nullable") is True or (isinstance(node_type, list) and "null" in node_type)
 
 
 def _sole_composition_keyword(node: Mapping[str, Any]) -> str | None:
@@ -121,7 +140,7 @@ def unwrap_nullable_composition(node: Any) -> Tuple[Mapping[str, Any], bool] | N
 
     non_null_members: List[Mapping[str, Any]] = []
     for member in members:
-        if _is_null_member(member):
+        if is_null_schema_node(member):
             is_nullable = True
         elif isinstance(member, Mapping):
             non_null_members.append(member)

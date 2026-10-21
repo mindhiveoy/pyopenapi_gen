@@ -276,9 +276,10 @@ class TestJsonValueWrapper:
         assert "_data: dict[str, ToolConfig]" in result  # Typed values
         assert '_value_type: ClassVar[str] = "ToolConfig"' in result  # Runtime type info
 
-        # Structure hook should deserialise values
-        assert "converter.structure(value, ToolConfig)" in result
-        assert "_register_structure_hooks_recursively(ToolConfig)" in result
+        # Structure hook should deserialise values into the value type
+        assert "value_type: Any = ToolConfig" in result
+        assert "converter.structure(value, value_type)" in result
+        assert "_register_structure_hooks_recursively(value_type)" in result
 
         # Method signatures should be typed
         assert "def __getitem__(self, key: str) -> ToolConfig:" in result
