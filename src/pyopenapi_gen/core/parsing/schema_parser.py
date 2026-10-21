@@ -786,7 +786,9 @@ def _parse_schema(
         items_ir: IRSchema | None = None
         if current_final_type == "array":
             items_node = schema_node.get("items")
-            if items_node:
+            # `items: {}` is a valid open array (any value may be an item), so an empty mapping
+            # must not be mistaken for a missing `items` keyword.
+            if items_node is not None:
                 # Avoid generating synthetic names for $ref items - let the ref resolve naturally
                 # This prevents false cycle detection when AgentListResponse -> $ref: AgentListResponseItem
                 if isinstance(items_node, Mapping) and is_reference_like_node(items_node):
@@ -802,6 +804,9 @@ def _parse_schema(
                 ]:
                     # Primitive items should NOT get names - they should remain inline as List[str] etc.
                     item_schema_name_for_recursive_parse = None
+                elif isinstance(items_node, Mapping) and not items_node:
+                    # Open array: the empty schema admits any value. Resolves to List[Any].
+                    items_ir = IRSchema(type="null")
                 elif (
                     isinstance(items_node, Mapping)
                     and not items_node.get("type")

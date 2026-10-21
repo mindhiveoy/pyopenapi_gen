@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v5.1.17 (2026-10-21)
+
+### Bug Fixes
+
+- **core**: Treat `items: {}` as an open array and keep dict items out of scalar list members
+  ([`bcf768a`](https://github.com/mindhiveoy/pyopenapi_gen/commit/bcf768a0f3dd1ed15b53e9b4f31c75d90615c6c5))
+
+### Chores
+
+- **deps**: Fold in open Dependabot updates
+  ([`4e1dd62`](https://github.com/mindhiveoy/pyopenapi_gen/commit/4e1dd62e056c1ac1b84b9fd77533389b480255a4))
+
+
 ## v5.1.16 (2026-10-21)
 
 ### Bug Fixes

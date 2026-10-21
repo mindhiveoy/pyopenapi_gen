@@ -1385,3 +1385,41 @@ def test_structure_union__integral_float_payload__fits_an_int_only_member() -> N
     assert converter.structure(3.0, Union[int, str]) == 3
     with pytest.raises(TypeError, match="Cannot structure"):
         converter.structure(3.5, Union[int, str])
+
+
+# =============================================================================
+# List members: a dict item never fits a scalar item type
+# =============================================================================
+#
+# Mirrors `FilterValue = Union[str, float, bool, List[ListValue], Principal, List[Principal]]`
+# with `ListValue = Union[str, float]`: a list of objects must reach `List[Principal]`.
+
+ScalarList = List[Union[str, float]]
+ScalarOrModelLists = Union[ScalarList, List[ConfigTypeA]]
+
+
+def test_structure_union__dict_payload__never_fits_a_scalar_member() -> None:
+    """A dict is not a str, so `Union[str, float]` must refuse it instead of returning its repr."""
+    # Act / Assert
+    with pytest.raises(TypeError, match="Cannot structure"):
+        converter.structure({"kind": "user"}, Union[str, float])
+
+
+def test_structure_union__list_of_objects__skips_scalar_list_member_for_model_list_member() -> None:
+    """A list of objects falls through the scalar-list member to the model-list member that fits."""
+    # Act
+    result = converter.structure([{"type": "a", "valueA": "x"}], ScalarOrModelLists)
+
+    # Assert
+    assert isinstance(result, list) and isinstance(result[0], ConfigTypeA), result
+    assert result[0].value_a == "x"
+
+
+def test_structure_union__list_of_scalars__still_takes_the_scalar_list_member() -> None:
+    """The contrast: scalars keep going to the scalar-list member, with their types intact."""
+    # Act
+    result = converter.structure(["a", 1.5], ScalarOrModelLists)
+
+    # Assert
+    assert result == ["a", 1.5]
+    assert [type(item) for item in result] == [str, float]

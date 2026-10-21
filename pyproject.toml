@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyopenapi-gen"
-version = "5.1.16"
+version = "5.1.17"
 description = "Modern, async-first Python client generator for OpenAPI specifications with advanced cycle detection and unified type resolution"
 authors = [{ name = "Mindhive Oy", email = "contact@mindhive.fi" }]
 maintainers = [{ name = "Ville Venäläinen | Mindhive Oy", email = "ville@mindhive.fi" }]
@@ -128,7 +128,7 @@ bandit = {extras = ["toml"], version = "^1.9.4"}
 pytest-timeout = "^2.4.0"
 pytest-asyncio = "^1.4.0"
 black = "^26.5.1"
-ruff = "^0.16.7"
+ruff = "^0.17.1"
 mypy = "^2.3.1"
 commitizen = "^4.18.0"
 python-semantic-release = "^10.6.1"
@@ -143,7 +143,7 @@ pyopenapi-gen = "pyopenapi_gen.cli:app"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "5.1.16"
+version = "5.1.17"
 version_files = [
     "pyproject.toml:version",
     "src/pyopenapi_gen/__init__.py:__version__"
