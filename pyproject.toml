@@ -67,7 +67,7 @@ Changelog = "https://github.com/your-org/pyopenapi-gen/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
-  "black>=23.0",
+  "black>=26.10.1",
   "ruff>=0.16.7",
   "mypy>=2.3.1",
   "pytest>=9.1.1",
@@ -127,7 +127,7 @@ types-pyyaml = "^6.0.12.20260906"
 bandit = {extras = ["toml"], version = "^1.9.4"}
 pytest-timeout = "^2.4.0"
 pytest-asyncio = "^1.4.0"
-black = "^26.5.1"
+black = "^26.10.1"
 ruff = "^0.16.7"
 mypy = "^2.3.1"
 commitizen = "^4.18.0"
