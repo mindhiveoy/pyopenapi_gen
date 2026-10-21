@@ -44,6 +44,10 @@ NULL_MEMBER: dict[str, Any] = {"type": "null"}
         ({"anyOf": [INLINE_OBJECT, NULL_MEMBER]}, INLINE_OBJECT, True),
         # A null member expressed as a single-element type list.
         ({"anyOf": [REF, {"type": ["null"]}]}, REF, True),
+        # OpenAPI 3.0-style null members inside a 3.1 composition (zod-openapi and friends).
+        ({"anyOf": [REF, {"type": "string", "nullable": True, "enum": [None]}]}, REF, True),
+        ({"anyOf": [REF, {"nullable": True}]}, REF, True),
+        ({"oneOf": [REF, {"nullable": True, "description": "absent"}]}, REF, True),
     ],
 )
 def test_unwrap_nullable_composition__wrapper_shapes__returns_inner_and_nullability(
@@ -64,6 +68,9 @@ def test_unwrap_nullable_composition__wrapper_shapes__returns_inner_and_nullabil
     [
         # Genuine unions of two real types are not nullable wrappers.
         {"anyOf": [REF, {"type": "string"}]},
+        # A nullable string is still a string member, not a null-only member.
+        {"anyOf": [REF, {"type": "string", "nullable": True}]},
+        {"anyOf": [REF, {"nullable": True, "enum": ["a", None]}]},
         {"oneOf": [REF, INLINE_OBJECT]},
         # More than one non-null member stays a union even when null is present.
         {"anyOf": [REF, {"type": "string"}, NULL_MEMBER]},

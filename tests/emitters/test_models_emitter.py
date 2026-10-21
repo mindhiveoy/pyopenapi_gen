@@ -755,3 +755,30 @@ def test_models_emitter__discriminator_skip_enum__generates_type_alias_fallback(
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_models_emitter__self_reference_stub_in_registry__fails_loudly(tmp_path: Path) -> None:
+    """
+    Scenario:
+        A self-reference stub (the placeholder the parser hands out while a recursive schema
+        is still being parsed) is still in the schema registry at emission time.
+
+    Expected Outcome:
+        The emitter refuses to render it. Writing it out would produce an empty dataclass
+        standing in for the real schema, which is worse than failing the generation.
+    """
+    # Arrange
+    stub = IRSchema(name="Schema0", type="object", description="[Self-referencing schema: __schema0]")
+    stub._is_self_referential_stub = True
+    stub.generation_name = "Schema0"
+    stub.final_module_stem = "schema_0"
+    spec = IRSpec(title="T", version="0.1", schemas={"__schema0": stub}, operations=[], servers=[])
+    render_context = RenderContext(
+        overall_project_root=str(tmp_path),
+        package_root_for_generated_code=str(tmp_path / "out"),
+        core_package_name="test_client.core",
+    )
+
+    # Act / Assert
+    with pytest.raises(RuntimeError, match="__schema0"):
+        ModelsEmitter(context=render_context, parsed_schemas=spec.schemas).emit(spec, str(tmp_path / "out"))
