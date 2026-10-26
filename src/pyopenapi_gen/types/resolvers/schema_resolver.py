@@ -127,7 +127,8 @@ class OpenAPISchemaResolver(SchemaTypeResolver):
             return self._resolve_array(schema, context, required, resolve_underlying)
         elif schema_type == "object":
             return self._resolve_object(schema, context, required)
-        elif schema_type == "null":
+        elif schema_type == "null" or schema_type is None:
+            # No type at all (`{}` or `true`) means any JSON value.
             return self._resolve_null(context, required)
         else:
             # Gather detailed information about the problematic schema
