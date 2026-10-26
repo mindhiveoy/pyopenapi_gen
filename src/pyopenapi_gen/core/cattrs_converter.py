@@ -587,7 +587,8 @@ def _structure_union(data: Any, union_type: type) -> Any:
         5. If data is a dict, try each dataclass variant
         6. Try the other variants the payload's runtime type can match (no coercion
            between JSON scalars; registered hooks and generics in declaration order)
-        7. Fall back to dict[str, Any] if present
+        7. Fall back to dict[str, Any] if present, or pass the data through when the
+           union has an ``Any`` member (an empty schema: any JSON value)
         8. Raise error if no variant matches
 
     Args:
@@ -675,11 +676,15 @@ def _structure_union(data: Any, union_type: type) -> Any:
     # Separate variants by type category
     dataclass_variants: list[type[Any]] = []
     dict_any_fallback = False
+    accepts_any = False
     other_variants: list[Any] = []  # Can include generic types like List[T]
 
     for arg in args:
         if arg is type(None):
             continue
+        elif arg is Any:
+            # Any admits every JSON value; it is the last resort after the typed members.
+            accepts_any = True
         elif isinstance(arg, type) and dataclasses.is_dataclass(arg):
             dataclass_variants.append(arg)
         elif get_origin(arg) is dict:
@@ -707,7 +712,7 @@ def _structure_union(data: Any, union_type: type) -> Any:
                 continue
 
         # If no dataclass matched and dict fallback is available, return raw dict
-        if dict_any_fallback:
+        if dict_any_fallback or accepts_any:
             return data
 
         # All variants failed - provide helpful error with data preview
@@ -751,6 +756,8 @@ def _structure_union(data: Any, union_type: type) -> Any:
 
     # Last resort: if dict fallback is available and we have dict data
     if dict_any_fallback and isinstance(data, dict):
+        return data
+    if accepts_any:
         return data
 
     # Include data preview in error message for debugging
