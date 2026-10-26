@@ -54,7 +54,7 @@ __all__ = [
 ]
 
 # Semantic version of the generator core – automatically managed by semantic-release.
-__version__ = "5.1.19"
+__version__ = "5.1.20"
 
 # ---------------------------------------------------------------------------
 # Lazy-loading and autocompletion support (This part remains)
