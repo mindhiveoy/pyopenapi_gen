@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v5.1.20 (2026-10-26)
+
+### Bug Fixes
+
+- **core**: Serialise UTC datetimes with the Z designator
+  ([`68d9ac8`](https://github.com/mindhiveoy/pyopenapi_gen/commit/68d9ac8cf010ea81d7fb279fd0de1c850a59c468))
+
+- **types**: Generate Any for an empty schema instead of an empty dataclass
+  ([`323ee63`](https://github.com/mindhiveoy/pyopenapi_gen/commit/323ee63612d6fe354f82ecf3e288c8a1a535b293))
+
+### Continuous Integration
+
+- **claude**: Run the Claude workflow only on @claude mentions
+  ([`92f3e0b`](https://github.com/mindhiveoy/pyopenapi_gen/commit/92f3e0bf63b7741a633c36551af11062e0eb3e5d))
+
+
 ## v5.1.19 (2026-10-21)
 
 
