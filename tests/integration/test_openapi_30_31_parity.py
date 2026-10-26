@@ -748,3 +748,99 @@ def test_client_generation__optional_array_left_absent__is_omitted_from_the_requ
         "parsed_assignees": None,
         "parsed_watchers": [],
     }
+
+
+def _any_value_spec(json_value_schema: Any) -> dict[str, Any]:
+    """`JsonValue` is an open schema (`{}` or `true`), as Pydantic emits for `pydantic.JsonValue`."""
+    json_value = {"$ref": "#/components/schemas/JsonValue"}
+    return {
+        "openapi": "3.1.0",
+        "info": {"title": "Any value probe", "version": "1.0.0"},
+        "paths": {
+            "/locate": {
+                "get": {
+                    "operationId": "locate",
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ItemLocator"}}},
+                        }
+                    },
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "JsonValue": json_value_schema,
+                "ItemLocator": {
+                    "type": "object",
+                    "properties": {
+                        "arguments": {"type": "object", "additionalProperties": json_value},
+                        "value": json_value,
+                        "values": {"type": "array", "items": json_value},
+                    },
+                },
+            }
+        },
+    }
+
+
+@pytest.mark.parametrize("json_value_schema", [pytest.param({}, id="empty"), pytest.param(True, id="true")])
+def test_client_generation__open_schema__aliases_any(tmp_path: Path, json_value_schema: Any) -> None:
+    """A schema with no constraints means any JSON value, never an empty dataclass."""
+    # Arrange / Act
+    package = _generate(tmp_path, _any_value_spec(json_value_schema))
+
+    # Assert
+    module = ast.parse((package / "models" / "json_value.py").read_text())
+    aliases = {
+        node.target.id: ast.unparse(node.value)
+        for node in module.body
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None
+    }
+    assert aliases == {"JsonValue": "Any"}
+    assert not any(isinstance(node, ast.ClassDef) for node in module.body)
+
+
+@pytest.mark.parametrize("json_value_schema", [pytest.param({}, id="empty"), pytest.param(True, id="true")])
+def test_client_generation__open_schema__passes_every_json_value_through_at_runtime(
+    tmp_path: Path, json_value_schema: Any
+) -> None:
+    """Objects, strings, numbers, booleans, null and arrays all structure unchanged and round-trip."""
+    # Arrange
+    _generate(tmp_path, _any_value_spec(json_value_schema))
+    script = (
+        "import json\n"
+        "from probe_client.core.cattrs_converter import structure_from_dict, unstructure_to_dict\n"
+        "from probe_client.models import ItemLocator\n"
+        "outcomes = []\n"
+        "for v in [{'ticket_id': 'T-1'}, 'text', 1, 1.5, True, None, [1, 2]]:\n"
+        "    payload = {'arguments': {'k': v}, 'value': v, 'values': [v]}\n"
+        "    loc = structure_from_dict(payload, ItemLocator)\n"
+        "    outcomes.append([loc.arguments['k'] == v, loc.value == v, type(loc.value) is type(v),"
+        " loc.values == [v], unstructure_to_dict(loc) == payload])\n"
+        "print(json.dumps(outcomes))\n"
+    )
+
+    # Act
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        cwd=tmp_path,
+    )
+
+    # Assert
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == [[True] * 5] * 7
+
+
+def test_client_generation__open_schema_client__passes_strict_mypy(tmp_path: Path) -> None:
+    """The `Any` alias and the dict wrapper over it must type-check under mypy --strict."""
+    # Arrange / Act
+    _generate(tmp_path, _any_value_spec({}))
+    result = _mypy_strict(tmp_path, "probe_client")
+
+    # Assert
+    assert result.returncode == 0, result.stdout + result.stderr

@@ -18,7 +18,7 @@ import base64
 import dataclasses
 import re
 import types
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated, Any, Callable, ForwardRef, TypeVar, Union, get_args, get_origin, get_type_hints
 
 import cattrs
@@ -332,7 +332,12 @@ def structure_datetime(data: str | datetime, _: type[datetime]) -> datetime:
 
 def unstructure_datetime(data: datetime) -> str:
     """
-    Unstructure hook for datetime to ISO 8601 string.
+    Unstructure hook for datetime to RFC 3339 / ISO 8601 string.
+
+    An aware datetime at UTC is written with the ``Z`` designator
+    (``2026-10-25T07:00:00Z``), the form every strict ``date-time`` validator
+    accepts. Any other offset is kept as a numeric offset (``+03:00``). A naive
+    datetime is written without an offset, as ``datetime.isoformat()`` does.
 
     Args:
         data: datetime object
@@ -340,7 +345,10 @@ def unstructure_datetime(data: datetime) -> str:
     Returns:
         ISO 8601 formatted string
     """
-    return data.isoformat()
+    text = data.isoformat()
+    if data.utcoffset() == timedelta(0) and text.endswith("+00:00"):
+        return text.removesuffix("+00:00") + "Z"
+    return text
 
 
 def structure_date(data: str | date, _: type[date]) -> date:
@@ -587,7 +595,8 @@ def _structure_union(data: Any, union_type: type) -> Any:
         5. If data is a dict, try each dataclass variant
         6. Try the other variants the payload's runtime type can match (no coercion
            between JSON scalars; registered hooks and generics in declaration order)
-        7. Fall back to dict[str, Any] if present
+        7. Fall back to dict[str, Any] if present, or pass the data through when the
+           union has an ``Any`` member (an empty schema: any JSON value)
         8. Raise error if no variant matches
 
     Args:
@@ -675,11 +684,15 @@ def _structure_union(data: Any, union_type: type) -> Any:
     # Separate variants by type category
     dataclass_variants: list[type[Any]] = []
     dict_any_fallback = False
+    accepts_any = False
     other_variants: list[Any] = []  # Can include generic types like List[T]
 
     for arg in args:
         if arg is type(None):
             continue
+        elif arg is Any:
+            # Any admits every JSON value; it is the last resort after the typed members.
+            accepts_any = True
         elif isinstance(arg, type) and dataclasses.is_dataclass(arg):
             dataclass_variants.append(arg)
         elif get_origin(arg) is dict:
@@ -707,7 +720,7 @@ def _structure_union(data: Any, union_type: type) -> Any:
                 continue
 
         # If no dataclass matched and dict fallback is available, return raw dict
-        if dict_any_fallback:
+        if dict_any_fallback or accepts_any:
             return data
 
         # All variants failed - provide helpful error with data preview
@@ -751,6 +764,8 @@ def _structure_union(data: Any, union_type: type) -> Any:
 
     # Last resort: if dict fallback is available and we have dict data
     if dict_any_fallback and isinstance(data, dict):
+        return data
+    if accepts_any:
         return data
 
     # Include data preview in error message for debugging

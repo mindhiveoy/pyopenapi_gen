@@ -530,6 +530,12 @@ def _parse_properties(
     return parsed_props
 
 
+# Keywords that only apply to one JSON type. A schema that omits `type` but uses one of
+# these still describes that type.
+_OBJECT_ONLY_KEYWORDS = ("additionalProperties", "patternProperties", "required", "minProperties", "maxProperties")
+_ARRAY_ONLY_KEYWORDS = ("items", "prefixItems", "minItems", "maxItems", "uniqueItems")
+
+
 def _parse_schema(
     schema_name: str | None,
     schema_node: Mapping[str, Any] | None,
@@ -605,6 +611,12 @@ def _parse_schema(
             # Create empty schema for null schema nodes
             # Do NOT set generation_name - null schemas should resolve to Any inline, not generate separate files
             return IRSchema(name=sanitized_schema_name)
+
+        # JSON Schema boolean schemas (allowed by OpenAPI 3.1): `true` accepts any value,
+        # exactly like `{}`. `false` accepts none, which no Python type expresses, so it
+        # is treated the same way rather than rejected.
+        if isinstance(schema_node, bool):
+            schema_node = {}
 
         if not isinstance(schema_node, Mapping):
             raise TypeError(
@@ -751,10 +763,14 @@ def _parse_schema(
                         current_final_type = "object"
                 else:
                     current_final_type = "string"  # Default for empty enums
-            else:
-                # No type specified and no clear indicators - default to object
-                # This is safer than 'Any' and matches OpenAPI spec defaults
+            elif any(keyword in schema_node for keyword in _OBJECT_ONLY_KEYWORDS):
                 current_final_type = "object"
+            elif any(keyword in schema_node for keyword in _ARRAY_ONLY_KEYWORDS):
+                current_final_type = "array"
+            else:
+                # No type and no keyword that constrains one: the schema accepts any
+                # JSON value (`{}`, or `true`). Leave the type open so it resolves to Any.
+                current_final_type = None
 
         if current_final_type == "null":
             # Explicit null type - mark as nullable but use object type
