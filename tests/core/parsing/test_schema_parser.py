@@ -505,7 +505,7 @@ class TestSchemaParser(unittest.TestCase):
         Scenario:
             - _parse_schema is called with an empty node ({}).
         Expected Outcome:
-            - Should return a valid IRSchema with default values.
+            - Should return an IRSchema with no type: `{}` accepts any JSON value, not only objects.
         """
         # Arrange
         schema_name = "EmptyNodeSchema"
@@ -517,10 +517,42 @@ class TestSchemaParser(unittest.TestCase):
         # Assert
         self.assertIsNotNone(schema_ir)
         self.assertEqual(schema_ir.name, schema_name)
-        # Empty schemas default to 'object' type per OpenAPI spec
-        self.assertEqual(schema_ir.type, "object")
+        self.assertIsNone(schema_ir.type)
         self.assertEqual(schema_ir.properties, {})
         self.assertEqual(schema_ir.required, [])
+
+    def test_parse_schema_with_true_boolean_schema(self) -> None:
+        """
+        Scenario:
+            - _parse_schema is called with the JSON Schema boolean schema `true` (OpenAPI 3.1).
+        Expected Outcome:
+            - Parsed exactly like `{}`: a schema with no type, rather than a TypeError.
+        """
+        # Act
+        schema_ir = _parse_schema("TrueSchema", True, self.context, allow_self_reference=False)  # type: ignore[arg-type]
+
+        # Assert
+        self.assertEqual(schema_ir.name, "TrueSchema")
+        self.assertIsNone(schema_ir.type)
+        self.assertEqual(schema_ir.properties, {})
+
+    def test_parse_schema_without_type__type_specific_keywords__infer_the_type(self) -> None:
+        """
+        Scenario:
+            - Schemas omit `type` but use keywords that only apply to objects or arrays.
+        Expected Outcome:
+            - The type is inferred from the keyword; only keyword-free schemas stay open.
+        """
+        cases: list[tuple[dict[str, Any], str | None]] = [
+            ({"additionalProperties": {"type": "string"}}, "object"),
+            ({"required": ["id"]}, "object"),
+            ({"items": {"type": "string"}}, "array"),
+            ({"description": "anything"}, None),
+        ]
+        for index, (node, expected_type) in enumerate(cases):
+            with self.subTest(node=node):
+                schema_ir = _parse_schema(f"Typeless{index}", node, self.context, allow_self_reference=False)
+                self.assertEqual(schema_ir.type, expected_type)
 
     def test_parse_schema_with_metadata_only(self) -> None:
         """

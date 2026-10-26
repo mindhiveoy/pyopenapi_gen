@@ -6,12 +6,17 @@ Python datetime/date objects and vice versa.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import pytest
 from cattrs.errors import ClassValidationError
 
-from pyopenapi_gen.core.cattrs_converter import structure_from_dict, unstructure_to_dict
+from pyopenapi_gen.core.cattrs_converter import (
+    structure_datetime,
+    structure_from_dict,
+    unstructure_datetime,
+    unstructure_to_dict,
+)
 
 
 @dataclass
@@ -394,3 +399,35 @@ def test_unstructure_mixed_types__dates_and_datetimes__converts_correctly():
     assert "2025-11-20" in result["createdDatetime"]
     assert "10:00:00" in result["createdDatetime"]
     assert "2025-11-21" in result["modifiedDatetime"]
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        pytest.param(datetime(2026, 10, 25, 7, 0, tzinfo=UTC), "2026-10-25T07:00:00Z", id="utc"),
+        pytest.param(
+            datetime(2026, 10, 25, 7, 0, 0, 123000, tzinfo=UTC), "2026-10-25T07:00:00.123000Z", id="utc-micros"
+        ),
+        pytest.param(
+            datetime(2026, 10, 25, 10, 0, tzinfo=timezone(timedelta(hours=3))),
+            "2026-10-25T10:00:00+03:00",
+            id="positive-offset",
+        ),
+        pytest.param(datetime(2026, 10, 25, 7, 0), "2026-10-25T07:00:00", id="naive"),
+    ],
+)
+def test_unstructure_datetime__zero_offset__uses_z_designator(value: datetime, expected: str) -> None:
+    """
+    Scenario:
+        Strict `date-time` validators (Zod's `z.iso.datetime()`) accept only the `Z` form for UTC.
+
+    Expected Outcome:
+        A UTC datetime is written with `Z`; other offsets and naive datetimes are unchanged,
+        and every output reads back to an equal datetime.
+    """
+    # Act
+    text = unstructure_datetime(value)
+
+    # Assert
+    assert text == expected
+    assert structure_datetime(text, datetime) == value
