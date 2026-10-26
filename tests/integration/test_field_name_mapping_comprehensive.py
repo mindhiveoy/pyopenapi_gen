@@ -156,7 +156,7 @@ def test_field_mapping__snake_case_api__roundtrip_preserves_original_names() -> 
         # Verify values
         assert result["user_id"] == "user-123"
         # datetime is serialised to ISO string
-        assert result["created_at"] == "2024-01-15T10:30:00+00:00"
+        assert result["created_at"] == "2024-01-15T10:30:00Z"
 
         sys.path.remove(str(project_root))
 

@@ -18,7 +18,7 @@ import base64
 import dataclasses
 import re
 import types
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated, Any, Callable, ForwardRef, TypeVar, Union, get_args, get_origin, get_type_hints
 
 import cattrs
@@ -332,7 +332,12 @@ def structure_datetime(data: str | datetime, _: type[datetime]) -> datetime:
 
 def unstructure_datetime(data: datetime) -> str:
     """
-    Unstructure hook for datetime to ISO 8601 string.
+    Unstructure hook for datetime to RFC 3339 / ISO 8601 string.
+
+    An aware datetime at UTC is written with the ``Z`` designator
+    (``2026-10-25T07:00:00Z``), the form every strict ``date-time`` validator
+    accepts. Any other offset is kept as a numeric offset (``+03:00``). A naive
+    datetime is written without an offset, as ``datetime.isoformat()`` does.
 
     Args:
         data: datetime object
@@ -340,7 +345,10 @@ def unstructure_datetime(data: datetime) -> str:
     Returns:
         ISO 8601 formatted string
     """
-    return data.isoformat()
+    text = data.isoformat()
+    if data.utcoffset() == timedelta(0) and text.endswith("+00:00"):
+        return text.removesuffix("+00:00") + "Z"
+    return text
 
 
 def structure_date(data: str | date, _: type[date]) -> date:
